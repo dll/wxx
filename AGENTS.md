@@ -37,8 +37,7 @@
 | RBAC 矩阵模板 | `specs/rbac-matrix.md` |
 | AnswerCard / 导出审计 | `docs/ui-answer-card.md` |
 | 校外系统对接注意 | `docs/integrations.md` |
-| 总纲全文（产品与技术） | `docs/蔚小芯智能体.md` |
-| PDF/ASCII 图导出约定 | `docs/ASCII代码块方案说明.md` |
+| 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |
 
 ## 内部知识（可选）
 

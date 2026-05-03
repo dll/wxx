@@ -7,8 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | `docs/蔚小芯开发规范.md` | **主规范**：Harness + Context Engine + 约束摘要 |
-| `docs/蔚小芯智能体.md` | **总纲**：架构、功能、附录契约、ASCII 示意图（全文较长） |
-| `docs/ASCII代码块方案说明.md` | PDF 导出与 ASCII 代码块排版约定（若与总纲第一章说明重复，以实际维护的一份为准） |
+| `docs/蔚小芯智能体.md` | **总纲**：架构、功能、附录契约；ASCII 示意图与 PDF 导出说明见该文档开篇「PDF 导出说明」 |
 | `AGENTS.md` | AI 助手索引（按需加载 `docs/`） |
 | `docs/` | 分主题规范摘录与 Harness 工作流 |
 | `specs/` | 契约摘要、导出包、RBAC 模板（Markdown） |
