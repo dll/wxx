@@ -60,10 +60,27 @@ class ChatProvider extends ChangeNotifier {
       _sending = false;
       notifyListeners();
     } catch (e) {
+      // 标记最后一条用户消息为发送失败
+      if (_messages.isNotEmpty && _messages.last.isUser) {
+        _messages[_messages.length - 1] = _messages.last.copyWith(isFailed: true);
+      }
       _error = '发送失败，请稍后重试';
       _sending = false;
       notifyListeners();
     }
+  }
+
+  /// 重发失败的消息
+  Future<void> resendMessage(int index) async {
+    if (index < 0 || index >= _messages.length) return;
+    final msg = _messages[index];
+    if (!msg.isUser || !msg.isFailed) return;
+
+    // 移除失败消息及其后所有消息（通常是失败的 assistant 回复）
+    _messages.removeRange(index, _messages.length);
+    notifyListeners();
+
+    await ask(msg.content);
   }
 
   /// 点击追问建议

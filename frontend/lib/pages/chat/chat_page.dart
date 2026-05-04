@@ -151,27 +151,71 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildUserBubble(Message msg) {
     final theme = Theme.of(context);
+    final isFailed = msg.isFailed;
+
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            bottomRight: Radius.circular(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 重试按钮（仅失败消息显示）
+          if (isFailed)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  final index = context.read<ChatProvider>().messages.indexOf(msg);
+                  if (index >= 0) {
+                    context.read<ChatProvider>().resendMessage(index);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: theme.colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+            ),
+          // 消息气泡
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: isFailed
+                    ? theme.colorScheme.errorContainer
+                    : theme.colorScheme.primary,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(4),
+                ),
+              ),
+              child: Text(
+                msg.content,
+                style: TextStyle(
+                  color: isFailed
+                      ? theme.colorScheme.onErrorContainer
+                      : theme.colorScheme.onPrimary,
+                  fontSize: 15,
+                ),
+              ),
+            ),
           ),
-        ),
-        child: Text(
-          msg.content,
-          style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 15),
-        ),
+        ],
       ),
     );
   }

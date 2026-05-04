@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../models/models.dart';
 
 /// AnswerCard 卡片组件
@@ -29,11 +30,19 @@ class AnswerCardWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 结论
+            // 结论（Markdown 渲染）
             if (card.conclusion.isNotEmpty)
-              Text(
-                card.conclusion,
-                style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
+              MarkdownBody(
+                data: card.conclusion,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet(
+                  p: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
+                  h1: theme.textTheme.titleLarge,
+                  h2: theme.textTheme.titleMedium,
+                  h3: theme.textTheme.titleSmall,
+                  strong: TextStyle(fontWeight: FontWeight.bold),
+                  listBullet: theme.textTheme.bodyLarge,
+                ),
               ),
 
             // 步骤清单

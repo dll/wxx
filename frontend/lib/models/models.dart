@@ -153,6 +153,7 @@ class Message {
   final String content;
   final AnswerCard? answerCard; // 仅 assistant 消息有
   final String createdAt;
+  final bool isFailed; // 发送失败标记
 
   Message({
     required this.id,
@@ -160,6 +161,7 @@ class Message {
     required this.content,
     this.answerCard,
     this.createdAt = '',
+    this.isFailed = false,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -171,6 +173,18 @@ class Message {
           ? AnswerCard.fromJson(json['answer_card'])
           : null,
       createdAt: json['created_at'] ?? '',
+      isFailed: json['is_failed'] ?? false,
+    );
+  }
+
+  Message copyWith({bool? isFailed}) {
+    return Message(
+      id: id,
+      role: role,
+      content: content,
+      answerCard: answerCard,
+      createdAt: createdAt,
+      isFailed: isFailed ?? this.isFailed,
     );
   }
 
