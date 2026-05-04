@@ -18,6 +18,7 @@
 
 ## 核心约束（不可默认违背）
 
+- **全项目中文化**：所有文档、代码注释、Git 提交信息、错误提示、日志输出均使用中文；变量/函数名用英文但注释必须中文；`SKILL.md` 等技能文件全中文
 - **知识增强必选**：主链路 = 结构化优先 → FTS/BM25 → 上下文拼装 → 模型生成；向量/Agentic RAG 仅按需启用
 - **不本地部署大模型**；**不依赖 Coze** 等第三方智能体 SaaS
 - **不强制 Docker/容器/集群**；轻量单机部署
@@ -48,6 +49,7 @@
 | RBAC 矩阵 | `specs/rbac-matrix.md` | 六级基线 + teacher/assistant 扩展 |
 | 后端结构与分层 | `server/README.md` | 目录结构、分层规则 |
 | 前端初始化指南 | `frontend/README.md` | Flutter 初始化步骤、技术选型、目录建议 |
+| 部署指南 | `docs/deployment.md` | 编译、运行、systemd 服务、备份、健康检查、更新流程 |
 | 内部 LLM Wiki | `knowledge/README.md` | raw/ / wiki/ 脚手架（非产品知识库） |
 | 计划模板 | `templates/plan.template.md` | 任务方案模板 |
 | 变更日志模板 | `templates/CHANGELOG.template.md` | Keep a Changelog 格式 |

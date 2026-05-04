@@ -47,8 +47,14 @@ flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
 
 # ---- 全部 ----
-.PHONY: all test-all
+.PHONY: all test-all hooks
 
 all: build flutter-build-web
 
 test-all: test flutter-test
+
+hooks:
+	@echo "安装 pre-commit 钩子..."
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "pre-commit 钩子安装完成"

@@ -1,0 +1,45 @@
+#!/bin/bash
+# 蔚小芯 pre-commit 钩子
+# 安装方法：从项目根目录执行 make hooks
+
+echo "=== 蔚小芯 pre-commit 检查 ==="
+
+# 1. 禁止提交 .env 文件（防止泄露密钥）
+if git diff --cached --name-only | grep -qE '^\.env$|^\.env\.' | grep -v '.env.example'; then
+    echo "错误：禁止提交 .env 文件（含密钥，已在 .gitignore 中）"
+    exit 1
+fi
+
+# 2. 检查是否有 Go 文件变更
+GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$')
+
+if [ -n "$GO_FILES" ]; then
+    echo "检查 Go 代码格式..."
+
+    # 格式检查
+    UNFORMATTED=$(gofmt -l $GO_FILES 2>/dev/null)
+    if [ -n "$UNFORMATTED" ]; then
+        echo "错误：以下文件未经 gofmt 格式化："
+        echo "$UNFORMATTED"
+        echo "请运行：gofmt -w <文件>"
+        exit 1
+    fi
+
+    # 静态检查
+    echo "运行 go vet..."
+    cd server && go vet ./... 2>&1
+    if [ $? -ne 0 ]; then
+        echo "错误：go vet 检查失败"
+        exit 1
+    fi
+    cd ..
+fi
+
+# 3. 检查是否有硬编码密钥（简单模式匹配）
+STAGED_CONTENT=$(git diff --cached -U0)
+if echo "$STAGED_CONTENT" | grep -iE '(api_key|api_secret|jwt_secret|password)\s*[:=]\s*["\x27][^"\x27]{8,}' | grep -v '.env.example' | grep -v '.gitignore' > /dev/null 2>&1; then
+    echo "警告：检测到疑似硬编码密钥，请确认是否为测试值"
+fi
+
+echo "=== pre-commit 检查通过 ==="
+exit 0
