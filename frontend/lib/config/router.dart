@@ -5,6 +5,7 @@ import '../pages/login/login_page.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/sessions/sessions_page.dart';
 import '../pages/profile/profile_page.dart';
+import '../pages/enrollment/enrollment_page.dart';
 
 /// 应用路由配置
 final GoRouter appRouter = GoRouter(
@@ -38,6 +39,10 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const SessionsPage(),
         ),
         GoRoute(
+          path: '/enrollment',
+          builder: (context, state) => const EnrollmentPage(),
+        ),
+        GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfilePage(),
         ),
@@ -60,6 +65,7 @@ class MainShell extends StatelessWidget {
         onDestinationSelected: (index) => _onTap(context, index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: '对话'),
+          NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: '办事'),
           NavigationDestination(icon: Icon(Icons.history), selectedIcon: Icon(Icons.history), label: '历史'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
         ],
@@ -69,8 +75,9 @@ class MainShell extends StatelessWidget {
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith('/sessions')) return 1;
-    if (location.startsWith('/profile')) return 2;
+    if (location.startsWith('/sessions')) return 2;
+    if (location.startsWith('/profile')) return 3;
+    if (location.startsWith('/enrollment')) return 1;
     return 0;
   }
 
@@ -79,8 +86,10 @@ class MainShell extends StatelessWidget {
       case 0:
         context.go('/chat');
       case 1:
-        context.go('/sessions');
+        context.go('/enrollment');
       case 2:
+        context.go('/sessions');
+      case 3:
         context.go('/profile');
     }
   }

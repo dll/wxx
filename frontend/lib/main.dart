@@ -4,6 +4,7 @@ import 'config/router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/session_provider.dart';
+import 'providers/enrollment_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -26,6 +27,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
+        ChangeNotifierProvider(create: (_) => EnrollmentProvider()),
       ],
       child: MaterialApp.router(
         title: '蔚小芯',
