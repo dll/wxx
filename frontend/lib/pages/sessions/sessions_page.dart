@@ -65,56 +65,105 @@ class _SessionsPageState extends State<SessionsPage> {
     }
 
     if (prov.sessions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: () => prov.fetchSessions(),
+        child: ListView(
           children: [
-            Icon(Icons.chat_bubble_outline, size: 48, color: theme.colorScheme.outline),
-            const SizedBox(height: 12),
-            Text('暂无对话记录', style: TextStyle(color: theme.colorScheme.outline)),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 48, color: theme.colorScheme.outline),
+                    const SizedBox(height: 12),
+                    Text('暂无对话记录', style: TextStyle(color: theme.colorScheme.outline)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(12),
-      itemCount: prov.sessions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        final session = prov.sessions[index];
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            leading: CircleAvatar(
-              backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(Icons.chat, color: theme.colorScheme.onPrimaryContainer, size: 20),
+    return RefreshIndicator(
+      onRefresh: () => prov.fetchSessions(),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: prov.sessions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          final session = prov.sessions[index];
+          return Dismissible(
+            key: Key(session.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.delete, color: theme.colorScheme.onErrorContainer),
             ),
-            title: Text(
-              session.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: session.updatedAt.isNotEmpty
-                ? Text(
-                    _formatTime(session.updatedAt),
-                    style: theme.textTheme.bodySmall,
-                  )
-                : null,
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // 加载该会话的消息，然后跳到对话页
-              context.read<ChatProvider>().loadSession(session.id);
-              context.go('/chat');
+            confirmDismiss: (direction) async {
+              return await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('删除会话'),
+                  content: Text('确定要删除「${session.title}」吗？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
+                    ),
+                  ],
+                ),
+              );
             },
-          ),
-        );
-      },
+            onDismissed: (_) {
+              prov.deleteSession(session.id);
+            },
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: Icon(Icons.chat, color: theme.colorScheme.onPrimaryContainer, size: 20),
+                ),
+                title: Text(
+                  session.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: session.updatedAt.isNotEmpty
+                    ? Text(
+                        _formatTime(session.updatedAt),
+                        style: theme.textTheme.bodySmall,
+                      )
+                    : null,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // 加载该会话的消息，然后跳到对话页
+                  context.read<ChatProvider>().loadSession(session.id);
+                  context.go('/chat');
+                },
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

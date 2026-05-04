@@ -35,4 +35,16 @@ class SessionProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// 删除会话
+  Future<void> deleteSession(String id) async {
+    try {
+      await _api.delete(ApiConfig.sessionDelete(id));
+      _sessions.removeWhere((s) => s.id == id);
+      notifyListeners();
+    } catch (e) {
+      _error = '删除会话失败';
+      notifyListeners();
+    }
+  }
 }

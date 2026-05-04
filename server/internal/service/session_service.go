@@ -49,3 +49,20 @@ func (s *SessionService) GetSessionMessages(userID int64, sessionID string, limi
 
 	return s.messageRepo.ListBySessionID(sessionID, limit)
 }
+
+// DeleteSession 删除会话（同时级联删除消息）
+func (s *SessionService) DeleteSession(userID int64, sessionID string) error {
+	// 验证会话归属
+	session, err := s.sessionRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return fmt.Errorf("查询会话失败: %w", err)
+	}
+	if session == nil {
+		return fmt.Errorf("会话不存在")
+	}
+	if session.UserID != userID {
+		return fmt.Errorf("无权操作该会话")
+	}
+
+	return s.sessionRepo.Delete(sessionID)
+}

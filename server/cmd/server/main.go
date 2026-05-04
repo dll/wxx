@@ -178,6 +178,7 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 			// 会话历史
 			secured.GET("/sessions", sessionH.ListSessions)
 			secured.GET("/sessions/:id/messages", sessionH.GetMessages)
+			secured.DELETE("/sessions/:id", sessionH.DeleteSession)
 
 			// 知识库管理（需 counselor 及以上角色）
 			kb := secured.Group("/kb")

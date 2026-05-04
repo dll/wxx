@@ -17,4 +17,5 @@ class ApiConfig {
   static const String chat = '$apiPrefix/chat';
   static const String sessions = '$apiPrefix/sessions';
   static String sessionMessages(String id) => '$apiPrefix/sessions/$id/messages';
+  static String sessionDelete(String id) => '$apiPrefix/sessions/$id';
 }

@@ -65,6 +65,12 @@ func (r *SessionRepo) ListByUserID(userID int64, limit int) ([]*model.Session, e
 	return sessions, rows.Err()
 }
 
+// Delete 删除会话（同时级联删除关联消息）
+func (r *SessionRepo) Delete(sessionID string) error {
+	_, err := r.db.Exec(`DELETE FROM sessions WHERE session_id = ?`, sessionID)
+	return err
+}
+
 // Touch 更新会话的 updated_at 时间戳
 func (r *SessionRepo) Touch(sessionID string) error {
 	_, err := r.db.Exec(
