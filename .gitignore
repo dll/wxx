@@ -159,8 +159,9 @@ desktop.ini
 *.db-wal
 *.db-shm
 
-# Claude Code local state
-.claude/
+# Claude Code local state (keep skills/ tracked for project skills)
+.claude/*
+!.claude/skills/
 
 # Temp
 tmp/
