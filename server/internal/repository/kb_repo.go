@@ -41,12 +41,11 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 			kb.content, kb.source_link, kb.source_version,
 			kb.effective_at, kb.expired_at, kb.tags,
 			kb.updated_by, kb.created_at, kb.updated_at,
-			bm25(kb_fts, 0, 10, 5, 1) AS score
+			rank AS score
 		 FROM kb_fts
 		 JOIN kb_resources kb ON kb_fts.rowid = kb.id
 		 WHERE kb_fts MATCH ?
 		   AND kb.status = 'published'
-		   AND (kb.expired_at IS NULL OR kb.expired_at > datetime('now'))
 		   AND (kb.owner_scope = 'school' OR (kb.owner_scope = ? AND kb.owner_id = ?))
 		   AND kb.role_scope LIKE ?
 		 ORDER BY score
