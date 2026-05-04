@@ -58,3 +58,55 @@ type UserContext struct {
 	OwnerID     string // 归属 ID
 	DisplayName string // 显示名
 }
+
+// ── 知识库管理 DTO ──
+
+// KBCreateRequest 创建知识资源请求
+type KBCreateRequest struct {
+	ResourceType  string  `json:"resource_type" binding:"required,oneof=Policy Process FAQ Activity"` // 资源类型
+	OwnerScope    string  `json:"owner_scope" binding:"required,oneof=school college class"`          // 归属范围
+	OwnerID       string  `json:"owner_id"`                                                           // 归属 ID
+	RoleScope     string  `json:"role_scope" binding:"required"`                                      // 可见角色（JSON 数组）
+	Title         string  `json:"title" binding:"required"`                                           // 标题
+	Summary       string  `json:"summary"`                                                            // 摘要
+	Content       string  `json:"content" binding:"required"`                                         // 正文
+	SourceLink    string  `json:"source_link"`                                                        // 原文链接
+	SourceVersion string  `json:"source_version"`                                                     // 原文版本
+	EffectiveAt   *string `json:"effective_at"`                                                       // 生效时间
+	ExpiredAt     *string `json:"expired_at"`                                                         // 失效时间
+	Tags          string  `json:"tags"`                                                               // 标签（JSON 数组）
+}
+
+// KBUpdateRequest 更新知识资源请求
+type KBUpdateRequest struct {
+	ResourceType  string  `json:"resource_type" binding:"omitempty,oneof=Policy Process FAQ Activity"` // 资源类型
+	OwnerScope    string  `json:"owner_scope" binding:"omitempty,oneof=school college class"`          // 归属范围
+	OwnerID       string  `json:"owner_id"`
+	RoleScope     string  `json:"role_scope"`
+	Status        string  `json:"status" binding:"omitempty,oneof=draft pending published retired"` // 状态
+	Title         string  `json:"title"`
+	Summary       string  `json:"summary"`
+	Content       string  `json:"content"`
+	SourceLink    string  `json:"source_link"`
+	SourceVersion string  `json:"source_version"`
+	EffectiveAt   *string `json:"effective_at"`
+	ExpiredAt     *string `json:"expired_at"`
+	Tags          string  `json:"tags"`
+}
+
+// KBListResponse 知识列表响应
+type KBListResponse struct {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    []*KBResource `json:"data"`
+	Total   int           `json:"total"`    // 总数
+	Page    int           `json:"page"`     // 当前页
+	PageSize int          `json:"page_size"` // 每页数
+}
+
+// KBDetailResponse 知识详情响应
+type KBDetailResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    *KBResource `json:"data"`
+}

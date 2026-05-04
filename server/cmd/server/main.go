@@ -62,6 +62,7 @@ func main() {
 	// Service 层
 	authSvc := service.NewAuthService(cfg, userRepo)
 	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
+	kbSvc := service.NewKBService(kbRepo)
 	var chatSvc *service.ChatService
 	if llmClient != nil {
 		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, llmClient)
@@ -70,13 +71,14 @@ func main() {
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
+	kbHandler := handler.NewKBHandler(kbSvc)
 	var chatHandler *handler.ChatHandler
 	if chatSvc != nil {
 		chatHandler = handler.NewChatHandler(chatSvc)
 	}
 
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -140,7 +142,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -181,10 +183,10 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 			kb := secured.Group("/kb")
 			kb.Use(middleware.RequireRole("counselor"))
 			{
-				kb.GET("/resources", placeholderHandler("知识列表"))
-				kb.POST("/resources", placeholderHandler("创建知识"))
-				kb.PUT("/resources/:id", placeholderHandler("更新知识"))
-				kb.GET("/resources/:id", placeholderHandler("知识详情"))
+				kb.GET("/resources", kbH.ListResources)
+				kb.POST("/resources", kbH.CreateResource)
+				kb.PUT("/resources/:id", kbH.UpdateResource)
+				kb.GET("/resources/:id", kbH.GetResource)
 			}
 
 			// 导出

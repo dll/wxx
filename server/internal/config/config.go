@@ -61,7 +61,9 @@ type Config struct {
 // Load 加载配置。优先从 .env 文件读取，再从系统环境变量补充。
 func Load() *Config {
 	// 开发环境加载 .env，生产环境忽略（依赖系统环境变量）
+	// 兼容从 server/ 子目录启动的情况，依次尝试当前目录和父目录
 	_ = godotenv.Load()
+	_ = godotenv.Load("../.env")
 
 	return &Config{
 		AppPort:  envOr("APP_PORT", "8080"),
@@ -81,8 +83,8 @@ func Load() *Config {
 		Zhipu4VModel:  envOr("ZHIPU_4V_MODEL", "glm-4v"),
 
 		DeepSeekAPIKey:  envOr("DEEPSEEK_API_KEY", ""),
-		DeepSeekBaseURL: envOr("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1/chat/completions"),
-		DeepSeekModel:   envOr("DEEPSEEK_MODEL", "deepseek-chat"),
+		DeepSeekBaseURL: envOr("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"),
+		DeepSeekModel:   envOr("DEEPSEEK_MODEL", "deepseek-v4-pro"),
 
 		XfyunAppID:     envOr("XFYUN_APP_ID", ""),
 		XfyunAPIKey:    envOr("XFYUN_API_KEY", ""),

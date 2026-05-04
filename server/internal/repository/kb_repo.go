@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -77,6 +76,88 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	}
 
 	return results, rows.Err()
+}
+
+// List 分页查询知识资源（支持 ownerScope/status/resourceType 过滤）
+func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, limit int) ([]*model.KBResource, error) {
+	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
+		role_scope, version, status, title, summary,
+		content, source_link, source_version,
+		effective_at, expired_at, tags,
+		updated_by, created_at, updated_at
+	 FROM kb_resources WHERE 1=1`
+	args := []interface{}{}
+
+	if ownerScope != "" {
+		query += " AND owner_scope = ?"
+		args = append(args, ownerScope)
+		if ownerID != "" {
+			query += " AND owner_id = ?"
+			args = append(args, ownerID)
+		}
+	}
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+	if resourceType != "" {
+		query += " AND resource_type = ?"
+		args = append(args, resourceType)
+	}
+
+	query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var list []*model.KBResource
+	for rows.Next() {
+		kb := &model.KBResource{}
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		list = append(list, kb)
+	}
+	return list, rows.Err()
+}
+
+// Count 统计知识资源总数（过滤条件同 List）
+func (r *KBRepo) Count(ownerScope, ownerID, status, resourceType string) (int, error) {
+	query := "SELECT COUNT(*) FROM kb_resources WHERE 1=1"
+	args := []interface{}{}
+
+	if ownerScope != "" {
+		query += " AND owner_scope = ?"
+		args = append(args, ownerScope)
+		if ownerID != "" {
+			query += " AND owner_id = ?"
+			args = append(args, ownerID)
+		}
+	}
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+	if resourceType != "" {
+		query += " AND resource_type = ?"
+		args = append(args, resourceType)
+	}
+
+	var count int
+	if err := r.db.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("统计知识资源数量失败: %w", err)
+	}
+	return count, nil
 }
 
 // GetByResourceID 根据资源 ID 查询
