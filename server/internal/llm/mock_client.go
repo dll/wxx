@@ -1,0 +1,41 @@
+package llm
+
+import "context"
+
+// MockClient 模拟 LLM 客户端，用于测试
+type MockClient struct {
+	ChatFunc func(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
+	name     string
+}
+
+// NewMockClient 创建模拟 LLM 客户端
+func NewMockClient(name string) *MockClient {
+	return &MockClient{name: name}
+}
+
+// Chat 调用模拟响应函数，若未设置则返回默认内容
+func (m *MockClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	if m.ChatFunc != nil {
+		return m.ChatFunc(ctx, req)
+	}
+	// 默认行为：返回简单回答
+	return &ChatResponse{
+		Content:      "这是模拟的回答内容。",
+		FinishReason: "stop",
+		PromptTokens: 100,
+		OutputTokens: 50,
+	}, nil
+}
+
+// Name 返回客户端名称
+func (m *MockClient) Name() string {
+	if m.name != "" {
+		return m.name
+	}
+	return "mock"
+}
+
+// Reset 重置 ChatFunc（用于不同测试用例）
+func (m *MockClient) Reset() {
+	m.ChatFunc = nil
+}
