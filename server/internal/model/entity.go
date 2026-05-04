@@ -33,21 +33,21 @@ type Message struct {
 
 // KBResource 知识资源，对应 kb_resources 表
 type KBResource struct {
-	ID            int64  `json:"id" db:"id"`
-	ResourceID    string `json:"resource_id" db:"resource_id"`       // 资源唯一标识
-	ResourceType  string `json:"resource_type" db:"resource_type"`   // Policy/Process/FAQ/Activity
-	OwnerScope    string `json:"owner_scope" db:"owner_scope"`       // school/college/class
-	OwnerID       string `json:"owner_id" db:"owner_id"`
-	RoleScope     string `json:"role_scope" db:"role_scope"`         // JSON 数组：可见角色列表
-	Version       string `json:"version" db:"version"`
-	Status        string `json:"status" db:"status"`                 // draft/pending/published/retired
-	Title         string `json:"title" db:"title"`
-	Summary       string `json:"summary" db:"summary"`
-	Content       string `json:"content" db:"content"`
-	SourceLink    string `json:"source_link" db:"source_link"`       // 原文链接
-	SourceVersion string `json:"source_version" db:"source_version"` // 原文版本
-	EffectiveAt   string `json:"effective_at" db:"effective_at"`     // 生效时间
-	ExpiredAt     string `json:"expired_at" db:"expired_at"`         // 失效时间
+	ID            int64   `json:"id" db:"id"`
+	ResourceID    string  `json:"resource_id" db:"resource_id"`       // 资源唯一标识
+	ResourceType  string  `json:"resource_type" db:"resource_type"`   // Policy/Process/FAQ/Activity
+	OwnerScope    string  `json:"owner_scope" db:"owner_scope"`       // school/college/class
+	OwnerID       string  `json:"owner_id" db:"owner_id"`
+	RoleScope     string  `json:"role_scope" db:"role_scope"`         // JSON 数组：可见角色列表
+	Version       string  `json:"version" db:"version"`
+	Status        string  `json:"status" db:"status"`                 // draft/pending/published/retired
+	Title         string  `json:"title" db:"title"`
+	Summary       string  `json:"summary" db:"summary"`
+	Content       string  `json:"content" db:"content"`
+	SourceLink    string  `json:"source_link" db:"source_link"`       // 原文链接
+	SourceVersion string  `json:"source_version" db:"source_version"` // 原文版本
+	EffectiveAt   *string `json:"effective_at" db:"effective_at"`     // 生效时间（可空）
+	ExpiredAt     *string `json:"expired_at" db:"expired_at"`         // 失效时间（可空）
 	Tags          string `json:"tags" db:"tags"`                     // JSON 数组
 	UpdatedBy     string `json:"updated_by" db:"updated_by"`
 	CreatedAt     string `json:"created_at" db:"created_at"`

@@ -89,8 +89,8 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	})
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
-		// 返回兜底回答
-		return s.fallbackAnswer(traceID, question), sessionID, nil
+		// 返回兜底回答，但保留搜索到的 sources
+		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
 	}
 
 	// ── 5. 构造 AnswerCard ──
@@ -205,6 +205,33 @@ func (s *ChatService) fallbackAnswer(traceID string, question string) *model.Ans
 			"学工办公室在哪里？",
 		},
 	}
+}
+
+// fallbackAnswerWithSources 构造兜底回答（保留搜索到的 sources）
+func (s *ChatService) fallbackAnswerWithSources(traceID string, question string, results []*repository.SearchResult) *model.AnswerCard {
+	card := &model.AnswerCard{
+		Conclusion: "抱歉，AI 服务暂时不可用，但我为您找到了以下相关资料，请查阅：",
+		TraceID:    traceID,
+		Confidence: 0.5, // 有搜索结果，置信度提高
+		Fallback:   true,
+		FollowUps: []string{
+			"联系辅导员的方式是什么？",
+			"学工办公室在哪里？",
+		},
+	}
+
+	// 附加搜索到的来源
+	for _, r := range results {
+		card.Sources = append(card.Sources, model.Source{
+			ResourceID:     r.Resource.ResourceID,
+			Title:          r.Resource.Title,
+			Version:        r.Resource.Version,
+			SourceLink:     r.Resource.SourceLink,
+			RelevanceScore: -r.Score,
+		})
+	}
+
+	return card
 }
 
 // generateFollowUps 根据回答内容生成追问建议

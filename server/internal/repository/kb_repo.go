@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -30,6 +31,8 @@ type SearchResult struct {
 // role: 用户角色（过滤可见资源）
 // limit: 返回结果数
 func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role string, limit int) ([]*SearchResult, error) {
+	escapedQuery := escapeQuery(query)
+
 	// BM25 搜索：权重分配 title > summary > content
 	// bm25(kb_fts, resource_id权重, title权重, summary权重, content权重)
 	rows, err := r.db.Query(
@@ -49,7 +52,7 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 		   AND kb.role_scope LIKE ?
 		 ORDER BY score
 		 LIMIT ?`,
-		escapeQuery(query), ownerScope, ownerID, "%"+role+"%", limit,
+		escapedQuery, ownerScope, ownerID, "%"+role+"%", limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("FTS 搜索失败: %w", err)
@@ -72,6 +75,7 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 		}
 		results = append(results, sr)
 	}
+
 	return results, rows.Err()
 }
 
@@ -162,13 +166,40 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 
 // escapeQuery 转义 FTS5 查询中的特殊字符
 func escapeQuery(q string) string {
-	// FTS5 特殊字符：* " ( ) OR AND NOT
-	// 简单处理：将查询词用双引号包裹
 	q = strings.TrimSpace(q)
 	if q == "" {
 		return "\"\""
 	}
-	// 去除已有的双引号，再包裹
+
+	// 去除特殊字符
 	q = strings.ReplaceAll(q, "\"", "")
+
+	// 对于中文查询，使用 OR 组合每个字的通配符
+	// unicode61 按字符分词，"奖学金" 会被分成 "奖" "学" "金"
+	// 使用 "奖* OR 学* OR 金*" 可以匹配包含任一字的文档
+	runes := []rune(q)
+	hasChinese := false
+	for _, r := range runes {
+		if r >= 0x4E00 && r <= 0x9FFF {
+			hasChinese = true
+			break
+		}
+	}
+
+	if hasChinese {
+		// 中文查询：每个字后加通配符，用 OR 连接
+		var parts []string
+		for _, r := range runes {
+			if r >= 0x4E00 && r <= 0x9FFF {
+				parts = append(parts, string(r)+"*")
+			}
+		}
+		if len(parts) == 0 {
+			return "\"\""
+		}
+		return strings.Join(parts, " OR ")
+	}
+
+	// 英文查询：用双引号包裹（精确匹配）
 	return "\"" + q + "\""
 }
