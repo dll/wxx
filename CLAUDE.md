@@ -46,6 +46,8 @@
 | 知识导出包规范 | `specs/export-package.md` | manifest + ndjson + cursor 增量同步 |
 | 资源最小字段 | `specs/resource-schema.md` | 必填语义字段速查 |
 | RBAC 矩阵 | `specs/rbac-matrix.md` | 六级基线 + teacher/assistant 扩展 |
+| 后端结构与分层 | `server/README.md` | 目录结构、分层规则 |
+| 前端初始化指南 | `frontend/README.md` | Flutter 初始化步骤、技术选型、目录建议 |
 | 内部 LLM Wiki | `knowledge/README.md` | raw/ / wiki/ 脚手架（非产品知识库） |
 | 计划模板 | `templates/plan.template.md` | 任务方案模板 |
 | 变更日志模板 | `templates/CHANGELOG.template.md` | Keep a Changelog 格式 |
@@ -86,6 +88,62 @@ P1+ 扩展：`teacher`（教师）、`assistant`（教辅）— 枚举已占位�
 | 引用覆盖率（流程类） | ≥ 95% |
 | 兜底率 | ≤ 10% |
 
-## 当前仓库状态
+## Quick Start
 
-本仓库（wxx）目前为 **规范与模板集合**，不包含 Flutter/Go 业务源码。业务代码初始化后可将本仓库作为 submodule 或对照引用。同级目录 `../` 下的 `Harness驾驭工程规范.md`、`RAGvsLLMwiki.md` 为对照参考文档。
+```bash
+# 环境准备
+cp .env.example .env        # 编辑填入真实密钥
+
+# Go 后端
+make migrate                 # 初始化 SQLite
+make dev                     # 启动后端（热重载）
+make test                    # 单元测试
+make lint                    # go vet 静态检查
+
+# Flutter 前端（初始化后）
+make flutter-get             # 安装依赖
+make flutter-run             # 开发运行
+make flutter-build-web       # 构建 Web
+make flutter-build-apk       # 构建 APK
+make flutter-test            # 前端测试
+
+# 全栈
+make all                     # 后端编译 + 前端 Web 构建
+make test-all                # 后端测试 + 前端测试
+```
+
+## 工程目录结构
+
+```
+WXX/
+├── CLAUDE.md                # Claude Code 会话入口（本文件）
+├── .env.example             # 环境变量模板
+├── Makefile                 # 统一构建入口
+├── server/                  # Go/Gin 后端
+│   ├── cmd/server/          # HTTP 服务入口
+│   ├── cmd/migrate/         # SQLite 迁移工具
+│   ├── internal/            # 业务代码（分层）
+│   │   ├── config/          # 配置加载
+│   │   ├── handler/         # HTTP handler（参数校验 + 响应组装）
+│   │   ├── middleware/      # JWT / RBAC / 限流 / 审计 / CORS
+│   │   ├── model/           # 数据模型
+│   │   ├── service/         # 业务逻辑（编排层）
+│   │   ├── repository/      # SQLite 数据访问
+│   │   ├── agent/           # 多智能体管理 + Eino 编排
+│   │   ├── context_engine/  # 结构化查询 + FTS + 拼装
+│   │   └── llm/             # 智谱/DeepSeek/讯飞 API 客户端
+│   ├── migrations/          # SQLite DDL（001_init.sql ...）
+│   └── data/                # 运行时数据（.gitignore）
+├── frontend/                # Flutter 客户端（待初始化）
+├── docs/                    # 产品与技术文档
+├── specs/                   # 规格定义
+├── knowledge/               # 内部 LLM Wiki 素材
+└── templates/               # 计划/变更日志模板
+```
+
+## 后端分层规则
+
+- **handler** → 参数校验 + 响应组装，不写业务逻辑
+- **service** → 编排 repository + llm + agent，实现业务规则
+- **repository** → SQL 操作，不依赖 HTTP 或模型 API
+- **禁止** handler 直接调用 repository 或 llm

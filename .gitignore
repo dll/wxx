@@ -132,3 +132,36 @@ go.work.sum
 /bin/
 /pkg/
 *.prof
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# SQLite runtime databases
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Claude Code local state
+.claude/
+
+# Temp
+tmp/
+temp/
