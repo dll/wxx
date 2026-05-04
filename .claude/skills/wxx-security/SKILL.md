@@ -1,135 +1,135 @@
 ---
 name: wxx-security
-description: Security review and enforcement for the WeiXiaoXin (蔚小芯) project. Triggers whenever code touches authentication (JWT), authorization (RBAC), user input handling, database queries, API key management, sensitive data (student IDs, phone numbers, ID cards), audit logging, or external API integration. Also triggers on phrases like "安全", "权限", "脱敏", "注入", "鉴权", "RBAC", or when reviewing code that handles user data. Use proactively - if you see potential security issues in code being written, intervene immediately.
+description: 蔚小芯项目的安全审查与执行。当代码涉及认证（JWT）、授权（RBAC）、用户输入处理、数据库查询、API 密钥管理、敏感数据（学号、手机号、身份证号）、审计日志或外部 API 对接时触发。也在出现"安全"、"权限"、"脱敏"、"注入"、"鉴权"、"RBAC"等短语时触发，或在审查处理用户数据的代码时触发。如发现潜在安全问题应主动介入。
 ---
 
-# 蔚小芯 Security Review
+# 蔚小芯 安全审查
 
-This skill enforces security standards specific to the 蔚小芯 student affairs AI assistant. The system handles sensitive student data (academic records, personal info, emotional assessments) and integrates with external APIs carrying credentials — security is non-negotiable.
+本技能执行蔚小芯学工智能体的安全标准。系统处理敏感学生数据（学业记录、个人信息、情感评估）并集成携带凭证的外部 API — 安全是底线。
 
-## Mandatory Checks
+## 必须检查项
 
-### 1. RBAC Enforcement
+### 1. RBAC 权限执行
 
-Every endpoint MUST declare its required role. The hierarchy (higher can access lower):
+每个接口必须声明所需角色。角色层级（高级可访问低级）：
 
 ```
 sys_admin > school_admin > college_admin > counselor > student_union > student
 ```
 
-Extension roles `teacher` and `assistant` have separate permission scopes.
+扩展角色 `teacher` 和 `assistant` 有独立的权限范围。
 
-Verify in code:
-- Middleware checks role before handler executes
-- Knowledge queries filter by `owner_scope` + `role_scope` + `status=published` BEFORE hitting FTS/database
-- Role is validated from JWT claims, never from request body
-- Full RBAC matrix is documented in `specs/rbac-matrix.md`
+在代码中验证：
+- 中间件在 handler 执行前检查角色
+- 知识查询在命中 FTS/数据库之前，先按 `owner_scope` + `role_scope` + `status=published` 过滤
+- 角色从 JWT 声明中读取，绝不从请求体中获取
+- 完整 RBAC 矩阵维护在 `specs/rbac-matrix.md`
 
-### 2. SQL Injection Prevention
+### 2. SQL 注入防护
 
-All SQLite queries MUST use parameterized statements. Never concatenate user input into SQL:
+所有 SQLite 查询必须使用参数化语句。绝不将用户输入拼接进 SQL：
 
 ```go
-// CORRECT
+// 正确写法
 db.Query("SELECT * FROM kb_resources WHERE resource_id = ?", resourceID)
 
-// FORBIDDEN - SQL injection vector
+// 禁止 — SQL 注入漏洞
 db.Query("SELECT * FROM kb_resources WHERE resource_id = '" + resourceID + "'")
 ```
 
-FTS5 queries are especially dangerous — user search terms injected into FTS `MATCH` syntax can cause unexpected behavior. Always sanitize FTS input:
-- Strip special FTS operators (`AND`, `OR`, `NOT`, `NEAR`, `*`, `"`)
-- Escape double quotes
-- Limit query length
+FTS5 查询尤其危险 — 用户搜索词注入到 FTS `MATCH` 语法中可能导致意外行为。必须清洗 FTS 输入：
+- 过滤特殊 FTS 运算符（`AND`、`OR`、`NOT`、`NEAR`、`*`、`"`）
+- 转义双引号
+- 限制查询长度
 
-### 3. Sensitive Data Protection
+### 3. 敏感数据保护
 
-These fields must NEVER be stored as searchable plaintext in `kb_resources.content` or FTS index:
-- Student ID (学号)
-- Phone number (手机号)
-- National ID (身份证号)
-- Home address (家庭住址)
-- Family financial info (家庭经济信息)
+以下字段绝不能作为可检索明文存入 `kb_resources.content` 或 FTS 索引：
+- 学号
+- 手机号
+- 身份证号
+- 家庭住址
+- 家庭经济信息
 
-Display rules by role:
-- `student`: sees only own data, masked (e.g., `138****5678`)
-- `counselor`: sees own students' data, partially masked
-- `college_admin+`: sees full data with audit trail
+按角色展示规则：
+- `student`：仅可见本人数据，脱敏展示（如 `138****5678`）
+- `counselor`：可见本人学生数据，部分脱敏
+- `college_admin+`：可见完整数据，附带审计记录
 
-Every access to sensitive data MUST create an `audit_logs` entry.
+每次访问敏感数据必须生成 `audit_logs` 记录。
 
-### 4. API Key & Secret Management
+### 4. API 密钥与密钥管理
 
-All secrets load from environment variables via `internal/config/`:
-- `ZHIPU_API_KEY`, `DEEPSEEK_API_KEY`, `XFYUN_*` — LLM API credentials
-- `JWT_SECRET` — JWT signing key
-- `SYNC_HMAC_SECRET` — knowledge sync HMAC-SHA256 key
-- `SSO_*` — campus SSO credentials
+所有密钥通过环境变量经由 `internal/config/` 加载：
+- `ZHIPU_API_KEY`、`DEEPSEEK_API_KEY`、`XFYUN_*` — 大模型 API 凭证
+- `JWT_SECRET` — JWT 签名密钥
+- `SYNC_HMAC_SECRET` — 知识同步 HMAC-SHA256 密钥
+- `SSO_*` — 校园统一认证凭证
 
-Security rules:
-- NEVER hardcode secrets in source code
-- NEVER log API keys or JWT tokens (even at debug level)
-- NEVER return secrets in API responses
-- `.env` is in `.gitignore` — verify this before every commit
-- Use `.env.example` as the template (no real values)
+安全规则：
+- 绝不在源码中硬编码密钥
+- 绝不在日志中输出 API 密钥或 JWT 令牌（即使是 debug 级别）
+- 绝不在 API 响应中返回密钥
+- `.env` 已在 `.gitignore` 中 — 每次提交前确认
+- 使用 `.env.example` 作为模板（不含真实值）
 
-### 5. JWT Security
+### 5. JWT 安全
 
 ```
-Token lifecycle:
-  Login → Issue JWT (short-lived, e.g., 2h) → Refresh → Revoke on logout
+令牌生命周期：
+  登录 → 签发 JWT（短期有效，如 2 小时）→ 刷新 → 登出时吊销
 ```
 
-Verify:
-- Tokens are signed with HS256 or RS256, NOT unsigned
-- Expiration (`exp`) is always set and checked
-- Role claims cannot be modified client-side
-- Refresh tokens are stored server-side (sessions table)
-- Logout invalidates the session record
+验证项：
+- 令牌使用 HS256 或 RS256 签名，绝不使用无签名令牌
+- 过期时间（`exp`）始终设置并检查
+- 角色声明不能被客户端篡改
+- 刷新令牌存储在服务端（sessions 表）
+- 登出时使 session 记录失效
 
-### 6. Audit Trail
+### 6. 审计追踪
 
-These operations MUST generate `audit_logs` entries:
-- Login / logout
-- Knowledge resource CRUD (create, update, publish, retire)
-- Sensitive data access
-- Export operations (PDF, Word, Markdown)
-- Role changes
-- Failed authentication attempts
-- Emotion risk escalation (`risk_level = 'high'`)
+以下操作必须生成 `audit_logs` 条目：
+- 登录 / 登出
+- 知识资源增删改查（创建、更新、发布、退役）
+- 敏感数据访问
+- 导出操作（PDF、Word、Markdown）
+- 角色变更
+- 认证失败尝试
+- 情感风险升级（`risk_level = 'high'`）
 
-Each audit entry includes: `user_id`, `username`, `role`, `action`, `resource`, `detail`, `trace_id`, `ip`, `duration_ms`, `result_code`.
+每条审计记录包含：`user_id`、`username`、`role`、`action`、`resource`、`detail`、`trace_id`、`ip`、`duration_ms`、`result_code`。
 
-### 7. External API Security
+### 7. 外部 API 安全
 
-When calling 智谱/DeepSeek/讯飞 APIs:
-- Use HTTPS only
-- Set request timeouts (default: 30s for LLM, 10s for others)
-- Implement retry with exponential backoff (max 3 retries)
-- Never send student PII to external LLM APIs — strip before sending
-- Log `trace_id` for every external call for debugging
+调用智谱/DeepSeek/讯飞 API 时：
+- 仅使用 HTTPS
+- 设置请求超时（默认：大模型 30 秒，其他 10 秒）
+- 实现指数退避重试（最多 3 次）
+- 绝不向外部大模型 API 发送学生个人信息 — 发送前须脱敏
+- 每次外部调用记录 `trace_id` 用于调试
 
-Knowledge sync with 蔚园智答:
-- HMAC-SHA256 package signature verification
-- Bearer token authentication
-- SHA256 hash validation on received content
-- Reject packages with expired timestamps
+与蔚园智答的知识同步：
+- HMAC-SHA256 包签名验证
+- Bearer Token 认证
+- SHA256 哈希内容校验
+- 拒绝时间戳过期的同步包
 
-### 8. Emotion Data Security
+### 8. 情感数据安全
 
-`emotion_logs` contain risk assessments — elevated handling:
-- Only `counselor+` roles can view emotion data
-- `risk_level = 'high'` triggers notification but data stays in-system
-- Emotion scores are never included in export packages
-- Batch queries on emotion data require `college_admin+`
+`emotion_logs` 包含风险评估 — 需提升处理级别：
+- 仅 `counselor+` 角色可查看情感数据
+- `risk_level = 'high'` 触发通知但数据留在系统内
+- 情感评分绝不包含在导出包中
+- 批量查询情感数据需要 `college_admin+` 权限
 
-## Anti-Patterns to Block
+## 需要阻止的反模式
 
-| Pattern | Risk | Fix |
-|---------|------|-----|
-| `fmt.Sprintf("WHERE id = %s", input)` | SQL injection | Use `?` placeholders |
-| `log.Printf("token: %s", jwt)` | Token leakage | Never log tokens |
-| `r.Header.Get("X-Role")` | Role spoofing | Read role from JWT only |
-| Returning `id_card` in JSON response | PII exposure | Mask or omit by role |
-| `http.Get(url)` without timeout | Hang / resource exhaustion | Use `http.Client{Timeout}` |
-| Missing `audit_logs` on data export | Compliance gap | Always audit exports |
+| 模式 | 风险 | 修复方式 |
+|------|------|----------|
+| `fmt.Sprintf("WHERE id = %s", input)` | SQL 注入 | 使用 `?` 占位符 |
+| `log.Printf("token: %s", jwt)` | 令牌泄露 | 绝不记录令牌 |
+| `r.Header.Get("X-Role")` | 角色伪造 | 仅从 JWT 读取角色 |
+| 在 JSON 响应中返回 `id_card` | 个人信息泄露 | 按角色脱敏或省略 |
+| `http.Get(url)` 无超时 | 挂起/资源耗尽 | 使用 `http.Client{Timeout}` |
+| 数据导出缺少 `audit_logs` | 合规缺口 | 始终审计导出操作 |

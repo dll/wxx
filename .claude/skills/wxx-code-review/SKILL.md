@@ -1,87 +1,87 @@
 ---
 name: wxx-code-review
-description: Code review tailored to WeiXiaoXin (蔚小芯) project constraints. Triggers when the user asks to review code, check a PR, audit changes, or validate implementation quality. Also triggers on phrases like "审查", "review", "检查代码", "看看这段代码", "code review", or after completing a significant implementation task. Use proactively after multi-file changes to catch issues before commit.
+description: 针对蔚小芯项目约束的代码审查。当用户要求审查代码、检查 PR、审计变更或验证实现质量时触发。也在出现"审查"、"review"、"检查代码"、"看看这段代码"、"代码审查"等短语时触发，或在完成重大实现任务后触发。多文件改动后应主动触发以在提交前发现问题。
 ---
 
-# 蔚小芯 Code Review
+# 蔚小芯 代码审查
 
-This skill performs code review against the specific constraints and patterns of the 蔚小芯 project. Generic code review catches syntax issues; this catches architectural violations, missing security controls, and knowledge pipeline errors that are unique to this codebase.
+本技能针对蔚小芯项目的特定约束和模式执行代码审查。通用代码审查能发现语法问题；而本技能能发现架构违规、安全控制缺失和知识管道错误 — 这些是本项目独有的问题。
 
-## Review Checklist
+## 审查清单
 
-### Architecture (Blocking)
+### 架构（阻断级）
 
-- [ ] **Layer violations**: handler must not import repository/llm/context_engine/agent packages
-- [ ] **Dependency direction**: calls flow handler -> service -> repository, never backwards
-- [ ] **New dependencies**: any `go get` of a package not in approved list needs justification
-- [ ] **Forbidden patterns**: no local LLM, no Coze SDK, no Docker requirements, no container orchestration
+- [ ] **分层违规**：handler 不可导入 repository/llm/context_engine/agent 包
+- [ ] **依赖方向**：调用流向为 handler → service → repository，绝不反向
+- [ ] **新依赖**：任何不在批准列表中的 `go get` 需要提供理由
+- [ ] **禁止模式**：无本地大模型、无 Coze SDK、无 Docker 要求、无容器编排
 
-### Security (Blocking)
+### 安全（阻断级）
 
-- [ ] **SQL parameterization**: all queries use `?` placeholders, especially FTS MATCH queries
-- [ ] **Secrets in code**: no hardcoded API keys, JWT secrets, or tokens
-- [ ] **RBAC declared**: every new endpoint has role requirement in middleware chain
-- [ ] **Sensitive data masked**: student ID, phone, national ID never in plaintext responses
-- [ ] **Audit logging**: sensitive operations write to `audit_logs`
-- [ ] **JWT validation**: tokens checked for expiration and valid signature
+- [ ] **SQL 参数化**：所有查询使用 `?` 占位符，FTS MATCH 查询尤其注意
+- [ ] **代码中的密钥**：无硬编码 API 密钥、JWT 密钥或令牌
+- [ ] **RBAC 声明**：每个新接口在中间件链中有角色要求
+- [ ] **敏感数据脱敏**：学号、手机号、身份证号绝不以明文出现在响应中
+- [ ] **审计日志**：敏感操作写入 `audit_logs`
+- [ ] **JWT 验证**：令牌检查过期时间和签名有效性
 
-### Knowledge Pipeline (Blocking for Q&A paths)
+### 知识管道（问答路径为阻断级）
 
-- [ ] **Sources attached**: policy/process answers include `sources[]` from matched resources
-- [ ] **No fabrication**: LLM system prompt instructs "answer only from context"
-- [ ] **Scope filtering**: queries filter by `owner_scope`, `role_scope`, `status=published`
-- [ ] **Fallback handling**: insufficient context returns fallback response, not hallucinated answer
-- [ ] **Pipeline order**: structured query -> FTS -> assembly -> LLM (not skipping stages)
+- [ ] **来源附加**：政策/流程类回答包含来自匹配资源的 `sources[]`
+- [ ] **禁止编造**：LLM 系统提示词指示"仅基于上下文回答"
+- [ ] **范围过滤**：查询按 `owner_scope`、`role_scope`、`status=published` 过滤
+- [ ] **兜底处理**：上下文不足时返回兜底回复，不编造回答
+- [ ] **管道顺序**：结构化查询 → FTS → 拼装 → LLM（不跳过阶段）
 
-### Code Quality (Non-blocking, recommend fix)
+### 代码质量（建议级，推荐修复）
 
-- [ ] **Error wrapping**: errors use `fmt.Errorf("context: %w", err)` for stack tracing
-- [ ] **TraceID propagation**: request-scoped trace_id flows from middleware through service to audit
-- [ ] **Context usage**: `context.Context` passed through all layers for cancellation
-- [ ] **Resource cleanup**: database rows, HTTP responses properly closed/deferred
-- [ ] **Timeout on external calls**: LLM and external API clients have explicit timeouts
+- [ ] **错误包装**：错误使用 `fmt.Errorf("上下文: %w", err)` 便于追踪
+- [ ] **TraceID 传递**：请求级 trace_id 从中间件贯穿 service 到审计日志
+- [ ] **Context 使用**：`context.Context` 在所有层间传递以支持取消
+- [ ] **资源清理**：数据库行、HTTP 响应正确关闭/defer
+- [ ] **外部调用超时**：大模型和外部 API 客户端有明确超时设置
 
-### Documentation (Non-blocking, recommend fix)
+### 文档（建议级，推荐修复）
 
-- [ ] **API contract logged**: new/changed endpoints reflected in `specs/api-contracts-index.md`
-- [ ] **RBAC matrix updated**: new role permissions documented in `specs/rbac-matrix.md`
-- [ ] **Migration exists**: schema changes have corresponding file in `server/migrations/`
+- [ ] **API 契约登记**：新增/变更接口反映在 `specs/api-contracts-index.md`
+- [ ] **RBAC 矩阵更新**：新角色权限记录在 `specs/rbac-matrix.md`
+- [ ] **迁移脚本**：schema 变更有对应文件在 `server/migrations/`
 
-## How to Review
+## 审查方法
 
-1. **Read the diff** — understand what changed and why
-2. **Check architecture** — verify layer boundaries are respected
-3. **Check security** — run through the security checklist items
-4. **Check knowledge pipeline** — if Q&A path is affected, verify sources and fallback
-5. **Check quality** — error handling, context propagation, resource cleanup
-6. **Check docs** — are affected docs updated?
+1. **阅读差异** — 理解改了什么以及为什么
+2. **检查架构** — 验证分层边界是否被遵守
+3. **检查安全** — 逐项过安全检查清单
+4. **检查知识管道** — 如果影响问答路径，验证来源和兜底
+5. **检查质量** — 错误处理、上下文传递、资源清理
+6. **检查文档** — 受影响的文档是否已更新
 
-## Severity Levels
+## 严重级别
 
-| Level | Meaning | Action |
-|-------|---------|--------|
-| **BLOCK** | Architecture violation, security hole, missing sources on policy answer | Must fix before commit |
-| **WARN** | Missing docs update, suboptimal error handling, missing timeout | Should fix, can defer with justification |
-| **NOTE** | Style suggestion, potential optimization | Nice to have |
+| 级别 | 含义 | 处理方式 |
+|------|------|----------|
+| **阻断** | 架构违规、安全漏洞、政策回答缺少来源 | 提交前必须修复 |
+| **警告** | 文档未更新、错误处理不完善、缺少超时 | 应当修复，可附理由延后 |
+| **备注** | 风格建议、潜在优化 | 有则更好 |
 
-## Output Format
+## 输出格式
 
-Present review findings as:
+审查结果按以下格式呈现：
 
 ```
-## Review: [file or feature name]
+## 审查：[文件或功能名称]
 
-**BLOCK** [file:line] — [issue description]
-  Fix: [concrete suggestion]
+**阻断** [文件:行号] — [问题描述]
+  修复：[具体建议]
 
-**WARN** [file:line] — [issue description]
-  Fix: [concrete suggestion]
+**警告** [文件:行号] — [问题描述]
+  修复：[具体建议]
 
-**NOTE** [file:line] — [issue description]
+**备注** [文件:行号] — [问题描述]
 
-### Summary
-- Blocking issues: N
-- Warnings: N
-- Notes: N
-- Verdict: PASS / NEEDS FIX
+### 总结
+- 阻断问题：N 个
+- 警告：N 个
+- 备注：N 个
+- 结论：通过 / 需修复
 ```

@@ -18,7 +18,7 @@ func main() {
 
 	log.Printf("蔚小芯后端启动中 port=%s ...", port)
 
-	// TODO: 初始化配置、数据库、路由、启动服务
+	// 待实现：初始化配置、数据库、路由、启动服务
 	// router := setupRouter()
 	// router.Run(":" + port)
 }
