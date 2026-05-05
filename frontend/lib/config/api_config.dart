@@ -22,4 +22,7 @@ class ApiConfig {
   // ── 语音接口 ──
   static const String voiceAsr = '$apiPrefix/voice/asr';
   static const String voiceTts = '$apiPrefix/voice/tts';
+
+  // ── 知识大厅 ──
+  static const String knowledge = '$apiPrefix/knowledge';
 }

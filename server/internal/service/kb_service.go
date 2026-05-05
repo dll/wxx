@@ -54,6 +54,15 @@ func (s *KBService) Get(resourceID string) (*model.KBResource, error) {
 	return kb, nil
 }
 
+// Browse 知识大厅浏览（按类型分组，面向所有已认证用户）
+func (s *KBService) Browse(ownerScope, ownerID, role, resourceType string) (map[string][]*model.KnowledgeCard, error) {
+	cards, err := s.kbRepo.GetPublishedCards(ownerScope, ownerID, role, resourceType)
+	if err != nil {
+		return nil, fmt.Errorf("获取知识大厅数据失败: %w", err)
+	}
+	return cards, nil
+}
+
 // Create 创建知识资源
 func (s *KBService) Create(req *model.KBCreateRequest, username string) (*model.KBResource, error) {
 	resourceID := uuid.New().String()

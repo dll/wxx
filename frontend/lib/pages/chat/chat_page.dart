@@ -8,7 +8,10 @@ import '../../widgets/answer_card.dart';
 
 /// 对话主页
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  /// 从知识大厅跳转时携带的初始问题
+  final String? initialQuestion;
+
+  const ChatPage({super.key, this.initialQuestion});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -17,6 +20,27 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  bool _initialQuestionHandled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 延迟处理初始问题（等 Widget 构建完成后发送）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleInitialQuestion();
+    });
+  }
+
+  /// 处理从知识大厅跳转带来的初始问题
+  void _handleInitialQuestion() {
+    if (_initialQuestionHandled) return;
+    final question = widget.initialQuestion;
+    if (question != null && question.isNotEmpty) {
+      _initialQuestionHandled = true;
+      _inputCtrl.text = question;
+      _send();
+    }
+  }
 
   @override
   void dispose() {

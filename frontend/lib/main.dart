@@ -5,6 +5,7 @@ import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/enrollment_provider.dart';
+import 'providers/knowledge_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -28,14 +29,25 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => EnrollmentProvider()),
+        ChangeNotifierProvider(create: (_) => KnowledgeProvider()),
       ],
       child: MaterialApp.router(
         title: '蔚小芯',
         debugShowCheckedModeBanner: false,
+        themeMode: ThemeMode.system, // 跟随系统暗黑模式
         theme: ThemeData(
           colorSchemeSeed: const Color(0xFF1565C0), // 滁州学院蓝
           useMaterial3: true,
           brightness: Brightness.light,
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+          ),
+        ),
+        darkTheme: ThemeData(
+          colorSchemeSeed: const Color(0xFF1565C0),
+          useMaterial3: true,
+          brightness: Brightness.dark,
           appBarTheme: const AppBarTheme(
             centerTitle: true,
             elevation: 0,

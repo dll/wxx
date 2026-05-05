@@ -195,6 +195,9 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 			secured.GET("/sessions/:id/messages", sessionH.GetMessages)
 			secured.DELETE("/sessions/:id", sessionH.DeleteSession)
 
+			// 知识大厅浏览（所有已认证用户可访问）
+			secured.GET("/knowledge", kbH.BrowseKnowledge)
+
 			// 知识库管理（需 counselor 及以上角色）
 			kb := secured.Group("/kb")
 			kb.Use(middleware.RequireRole("counselor"))

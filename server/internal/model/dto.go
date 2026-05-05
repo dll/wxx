@@ -110,3 +110,22 @@ type KBDetailResponse struct {
 	Message string      `json:"message"`
 	Data    *KBResource `json:"data"`
 }
+
+// ── 知识大厅浏览 DTO ──
+
+// KnowledgeCard 知识大厅卡片数据（轻量，不含正文）
+type KnowledgeCard struct {
+	ResourceID   string `json:"resource_id"`    // 资源业务 ID
+	ResourceType string `json:"resource_type"`  // 资源类型：Policy/Process/FAQ/Activity
+	Title        string `json:"title"`          // 标题
+	Summary      string `json:"summary"`        // 摘要（卡片展示用）
+	Tags         string `json:"tags"`           // 标签（JSON 数组字符串）
+	SourceLink   string `json:"source_link"`    // 原文链接
+}
+
+// KnowledgeBrowseResponse 知识大厅浏览响应（按类型分组）
+type KnowledgeBrowseResponse struct {
+	Code    int                       `json:"code"`
+	Message string                    `json:"message"`
+	Data    map[string][]*KnowledgeCard `json:"data"` // key = resource_type
+}

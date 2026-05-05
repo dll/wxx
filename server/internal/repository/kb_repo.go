@@ -244,6 +244,51 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 	return steps, rows.Err()
 }
 
+// GetPublishedCards 获取已发布的知识卡片（供知识大厅浏览，面向所有已认证用户）
+// ownerScope/ownerID: 归属范围过滤（显示全校 + 当前范围）
+// role: 用户角色（过滤可见资源）
+// resourceType: 可选类型过滤，空字符串表示全部
+func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string) (map[string][]*model.KnowledgeCard, error) {
+	query := `SELECT resource_id, resource_type, title, summary, tags, source_link
+	 FROM kb_resources
+	 WHERE status = 'published'
+	   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
+	   AND role_scope LIKE ?
+	 ORDER BY resource_type, updated_at DESC`
+	args := []interface{}{ownerScope, ownerID, "%" + role + "%"}
+
+	if resourceType != "" {
+		query = `SELECT resource_id, resource_type, title, summary, tags, source_link
+		 FROM kb_resources
+		 WHERE status = 'published'
+		   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
+		   AND role_scope LIKE ?
+		   AND resource_type = ?
+		 ORDER BY resource_type, updated_at DESC`
+		args = append(args, resourceType)
+	}
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识大厅数据失败: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]*model.KnowledgeCard)
+	for rows.Next() {
+		card := &model.KnowledgeCard{}
+		if err := rows.Scan(
+			&card.ResourceID, &card.ResourceType, &card.Title,
+			&card.Summary, &card.Tags, &card.SourceLink,
+		); err != nil {
+			return nil, err
+		}
+		result[card.ResourceType] = append(result[card.ResourceType], card)
+	}
+
+	return result, rows.Err()
+}
+
 // escapeQuery 转义 FTS5 查询中的特殊字符
 func escapeQuery(q string) string {
 	q = strings.TrimSpace(q)

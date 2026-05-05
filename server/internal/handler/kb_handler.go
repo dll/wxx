@@ -20,6 +20,36 @@ func NewKBHandler(kbSvc *service.KBService) *KBHandler {
 	return &KBHandler{kbSvc: kbSvc}
 }
 
+// BrowseKnowledge 知识大厅浏览（面向所有已认证用户，无需管理角色）
+// GET /api/v1/knowledge?type=Policy
+func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
+	resourceType := c.Query("type")
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	cards, err := h.kbSvc.Browse(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, resourceType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取知识大厅数据失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KnowledgeBrowseResponse{
+		Code:    0,
+		Message: "success",
+		Data:    cards,
+	})
+}
+
 // ListResources 知识列表（分页 + 过滤）
 // GET /api/v1/kb/resources?page=1&page_size=20&status=published&resource_type=Policy&owner_scope=school
 func (h *KBHandler) ListResources(c *gin.Context) {
