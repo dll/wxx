@@ -259,22 +259,6 @@ func (s *KBService) ImportResources(ndjsonData string, username string) (*model.
 
 // ExportResources 导出知识资源（无分页，用于同步/备份）
 func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
-	// 获取最多 5000 条已发布资源（导出场景无需分页）
-	list, err := s.kbRepo.List("", "", "published", resourceType, 0, 5000)
-	if err != nil {
-		return nil, fmt.Errorf("导出知识资源失败: %w", err)
-	}
-
-	// 按 sinceCursor 过滤增量（cursor 格式: RFC3339 时间戳）
-	if sinceCursor != "" {
-		filtered := make([]*model.KBResource, 0, len(list))
-		for _, r := range list {
-			if r.UpdatedAt >= sinceCursor {
-				filtered = append(filtered, r)
-			}
-		}
-		list = filtered
-	}
-
-	return list, nil
+	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历
+	return s.kbRepo.ListSince(resourceType, sinceCursor, 5000)
 }

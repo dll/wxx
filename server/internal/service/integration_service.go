@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/util"
 )
 
 // IntegrationService 校外系统代理服务（只读）
@@ -93,18 +94,10 @@ func (s *IntegrationService) proxyGet(baseURL, token, path string, query map[str
 
 	// 检查 HTTP 状态码
 	if resp.StatusCode >= 400 {
-		log.Printf("[%s] 返回错误 status=%d body=%s", systemName, resp.StatusCode, truncateStr(string(body), 200))
+		log.Printf("[%s] 返回错误 status=%d body=%s", systemName, resp.StatusCode, util.TruncateString(string(body), 200))
 		return nil, fmt.Errorf("%s 返回错误 HTTP %d", systemName, resp.StatusCode)
 	}
 
 	log.Printf("[%s] 代理成功 path=%s status=%d", systemName, path, resp.StatusCode)
 	return json.RawMessage(body), nil
-}
-
-// truncateStr 截断字符串用于日志
-func truncateStr(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }

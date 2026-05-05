@@ -40,7 +40,7 @@ func (h *ExportHandler) Export(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "导出失败: " + err.Error(),
+			Message: "导出服务暂不可用，请稍后重试",
 		})
 		return
 	}
@@ -57,7 +57,7 @@ func (h *ExportHandler) Export(c *gin.Context) {
 		Message: "导出成功",
 		Manifest: model.ExportManifest{
 			ExportedAt: cursor,
-			Format:     "ndjson",
+			Format:     "json",
 			Count:      len(resources),
 			Cursor:     cursor,
 			Version:    "1.0",

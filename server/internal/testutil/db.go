@@ -63,7 +63,7 @@ func NewTestDBFull(t *testing.T) *sql.DB {
 func execMigrationSQL(t *testing.T, db *sql.DB, content string) {
 	t.Helper()
 
-	for _, stmt := range splitSQL(content) {
+	for _, stmt := range SplitSQL(content) {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" {
 			continue
@@ -74,8 +74,8 @@ func execMigrationSQL(t *testing.T, db *sql.DB, content string) {
 	}
 }
 
-// splitSQL 按分号分割 SQL 语句，正确处理触发器复合语句
-func splitSQL(content string) []string {
+// SplitSQL 按分号分割 SQL 语句，正确处理触发器复合语句
+func SplitSQL(content string) []string {
 	var statements []string
 	var current strings.Builder
 	inTrigger := false

@@ -40,7 +40,7 @@ func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "获取知识大厅数据失败: " + err.Error(),
+			Message: "获取知识大厅数据失败，请稍后重试",
 		})
 		return
 	}
@@ -66,7 +66,7 @@ func (h *KBHandler) ListResources(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询知识列表失败: " + err.Error(),
+			Message: "查询知识列表失败，请稍后重试",
 		})
 		return
 	}
@@ -134,7 +134,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "创建知识资源失败: " + err.Error(),
+			Message: "创建知识资源失败，请稍后重试",
 		})
 		return
 	}
@@ -174,10 +174,26 @@ func (h *KBHandler) Import(c *gin.Context) {
 		return
 	}
 
-	// 直接解析原始 body：尝试 JSON 包裹格式，否则按 NDJSON 处理
+	// 根据 Content-Type 判断格式，未知时回退到试探解析
+	contentType := c.GetHeader("Content-Type")
+	isJSONWrapper := strings.HasPrefix(contentType, "application/json") && !strings.Contains(contentType, "ndjson")
 	ndjsonData := string(body)
-	var importReq model.KBImportRequest
-	if err := json.Unmarshal(body, &importReq); err == nil && len(importReq.Resources) > 0 {
+	if isJSONWrapper {
+		var importReq model.KBImportRequest
+		if err := json.Unmarshal(body, &importReq); err != nil {
+			c.JSON(http.StatusBadRequest, model.ErrorResponse{
+				Code:    400,
+				Message: "JSON 格式错误，无法解析请求体",
+			})
+			return
+		}
+		if len(importReq.Resources) == 0 {
+			c.JSON(http.StatusBadRequest, model.ErrorResponse{
+				Code:    400,
+				Message: "resources 数组为空",
+			})
+			return
+		}
 		var lines []string
 		for _, r := range importReq.Resources {
 			b, _ := json.Marshal(r)
@@ -190,7 +206,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "导入失败: " + err.Error(),
+			Message: "导入失败，请检查数据格式后重试",
 		})
 		return
 	}
@@ -232,7 +248,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "更新知识资源失败: " + err.Error(),
+			Message: "更新知识资源失败，请稍后重试",
 		})
 		return
 	}

@@ -77,32 +77,6 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	return results, rows.Err()
 }
 
-// GetByID 根据内部 ID 查询，同时返回 resource_id 用于幂等判断
-func (r *KBRepo) GetByID(id int64) (*model.KBResource, error) {
-	kb := &model.KBResource{}
-	err := r.db.QueryRow(
-		`SELECT id, resource_id, resource_type, owner_scope, owner_id,
-			role_scope, version, status, title, summary,
-			content, source_link, source_version,
-			effective_at, expired_at, tags,
-			updated_by, created_at, updated_at
-		 FROM kb_resources WHERE id = ?`, id,
-	).Scan(
-		&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
-		&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
-		&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-		&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
-		&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return kb, nil
-}
-
 // Upsert 幂等导入：resource_id 已存在时按版本号决定更新或跳过
 // 返回 action: "created" / "updated" / "skipped"
 func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
@@ -140,13 +114,19 @@ func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
 	return id, "created", nil
 }
 
-// compareVersion 比较语义化版本号（X.Y.Z 格式）
+// compareVersion 比较语义化版本号（兼容 "1" / "1.0" / "1.0.0" 三种形式）
 // 返回 -1: v1 < v2, 0: equal, 1: v1 > v2
+// 版本格式完全无效时返回 0（视为相同，保守策略）
 func compareVersion(v1, v2 string) int {
 	var major1, minor1, patch1 int
 	var major2, minor2, patch2 int
-	fmt.Sscanf(v1, "%d.%d.%d", &major1, &minor1, &patch1)
-	fmt.Sscanf(v2, "%d.%d.%d", &major2, &minor2, &patch2)
+	// Sscanf 返回成功解析的字段数；部分匹配（如 "2.0"）n>=1 且 err!=nil
+	if n, _ := fmt.Sscanf(v1, "%d.%d.%d", &major1, &minor1, &patch1); n == 0 {
+		return 0
+	}
+	if n, _ := fmt.Sscanf(v2, "%d.%d.%d", &major2, &minor2, &patch2); n == 0 {
+		return 0
+	}
 
 	if major1 != major2 {
 		if major1 > major2 {
@@ -202,6 +182,51 @@ func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var list []*model.KBResource
+	for rows.Next() {
+		kb := &model.KBResource{}
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		list = append(list, kb)
+	}
+	return list, rows.Err()
+}
+
+// ListSince 查询 updated_at >= sinceCursor 的资源（增量导出用）
+func (r *KBRepo) ListSince(resourceType, sinceCursor string, limit int) ([]*model.KBResource, error) {
+	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
+		role_scope, version, status, title, summary,
+		content, source_link, source_version,
+		effective_at, expired_at, tags,
+		updated_by, created_at, updated_at
+	 FROM kb_resources WHERE status = 'published'`
+	args := []interface{}{}
+
+	if resourceType != "" {
+		query += " AND resource_type = ?"
+		args = append(args, resourceType)
+	}
+	if sinceCursor != "" {
+		query += " AND updated_at >= ?"
+		args = append(args, sinceCursor)
+	}
+
+	query += " ORDER BY updated_at DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("增量查询失败: %w", err)
 	}
 	defer rows.Close()
 

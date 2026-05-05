@@ -11,6 +11,7 @@ import (
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
 )
 
@@ -63,7 +64,7 @@ func (s *EmotionService) AnalyzeAndLog(ctx context.Context, userID int64, userna
 		UserID:       userID,
 		Username:     username,
 		SessionID:    sessionID,
-		MessageText:  truncateText(messageText, 500),
+		MessageText:  util.TruncateString(messageText, 500),
 		Score:        analysis.Score,
 		RiskLevel:    analysis.RiskLevel,
 		AnalysisJSON: string(analysisJSON),
@@ -217,7 +218,7 @@ func parseEmotionResponse(response string) (*emotionAnalysisResult, error) {
 
 	var result emotionAnalysisResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		return nil, fmt.Errorf("解析情感分析结果失败: %w, response: %s", err, truncateText(response, 200))
+		return nil, fmt.Errorf("解析情感分析结果失败: %w, response: %s", err, util.TruncateString(response, 200))
 	}
 
 	// 校验 risk_level
@@ -239,14 +240,6 @@ func parseEmotionResponse(response string) (*emotionAnalysisResult, error) {
 }
 
 // ── 工具函数 ──
-
-func truncateText(text string, maxLen int) string {
-	runes := []rune(text)
-	if len(runes) <= maxLen {
-		return text
-	}
-	return string(runes[:maxLen]) + "..."
-}
 
 func boolToInt(b bool) int {
 	if b {

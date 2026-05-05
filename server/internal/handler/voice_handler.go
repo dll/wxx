@@ -60,7 +60,7 @@ func (h *VoiceHandler) ASR(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "语音识别失败：" + err.Error(),
+			Message: "语音识别失败，请稍后重试",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -101,7 +101,7 @@ func (h *VoiceHandler) TTS(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "语音合成失败：" + err.Error(),
+			Message: "语音合成失败，请稍后重试",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

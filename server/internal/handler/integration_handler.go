@@ -50,7 +50,7 @@ func (h *IntegrationHandler) ProxyXuegong(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadGateway, model.ErrorResponse{
 			Code:    502,
-			Message: err.Error(),
+			Message: "外部系统暂不可用，请稍后重试",
 		})
 		return
 	}
@@ -88,7 +88,7 @@ func (h *IntegrationHandler) ProxyYBT(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadGateway, model.ErrorResponse{
 			Code:    502,
-			Message: err.Error(),
+			Message: "外部系统暂不可用，请稍后重试",
 		})
 		return
 	}

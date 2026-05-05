@@ -37,7 +37,7 @@ func setupEmotionTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 				t.Fatalf("读取迁移文件 %s 失败: %v", m, err)
 			}
 		}
-		for _, stmt := range splitSQLStatements(string(sql)) {
+		for _, stmt := range testutil.SplitSQL(string(sql)) {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
@@ -140,39 +140,4 @@ func TestEmotionHandler_GetStats(t *testing.T) {
 	if resp.Data == nil {
 		t.Fatal("data 不应为 nil")
 	}
-}
-
-// helpers
-
-func splitSQLStatements(content string) []string {
-	var statements []string
-	var current strings.Builder
-	inTrigger := false
-
-	for _, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "--") {
-			continue
-		}
-		upper := strings.ToUpper(trimmed)
-		if strings.Contains(upper, "CREATE TRIGGER") {
-			inTrigger = true
-		}
-		current.WriteString(line)
-		current.WriteString("\n")
-		if inTrigger && strings.HasSuffix(trimmed, "END;") {
-			statements = append(statements, current.String())
-			current.Reset()
-			inTrigger = false
-			continue
-		}
-		if !inTrigger && strings.HasSuffix(trimmed, ";") {
-			statements = append(statements, current.String())
-			current.Reset()
-		}
-	}
-	if remaining := strings.TrimSpace(current.String()); remaining != "" {
-		statements = append(statements, remaining)
-	}
-	return statements
 }

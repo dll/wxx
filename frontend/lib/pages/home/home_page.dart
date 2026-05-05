@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../providers/home_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../utils/storage.dart';
 
@@ -28,7 +28,7 @@ class _HomePageState extends State<HomePage> {
     final role = Storage.role;
     // 辅导员及以上角色加载告警统计
     if (_canAccessAlerts(role)) {
-      context.read<HomeProvider>().loadStats();
+      context.read<EmotionProvider>().fetchStats();
     }
     // 加载最近会话
     context.read<SessionProvider>().fetchSessions();
@@ -149,7 +149,7 @@ class _HomePageState extends State<HomePage> {
 
   /// 告警统计概览（辅导员及以上可见）
   Widget _buildAlertOverview(ThemeData theme) {
-    final stats = context.watch<HomeProvider>();
+    final stats = context.watch<EmotionProvider>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

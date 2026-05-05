@@ -51,7 +51,7 @@ func (h *EmotionHandler) Analyze(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "情感分析失败: " + err.Error(),
+			Message: "情感分析服务暂不可用，请稍后重试",
 		})
 		return
 	}
@@ -88,7 +88,7 @@ func (h *EmotionHandler) ListAlerts(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询告警列表失败: " + err.Error(),
+			Message: "查询告警列表失败，请稍后重试",
 		})
 		return
 	}
@@ -117,7 +117,7 @@ func (h *EmotionHandler) GetStats(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询统计失败: " + err.Error(),
+			Message: "查询统计失败，请稍后重试",
 		})
 		return
 	}
@@ -147,7 +147,7 @@ func (h *EmotionHandler) Trends(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "获取趋势数据失败: " + err.Error(),
+			Message: "获取趋势数据失败，请稍后重试",
 		})
 		return
 	}
@@ -193,7 +193,7 @@ func (h *EmotionHandler) UpdateAlert(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "更新告警状态失败: " + err.Error(),
+			Message: "更新告警状态失败，请稍后重试",
 		})
 		return
 	}
