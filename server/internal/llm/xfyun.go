@@ -377,23 +377,21 @@ func buildAuthURL(host, path, apiKey, apiSecret string) (string, error) {
 	mac.Write([]byte(signatureOrigin))
 	signature := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-	// authorization = base64(apiKey:signature)
-	authRaw := fmt.Sprintf("%s:%s", apiKey, signature)
-	auth := base64.StdEncoding.EncodeToString([]byte(authRaw))
+	// authorization = base64(api_key="...", algorithm="hmac-sha256", headers="host date request-line", signature="...")
+	authOrigin := fmt.Sprintf(
+		`api_key="%s", algorithm="hmac-sha256", headers="host date request-line", signature="%s"`,
+		apiKey, signature,
+	)
+	auth := base64.StdEncoding.EncodeToString([]byte(authOrigin))
 
-	// 构造 URL
-	rawURL := fmt.Sprintf("wss://%s%s", host, path)
+	// 构造 URL（手动拼接 query string，用 url.QueryEscape 确保空格编码为 %20）
+	// 注意：url.Values.Encode() 将空格编码为 '+'，讯飞 API 要求 '%20'
+	queryString := fmt.Sprintf(
+		"authorization=%s&date=%s&host=%s",
+		url.QueryEscape(auth),
+		url.QueryEscape(dateStr),
+		url.QueryEscape(host),
+	)
 
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("解析 WebSocket URL 失败: %w", err)
-	}
-
-	q := u.Query()
-	q.Set("authorization", auth)
-	q.Set("date", dateStr)
-	q.Set("host", host)
-	u.RawQuery = q.Encode()
-
-	return u.String(), nil
+	return fmt.Sprintf("wss://%s%s?%s", host, path, queryString), nil
 }
