@@ -157,3 +157,46 @@ type EmotionListResponse struct {
 type EmotionUpdateRequest struct {
 	Status string `json:"status" binding:"required,oneof=acknowledged resolved"` // 目标状态
 }
+
+// ── 智能体管理 DTO ──
+
+// AgentCreateRequest 创建智能体请求
+type AgentCreateRequest struct {
+	AgentID       string  `json:"agent_id" binding:"required"`                    // 唯一标识
+	Name          string  `json:"name" binding:"required"`                        // 显示名
+	Description   string  `json:"description"`                                    // 描述
+	AgentType     string  `json:"agent_type" binding:"required,oneof=qa policy emotion custom"` // 类型
+	SystemPrompt  string  `json:"system_prompt"`                                  // 自定义系统提示词
+	ModelProvider string  `json:"model_provider"`                                 // deepseek / zhipu
+	ModelName     string  `json:"model_name"`                                     // 具体模型
+	Temperature   float64 `json:"temperature"`                                    // 0.0-2.0
+	MaxTokens     int     `json:"max_tokens"`                                     // 最大 token 数
+}
+
+// AgentUpdateRequest 更新智能体请求
+type AgentUpdateRequest struct {
+	Name          *string  `json:"name"`          // 显示名
+	Description   *string  `json:"description"`   // 描述
+	AgentType     *string  `json:"agent_type"`    // 类型
+	SystemPrompt  *string  `json:"system_prompt"` // 自定义系统提示词
+	ModelProvider *string  `json:"model_provider"`// deepseek / zhipu
+	ModelName     *string  `json:"model_name"`    // 具体模型
+	Temperature   *float64 `json:"temperature"`   // 0.0-2.0
+	MaxTokens     *int     `json:"max_tokens"`    // 最大 token 数
+	Status        *string  `json:"status"`        // active / inactive
+}
+
+// AgentListResponse 智能体列表响应
+type AgentListResponse struct {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Data    []*Agent `json:"data"`
+	Total   int      `json:"total"`
+}
+
+// AgentDetailResponse 智能体详情响应
+type AgentDetailResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    *Agent `json:"data"`
+}

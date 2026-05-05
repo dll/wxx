@@ -19,5 +19,7 @@
 | 2026-05-05 | 附录 A.2 | 新增 `POST /api/v1/emotion/analyze` 情感分析接口（支持手动触发 LLM 情感分析） | 向前兼容 |
 | 2026-05-05 | 附录 A.2 | 新增 `GET /api/v1/emotion/alerts` 告警列表接口（分页 + 风险等级/状态过滤 + 角色范围隔离） | 向前兼容 |
 | 2026-05-05 | 附录 A.2 | 新增 `PUT /api/v1/emotion/alerts/:id` 更新告警状态接口（确认/已处理） | 向前兼容 |
+| 2026-05-05 | 附录 A.2 | 新增 `GET/POST /api/v1/agents` 智能体列表和创建接口（school_admin+） | 向前兼容 |
+| 2026-05-05 | 附录 A.2 | 新增 `GET/PUT/DELETE /api/v1/agents/:id` 智能体详情/更新/删除接口（school_admin+） | 向前兼容 |
 
 （首个正式版本发布后在此登记。）

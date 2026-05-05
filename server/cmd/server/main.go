@@ -47,6 +47,7 @@ func main() {
 	messageRepo := repository.NewMessageRepo(db)
 	kbRepo := repository.NewKBRepo(db)
 	emotionRepo := repository.NewEmotionRepo(db)
+	agentRepo := repository.NewAgentRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -85,6 +86,10 @@ func main() {
 		log.Println("情感预警服务已启用")
 	}
 
+	// 智能体管理服务（独立于 LLM Client）
+	agentSvc := service.NewAgentService(agentRepo)
+	log.Println("智能体管理服务已启用")
+
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
@@ -110,8 +115,11 @@ func main() {
 		emotionHandler = handler.NewEmotionHandler(emotionSvc)
 	}
 
+	// Agent handler（智能体管理 API）
+	agentHandler := handler.NewAgentHandler(agentSvc)
+
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -175,7 +183,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler, agentHandler *handler.AgentHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -235,6 +243,17 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 				kb.POST("/resources", kbH.CreateResource)
 				kb.PUT("/resources/:id", kbH.UpdateResource)
 				kb.GET("/resources/:id", kbH.GetResource)
+			}
+
+			// 智能体管理（需 school_admin 及以上角色）
+			agents := secured.Group("/agents")
+			agents.Use(middleware.RequireRole("school_admin"))
+			{
+				agents.GET("", agentHandler.List)
+				agents.POST("", agentHandler.Create)
+				agents.GET("/:id", agentHandler.Get)
+				agents.PUT("/:id", agentHandler.Update)
+				agents.DELETE("/:id", agentHandler.Delete)
 			}
 
 			// 语音接口（ASR + TTS）

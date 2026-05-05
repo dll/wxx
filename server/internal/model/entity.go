@@ -120,3 +120,21 @@ type SyncCursor struct {
 	CursorVal string `json:"cursor_val" db:"cursor_val"`
 	UpdatedAt string `json:"updated_at" db:"updated_at"`
 }
+
+// Agent 智能体，对应 agents 表
+type Agent struct {
+	ID            int64   `json:"id" db:"id"`
+	AgentID       string  `json:"agent_id" db:"agent_id"`
+	Name          string  `json:"name" db:"name"`
+	Description   string  `json:"description" db:"description"`
+	AgentType     string  `json:"agent_type" db:"agent_type"`         // qa / policy / emotion / custom
+	SystemPrompt  string  `json:"system_prompt" db:"system_prompt"`
+	ModelProvider string  `json:"model_provider" db:"model_provider"` // deepseek / zhipu
+	ModelName     string  `json:"model_name" db:"model_name"`
+	Temperature   float64 `json:"temperature" db:"temperature"`
+	MaxTokens     int     `json:"max_tokens" db:"max_tokens"`
+	Status        string  `json:"status" db:"status"` // active / inactive
+	ConfigJSON    string  `json:"config_json" db:"config_json"`
+	CreatedAt     string  `json:"created_at" db:"created_at"`
+	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
+}
