@@ -59,6 +59,15 @@ func main() {
 		log.Println("警告：未配置任何 LLM API Key，问答功能不可用")
 	}
 
+	// 讯飞语音客户端（ASR + TTS）
+	var xfyunClient *llm.XfyunClient
+	if cfg.XfyunAPIKey != "" && cfg.XfyunAPISecret != "" {
+		xfyunClient = llm.NewXfyunClient(cfg)
+		log.Println("讯飞语音客户端已启用")
+	} else {
+		log.Println("提示：未配置讯飞语音 API，语音功能不可用")
+	}
+
 	// Service 层
 	authSvc := service.NewAuthService(cfg, userRepo)
 	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
@@ -77,8 +86,14 @@ func main() {
 		chatHandler = handler.NewChatHandler(chatSvc)
 	}
 
+	// Voice handler（语音 ASR + TTS）
+	var voiceHandler *handler.VoiceHandler
+	if xfyunClient != nil {
+		voiceHandler = handler.NewVoiceHandler(xfyunClient)
+	}
+
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -142,7 +157,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -188,6 +203,12 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 				kb.POST("/resources", kbH.CreateResource)
 				kb.PUT("/resources/:id", kbH.UpdateResource)
 				kb.GET("/resources/:id", kbH.GetResource)
+			}
+
+			// 语音接口（ASR + TTS）
+			if voiceHandler != nil {
+				secured.POST("/voice/asr", voiceHandler.ASR)
+				secured.POST("/voice/tts", voiceHandler.TTS)
 			}
 
 			// 导出
