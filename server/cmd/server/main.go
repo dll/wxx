@@ -46,6 +46,7 @@ func main() {
 	sessionRepo := repository.NewSessionRepo(db)
 	messageRepo := repository.NewMessageRepo(db)
 	kbRepo := repository.NewKBRepo(db)
+	emotionRepo := repository.NewEmotionRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -77,6 +78,13 @@ func main() {
 		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, llmClient)
 	}
 
+	// 情感预警服务（依赖 LLM Client）
+	var emotionSvc *service.EmotionService
+	if llmClient != nil {
+		emotionSvc = service.NewEmotionService(emotionRepo, llmClient)
+		log.Println("情感预警服务已启用")
+	}
+
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
@@ -84,6 +92,10 @@ func main() {
 	var chatHandler *handler.ChatHandler
 	if chatSvc != nil {
 		chatHandler = handler.NewChatHandler(chatSvc)
+		// 注入情感分析服务到聊天链路
+		if emotionSvc != nil {
+			chatHandler.SetEmotionService(emotionSvc)
+		}
 	}
 
 	// Voice handler（语音 ASR + TTS）
@@ -92,8 +104,14 @@ func main() {
 		voiceHandler = handler.NewVoiceHandler(xfyunClient)
 	}
 
+	// Emotion handler（情感预警 API）
+	var emotionHandler *handler.EmotionHandler
+	if emotionSvc != nil {
+		emotionHandler = handler.NewEmotionHandler(emotionSvc)
+	}
+
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -157,7 +175,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -197,6 +215,17 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 
 			// 知识大厅浏览（所有已认证用户可访问）
 			secured.GET("/knowledge", kbH.BrowseKnowledge)
+
+			// 情感预警（需 counselor 及以上角色）
+			if emotionHandler != nil {
+				emotion := secured.Group("/emotion")
+				emotion.Use(middleware.RequireRole("counselor"))
+				{
+					emotion.POST("/analyze", emotionHandler.Analyze)
+					emotion.GET("/alerts", emotionHandler.ListAlerts)
+					emotion.PUT("/alerts/:id", emotionHandler.UpdateAlert)
+				}
+			}
 
 			// 知识库管理（需 counselor 及以上角色）
 			kb := secured.Group("/kb")

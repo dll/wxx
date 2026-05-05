@@ -129,3 +129,31 @@ type KnowledgeBrowseResponse struct {
 	Message string                    `json:"message"`
 	Data    map[string][]*KnowledgeCard `json:"data"` // key = resource_type
 }
+
+// ── 情感预警 DTO ──
+
+// EmotionAnalyzeRequest 情感分析请求
+type EmotionAnalyzeRequest struct {
+	MessageText string `json:"message_text" binding:"required"` // 待分析文本
+	SessionID   string `json:"session_id" binding:"required"`   // 会话 ID
+}
+
+// EmotionAnalyzeResponse 情感分析响应
+type EmotionAnalyzeResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    *EmotionLog `json:"data"` // 分析结果
+}
+
+// EmotionListResponse 告警列表响应
+type EmotionListResponse struct {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    []*EmotionLog `json:"data"`
+	Total   int           `json:"total"`
+}
+
+// EmotionUpdateRequest 更新告警状态请求
+type EmotionUpdateRequest struct {
+	Status string `json:"status" binding:"required,oneof=acknowledged resolved"` // 目标状态
+}

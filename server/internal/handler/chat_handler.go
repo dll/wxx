@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"log"
 	"net/http"
 
 	"github.com/dll/wxx/server/internal/middleware"
@@ -11,12 +13,18 @@ import (
 
 // ChatHandler 对话 handler
 type ChatHandler struct {
-	chatSvc *service.ChatService
+	chatSvc    *service.ChatService
+	emotionSvc *service.EmotionService // 可选：情感分析服务
 }
 
 // NewChatHandler 创建对话 handler
 func NewChatHandler(chatSvc *service.ChatService) *ChatHandler {
 	return &ChatHandler{chatSvc: chatSvc}
+}
+
+// SetEmotionService 设置情感分析服务（可选）
+func (h *ChatHandler) SetEmotionService(emotionSvc *service.EmotionService) {
+	h.emotionSvc = emotionSvc
 }
 
 // Ask 处理对话请求
@@ -53,6 +61,22 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
+	}
+
+	// 异步情感分析（不阻塞回复，失败不影响聊天体验）
+	if h.emotionSvc != nil {
+		go func() {
+			_, err := h.emotionSvc.AnalyzeAndLog(
+				context.Background(),
+				userCtx.UserID,
+				userCtx.Username,
+				sessionID,
+				req.Question,
+			)
+			if err != nil {
+				log.Printf("异步情感分析失败: %v", err)
+			}
+		}()
 	}
 
 	c.JSON(http.StatusOK, model.ChatResponse{

@@ -85,13 +85,20 @@ type AuditLog struct {
 
 // EmotionLog 情感评估记录，对应 emotion_logs 表
 type EmotionLog struct {
-	ID        int64   `json:"id" db:"id"`
-	UserID    int64   `json:"user_id" db:"user_id"`
-	SessionID string  `json:"session_id" db:"session_id"`
-	Score     float64 `json:"score" db:"score"`         // 情感评分
-	RiskLevel string  `json:"risk_level" db:"risk_level"` // low/medium/high
-	Notified  int     `json:"notified" db:"notified"`     // 是否已通知
-	CreatedAt string  `json:"created_at" db:"created_at"`
+	ID             int64   `json:"id" db:"id"`
+	UserID         int64   `json:"user_id" db:"user_id"`
+	Username       string  `json:"username" db:"username"`
+	SessionID      string  `json:"session_id" db:"session_id"`
+	AlertID        string  `json:"alert_id" db:"alert_id"`
+	MessageText    string  `json:"message_text" db:"message_text"`
+	Score          float64 `json:"score" db:"score"`                   // 情感评分 -1.0~1.0
+	RiskLevel      string  `json:"risk_level" db:"risk_level"`         // low/medium/high
+	AnalysisJSON   string  `json:"analysis_json" db:"analysis_json"`   // LLM 分析原始结果
+	Notified       int     `json:"notified" db:"notified"`             // 是否已通知
+	Status         string  `json:"status" db:"status"`                 // pending/acknowledged/resolved
+	AcknowledgedBy string  `json:"acknowledged_by" db:"acknowledged_by"`
+	AcknowledgedAt string  `json:"acknowledged_at" db:"acknowledged_at"`
+	CreatedAt      string  `json:"created_at" db:"created_at"`
 }
 
 // ExportLog 导出记录，对应 export_logs 表
