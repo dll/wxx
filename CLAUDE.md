@@ -24,6 +24,7 @@
 - **不强制 Docker/容器/集群**；轻量单机部署
 - **政策/条件类回答** 必须附带 `sources[]`；低置信走兜底，禁止编造条款与关键数字
 - **多智能体管理中心自研**；编排运行时 = Eino（开源）+ 自研封装
+- **Flutter UI 规范**：Material Design 3 基线，响应式布局 + 暗黑模式 + 磨砂质感 + 动画微交互，详见 `docs/蔚小芯开发规范.md` §13
 
 ## Harness 协作纪律
 
@@ -37,7 +38,7 @@
 | 主题 | 路径 | 用途 |
 |------|------|------|
 | 产品与技术总纲 | `docs/蔚小芯智能体.md` | 架构、Context Engine、API 契约附录、分期、风险、对接字段 |
-| 开发主规范 | `docs/蔚小芯开发规范.md` | 约束口径、Harness、知识工程、安全隐私、验收对齐 |
+| 开发主规范 | `docs/蔚小芯开发规范.md` | 约束口径、Harness、知识工程、安全隐私、验收对齐、**Flutter UI 设计规范 (§13)** |
 | Context Engine 摘录 | `docs/context-engine.md` | 触发策略速查表、主链路、参数默认值 |
 | Harness 工作流 | `docs/harness-workflow.md` | 最小清单、与 Context Engine 衔接 |
 | 知识治理与运营 | `docs/knowledge-governance.md` | 审核流程、资源四类、同步导出 |
