@@ -101,6 +101,64 @@ func (h *EmotionHandler) ListAlerts(c *gin.Context) {
 	})
 }
 
+// GetStats 获取告警统计
+// GET /api/v1/emotion/stats
+func (h *EmotionHandler) GetStats(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	stats, err := h.emotionSvc.GetStats(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询统计失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.EmotionStatsResponse{
+		Code:    0,
+		Message: "success",
+		Data:    stats,
+	})
+}
+
+// Trends 获取情感趋势数据
+// GET /api/v1/emotion/trends?days=30
+func (h *EmotionHandler) Trends(c *gin.Context) {
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "7"))
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	report, err := h.emotionSvc.GetTrendReport(days, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取趋势数据失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.EmotionTrendResponse{
+		Code:    0,
+		Message: "success",
+		Data:    report,
+	})
+}
+
 // UpdateAlert 更新告警状态（确认/已处理）
 // PUT /api/v1/emotion/alerts/:id
 func (h *EmotionHandler) UpdateAlert(c *gin.Context) {

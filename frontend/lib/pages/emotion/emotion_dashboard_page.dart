@@ -15,12 +15,12 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
   @override
   void initState() {
     super.initState();
-    // 延迟加载，等 build 完成拿到 provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<EmotionProvider>();
       if (provider.alerts.isEmpty) {
         provider.loadAlerts();
       }
+      provider.fetchStats();
     });
   }
 
@@ -51,6 +51,7 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
       ),
       body: Column(
         children: [
+          _buildStatsSummary(),
           _buildFilterBar(),
           Expanded(child: _buildAlertList()),
         ],
@@ -161,6 +162,109 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
             .withValues(alpha: 0.5),
         side: BorderSide.none,
         showCheckmark: false,
+      ),
+    );
+  }
+
+  /// 统计概览卡片
+  Widget _buildStatsSummary() {
+    return Consumer<EmotionProvider>(
+      builder: (_, provider, __) {
+        final stats = provider.stats;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(
+            children: [
+              _buildStatCard(
+                label: '紧急',
+                count: stats?.urgent ?? 0,
+                color: const Color(0xFFC62828),
+                icon: Icons.warning_rounded,
+                loading: provider.statsLoading,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                label: '高风险',
+                count: stats?.high ?? 0,
+                color: const Color(0xFFE65100),
+                icon: Icons.error_outline,
+                loading: provider.statsLoading,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                label: '中风险',
+                count: stats?.medium ?? 0,
+                color: const Color(0xFFF9A825),
+                icon: Icons.info_outline,
+                loading: provider.statsLoading,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                label: '低风险',
+                count: stats?.low ?? 0,
+                color: const Color(0xFF4CAF50),
+                icon: Icons.check_circle_outline,
+                loading: provider.statsLoading,
+              ),
+              const SizedBox(width: 8),
+              _buildStatCard(
+                label: '待处理',
+                count: stats?.pending ?? 0,
+                color: const Color(0xFF1565C0),
+                icon: Icons.pending_actions,
+                loading: provider.statsLoading,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard({
+    required String label,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required bool loading,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
+        ),
+        child: loading
+            ? const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : Column(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

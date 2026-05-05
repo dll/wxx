@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../widgets/skeleton.dart';
 
 /// 会话历史页
 class SessionsPage extends StatefulWidget {
@@ -43,7 +44,7 @@ class _SessionsPageState extends State<SessionsPage> {
 
   Widget _buildBody(SessionProvider prov, ThemeData theme) {
     if (prov.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SessionsSkeleton();
     }
 
     if (prov.error != null) {

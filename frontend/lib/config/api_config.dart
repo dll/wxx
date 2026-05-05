@@ -29,6 +29,7 @@ class ApiConfig {
   // ── 情感预警 ──
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';
   static const String emotionAlerts = '$apiPrefix/emotion/alerts';
+  static const String emotionStats = '$apiPrefix/emotion/stats';
   static String emotionAlertUpdate(String id) => '$apiPrefix/emotion/alerts/$id';
 
   // ── 智能体管理 ──

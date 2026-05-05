@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../../providers/enrollment_provider.dart';
-import '../../widgets/answer_card.dart';
+import '../../widgets/skeleton.dart';
 
 /// 办事流程引导页（入学 / 离校）
 class EnrollmentPage extends StatefulWidget {
@@ -108,7 +109,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
   Widget _buildBody(EnrollmentProvider prov, ThemeData theme) {
     if (prov.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ChatSkeleton();
     }
 
     if (prov.error != null) {
@@ -169,7 +170,15 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(card.conclusion, style: theme.textTheme.bodyMedium?.copyWith(height: 1.6)),
+                    MarkdownBody(
+                      data: card.conclusion,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+                        strong: const TextStyle(fontWeight: FontWeight.bold),
+                        listBullet: theme.textTheme.bodyMedium,
+                      ),
+                    ),
                   ],
                 ),
               ),

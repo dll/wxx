@@ -77,6 +77,98 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	return results, rows.Err()
 }
 
+// GetByID 根据内部 ID 查询，同时返回 resource_id 用于幂等判断
+func (r *KBRepo) GetByID(id int64) (*model.KBResource, error) {
+	kb := &model.KBResource{}
+	err := r.db.QueryRow(
+		`SELECT id, resource_id, resource_type, owner_scope, owner_id,
+			role_scope, version, status, title, summary,
+			content, source_link, source_version,
+			effective_at, expired_at, tags,
+			updated_by, created_at, updated_at
+		 FROM kb_resources WHERE id = ?`, id,
+	).Scan(
+		&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+		&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+		&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+		&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+		&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return kb, nil
+}
+
+// Upsert 幂等导入：resource_id 已存在时按版本号决定更新或跳过
+// 返回 action: "created" / "updated" / "skipped"
+func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
+	// 查询是否已存在同名资源
+	existing, err := r.GetByResourceID(kb.ResourceID)
+	if err != nil {
+		return 0, "", fmt.Errorf("查询已有资源失败: %w", err)
+	}
+
+	if existing != nil {
+		// 幂等冲突解决：高版本覆盖低版本；retired 状态必须传播
+		if kb.Status == "retired" {
+			// retired 无条件覆盖
+		} else if compareVersion(kb.Version, existing.Version) < 0 {
+			// 导入版本更低，跳过
+			return existing.ID, "skipped", nil
+		} else if compareVersion(kb.Version, existing.Version) == 0 && existing.Status != "draft" {
+			// 相同版本且非草稿，跳过（避免重复导入）
+			return existing.ID, "skipped", nil
+		}
+		// 更新已有记录
+		kb.ID = existing.ID
+		kb.ResourceID = existing.ResourceID // 保持原 resource_id
+		if err := r.Update(kb); err != nil {
+			return 0, "", fmt.Errorf("更新资源失败: %w", err)
+		}
+		return existing.ID, "updated", nil
+	}
+
+	// 新建
+	id, err := r.Create(kb)
+	if err != nil {
+		return 0, "", fmt.Errorf("创建资源失败: %w", err)
+	}
+	return id, "created", nil
+}
+
+// compareVersion 比较语义化版本号（X.Y.Z 格式）
+// 返回 -1: v1 < v2, 0: equal, 1: v1 > v2
+func compareVersion(v1, v2 string) int {
+	var major1, minor1, patch1 int
+	var major2, minor2, patch2 int
+	fmt.Sscanf(v1, "%d.%d.%d", &major1, &minor1, &patch1)
+	fmt.Sscanf(v2, "%d.%d.%d", &major2, &minor2, &patch2)
+
+	if major1 != major2 {
+		if major1 > major2 {
+			return 1
+		}
+		return -1
+	}
+	if minor1 != minor2 {
+		if minor1 > minor2 {
+			return 1
+		}
+		return -1
+	}
+	if patch1 != patch2 {
+		if patch1 > patch2 {
+			return 1
+		}
+		return -1
+	}
+	return 0
+}
+
 // List 分页查询知识资源（支持 ownerScope/status/resourceType 过滤）
 func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, limit int) ([]*model.KBResource, error) {
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,

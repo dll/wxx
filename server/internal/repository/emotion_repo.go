@@ -108,6 +108,41 @@ func (r *EmotionRepo) ListAlerts(riskLevel string, status string, ownerScope str
 	return alerts, total, rows.Err()
 }
 
+// GetStats 获取告警统计（按角色过滤范围）
+func (r *EmotionRepo) GetStats(ownerScope string, ownerID string, role string) (*model.EmotionStats, error) {
+	where := "WHERE 1=1"
+	args := []interface{}{}
+
+	if role == "counselor" || role == "college_admin" {
+		where += " AND u.owner_scope = ?"
+		args = append(args, ownerScope)
+		if role == "counselor" && ownerID != "" {
+			where += " AND u.owner_id = ?"
+			args = append(args, ownerID)
+		}
+	}
+
+	query := fmt.Sprintf(
+		`SELECT
+		  COALESCE(SUM(CASE WHEN e.status = 'pending' THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN e.risk_level = 'urgent' THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN e.risk_level = 'high' THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN e.risk_level = 'medium' THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN e.risk_level = 'low' THEN 1 ELSE 0 END), 0)
+		FROM emotion_logs e
+		JOIN users u ON e.user_id = u.id
+		%s`, where)
+
+	stats := &model.EmotionStats{}
+	err := r.db.QueryRow(query, args...).Scan(
+		&stats.Pending, &stats.Urgent, &stats.High, &stats.Medium, &stats.Low,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("统计告警失败: %w", err)
+	}
+	return stats, nil
+}
+
 // GetByAlertID 根据告警 ID 查询
 func (r *EmotionRepo) GetByAlertID(alertID string) (*model.EmotionLog, error) {
 	a := &model.EmotionLog{}
@@ -130,6 +165,51 @@ func (r *EmotionRepo) GetByAlertID(alertID string) (*model.EmotionLog, error) {
 		return nil, err
 	}
 	return a, nil
+}
+
+// GetTrends 获取情感趋势数据（按天聚合，含角色范围过滤）
+func (r *EmotionRepo) GetTrends(days int, ownerScope, ownerID, role string) ([]*model.EmotionTrendPoint, error) {
+	where := "WHERE e.created_at >= datetime('now', ?)"
+	args := []interface{}{fmt.Sprintf("-%d days", days)}
+
+	if role == "counselor" || role == "college_admin" {
+		where += " AND u.owner_scope = ?"
+		args = append(args, ownerScope)
+		if role == "counselor" && ownerID != "" {
+			where += " AND u.owner_id = ?"
+			args = append(args, ownerID)
+		}
+	}
+
+	query := fmt.Sprintf(
+		`SELECT date(e.created_at) as date,
+			COUNT(*) as total,
+			COALESCE(SUM(CASE WHEN e.risk_level = 'urgent' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN e.risk_level = 'high' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN e.risk_level = 'medium' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN e.risk_level = 'low' THEN 1 ELSE 0 END), 0)
+		FROM emotion_logs e
+		JOIN users u ON e.user_id = u.id
+		%s
+		GROUP BY date(e.created_at)
+		ORDER BY date(e.created_at) ASC`, where)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("查询趋势数据失败: %w", err)
+	}
+	defer rows.Close()
+
+	var points []*model.EmotionTrendPoint
+	for rows.Next() {
+		p := &model.EmotionTrendPoint{}
+		if err := rows.Scan(&p.Date, &p.Total, &p.Urgent, &p.High, &p.Medium, &p.Low); err != nil {
+			return nil, err
+		}
+		points = append(points, p)
+	}
+
+	return points, rows.Err()
 }
 
 // UpdateStatus 更新告警状态

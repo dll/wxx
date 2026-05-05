@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
@@ -142,6 +144,58 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		Message: "创建成功",
 		Data:    kb,
 	})
+}
+
+// Import 导入知识资源（支持 NDJSON 文本 或 JSON 包裹格式 {"resources": [...]}）
+// POST /api/v1/kb/import
+func (h *KBHandler) Import(c *gin.Context) {
+	body, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "读取请求体失败: " + err.Error(),
+		})
+		return
+	}
+	if len(body) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求体为空",
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	// 直接解析原始 body：尝试 JSON 包裹格式，否则按 NDJSON 处理
+	ndjsonData := string(body)
+	var importReq model.KBImportRequest
+	if err := json.Unmarshal(body, &importReq); err == nil && len(importReq.Resources) > 0 {
+		var lines []string
+		for _, r := range importReq.Resources {
+			b, _ := json.Marshal(r)
+			lines = append(lines, string(b))
+		}
+		ndjsonData = strings.Join(lines, "\n")
+	}
+
+	resp, err := h.kbSvc.ImportResources(ndjsonData, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "导入失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateResource 更新知识资源

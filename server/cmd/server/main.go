@@ -90,6 +90,15 @@ func main() {
 	agentSvc := service.NewAgentService(agentRepo)
 	log.Println("智能体管理服务已启用")
 
+	// 校外系统对接服务（学工 / 一表通）
+	integrationSvc := service.NewIntegrationService(cfg)
+	if integrationSvc.IsXuegongAvailable() {
+		log.Println("学工系统对接已配置")
+	}
+	if integrationSvc.IsYBTAvailable() {
+		log.Println("一表通对接已配置")
+	}
+
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
@@ -118,8 +127,14 @@ func main() {
 	// Agent handler（智能体管理 API）
 	agentHandler := handler.NewAgentHandler(agentSvc)
 
+	// Export handler（知识导出）
+	exportHandler := handler.NewExportHandler(kbSvc)
+
+	// Integration handler（校外系统对接）
+	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
+
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -183,7 +198,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler, agentHandler *handler.AgentHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler, agentHandler *handler.AgentHandler, exportHandler *handler.ExportHandler, integrationHandler *handler.IntegrationHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -224,7 +239,12 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 			// 知识大厅浏览（所有已认证用户可访问）
 			secured.GET("/knowledge", kbH.BrowseKnowledge)
 
-			// 情感预警（需 counselor 及以上角色）
+			// 情感预警统计（所有已认证用户可访问，角色过滤在 service 层处理）
+			if emotionHandler != nil {
+				secured.GET("/emotion/stats", emotionHandler.GetStats)
+			}
+
+			// 情感预警管理（需 counselor 及以上角色）
 			if emotionHandler != nil {
 				emotion := secured.Group("/emotion")
 				emotion.Use(middleware.RequireRole("counselor"))
@@ -232,6 +252,7 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 					emotion.POST("/analyze", emotionHandler.Analyze)
 					emotion.GET("/alerts", emotionHandler.ListAlerts)
 					emotion.PUT("/alerts/:id", emotionHandler.UpdateAlert)
+					emotion.GET("/trends", emotionHandler.Trends)
 				}
 			}
 
@@ -243,6 +264,7 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 				kb.POST("/resources", kbH.CreateResource)
 				kb.PUT("/resources/:id", kbH.UpdateResource)
 				kb.GET("/resources/:id", kbH.GetResource)
+				kb.POST("/import", kbH.Import)
 			}
 
 			// 智能体管理（需 school_admin 及以上角色）
@@ -262,8 +284,17 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 				secured.POST("/voice/tts", voiceHandler.TTS)
 			}
 
-			// 导出
-			secured.POST("/export", placeholderHandler("导出"))
+			// 知识导出（需认证）
+			secured.GET("/export", exportHandler.Export)
+
+			// 校外系统对接（需 counselor 及以上角色）
+			integration := secured.Group("/integration")
+			integration.Use(middleware.RequireRole("counselor"))
+			{
+				integration.GET("/status", integrationHandler.Status)
+				integration.GET("/xuegong/*path", integrationHandler.ProxyXuegong)
+				integration.GET("/ybt/*path", integrationHandler.ProxyYBT)
+			}
 
 			// 用户信息
 			secured.GET("/user/profile", authH.Profile)

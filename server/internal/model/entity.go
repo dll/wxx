@@ -121,6 +121,15 @@ type SyncCursor struct {
 	UpdatedAt string `json:"updated_at" db:"updated_at"`
 }
 
+// EmotionStats 情感告警统计
+type EmotionStats struct {
+	Pending int `json:"pending"`
+	Urgent  int `json:"urgent"`
+	High    int `json:"high"`
+	Medium  int `json:"medium"`
+	Low     int `json:"low"`
+}
+
 // Agent 智能体，对应 agents 表
 type Agent struct {
 	ID            int64   `json:"id" db:"id"`

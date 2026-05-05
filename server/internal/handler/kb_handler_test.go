@@ -46,6 +46,7 @@ func setupKBTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 	kbWrite.Use(middleware.RequireRole("counselor"))
 	kbWrite.POST("/kb/resources", kbHandler.CreateResource)
 	kbWrite.PUT("/kb/resources/:id", kbHandler.UpdateResource)
+	kbWrite.POST("/kb/import", kbHandler.Import)
 
 	return r, cfg
 }
@@ -220,5 +221,120 @@ func TestKBHandler_UpdateResource_Success(t *testing.T) {
 	}
 	if updateResp.Data.Status != "published" {
 		t.Errorf("期望 status=published，得到 %s", updateResp.Data.Status)
+	}
+}
+
+func TestKBHandler_Import_JSONWrapper(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	body := `{"resources":[
+		{"resource_id":"imp-001","resource_type":"FAQ","owner_scope":"school","role_scope":"[\"student\"]","title":"e5¯¼e585a5FAQ1","content":"e5¯¼e585a5e58685e5aeb91","version":"1.0","status":"published"},
+		{"resource_id":"imp-002","resource_type":"Policy","owner_scope":"school","role_scope":"[\"student\"]","title":"e5¯¼e585a5Policy2","content":"e5¯¼e585a5e58685e5aeb92","version":"1.0","status":"draft"}
+	]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("e6e69b 200efbc8ce5bee997 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KBImportResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("e8a7a3e69e90e5938de5ba94e5a4b1e8b4a5: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("e6e69b total=2efbc8ce5bee997 %d", resp.Total)
+	}
+	if resp.Created != 2 {
+		t.Errorf("e6e69b created=2efbc8ce5bee997 %d", resp.Created)
+	}
+}
+
+func TestKBHandler_Import_Idempotent(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	body := `{"resources":[
+		{"resource_id":"idem-001","resource_type":"FAQ","owner_scope":"school","role_scope":"[\"student\"]","title":"e5b982e7ad89e6b58be8af95","content":"e58685e5aeb9","version":"1.0","status":"published"}
+	]}`
+
+	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body))
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("Authorization", "Bearer "+token)
+	w1 := httptest.NewRecorder()
+	r.ServeHTTP(w1, req1)
+
+	var resp1 model.KBImportResponse
+	json.Unmarshal(w1.Body.Bytes(), &resp1)
+	if resp1.Created != 1 {
+		t.Errorf("e9a696e6aca1e5afbce585a5e5ba94 created=1efbc8ce5bee997 %d", resp1.Created)
+	}
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+token)
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	var resp2 model.KBImportResponse
+	json.Unmarshal(w2.Body.Bytes(), &resp2)
+	if resp2.Skipped != 1 {
+		t.Errorf("e5908ce78988e69cace9878de5a48de5afbce585a5e5ba94 skipped=1efbc8ce5bee997 %d", resp2.Skipped)
+	}
+}
+
+func TestKBHandler_Import_HigherVersion(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	body1 := `{"resources":[
+		{"resource_id":"ver-001","resource_type":"FAQ","owner_scope":"school","role_scope":"[\"student\"]","title":"e78988e69cace6b58be8af95","content":"v1e58685e5aeb9","version":"1.0","status":"published"}
+	]}`
+	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body1))
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("Authorization", "Bearer "+token)
+	r.ServeHTTP(httptest.NewRecorder(), req1)
+
+	body2 := `{"resources":[
+		{"resource_id":"ver-001","resource_type":"FAQ","owner_scope":"school","role_scope":"[\"student\"]","title":"e78988e69cace6b58be8af95v2","content":"v2e58685e5aeb9","version":"2.0","status":"published"}
+	]}`
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+token)
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	var resp model.KBImportResponse
+	json.Unmarshal(w2.Body.Bytes(), &resp)
+	if resp.Updated != 1 {
+		t.Errorf("e9ab98e78988e69cace5afbce585a5e5ba94 updated=1efbc8ce5bee997 %d", resp.Updated)
+	}
+}
+
+func TestKBHandler_Import_StudentForbidden(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	body := `{"resources":[{"resource_id":"x","resource_type":"FAQ","title":"x","content":"x"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/import", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("student e5ba94e8a2abe68b92e7bb9defbc8ce69c9fe69b 403 e5bee997 %d", w.Code)
 	}
 }

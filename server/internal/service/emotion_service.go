@@ -122,6 +122,42 @@ func (s *EmotionService) ListAlerts(riskLevel, status, ownerScope, ownerID, role
 	return s.emotionRepo.ListAlerts(riskLevel, status, ownerScope, ownerID, role, page, pageSize)
 }
 
+// GetStats 获取告警统计（按角色过滤范围）
+func (s *EmotionService) GetStats(ownerScope, ownerID, role string) (*model.EmotionStats, error) {
+	return s.emotionRepo.GetStats(ownerScope, ownerID, role)
+}
+
+// GetTrendReport 获取情感趋势报告（按天聚合，含范围过滤）
+func (s *EmotionService) GetTrendReport(days int, ownerScope, ownerID, role string) (*model.EmotionTrendReport, error) {
+	if days < 1 {
+		days = 7
+	}
+	if days > 365 {
+		days = 365
+	}
+
+	points, err := s.emotionRepo.GetTrends(days, ownerScope, ownerID, role)
+	if err != nil {
+		return nil, fmt.Errorf("获取趋势数据失败: %w", err)
+	}
+
+	// 计算汇总指标
+	report := &model.EmotionTrendReport{
+		Days:   days,
+		Points: points,
+	}
+	for _, p := range points {
+		report.Summary.TotalAnalyses += p.Total
+		report.Summary.TotalUrgent += p.Urgent
+		report.Summary.TotalHigh += p.High
+	}
+	if len(points) > 0 {
+		report.Summary.AvgDaily = report.Summary.TotalAnalyses / len(points)
+	}
+
+	return report, nil
+}
+
 // UpdateAlertStatus 更新告警状态（确认/已处理）
 func (s *EmotionService) UpdateAlertStatus(alertID, status, acknowledgedBy string) (*model.EmotionLog, error) {
 	if err := s.emotionRepo.UpdateStatus(alertID, status, acknowledgedBy); err != nil {

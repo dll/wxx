@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
 import '../pages/login/login_page.dart';
+import '../pages/home/home_page.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/sessions/sessions_page.dart';
 import '../pages/profile/profile_page.dart';
@@ -14,13 +15,13 @@ import '../pages/agent/agent_management_page.dart';
 
 /// 应用路由配置
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/chat',
+  initialLocation: '/home',
   redirect: (context, state) {
     final loggedIn = Storage.isLoggedIn;
     final isLoginPage = state.matchedLocation == '/login';
 
     if (!loggedIn && !isLoginPage) return '/login';
-    if (loggedIn && isLoginPage) return '/chat';
+    if (loggedIn && isLoginPage) return '/home';
 
     return null;
   },
@@ -32,6 +33,10 @@ final GoRouter appRouter = GoRouter(
     ShellRoute(
       builder: (context, state, child) => MainShell(child: child),
       routes: [
+        GoRoute(
+          path: '/home',
+          builder: (context, state) => const HomePage(),
+        ),
         GoRoute(
           path: '/chat',
           builder: (context, state) {
@@ -78,10 +83,10 @@ class _NavItem {
 }
 
 const _navItems = [
+  _NavItem('首页', Icons.home_outlined, Icons.home, '/home'),
   _NavItem('对话', Icons.chat_bubble_outline, Icons.chat_bubble, '/chat'),
   _NavItem('知识', Icons.menu_book_outlined, Icons.menu_book, '/browse'),
   _NavItem('办事', Icons.assignment_outlined, Icons.assignment, '/enrollment'),
-  _NavItem('历史', Icons.history, Icons.history, '/sessions'),
   _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
 ];
 

@@ -60,6 +60,25 @@ type UserContext struct {
 	DisplayName string // 显示名
 }
 
+// ── 知识导出 DTO ──
+
+// ExportManifest 导出清单
+type ExportManifest struct {
+	ExportedAt string `json:"exported_at"` // 导出时间 RFC3339
+	Format     string `json:"format"`      // 格式（ndjson）
+	Count      int    `json:"count"`       // 资源数量
+	Cursor     string `json:"cursor"`      // 游标（供下次增量使用）
+	Version    string `json:"version"`     // 包版本
+}
+
+// ExportResponse 导出响应
+type ExportResponse struct {
+	Code     int            `json:"code"`
+	Message  string         `json:"message"`
+	Manifest ExportManifest `json:"manifest"`
+	Data     []*KBResource  `json:"data"`
+}
+
 // ── 知识库管理 DTO ──
 
 // KBCreateRequest 创建知识资源请求
@@ -154,6 +173,13 @@ type EmotionListResponse struct {
 	Total   int           `json:"total"`
 }
 
+// EmotionStatsResponse 告警统计响应
+type EmotionStatsResponse struct {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    *EmotionStats  `json:"data"`
+}
+
 // EmotionUpdateRequest 更新告警状态请求
 type EmotionUpdateRequest struct {
 	Status string `json:"status" binding:"required,oneof=acknowledged resolved"` // 目标状态
@@ -200,4 +226,61 @@ type AgentDetailResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    *Agent `json:"data"`
+}
+
+// ── 知识导入 DTO ──
+
+// KBImportRequest 导入知识资源请求（NDJSON 格式，每行一个 KBResource JSON）
+type KBImportRequest struct {
+	Resources []*KBResource `json:"resources" binding:"required"` // 待导入资源列表
+}
+
+// KBImportResult 单条导入结果
+type KBImportResult struct {
+	ResourceID string `json:"resource_id"` // 资源 ID
+	Title      string `json:"title"`       // 标题
+	Action     string `json:"action"`      // created / updated / skipped
+	Message    string `json:"message"`     // 说明
+}
+
+// KBImportResponse 导入响应
+type KBImportResponse struct {
+	Code     int               `json:"code"`
+	Message  string            `json:"message"`
+	Data     []*KBImportResult `json:"data"`   // 逐条结果
+	Total    int               `json:"total"`  // 总条数
+	Created  int               `json:"created"` // 新建数
+	Updated  int               `json:"updated"` // 更新数
+	Skipped  int               `json:"skipped"` // 跳过数
+}
+
+// ── 情感趋势分析 DTO ──
+
+// EmotionTrendPoint 单日情感趋势数据点
+type EmotionTrendPoint struct {
+	Date   string `json:"date"`   // 日期 YYYY-MM-DD
+	Total  int    `json:"total"`  // 当日分析总数
+	Urgent int    `json:"urgent"` // 紧急数
+	High   int    `json:"high"`   // 高风险数
+	Medium int    `json:"medium"` // 中风险数
+	Low    int    `json:"low"`    // 低风险数
+}
+
+// EmotionTrendReport 情感趋势报告
+type EmotionTrendReport struct {
+	Days   int                  `json:"days"`   // 统计天数
+	Points []*EmotionTrendPoint `json:"points"` // 每日数据点
+	Summary struct {
+		TotalAnalyses int `json:"total_analyses"` // 周期内总分析次数
+		TotalUrgent   int `json:"total_urgent"`   // 周期内紧急总数
+		TotalHigh     int `json:"total_high"`     // 周期内高风险总数
+		AvgDaily      int `json:"avg_daily"`      // 日均分析次数
+	} `json:"summary"`
+}
+
+// EmotionTrendResponse 趋势响应
+type EmotionTrendResponse struct {
+	Code    int                  `json:"code"`
+	Message string               `json:"message"`
+	Data    *EmotionTrendReport  `json:"data"`
 }

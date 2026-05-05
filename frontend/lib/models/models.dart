@@ -404,6 +404,35 @@ class EmotionLog {
   }
 }
 
+/// 情感告警统计
+class EmotionStats {
+  final int pending;
+  final int urgent;
+  final int high;
+  final int medium;
+  final int low;
+
+  EmotionStats({
+    this.pending = 0,
+    this.urgent = 0,
+    this.high = 0,
+    this.medium = 0,
+    this.low = 0,
+  });
+
+  factory EmotionStats.fromJson(Map<String, dynamic> json) {
+    return EmotionStats(
+      pending: json['pending'] ?? 0,
+      urgent: json['urgent'] ?? 0,
+      high: json['high'] ?? 0,
+      medium: json['medium'] ?? 0,
+      low: json['low'] ?? 0,
+    );
+  }
+
+  int get total => pending + urgent + high + medium + low;
+}
+
 /// 情感分析请求
 class EmotionAnalyzeRequest {
   final String messageText;

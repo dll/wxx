@@ -1,8 +1,10 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
@@ -158,4 +160,121 @@ func (s *KBService) Update(resourceID string, req *model.KBUpdateRequest, userna
 
 	// 回查最新记录
 	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// ImportResources 导入知识资源（NDJSON 格式，逐行 KBResource JSON）
+// 幂等键：(resource_id, version, status)；冲突按高版本覆盖、同版本跳过
+func (s *KBService) ImportResources(ndjsonData string, username string) (*model.KBImportResponse, error) {
+	lines := strings.Split(strings.TrimSpace(ndjsonData), "\n")
+	results := make([]*model.KBImportResult, 0, len(lines))
+	var created, updated, skipped int
+
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var kb model.KBResource
+		if err := json.Unmarshal([]byte(line), &kb); err != nil {
+			results = append(results, &model.KBImportResult{
+				ResourceID: fmt.Sprintf("line-%d", i+1),
+				Title:      "",
+				Action:     "skipped",
+				Message:    fmt.Sprintf("JSON 解析失败: %v", err),
+			})
+			skipped++
+			continue
+		}
+
+		// 校验必填字段
+		if kb.ResourceID == "" || kb.Title == "" || kb.Content == "" || kb.ResourceType == "" {
+			results = append(results, &model.KBImportResult{
+				ResourceID: kb.ResourceID,
+				Title:      kb.Title,
+				Action:     "skipped",
+				Message:    "缺少必填字段 (resource_id / title / content / resource_type)",
+			})
+			skipped++
+			continue
+		}
+
+		// 校验资源类型
+		if kb.ResourceType != "Policy" && kb.ResourceType != "Process" && kb.ResourceType != "FAQ" && kb.ResourceType != "Activity" {
+			results = append(results, &model.KBImportResult{
+				ResourceID: kb.ResourceID,
+				Title:      kb.Title,
+				Action:     "skipped",
+				Message:    fmt.Sprintf("无效资源类型: %s", kb.ResourceType),
+			})
+			skipped++
+			continue
+		}
+
+		// 设置导入者
+		kb.UpdatedBy = username
+
+		// 幂等导入
+		_, action, err := s.kbRepo.Upsert(&kb)
+		if err != nil {
+			results = append(results, &model.KBImportResult{
+				ResourceID: kb.ResourceID,
+				Title:      kb.Title,
+				Action:     "skipped",
+				Message:    fmt.Sprintf("写入失败: %v", err),
+			})
+			skipped++
+			continue
+		}
+
+		results = append(results, &model.KBImportResult{
+			ResourceID: kb.ResourceID,
+			Title:      kb.Title,
+			Action:     action,
+			Message:    fmt.Sprintf("操作成功: %s", action),
+		})
+
+		switch action {
+		case "created":
+			created++
+		case "updated":
+			updated++
+		default:
+			skipped++
+		}
+	}
+
+	log.Printf("知识导入完成 total=%d created=%d updated=%d skipped=%d by=%s", len(results), created, updated, skipped, username)
+
+	return &model.KBImportResponse{
+		Code:    0,
+		Message: "导入完成",
+		Data:    results,
+		Total:   len(results),
+		Created: created,
+		Updated: updated,
+		Skipped: skipped,
+	}, nil
+}
+
+// ExportResources 导出知识资源（无分页，用于同步/备份）
+func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
+	// 获取最多 5000 条已发布资源（导出场景无需分页）
+	list, err := s.kbRepo.List("", "", "published", resourceType, 0, 5000)
+	if err != nil {
+		return nil, fmt.Errorf("导出知识资源失败: %w", err)
+	}
+
+	// 按 sinceCursor 过滤增量（cursor 格式: RFC3339 时间戳）
+	if sinceCursor != "" {
+		filtered := make([]*model.KBResource, 0, len(list))
+		for _, r := range list {
+			if r.UpdatedAt >= sinceCursor {
+				filtered = append(filtered, r)
+			}
+		}
+		list = filtered
+	}
+
+	return list, nil
 }

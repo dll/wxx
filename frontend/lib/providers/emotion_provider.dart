@@ -16,6 +16,9 @@ class EmotionProvider extends ChangeNotifier {
   int _total = 0;
   bool _hasMore = true;
 
+  EmotionStats? _stats;
+  bool _statsLoading = false;
+
   // ── Getters ──
 
   List<EmotionLog> get alerts => _alerts;
@@ -25,6 +28,8 @@ class EmotionProvider extends ChangeNotifier {
   String get statusFilter => _statusFilter;
   int get total => _total;
   bool get hasMore => _hasMore;
+  EmotionStats? get stats => _stats;
+  bool get statsLoading => _statsLoading;
 
   // ── 过滤 ──
 
@@ -89,7 +94,28 @@ class EmotionProvider extends ChangeNotifier {
     _page = 1;
     _alerts.clear();
     _hasMore = true;
-    await loadAlerts();
+    await Future.wait([loadAlerts(), fetchStats()]);
+  }
+
+  // ── 加载统计数据 ──
+
+  Future<void> fetchStats() async {
+    if (_statsLoading) return;
+    _statsLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _api.get(ApiConfig.emotionStats);
+      if (response.data['code'] == 0 && response.data['data'] != null) {
+        _stats = EmotionStats.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {
+      // 静默失败
+    } finally {
+      _statsLoading = false;
+      notifyListeners();
+    }
   }
 
   // ── 更新告警状态 ──
