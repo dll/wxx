@@ -19,10 +19,12 @@ func CORS() gin.HandlerFunc {
 			"http://localhost:8080",  // 本地后端（旧端口）
 			"http://localhost:9091",  // 后端 API
 			"http://localhost:9092",  // Flutter Web
+			"http://localhost:9093",  // Flutter Web（备用）
 			"http://127.0.0.1:3000",
 			"http://127.0.0.1:8080",
 			"http://127.0.0.1:9091",
 			"http://127.0.0.1:9092",
+			"http://127.0.0.1:9093",
 		}
 
 		allowed := false
