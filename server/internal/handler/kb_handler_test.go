@@ -321,6 +321,136 @@ func TestKBHandler_Import_HigherVersion(t *testing.T) {
 	}
 }
 
+func setupKBBrowseTestRouter(t *testing.T) (*gin.Engine, *config.Config, *repository.KBRepo) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	db := testutil.NewTestDB(t)
+	t.Cleanup(func() { db.Close() })
+
+	cfg := &config.Config{
+		JWTSecret:      "test-secret-kb",
+		JWTExpireHours: 2,
+	}
+
+	kbRepo := repository.NewKBRepo(db)
+	kbSvc := service.NewKBService(kbRepo)
+	kbHandler := NewKBHandler(kbSvc)
+
+	r := gin.New()
+	r.Use(middleware.TraceID())
+	protected := r.Group("/api/v1")
+	protected.Use(middleware.JWTAuth(cfg))
+	protected.GET("/knowledge", kbHandler.BrowseKnowledge)
+
+	return r, cfg, kbRepo
+}
+
+func TestKBHandler_BrowseKnowledge_Empty(t *testing.T) {
+	r, cfg, _ := setupKBBrowseTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student", OwnerScope: "school"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KnowledgeBrowseResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Code != 0 {
+		t.Errorf("期望 code=0，得到 %d", resp.Code)
+	}
+}
+
+func TestKBHandler_BrowseKnowledge_WithData(t *testing.T) {
+	r, cfg, kbRepo := setupKBBrowseTestRouter(t)
+
+	// 插入已发布的知识资源
+	kbRepo.Create(&model.KBResource{
+		ResourceID: "browse-001", ResourceType: "Policy", OwnerScope: "school",
+		RoleScope: "student,counselor", Title: "奖学金办法", Content: "内容",
+		Version: "1.0", Status: "published",
+	})
+	kbRepo.Create(&model.KBResource{
+		ResourceID: "browse-002", ResourceType: "Process", OwnerScope: "school",
+		RoleScope: "student", Title: "入学流程", Content: "步骤",
+		Version: "1.0", Status: "published",
+	})
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student", OwnerScope: "school"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KnowledgeBrowseResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if len(resp.Data) < 1 {
+		t.Errorf("期望至少 1 个分组，得到 %d", len(resp.Data))
+	}
+}
+
+func TestKBHandler_BrowseKnowledge_WithTypeFilter(t *testing.T) {
+	r, cfg, kbRepo := setupKBBrowseTestRouter(t)
+
+	kbRepo.Create(&model.KBResource{
+		ResourceID: "bf-001", ResourceType: "Policy", OwnerScope: "school",
+		RoleScope: "student", Title: "政策A", Content: "内容",
+		Version: "1.0", Status: "published",
+	})
+	kbRepo.Create(&model.KBResource{
+		ResourceID: "bf-002", ResourceType: "Process", OwnerScope: "school",
+		RoleScope: "student", Title: "流程B", Content: "内容",
+		Version: "1.0", Status: "published",
+	})
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student", OwnerScope: "school"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge?type=Policy", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KnowledgeBrowseResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	// 应该只返回 Policy 类型
+	if cards, ok := resp.Data["Policy"]; !ok || len(cards) == 0 {
+		t.Errorf("期望返回 Policy 分组，得到 %v", resp.Data)
+	}
+	if _, ok := resp.Data["Process"]; ok {
+		t.Error("不应返回 Process 分组")
+	}
+}
+
+func TestKBHandler_BrowseKnowledge_Unauthenticated(t *testing.T) {
+	r, _, _ := setupKBBrowseTestRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("期望 401，得到 %d", w.Code)
+	}
+}
+
 func TestKBHandler_Import_StudentForbidden(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 

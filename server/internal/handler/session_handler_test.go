@@ -179,6 +179,80 @@ func TestSessionHandler_GetMessages_CrossUser(t *testing.T) {
 	}
 }
 
+func setupSessionDeleteTestRouter(t *testing.T) (*gin.Engine, *config.Config, *repository.SessionRepo) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	db := testutil.NewTestDB(t)
+	t.Cleanup(func() { db.Close() })
+
+	cfg := &config.Config{
+		JWTSecret:      "test-secret-session",
+		JWTExpireHours: 2,
+	}
+
+	sessionRepo := repository.NewSessionRepo(db)
+	messageRepo := repository.NewMessageRepo(db)
+	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
+	sessionHandler := NewSessionHandler(sessionSvc)
+
+	r := gin.New()
+	r.Use(middleware.TraceID())
+	protected := r.Group("/api/v1")
+	protected.Use(middleware.JWTAuth(cfg))
+	protected.DELETE("/sessions/:id", sessionHandler.DeleteSession)
+
+	return r, cfg, sessionRepo
+}
+
+func TestSessionHandler_DeleteSession_Success(t *testing.T) {
+	r, cfg, sessionRepo := setupSessionDeleteTestRouter(t)
+
+	sessionRepo.Create(&model.Session{SessionID: "sess-del", UserID: 1})
+
+	user := &model.User{ID: 1, Username: "user1", Role: "student"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/sessions/sess-del", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSessionHandler_DeleteSession_CrossUser(t *testing.T) {
+	r, cfg, sessionRepo := setupSessionDeleteTestRouter(t)
+
+	sessionRepo.Create(&model.Session{SessionID: "sess-cross-del", UserID: 2})
+
+	user := &model.User{ID: 1, Username: "user1", Role: "student"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/sessions/sess-cross-del", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("跨用户删除应返回 403，得到 %d", w.Code)
+	}
+}
+
+func TestSessionHandler_DeleteSession_Unauthenticated(t *testing.T) {
+	r, _, _ := setupSessionDeleteTestRouter(t)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/sessions/some-id", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("期望 401，得到 %d", w.Code)
+	}
+}
+
 func TestSessionHandler_GetMessages_NotFound(t *testing.T) {
 	r, cfg, _, _ := setupSessionTestRouter(t)
 
