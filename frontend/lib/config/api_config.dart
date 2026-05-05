@@ -18,4 +18,8 @@ class ApiConfig {
   static const String sessions = '$apiPrefix/sessions';
   static String sessionMessages(String id) => '$apiPrefix/sessions/$id/messages';
   static String sessionDelete(String id) => '$apiPrefix/sessions/$id';
+
+  // ── 语音接口 ──
+  static const String voiceAsr = '$apiPrefix/voice/asr';
+  static const String voiceTts = '$apiPrefix/voice/tts';
 }

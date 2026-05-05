@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/voice/voice_service.dart';
 
 /// 对话状态管理
 class ChatProvider extends ChangeNotifier {
@@ -12,10 +13,19 @@ class ChatProvider extends ChangeNotifier {
   bool _sending = false;
   String? _error;
 
+  final VoiceService _voice = VoiceService();
+  bool _isRecording = false;
+  bool _isPlaying = false;
+  int _playingIndex = -1;
+
   List<Message> get messages => List.unmodifiable(_messages);
   String? get sessionId => _sessionId;
   bool get sending => _sending;
   String? get error => _error;
+  bool get isRecording => _isRecording;
+  bool get isPlaying => _isPlaying;
+  int get playingIndex => _playingIndex;
+  VoiceService get voice => _voice;
 
   /// 发送问题
   Future<void> ask(String question) async {
@@ -114,5 +124,86 @@ class ChatProvider extends ChangeNotifier {
       _error = '加载消息失败';
       notifyListeners();
     }
+  }
+
+  // ── 语音相关方法 ──
+
+  /// 开始语音录制
+  Future<void> startRecording() async {
+    if (_isRecording || _sending) return;
+    try {
+      await _voice.startRecording();
+      _isRecording = true;
+      notifyListeners();
+    } catch (e) {
+      _error = '无法访问麦克风：$e';
+      notifyListeners();
+    }
+  }
+
+  /// 仅停止录音（不触发 ASR/发送）
+  void stopRecording() {
+    if (!_isRecording) return;
+    _isRecording = false;
+    notifyListeners();
+  }
+
+  /// 停止录制并发送语音转文本
+  Future<void> stopRecordingAndSend() async {
+    if (!_isRecording) return;
+    _isRecording = false;
+    notifyListeners();
+
+    final audioData = await _voice.stopRecording();
+    if (audioData == null) return;
+
+    final text = await _voice.speechToText(audioData);
+    if (text == null || text.trim().isEmpty) {
+      _error = '未识别到语音内容，请重试';
+      notifyListeners();
+      return;
+    }
+
+    await ask(text.trim());
+  }
+
+  /// 播放消息的 TTS 语音
+  Future<void> playTTS(int messageIndex) async {
+    if (messageIndex < 0 || messageIndex >= _messages.length) return;
+    final msg = _messages[messageIndex];
+    if (msg.isUser || msg.content.isEmpty) return;
+
+    // 如果正在播放同一条消息，停止播放
+    if (_isPlaying && _playingIndex == messageIndex) {
+      _voice.stopPlayback();
+      _isPlaying = false;
+      _playingIndex = -1;
+      notifyListeners();
+      return;
+    }
+
+    _isPlaying = true;
+    _playingIndex = messageIndex;
+    notifyListeners();
+
+    final audioData = await _voice.textToSpeech(msg.content);
+    if (audioData == null) {
+      _error = '语音合成失败';
+      _isPlaying = false;
+      _playingIndex = -1;
+      notifyListeners();
+      return;
+    }
+
+    await _voice.playAudio(audioData);
+    _isPlaying = false;
+    _playingIndex = -1;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _voice.dispose();
+    super.dispose();
   }
 }
