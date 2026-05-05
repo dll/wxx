@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"io"
 	"net/http"
 
@@ -10,9 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// voiceClient 语音客户端接口（ASR + TTS），*llm.XfyunClient 已实现
+type voiceClient interface {
+	ASR(ctx context.Context, audioBytes []byte) (string, error)
+	TTS(ctx context.Context, text string, voiceName string) ([]byte, error)
+}
+
 // VoiceHandler 语音处理 handler（ASR 语音识别 + TTS 语音合成）
 type VoiceHandler struct {
-	xfClient *llm.XfyunClient
+	xfClient voiceClient
 }
 
 // NewVoiceHandler 创建语音 handler

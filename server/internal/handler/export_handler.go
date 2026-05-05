@@ -11,9 +11,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// exportService 知识导出服务接口（用于测试 mock）
+type exportService interface {
+	ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error)
+}
+
 // ExportHandler 知识导出 HTTP handler
 type ExportHandler struct {
-	kbSvc *service.KBService
+	kbSvc exportService
 }
 
 // NewExportHandler 创建导出 handler
