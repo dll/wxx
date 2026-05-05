@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// AnswerCard 统一回答结构，对齐后端 model.AnswerCard
 class AnswerCard {
   final String conclusion;
@@ -313,4 +315,111 @@ class KnowledgeCard {
     };
     return map[resourceType] ?? resourceType;
   }
+}
+
+/// 情感分析日志（对齐后端 model.EmotionLog）
+class EmotionLog {
+  final int id;
+  final int userId;
+  final String username;
+  final String sessionId;
+  final String alertId;
+  final String messageText;
+  final double score;
+  final String riskLevel;
+  final String analysisJson;
+  final int notified;
+  final String status;
+  final String acknowledgedBy;
+  final String acknowledgedAt;
+  final String createdAt;
+
+  EmotionLog({
+    required this.id,
+    required this.userId,
+    this.username = '',
+    this.sessionId = '',
+    this.alertId = '',
+    this.messageText = '',
+    this.score = 0,
+    this.riskLevel = 'low',
+    this.analysisJson = '',
+    this.notified = 0,
+    this.status = 'pending',
+    this.acknowledgedBy = '',
+    this.acknowledgedAt = '',
+    this.createdAt = '',
+  });
+
+  factory EmotionLog.fromJson(Map<String, dynamic> json) {
+    return EmotionLog(
+      id: json['id'] ?? 0,
+      userId: json['user_id'] ?? 0,
+      username: json['username'] ?? '',
+      sessionId: json['session_id'] ?? '',
+      alertId: json['alert_id'] ?? '',
+      messageText: json['message_text'] ?? '',
+      score: (json['score'] ?? 0).toDouble(),
+      riskLevel: json['risk_level'] ?? 'low',
+      analysisJson: json['analysis_json'] ?? '',
+      notified: json['notified'] ?? 0,
+      status: json['status'] ?? 'pending',
+      acknowledgedBy: json['acknowledged_by'] ?? '',
+      acknowledgedAt: json['acknowledged_at'] ?? '',
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+
+  /// 解析 analysis_json 获取结构化数据
+  Map<String, dynamic> get analysis {
+    if (analysisJson.isEmpty) return {};
+    try {
+      return jsonDecode(analysisJson) as Map<String, dynamic>;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// 风险等级中文标签
+  String get riskLabel {
+    const map = {
+      'low': '低风险',
+      'medium': '中风险',
+      'high': '高风险',
+      'urgent': '紧急',
+    };
+    return map[riskLevel] ?? riskLevel;
+  }
+
+  /// 状态中文标签
+  String get statusLabel {
+    const map = {
+      'pending': '待处理',
+      'acknowledged': '已确认',
+      'resolved': '已处理',
+    };
+    return map[status] ?? status;
+  }
+}
+
+/// 情感分析请求
+class EmotionAnalyzeRequest {
+  final String messageText;
+  final String sessionId;
+
+  EmotionAnalyzeRequest({required this.messageText, required this.sessionId});
+
+  Map<String, dynamic> toJson() => {
+        'message_text': messageText,
+        'session_id': sessionId,
+      };
+}
+
+/// 更新告警状态请求
+class EmotionUpdateRequest {
+  final String status;
+
+  EmotionUpdateRequest({required this.status});
+
+  Map<String, dynamic> toJson() => {'status': status};
 }

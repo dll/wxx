@@ -84,6 +84,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 24),
 
+          // 情感预警入口（辅导员及以上角色可访问）
+          if (_canAccessEmotion(profile?.role))
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded,
+                    color: theme.colorScheme.error),
+                title: const Text('情感预警'),
+                subtitle: const Text('查看和管理学生情感告警'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.go('/emotion'),
+              ),
+            ),
+
+          const SizedBox(height: 16),
+
           // 关于
           Card(
             elevation: 0,
@@ -141,5 +161,16 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  /// 判断角色是否可访问情感预警
+  bool _canAccessEmotion(String? role) {
+    const allowedRoles = {
+      'sys_admin',
+      'school_admin',
+      'college_admin',
+      'counselor',
+    };
+    return role != null && allowedRoles.contains(role);
   }
 }

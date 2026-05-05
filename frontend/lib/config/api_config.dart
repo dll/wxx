@@ -25,4 +25,9 @@ class ApiConfig {
 
   // ── 知识大厅 ──
   static const String knowledge = '$apiPrefix/knowledge';
+
+  // ── 情感预警 ──
+  static const String emotionAnalyze = '$apiPrefix/emotion/analyze';
+  static const String emotionAlerts = '$apiPrefix/emotion/alerts';
+  static String emotionAlertUpdate(String id) => '$apiPrefix/emotion/alerts/$id';
 }
