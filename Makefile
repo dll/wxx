@@ -30,7 +30,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 # ---- Flutter 前端 ----
-.PHONY: flutter-get flutter-run flutter-build flutter-test
+.PHONY: flutter-get flutter-run flutter-build-web flutter-build-web-safe flutter-build-web-output flutter-build-apk flutter-test
 
 flutter-get:
 	cd $(FLUTTER_DIR) && flutter pub get
@@ -38,8 +38,29 @@ flutter-get:
 flutter-run:
 	cd $(FLUTTER_DIR) && flutter run
 
+# 默认构建 — 若项目路径含中文（如"学工"），Flutter SDK 3.35 impellerc
+# 无法编译 shader，请改用 make flutter-build-web-safe 或 flutter-build-web-output
 flutter-build-web:
 	cd $(FLUTTER_DIR) && flutter build web
+
+# ASCII 安全路径构建 — 复制项目到临时 ASCII 目录构建后拷回
+FLUTTER_BUILD_TMP := E:/wxx_flutter_tmp
+flutter-build-web-safe:
+	@echo "=== 步骤 1/4: 清理临时目录 ==="
+	rm -rf $(FLUTTER_BUILD_TMP)
+	@echo "=== 步骤 2/4: 复制项目到 ASCII 路径 ==="
+	cp -r $(FLUTTER_DIR) $(FLUTTER_BUILD_TMP)
+	@echo "=== 步骤 3/4: 在安全路径构建 ==="
+	cd $(FLUTTER_BUILD_TMP) && flutter build web
+	@echo "=== 步骤 4/4: 拷贝构建产物回原目录 ==="
+	cp -r $(FLUTTER_BUILD_TMP)/build/web $(FLUTTER_DIR)/build/web
+	rm -rf $(FLUTTER_BUILD_TMP)
+	@echo "=== 构建完成: $(FLUTTER_DIR)/build/web ==="
+
+# 指定输出目录构建 — 直接将产物放到 ASCII 路径
+flutter-build-web-output:
+	cd $(FLUTTER_DIR) && flutter build web --output $(FLUTTER_BUILD_TMP)
+	@echo "=== 构建完成: $(FLUTTER_BUILD_TMP) ==="
 
 flutter-build-apk:
 	cd $(FLUTTER_DIR) && flutter build apk --release
@@ -48,9 +69,12 @@ flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
 
 # ---- 全部 ----
-.PHONY: all test-all hooks
+.PHONY: all test-all hooks all-safe
 
 all: build flutter-build-web
+
+# 全量构建（使用 ASCII 安全路径，适用于项目路径含中文的环境）
+all-safe: build flutter-build-web-output
 
 test-all: test flutter-test
 

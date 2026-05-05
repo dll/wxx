@@ -137,11 +137,19 @@ WXX/
 │   │   └── llm/             # 智谱/DeepSeek/讯飞 API 客户端
 │   ├── migrations/          # SQLite DDL（001_init.sql ...）
 │   └── data/                # 运行时数据（.gitignore）
-├── frontend/                # Flutter 客户端（待初始化）
+├── frontend/                # Flutter 客户端
 ├── docs/                    # 产品与技术文档
 ├── specs/                   # 规格定义
 ├── knowledge/               # 内部 LLM Wiki 素材
 └── templates/               # 计划/变更日志模板
+
+## 当前状态（2026-05-06）
+
+- P0 核心功能完成：鉴权 + 问答 + 知识库 + Flutter 前端 + Context Engine
+- P1 基本完成：语音 ASR/TTS + 情感预警 + 多智能体管理
+- 测试覆盖 62.1%（middleware 80.6% / handler 60.9% / service 82.1% / repository 79.9%）
+- Flutter Web 构建通过（`flutter build web`；含中文路径需 `--output` 指定 ASCII 路径）
+- 后端：`go build -tags fts5 ./...` 零错误；`go test -tags fts5 ./...` 全部通过
 ```
 
 ## 后端分层规则
