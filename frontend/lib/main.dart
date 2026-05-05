@@ -7,6 +7,7 @@ import 'providers/session_provider.dart';
 import 'providers/enrollment_provider.dart';
 import 'providers/knowledge_provider.dart';
 import 'providers/emotion_provider.dart';
+import 'providers/agent_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -32,6 +33,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EnrollmentProvider()),
         ChangeNotifierProvider(create: (_) => KnowledgeProvider()),
         ChangeNotifierProvider(create: (_) => EmotionProvider()),
+        ChangeNotifierProvider(create: (_) => AgentProvider()),
       ],
       child: MaterialApp.router(
         title: '蔚小芯',

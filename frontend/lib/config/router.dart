@@ -10,6 +10,7 @@ import '../pages/profile/profile_page.dart';
 import '../pages/enrollment/enrollment_page.dart';
 import '../pages/browse/browse_page.dart';
 import '../pages/emotion/emotion_dashboard_page.dart';
+import '../pages/agent/agent_management_page.dart';
 
 /// 应用路由配置
 final GoRouter appRouter = GoRouter(
@@ -53,6 +54,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/emotion',
           builder: (context, state) => const EmotionDashboardPage(),
+        ),
+        GoRoute(
+          path: '/agents',
+          builder: (context, state) => const AgentManagementPage(),
         ),
         GoRoute(
           path: '/profile',

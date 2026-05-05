@@ -84,6 +84,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 24),
 
+          // 智能体管理入口（管理员可访问）
+          if (_canAccessAgents(profile?.role))
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                leading: Icon(Icons.smart_toy_outlined,
+                    color: theme.colorScheme.primary),
+                title: const Text('智能体管理'),
+                subtitle: const Text('管理 AI 智能体的注册、配置和状态'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.go('/agents'),
+              ),
+            ),
+
           // 情感预警入口（辅导员及以上角色可访问）
           if (_canAccessEmotion(profile?.role))
             Card(
@@ -171,6 +189,12 @@ class _ProfilePageState extends State<ProfilePage> {
       'college_admin',
       'counselor',
     };
+    return role != null && allowedRoles.contains(role);
+  }
+
+  /// 判断角色是否可访问智能体管理
+  bool _canAccessAgents(String? role) {
+    const allowedRoles = {'sys_admin', 'school_admin'};
     return role != null && allowedRoles.contains(role);
   }
 }

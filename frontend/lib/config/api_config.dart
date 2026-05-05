@@ -30,4 +30,8 @@ class ApiConfig {
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';
   static const String emotionAlerts = '$apiPrefix/emotion/alerts';
   static String emotionAlertUpdate(String id) => '$apiPrefix/emotion/alerts/$id';
+
+  // ── 智能体管理 ──
+  static const String agents = '$apiPrefix/agents';
+  static String agentDetail(String id) => '$apiPrefix/agents/$id';
 }
