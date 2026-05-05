@@ -28,6 +28,8 @@ class _ChatPageState extends State<ChatPage> {
     // 延迟处理初始问题（等 Widget 构建完成后发送）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialQuestion();
+      // 加载可用的智能体列表
+      context.read<ChatProvider>().loadAgents();
     });
   }
 
@@ -125,6 +127,9 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
+          // 智能体选择器
+          _buildAgentSelector(chat, theme),
+
           // 消息列表
           Expanded(
             child: chat.messages.isEmpty
@@ -160,6 +165,73 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
+  }
+
+  /// 智能体选择器 — 水平滚动的 chip 列表
+  Widget _buildAgentSelector(ChatProvider chat, ThemeData theme) {
+    if (chat.agents.isEmpty) return const SizedBox.shrink();
+
+    final agents = chat.agents;
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        itemCount: agents.length + 1, // +1 for "默认"
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            // 默认智能体选项
+            final selected = chat.selectedAgentId == null;
+            return FilterChip(
+              label: const Text('默认', style: TextStyle(fontSize: 12)),
+              selected: selected,
+              onSelected: (_) => chat.selectAgent(null),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              selectedColor: theme.colorScheme.primaryContainer,
+              showCheckmark: false,
+            );
+          }
+          final agent = agents[index - 1];
+          final selected = chat.selectedAgentId == agent.agentId;
+          return FilterChip(
+            label: Text(agent.name, style: const TextStyle(fontSize: 12)),
+            selected: selected,
+            onSelected: (_) => chat.selectAgent(
+              selected ? null : agent.agentId,
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            selectedColor: theme.colorScheme.primaryContainer,
+            avatar: _agentTypeIcon(agent.agentType),
+            showCheckmark: false,
+          );
+        },
+      ),
+    );
+  }
+
+  /// 智能体类型小图标
+  Widget _agentTypeIcon(String type) {
+    switch (type) {
+      case 'qa':
+        return const Icon(Icons.chat, size: 14, color: Color(0xFF1565C0));
+      case 'policy':
+        return const Icon(Icons.gavel, size: 14, color: Color(0xFFE65100));
+      case 'emotion':
+        return const Icon(Icons.favorite_border, size: 14, color: Color(0xFFC62828));
+      default:
+        return const Icon(Icons.smart_toy, size: 14, color: Color(0xFF7B1FA2));
+    }
   }
 
   Widget _buildEmptyState(ThemeData theme) {

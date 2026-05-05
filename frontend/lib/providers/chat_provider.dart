@@ -13,6 +13,11 @@ class ChatProvider extends ChangeNotifier {
   bool _sending = false;
   String? _error;
 
+  // 智能体选择
+  List<Agent> _agents = [];
+  String? _selectedAgentId; // null = 默认智能体
+  bool _agentsLoading = false;
+
   final VoiceService _voice = VoiceService();
   bool _isRecording = false;
   bool _isPlaying = false;
@@ -26,6 +31,18 @@ class ChatProvider extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   int get playingIndex => _playingIndex;
   VoiceService get voice => _voice;
+
+  List<Agent> get agents => _agents;
+  String? get selectedAgentId => _selectedAgentId;
+  Agent? get selectedAgent {
+    if (_selectedAgentId == null) return null;
+    try {
+      return _agents.firstWhere((a) => a.agentId == _selectedAgentId);
+    } catch (_) {
+      return null;
+    }
+  }
+  bool get agentsLoading => _agentsLoading;
 
   /// 发送问题
   Future<void> ask(String question) async {
@@ -42,7 +59,7 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final req = ChatRequest(question: question, sessionId: _sessionId);
+      final req = ChatRequest(question: question, sessionId: _sessionId, agentId: _selectedAgentId);
       final resp = await _api.post(ApiConfig.chat, data: req.toJson());
 
       final chatResp = ChatResponse.fromJson(resp.data);
@@ -102,6 +119,35 @@ class ChatProvider extends ChangeNotifier {
     _sessionId = null;
     _error = null;
     notifyListeners();
+  }
+
+  /// 切换智能体
+  void selectAgent(String? agentId) {
+    _selectedAgentId = agentId;
+    notifyListeners();
+  }
+
+  /// 加载激活的智能体列表（用于选择器）
+  Future<void> loadAgents() async {
+    if (_agentsLoading) return;
+    _agentsLoading = true;
+    notifyListeners();
+
+    try {
+      final resp = await _api.get(ApiConfig.agents);
+      if (resp.data['code'] == 0) {
+        final list = resp.data['data'] as List? ?? [];
+        _agents = list
+            .map((e) => Agent.fromJson(e as Map<String, dynamic>))
+            .where((a) => a.isActive)
+            .toList();
+      }
+    } catch (_) {
+      // 加载失败不影响对话，静默处理
+    } finally {
+      _agentsLoading = false;
+      notifyListeners();
+    }
   }
 
   /// 加载历史会话的消息

@@ -34,7 +34,7 @@ func setupChatTestRouter(t *testing.T, mockClient llm.ChatClient) (*gin.Engine, 
 	messageRepo := repository.NewMessageRepo(db)
 	kbRepo := repository.NewKBRepo(db)
 
-	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, mockClient)
+	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, repository.NewAgentRepo(db), mockClient)
 	chatHandler := NewChatHandler(chatSvc)
 
 	r := gin.New()

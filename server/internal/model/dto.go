@@ -32,6 +32,7 @@ type Action struct {
 type ChatRequest struct {
 	Question  string `json:"question" binding:"required"` // 用户提问
 	SessionID string `json:"session_id"`                  // 会话 ID（可选，空则新建）
+	AgentID   string `json:"agent_id"`                    // 智能体 ID（可选，空则用默认）
 }
 
 // ChatResponse 对话响应（包裹 AnswerCard）

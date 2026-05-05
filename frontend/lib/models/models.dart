@@ -91,12 +91,14 @@ class CardAction {
 class ChatRequest {
   final String question;
   final String? sessionId;
+  final String? agentId;
 
-  ChatRequest({required this.question, this.sessionId});
+  ChatRequest({required this.question, this.sessionId, this.agentId});
 
   Map<String, dynamic> toJson() => {
         'question': question,
         if (sessionId != null) 'session_id': sessionId,
+        if (agentId != null && agentId!.isNotEmpty) 'agent_id': agentId,
       };
 }
 

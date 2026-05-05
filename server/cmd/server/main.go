@@ -76,7 +76,7 @@ func main() {
 	kbSvc := service.NewKBService(kbRepo)
 	var chatSvc *service.ChatService
 	if llmClient != nil {
-		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, llmClient)
+		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
 	}
 
 	// 情感预警服务（依赖 LLM Client）

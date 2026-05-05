@@ -26,6 +26,7 @@ func TestChatService_Ask_NewSession(t *testing.T) {
 		repository.NewSessionRepo(db),
 		repository.NewMessageRepo(db),
 		repository.NewKBRepo(db),
+		repository.NewAgentRepo(db),
 		mockLLM,
 	)
 
@@ -34,7 +35,7 @@ func TestChatService_Ask_NewSession(t *testing.T) {
 		OwnerScope: "college", OwnerID: "default",
 	}
 
-	card, sessionID, err := svc.Ask(context.Background(), userCtx, "", "奖学金怎么申请")
+	card, sessionID, err := svc.Ask(context.Background(), userCtx, "", "奖学金怎么申请", "")
 	if err != nil {
 		t.Fatalf("Ask 失败: %v", err)
 	}
@@ -64,12 +65,13 @@ func TestChatService_Ask_ExistingSession(t *testing.T) {
 		sessionRepo,
 		repository.NewMessageRepo(db),
 		repository.NewKBRepo(db),
+		repository.NewAgentRepo(db),
 		mockLLM,
 	)
 
 	userCtx := &model.UserContext{UserID: 1, Username: "test", Role: "student"}
 
-	_, returnedSessionID, err := svc.Ask(context.Background(), userCtx, "existing-session", "继续问")
+	_, returnedSessionID, err := svc.Ask(context.Background(), userCtx, "existing-session", "继续问", "")
 	if err != nil {
 		t.Fatalf("Ask 失败: %v", err)
 	}
@@ -90,11 +92,12 @@ func TestChatService_Ask_WrongUserSession(t *testing.T) {
 		sessionRepo,
 		repository.NewMessageRepo(db),
 		repository.NewKBRepo(db),
+		repository.NewAgentRepo(db),
 		mockLLM,
 	)
 
 	userCtx := &model.UserContext{UserID: 1, Username: "test", Role: "student"}
-	_, _, err := svc.Ask(context.Background(), userCtx, "other-user-session", "测试")
+	_, _, err := svc.Ask(context.Background(), userCtx, "other-user-session", "测试", "")
 	if err == nil {
 		t.Fatal("访问他人会话应返回错误")
 	}
@@ -116,11 +119,12 @@ func TestChatService_Ask_EmptyKnowledge(t *testing.T) {
 		repository.NewSessionRepo(db),
 		repository.NewMessageRepo(db),
 		repository.NewKBRepo(db),
+		repository.NewAgentRepo(db),
 		mockLLM,
 	)
 
 	userCtx := &model.UserContext{UserID: 1, Username: "test", Role: "student"}
-	card, _, err := svc.Ask(context.Background(), userCtx, "", "随机问题")
+	card, _, err := svc.Ask(context.Background(), userCtx, "", "随机问题", "")
 	if err != nil {
 		t.Fatalf("Ask 失败: %v", err)
 	}
@@ -145,6 +149,7 @@ func TestChatService_Ask_LLMFallback(t *testing.T) {
 		repository.NewSessionRepo(db),
 		repository.NewMessageRepo(db),
 		repository.NewKBRepo(db),
+		repository.NewAgentRepo(db),
 		mockLLM,
 	)
 
@@ -152,7 +157,7 @@ func TestChatService_Ask_LLMFallback(t *testing.T) {
 		UserID: 1, Username: "test", Role: "student",
 		OwnerScope: "college", OwnerID: "default",
 	}
-	card, _, err := svc.Ask(context.Background(), userCtx, "", "奖学金")
+	card, _, err := svc.Ask(context.Background(), userCtx, "", "奖学金", "")
 	if err != nil {
 		t.Fatalf("Ask 失败: %v", err)
 	}

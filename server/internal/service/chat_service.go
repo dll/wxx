@@ -18,6 +18,7 @@ type ChatService struct {
 	sessionRepo *repository.SessionRepo
 	messageRepo *repository.MessageRepo
 	kbRepo      *repository.KBRepo
+	agentRepo   *repository.AgentRepo
 	llmClient   llm.ChatClient
 }
 
@@ -26,19 +27,21 @@ func NewChatService(
 	sessionRepo *repository.SessionRepo,
 	messageRepo *repository.MessageRepo,
 	kbRepo *repository.KBRepo,
+	agentRepo *repository.AgentRepo,
 	llmClient llm.ChatClient,
 ) *ChatService {
 	return &ChatService{
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
 		kbRepo:      kbRepo,
+		agentRepo:   agentRepo,
 		llmClient:   llmClient,
 	}
 }
 
 // Ask 问答主链路
 // 1. 创建/获取会话 → 2. 搜索知识库 → 3. 拼装上下文 → 4. 调 LLM → 5. 构造 AnswerCard
-func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessionID string, question string) (*model.AnswerCard, string, error) {
+func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessionID string, question string, agentID string) (*model.AnswerCard, string, error) {
 	traceID := uuid.New().String()
 
 	// ── 1. 会话管理 ──
@@ -79,7 +82,7 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	}
 
 	// ── 3. 拼装 LLM 上下文 ──
-	messages := s.buildMessages(ctx, sessionID, question, searchResults)
+	messages := s.buildMessages(ctx, sessionID, question, agentID, searchResults)
 
 	// ── 4. 调 LLM ──
 	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
@@ -111,18 +114,11 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 }
 
 // buildMessages 构造 LLM 消息列表
-func (s *ChatService) buildMessages(ctx context.Context, sessionID string, question string, results []*repository.SearchResult) []llm.ChatMessage {
+func (s *ChatService) buildMessages(ctx context.Context, sessionID string, question string, agentID string, results []*repository.SearchResult) []llm.ChatMessage {
 	var messages []llm.ChatMessage
 
-	// System Prompt
-	systemPrompt := `你是"蔚小芯"，一个高校智慧学工 AI 助手。请严格基于以下知识库内容回答用户问题。
-
-规则：
-1. 只使用知识库中的信息回答，不要编造内容
-2. 涉及政策、条件、数字时必须原文引用
-3. 如果知识库中没有相关内容，明确告知用户你无法回答并建议联系辅导员
-4. 回答要简洁、准确、有条理
-5. 如果涉及流程，按步骤列出`
+	// 查找智能体的自定义系统提示词
+	systemPrompt := s.getSystemPrompt(agentID)
 
 	// 拼接检索到的知识库内容
 	if len(results) > 0 {
@@ -159,6 +155,27 @@ func (s *ChatService) buildMessages(ctx context.Context, sessionID string, quest
 	})
 
 	return messages
+}
+
+// getSystemPrompt 获取智能体的系统提示词，未指定或查找失败时返回默认提示词
+func (s *ChatService) getSystemPrompt(agentID string) string {
+	// 如果指定了智能体，尝试查找
+	if agentID != "" && s.agentRepo != nil {
+		agent, err := s.agentRepo.GetByAgentID(agentID)
+		if err == nil && agent != nil && agent.Status == "active" && agent.SystemPrompt != "" {
+			return agent.SystemPrompt
+		}
+	}
+
+	// 默认系统提示词
+	return `你是"蔚小芯"，一个高校智慧学工 AI 助手。请严格基于以下知识库内容回答用户问题。
+
+规则：
+1. 只使用知识库中的信息回答，不要编造内容
+2. 涉及政策、条件、数字时必须原文引用
+3. 如果知识库中没有相关内容，明确告知用户你无法回答并建议联系辅导员
+4. 回答要简洁、准确、有条理
+5. 如果涉及流程，按步骤列出`
 }
 
 // buildAnswerCard 从 LLM 回复和检索结果构造 AnswerCard
