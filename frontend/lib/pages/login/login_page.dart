@@ -27,9 +27,9 @@ class _LoginPageState extends State<LoginPage> {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
+    if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入学号/工号和密码')),
+        const SnackBar(content: Text('请输入学号/工号')),
       );
       return;
     }
@@ -103,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
                     controller: _passwordCtrl,
                     obscureText: _obscure,
                     decoration: InputDecoration(
-                      labelText: '密码',
+                      labelText: '密码（开发环境可留空）',
                       prefixIcon: const Icon(Icons.lock_outline),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(

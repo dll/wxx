@@ -30,7 +30,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 # ---- Flutter 前端 ----
-.PHONY: flutter-get flutter-run flutter-build-web flutter-build-web-safe flutter-build-web-output flutter-build-apk flutter-test
+.PHONY: flutter-get flutter-run flutter-build-web flutter-build-web-safe flutter-build-web-output flutter-build-apk flutter-build-apk-safe flutter-test
 
 flutter-get:
 	cd $(FLUTTER_DIR) && flutter pub get
@@ -62,19 +62,44 @@ flutter-build-web-output:
 	cd $(FLUTTER_DIR) && flutter build web --output $(FLUTTER_BUILD_TMP)
 	@echo "=== 构建完成: $(FLUTTER_BUILD_TMP) ==="
 
+# 直接构建 APK — 需满足两个前置条件:
+# 1. FLUTTER_STORAGE_BASE_URL 环境变量未指向不可用镜像（如 Ohos）
+#    若已设置: export FLUTTER_STORAGE_BASE_URL="https://storage.googleapis.com"
+# 2. 项目路径不含中文/非 ASCII 字符（impellerc 限制）
+#    否则请用 make flutter-build-apk-safe
 flutter-build-apk:
-	cd $(FLUTTER_DIR) && flutter build apk --release
+	cd $(FLUTTER_DIR) && FLUTTER_STORAGE_BASE_URL="$${FLUTTER_STORAGE_BASE_URL:-https://storage.googleapis.com}" flutter build apk --release
+
+# ASCII 安全路径构建 APK — 复制到临时 ASCII 目录，覆盖镜像变量
+APK_BUILD_TMP := E:/wxx_apk_build
+flutter-build-apk-safe:
+	@echo "=== 步骤 1/5: 清理临时目录 ==="
+	rm -rf $(APK_BUILD_TMP)
+	@echo "=== 步骤 2/5: 复制项目到 ASCII 路径 ==="
+	cp -r $(FLUTTER_DIR) $(APK_BUILD_TMP)
+	@echo "=== 步骤 3/5: 构建 Debug APK ==="
+	cd $(APK_BUILD_TMP) && FLUTTER_STORAGE_BASE_URL="https://storage.googleapis.com" flutter build apk --debug
+	@echo "=== 步骤 4/5: 构建 Release APK ==="
+	cd $(APK_BUILD_TMP) && FLUTTER_STORAGE_BASE_URL="https://storage.googleapis.com" flutter build apk --release
+	@echo "=== 步骤 5/5: 拷贝构建产物回原目录 ==="
+	cp $(APK_BUILD_TMP)/build/app/outputs/flutter-apk/app-debug.apk $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
+	cp $(APK_BUILD_TMP)/build/app/outputs/flutter-apk/app-release.apk $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
+	rm -rf $(APK_BUILD_TMP)
+	@echo "=== APK 构建完成 ==="
+	ls -lh $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
 
 flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
 
 # ---- 全部 ----
-.PHONY: all test-all hooks all-safe
+.PHONY: all test-all hooks all-safe all-apk-safe
 
 all: build flutter-build-web
 
 # 全量构建（使用 ASCII 安全路径，适用于项目路径含中文的环境）
 all-safe: build flutter-build-web-output
+
+all-apk-safe: flutter-build-apk-safe
 
 test-all: test flutter-test
 
