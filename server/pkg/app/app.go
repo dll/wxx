@@ -337,6 +337,15 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
 
+	// 根路由
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"service": "蔚小芯",
+			"version": "0.1.0",
+			"docs":    "/health",
+		})
+	})
+
 	// 健康检查
 	router.GET("/health", healthHandler(db))
 
