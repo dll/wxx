@@ -81,6 +81,15 @@ func (m *mockAgentService) Delete(agentID string) error {
 	return err
 }
 
+// ═══ NewAgentHandler 构造函数测试 ═══
+
+func TestNewAgentHandler(t *testing.T) {
+	h := NewAgentHandler(nil)
+	if h == nil {
+		t.Fatal("NewAgentHandler 不应返回 nil")
+	}
+}
+
 func setupAgentTestRouter(mockSvc agentService) (*gin.Engine, *config.Config) {
 	gin.SetMode(gin.TestMode)
 

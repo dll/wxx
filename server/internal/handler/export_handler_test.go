@@ -42,6 +42,15 @@ func (m *mockExportService) ExportResources(resourceType, sinceCursor string) ([
 	return filtered, nil
 }
 
+// ═══ NewExportHandler 构造函数测试 ═══
+
+func TestNewExportHandler(t *testing.T) {
+	h := NewExportHandler(nil)
+	if h == nil {
+		t.Fatal("NewExportHandler 不应返回 nil")
+	}
+}
+
 func setupExportTestRouter(mockSvc exportService) (*gin.Engine, *config.Config) {
 	gin.SetMode(gin.TestMode)
 

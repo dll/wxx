@@ -46,6 +46,22 @@ func setupChatTestRouter(t *testing.T, mockClient llm.ChatClient) (*gin.Engine, 
 	return r, cfg
 }
 
+// ═══ SetEmotionService 测试 ═══
+
+func TestChatHandler_SetEmotionService(t *testing.T) {
+	// 构造 ChatHandler（nil chatSvc 对 setter 测试无害）
+	h := &ChatHandler{}
+	if h.emotionSvc != nil {
+		t.Error("初始 emotionSvc 应为 nil")
+	}
+
+	// 设置 nil 情感服务（nil-safe）
+	h.SetEmotionService(nil)
+	if h.emotionSvc != nil {
+		t.Error("SetEmotionService(nil) 后 emotionSvc 应为 nil")
+	}
+}
+
 func TestChatHandler_Ask_Success(t *testing.T) {
 	mockLLM := llm.NewMockClient("test-llm")
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {

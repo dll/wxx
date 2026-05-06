@@ -213,3 +213,22 @@ func TestAuthHandler_Profile_Unauthenticated(t *testing.T) {
 		t.Errorf("期望 401，得到 %d", w.Code)
 	}
 }
+
+func TestAuthHandler_Profile_TamperedToken(t *testing.T) {
+	r, _ := setupAuthTestRouter(t)
+
+	// 使用不同密钥签发的 token（模拟篡改）
+	tamperedCfg := &config.Config{JWTSecret: "wrong-secret", JWTExpireHours: 2}
+	user := &model.User{ID: 1, Username: "hacker", Role: "student"}
+	token, _ := middleware.GenerateToken(tamperedCfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user/profile", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// 篡改的 token 签名不匹配，应返回 401
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("篡改 token 应返回 401，得到 %d: %s", w.Code, w.Body.String())
+	}
+}

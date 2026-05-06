@@ -32,6 +32,15 @@ func (m *mockVoiceClient) TTS(_ context.Context, _ string, _ string) ([]byte, er
 	return m.ttsAudio, m.ttsErr
 }
 
+// ═══ NewVoiceHandler 构造函数测试 ═══
+
+func TestNewVoiceHandler(t *testing.T) {
+	h := NewVoiceHandler(nil)
+	if h == nil {
+		t.Fatal("NewVoiceHandler 不应返回 nil")
+	}
+}
+
 func setupVoiceTestRouter(mockClient voiceClient) (*gin.Engine, *config.Config) {
 	gin.SetMode(gin.TestMode)
 

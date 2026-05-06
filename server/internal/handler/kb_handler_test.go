@@ -468,3 +468,67 @@ func TestKBHandler_Import_StudentForbidden(t *testing.T) {
 		t.Errorf("student e5ba94e8a2abe68b92e7bb9defbc8ce69c9fe69b 403 e5bee997 %d", w.Code)
 	}
 }
+
+func TestKBHandler_UpdateResource_NotFound(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "c1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	body := `{"title":"不会找到"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/kb/resources/nonexistent-id", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("不存在的资源应返回 500，得到 %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestKBHandler_UpdateResource_Unauthenticated(t *testing.T) {
+	r, _ := setupKBTestRouter(t)
+
+	body := `{"title":"no auth"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/kb/resources/any-id", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("期望 401，得到 %d", w.Code)
+	}
+}
+
+func TestKBHandler_BrowseKnowledge_PaginationBoundary(t *testing.T) {
+	r, cfg, kbRepo := setupKBBrowseTestRouter(t)
+
+	// 插入 5 条已发布资源
+	for i := 0; i < 5; i++ {
+		kbRepo.Create(&model.KBResource{
+			ResourceID:   "page-" + string(rune('a'+i)),
+			ResourceType: "Policy", OwnerScope: "school",
+			RoleScope: "student", Title: "分页测试", Content: "内容",
+			Version: "1.0", Status: "published",
+		})
+	}
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student", OwnerScope: "school"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/knowledge?type=Policy", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KnowledgeBrowseResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if cards, ok := resp.Data["Policy"]; !ok || len(cards) == 0 {
+		t.Errorf("期望返回 Policy 分组，得到 %v", resp.Data)
+	}
+}
