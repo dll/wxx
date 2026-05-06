@@ -143,11 +143,14 @@ type KnowledgeCard struct {
 	SourceLink   string `json:"source_link"`    // 原文链接
 }
 
-// KnowledgeBrowseResponse 知识大厅浏览响应（按类型分组）
+// KnowledgeBrowseResponse 知识大厅浏览响应（按类型分组，带分页）
 type KnowledgeBrowseResponse struct {
-	Code    int                       `json:"code"`
-	Message string                    `json:"message"`
-	Data    map[string][]*KnowledgeCard `json:"data"` // key = resource_type
+	Code     int                         `json:"code"`
+	Message  string                      `json:"message"`
+	Data     map[string][]*KnowledgeCard `json:"data"`     // key = resource_type
+	Total    int                         `json:"total"`    // 全部已发布资源数
+	Page     int                         `json:"page"`     // 当前页码
+	PageSize int                         `json:"page_size"` // 每页数量
 }
 
 // ── 情感预警 DTO ──

@@ -36,20 +36,20 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	// bm25(kb_fts, resource_id权重, title权重, summary权重, content权重)
 	rows, err := r.db.Query(
 		`SELECT
-			kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
-			kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
-			kb.content, kb.source_link, kb.source_version,
-			kb.effective_at, kb.expired_at, kb.tags,
-			kb.updated_by, kb.created_at, kb.updated_at,
-			rank AS score
-		 FROM kb_fts
-		 JOIN kb_resources kb ON kb_fts.rowid = kb.id
-		 WHERE kb_fts MATCH ?
-		   AND kb.status = 'published'
-		   AND (kb.owner_scope = 'school' OR (kb.owner_scope = ? AND kb.owner_id = ?))
-		   AND kb.role_scope LIKE ?
-		 ORDER BY score
-		 LIMIT ?`,
+				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
+				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
+				kb.content, kb.source_link, kb.source_version,
+				kb.effective_at, kb.expired_at, kb.tags,
+				kb.updated_by, kb.created_at, kb.updated_at,
+				rank AS score
+			 FROM kb_fts
+			 JOIN kb_resources kb ON kb_fts.rowid = kb.id
+			 WHERE kb_fts MATCH ?
+			   AND kb.status = 'published'
+			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = ? AND kb.owner_id = ?))
+			   AND kb.role_scope LIKE ?
+			 ORDER BY score
+			 LIMIT ?`,
 		escapedQuery, ownerScope, ownerID, "%"+role+"%", limit,
 	)
 	if err != nil {
@@ -152,11 +152,11 @@ func compareVersion(v1, v2 string) int {
 // List 分页查询知识资源（支持 ownerScope/status/resourceType 过滤）
 func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, limit int) ([]*model.KBResource, error) {
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
-		role_scope, version, status, title, summary,
-		content, source_link, source_version,
-		effective_at, expired_at, tags,
-		updated_by, created_at, updated_at
-	 FROM kb_resources WHERE 1=1`
+			role_scope, version, status, title, summary,
+			content, source_link, source_version,
+			effective_at, expired_at, tags,
+			updated_by, created_at, updated_at
+		 FROM kb_resources WHERE 1=1`
 	args := []interface{}{}
 
 	if ownerScope != "" {
@@ -205,11 +205,11 @@ func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, 
 // ListSince 查询 updated_at >= sinceCursor 的资源（增量导出用）
 func (r *KBRepo) ListSince(resourceType, sinceCursor string, limit int) ([]*model.KBResource, error) {
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
-		role_scope, version, status, title, summary,
-		content, source_link, source_version,
-		effective_at, expired_at, tags,
-		updated_by, created_at, updated_at
-	 FROM kb_resources WHERE status = 'published'`
+			role_scope, version, status, title, summary,
+			content, source_link, source_version,
+			effective_at, expired_at, tags,
+			updated_by, created_at, updated_at
+		 FROM kb_resources WHERE status = 'published'`
 	args := []interface{}{}
 
 	if resourceType != "" {
@@ -281,11 +281,11 @@ func (r *KBRepo) GetByResourceID(resourceID string) (*model.KBResource, error) {
 	kb := &model.KBResource{}
 	err := r.db.QueryRow(
 		`SELECT id, resource_id, resource_type, owner_scope, owner_id,
-			role_scope, version, status, title, summary,
-			content, source_link, source_version,
-			effective_at, expired_at, tags,
-			updated_by, created_at, updated_at
-		 FROM kb_resources WHERE resource_id = ?`, resourceID,
+				role_scope, version, status, title, summary,
+				content, source_link, source_version,
+				effective_at, expired_at, tags,
+				updated_by, created_at, updated_at
+			 FROM kb_resources WHERE resource_id = ?`, resourceID,
 	).Scan(
 		&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 		&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
@@ -306,10 +306,10 @@ func (r *KBRepo) GetByResourceID(resourceID string) (*model.KBResource, error) {
 func (r *KBRepo) Create(kb *model.KBResource) (int64, error) {
 	result, err := r.db.Exec(
 		`INSERT INTO kb_resources
-		 (resource_id, resource_type, owner_scope, owner_id, role_scope,
-		  version, status, title, summary, content,
-		  source_link, source_version, effective_at, expired_at, tags, updated_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 (resource_id, resource_type, owner_scope, owner_id, role_scope,
+			  version, status, title, summary, content,
+			  source_link, source_version, effective_at, expired_at, tags, updated_by)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		kb.ResourceID, kb.ResourceType, kb.OwnerScope, kb.OwnerID, kb.RoleScope,
 		kb.Version, kb.Status, kb.Title, kb.Summary, kb.Content,
 		kb.SourceLink, kb.SourceVersion, kb.EffectiveAt, kb.ExpiredAt, kb.Tags, kb.UpdatedBy,
@@ -324,11 +324,11 @@ func (r *KBRepo) Create(kb *model.KBResource) (int64, error) {
 func (r *KBRepo) Update(kb *model.KBResource) error {
 	_, err := r.db.Exec(
 		`UPDATE kb_resources SET
-			resource_type = ?, owner_scope = ?, owner_id = ?, role_scope = ?,
-			version = ?, status = ?, title = ?, summary = ?, content = ?,
-			source_link = ?, source_version = ?, effective_at = ?, expired_at = ?,
-			tags = ?, updated_by = ?, updated_at = datetime('now')
-		 WHERE resource_id = ?`,
+				resource_type = ?, owner_scope = ?, owner_id = ?, role_scope = ?,
+				version = ?, status = ?, title = ?, summary = ?, content = ?,
+				source_link = ?, source_version = ?, effective_at = ?, expired_at = ?,
+				tags = ?, updated_by = ?, updated_at = datetime('now')
+			 WHERE resource_id = ?`,
 		kb.ResourceType, kb.OwnerScope, kb.OwnerID, kb.RoleScope,
 		kb.Version, kb.Status, kb.Title, kb.Summary, kb.Content,
 		kb.SourceLink, kb.SourceVersion, kb.EffectiveAt, kb.ExpiredAt,
@@ -341,8 +341,8 @@ func (r *KBRepo) Update(kb *model.KBResource) error {
 func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error) {
 	rows, err := r.db.Query(
 		`SELECT id, resource_id, step_order, title, materials, entry_url, deadline, location, notes
-		 FROM process_steps WHERE resource_id = ?
-		 ORDER BY step_order ASC`, resourceID,
+			 FROM process_steps WHERE resource_id = ?
+			 ORDER BY step_order ASC`, resourceID,
 	)
 	if err != nil {
 		return nil, err
@@ -365,29 +365,40 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 // ownerScope/ownerID: 归属范围过滤（显示全校 + 当前范围）
 // role: 用户角色（过滤可见资源）
 // resourceType: 可选类型过滤，空字符串表示全部
-func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string) (map[string][]*model.KnowledgeCard, error) {
-	query := `SELECT resource_id, resource_type, title, summary, tags, source_link
-	 FROM kb_resources
-	 WHERE status = 'published'
-	   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
-	   AND role_scope LIKE ?
-	 ORDER BY resource_type, updated_at DESC`
-	args := []interface{}{ownerScope, ownerID, "%" + role + "%"}
+// limit/offset: 分页参数，limit<=0 表示不分页
+// 返回值: 按 resource_type 分组的卡片映射、全部符合条件的资源总数
+func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string, limit, offset int) (map[string][]*model.KnowledgeCard, int, error) {
+	whereClause := ` WHERE status = 'published'
+		   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
+		   AND role_scope LIKE ?`
+	countArgs := []interface{}{ownerScope, ownerID, "%" + role + "%"}
+	queryArgs := []interface{}{ownerScope, ownerID, "%" + role + "%"}
 
 	if resourceType != "" {
-		query = `SELECT resource_id, resource_type, title, summary, tags, source_link
-		 FROM kb_resources
-		 WHERE status = 'published'
-		   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
-		   AND role_scope LIKE ?
-		   AND resource_type = ?
-		 ORDER BY resource_type, updated_at DESC`
-		args = append(args, resourceType)
+		whereClause += ` AND resource_type = ?`
+		countArgs = append(countArgs, resourceType)
+		queryArgs = append(queryArgs, resourceType)
 	}
 
-	rows, err := r.db.Query(query, args...)
+	// 先统计总数（不受分页影响）
+	var total int
+	countQuery := `SELECT COUNT(*) FROM kb_resources` + whereClause
+	if err := r.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("统计知识大厅数据失败: %w", err)
+	}
+
+	// 分页查询
+	query := `SELECT resource_id, resource_type, title, summary, tags, source_link
+		 FROM kb_resources` + whereClause + `
+		 ORDER BY resource_type, updated_at DESC`
+	if limit > 0 {
+		query += ` LIMIT ? OFFSET ?`
+		queryArgs = append(queryArgs, limit, offset)
+	}
+
+	rows, err := r.db.Query(query, queryArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("查询知识大厅数据失败: %w", err)
+		return nil, 0, fmt.Errorf("查询知识大厅数据失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -398,12 +409,12 @@ func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType strin
 			&card.ResourceID, &card.ResourceType, &card.Title,
 			&card.Summary, &card.Tags, &card.SourceLink,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result[card.ResourceType] = append(result[card.ResourceType], card)
 	}
 
-	return result, rows.Err()
+	return result, total, rows.Err()
 }
 
 // escapeQuery 转义 FTS5 查询中的特殊字符

@@ -55,6 +55,7 @@ func resolveMigrationPath(t *testing.T, name string) string {
 	t.Helper()
 	candidates := []string{
 		"../../migrations/" + name,
+		"../../../migrations/" + name,
 		"migrations/" + name,
 	}
 	for _, p := range candidates {

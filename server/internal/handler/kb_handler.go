@@ -23,9 +23,16 @@ func NewKBHandler(kbSvc *service.KBService) *KBHandler {
 }
 
 // BrowseKnowledge 知识大厅浏览（面向所有已认证用户，无需管理角色）
-// GET /api/v1/knowledge?type=Policy
+// GET /api/v1/knowledge?type=Policy&page=1&page_size=20
+// 兼容小程序端使用 resource_type 参数名
 func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 	resourceType := c.Query("type")
+	if resourceType == "" {
+		resourceType = c.Query("resource_type")
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
@@ -36,7 +43,7 @@ func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 		return
 	}
 
-	cards, err := h.kbSvc.Browse(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, resourceType)
+	cards, total, err := h.kbSvc.Browse(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, resourceType, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -46,9 +53,12 @@ func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, model.KnowledgeBrowseResponse{
-		Code:    0,
-		Message: "success",
-		Data:    cards,
+		Code:     0,
+		Message:  "success",
+		Data:     cards,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
 	})
 }
 

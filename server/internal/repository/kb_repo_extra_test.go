@@ -84,9 +84,12 @@ func TestKBRepo_GetPublishedCards(t *testing.T) {
 		Title: "草稿政策", Summary: "不应出现",
 	})
 
-	cards, err := repo.GetPublishedCards("school", "", "student", "")
+	cards, total, err := repo.GetPublishedCards("school", "", "student", "", 0, 0)
 	if err != nil {
 		t.Fatalf("GetPublishedCards 失败: %v", err)
+	}
+	if total < 2 {
+		t.Errorf("期望总数至少 2，得到 %d", total)
 	}
 	if len(cards) < 2 {
 		t.Errorf("期望至少 2 个分组，得到 %d: %v", len(cards), cards)
@@ -118,7 +121,7 @@ func TestKBRepo_GetPublishedCards_TypeFilter(t *testing.T) {
 		Title: "流程B", Summary: "摘要B",
 	})
 
-	cards, err := repo.GetPublishedCards("school", "", "student", "Policy")
+	cards, _, err := repo.GetPublishedCards("school", "", "student", "Policy", 0, 0)
 	if err != nil {
 		t.Fatalf("GetPublishedCards 失败: %v", err)
 	}

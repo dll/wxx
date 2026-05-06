@@ -35,7 +35,7 @@ func setupKBServiceBrowseTestDB(t *testing.T) *KBService {
 func TestKBService_Browse_Empty(t *testing.T) {
 	svc := setupKBServiceBrowseTestDB(t)
 
-	cards, err := svc.Browse("school", "", "student", "")
+	cards, _, err := svc.Browse("school", "", "student", "", 1, 0)
 	if err != nil {
 		t.Fatalf("Browse 失败: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestKBService_Browse_WithPublishedData(t *testing.T) {
 		Title: "草稿政策", Summary: "不应出现",
 	})
 
-	cards, err := svc.Browse("school", "", "student", "")
+	cards, _, err := svc.Browse("school", "", "student", "", 1, 0)
 	if err != nil {
 		t.Fatalf("Browse 失败: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestKBService_Browse_WithTypeFilter(t *testing.T) {
 	})
 
 	// 测试类型过滤
-	cards, err := svc.Browse("school", "", "student", "Policy")
+	cards, _, err := svc.Browse("school", "", "student", "Policy", 1, 0)
 	if err != nil {
 		t.Fatalf("Browse 失败: %v", err)
 	}

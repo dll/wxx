@@ -59,12 +59,22 @@ func (s *KBService) Get(resourceID string) (*model.KBResource, error) {
 }
 
 // Browse 知识大厅浏览（按类型分组，面向所有已认证用户）
-func (s *KBService) Browse(ownerScope, ownerID, role, resourceType string) (map[string][]*model.KnowledgeCard, error) {
-	cards, err := s.kbRepo.GetPublishedCards(ownerScope, ownerID, role, resourceType)
-	if err != nil {
-		return nil, fmt.Errorf("获取知识大厅数据失败: %w", err)
+// page/pageSize 控制分页；pageSize<=0 时返回全部（不分页）
+func (s *KBService) Browse(ownerScope, ownerID, role, resourceType string, page, pageSize int) (map[string][]*model.KnowledgeCard, int, error) {
+	var limit, offset int
+	if pageSize > 0 {
+		if page < 1 {
+			page = 1
+		}
+		limit = pageSize
+		offset = (page - 1) * pageSize
 	}
-	return cards, nil
+
+	cards, total, err := s.kbRepo.GetPublishedCards(ownerScope, ownerID, role, resourceType, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("获取知识大厅数据失败: %w", err)
+	}
+	return cards, total, nil
 }
 
 // Create 创建知识资源
