@@ -69,6 +69,7 @@
 | `DELETE /sessions/:id` | 全部 | 全部 | 自身 | 自身 | 自身 | 自身 |
 | **知识** | | | | | | |
 | `GET /knowledge` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /recommendations` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `GET /kb/resources` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `POST /kb/resources` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `PUT /kb/resources/:id` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |

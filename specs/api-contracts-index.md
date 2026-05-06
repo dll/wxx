@@ -25,6 +25,7 @@
 | 方法 | 路径 | 认证 | 角色要求 | 说明 |
 |------|------|------|----------|------|
 | `GET` | `/knowledge` | JWT | 全部 | 知识大厅浏览，按类型分组返回轻量卡片 `?type=Policy\|Process\|FAQ\|Activity` |
+| `GET` | `/recommendations` | JWT | 全部 | 个性化推荐 `?limit=10`，基于用户历史提问+FTS5搜索+冷启动热门兜底 |
 | `GET` | `/kb/resources` | JWT | ≥ counselor | 资源分页列表 `?page=&page_size=&resource_type=&status=&owner_scope=` |
 | `POST` | `/kb/resources` | JWT | ≥ counselor | 创建知识资源 |
 | `GET` | `/kb/resources/:id` | JWT | ≥ counselor | 获取资源完整详情 |
@@ -84,6 +85,7 @@
 
 | 日期 | 变更摘要 | 兼容策略 |
 |------|----------|----------|
+| 2026-05-06 | 新增 `GET /recommendations` 个性化推荐引擎 | 向前兼容 |
 | 2026-05-05 | 新增 `GET /export` 知识导出（替代占位符 501） | 向前兼容 |
 | 2026-05-05 | 新增 `DELETE /sessions/:id` | 向前兼容 |
 | 2026-05-04 | 新增情感预警全套：`/emotion/stats`、`/emotion/analyze`、`/emotion/alerts`、`/emotion/alerts/:id` | 向前兼容 |

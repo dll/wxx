@@ -127,6 +127,10 @@ func main() {
 	// Agent handler（智能体管理 API）
 	agentHandler := handler.NewAgentHandler(agentSvc)
 
+	// Recommendation handler（个性化推荐）
+	recSvc := service.NewRecommendationService(kbRepo, messageRepo)
+	recHandler := handler.NewRecommendationHandler(recSvc)
+
 	// Export handler（知识导出）
 	exportHandler := handler.NewExportHandler(kbSvc)
 
@@ -134,7 +138,7 @@ func main() {
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler)
+	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler)
 
 	// ── 6. 启动 HTTP 服务（支持优雅关闭）──
 	srv := &http.Server{
@@ -198,7 +202,7 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // setupRouter 构建 Gin 路由树
-func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler, agentHandler *handler.AgentHandler, exportHandler *handler.ExportHandler, integrationHandler *handler.IntegrationHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, sessionH *handler.SessionHandler, chatH *handler.ChatHandler, kbH *handler.KBHandler, voiceHandler *handler.VoiceHandler, emotionHandler *handler.EmotionHandler, agentHandler *handler.AgentHandler, exportHandler *handler.ExportHandler, integrationHandler *handler.IntegrationHandler, recHandler *handler.RecommendationHandler) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
@@ -238,6 +242,9 @@ func setupRouter(cfg *config.Config, db *sql.DB, authH *handler.AuthHandler, ses
 
 			// 知识大厅浏览（所有已认证用户可访问）
 			secured.GET("/knowledge", kbH.BrowseKnowledge)
+
+			// 个性化推荐（所有已认证用户可访问）
+			secured.GET("/recommendations", recHandler.GetRecommendations)
 
 			// 情感预警统计（所有已认证用户可访问，角色过滤在 service 层处理）
 			if emotionHandler != nil {
