@@ -46,7 +46,7 @@ dependencies:
   go_router: ^14.8.0
 
   # Markdown 渲染（AnswerCard 内容）
-  flutter_markdown: ^0.7.6
+  flutter_markdown_plus: ^1.0.7
 
 dev_dependencies:
   flutter_test:

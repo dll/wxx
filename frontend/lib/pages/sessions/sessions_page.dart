@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 
 /// 会话历史页
@@ -48,20 +49,9 @@ class _SessionsPageState extends State<SessionsPage> {
     }
 
     if (prov.error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text(prov.error!, style: theme.textTheme.bodyLarge),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: () => prov.fetchSessions(),
-              child: const Text('重试'),
-            ),
-          ],
-        ),
+      return ErrorView.error(
+        message: prov.error!,
+        onRetry: () => prov.fetchSessions(),
       );
     }
 
@@ -72,15 +62,9 @@ class _SessionsPageState extends State<SessionsPage> {
           children: [
             SizedBox(
               height: MediaQuery.of(context).size.height * 0.6,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.chat_bubble_outline, size: 48, color: theme.colorScheme.outline),
-                    const SizedBox(height: 12),
-                    Text('暂无对话记录', style: TextStyle(color: theme.colorScheme.outline)),
-                  ],
-                ),
+              child: ErrorView.empty(
+                message: '暂无对话记录',
+                icon: Icons.chat_bubble_outline,
               ),
             ),
           ],

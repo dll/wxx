@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 import '../../providers/enrollment_provider.dart';
+import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 
 /// 办事流程引导页（入学 / 离校）
@@ -113,34 +114,17 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     }
 
     if (prov.error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text(prov.error!, style: theme.textTheme.bodyLarge),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: () => prov.loadFlow(),
-              child: const Text('重试'),
-            ),
-          ],
-        ),
+      return ErrorView.error(
+        message: prov.error!,
+        onRetry: () => prov.loadFlow(),
       );
     }
 
     final card = prov.answerCard;
     if (card == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 48, color: theme.colorScheme.outline),
-            const SizedBox(height: 12),
-            Text('选择流程类型开始查看', style: TextStyle(color: theme.colorScheme.outline)),
-          ],
-        ),
+      return ErrorView.empty(
+        message: '选择流程类型开始查看',
+        icon: Icons.description_outlined,
       );
     }
 

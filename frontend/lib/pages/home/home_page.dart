@@ -5,6 +5,8 @@ import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../utils/storage.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/skeleton.dart';
 
 /// 首页仪表盘 — 按角色自适应布局
 class HomePage extends StatefulWidget {
@@ -324,7 +326,8 @@ class _HomePageState extends State<HomePage> {
 
   /// 最近对话
   Widget _buildRecentSessions(ThemeData theme) {
-    final sessions = context.watch<SessionProvider>().sessions;
+    final sessionProv = context.watch<SessionProvider>();
+    final sessions = sessionProv.sessions;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,7 +345,9 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         const SizedBox(height: 8),
-        if (sessions.isEmpty)
+        if (sessionProv.loading && sessions.isEmpty)
+          const SessionsSkeleton()
+        else if (sessions.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -350,24 +355,10 @@ class _HomePageState extends State<HomePage> {
               color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              children: [
-                Icon(Icons.chat_bubble_outline,
-                    size: 32, color: theme.colorScheme.outline),
-                const SizedBox(height: 8),
-                Text(
-                  '暂无对话记录',
-                  style: TextStyle(color: theme.colorScheme.outline, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '去对话页开始提问吧',
-                  style: TextStyle(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            child: ErrorView.empty(
+              message: '暂无对话记录',
+              subtitle: '去对话页开始提问吧',
+              icon: Icons.chat_bubble_outline,
             ),
           )
         else

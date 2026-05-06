@@ -8,7 +8,7 @@
 | 状态管理 | `provider` | 轻量，团队易上手 |
 | 本地存储 | `shared_preferences` | Token、偏好缓存 |
 | 路由 | `go_router` | 声明式路由 + 守卫 |
-| Markdown 渲染 | `flutter_markdown` | AnswerCard 内容渲染 |
+| Markdown 渲染 | `flutter_markdown_plus` | AnswerCard 内容渲染 |
 
 ## 目标平台
 
@@ -40,6 +40,27 @@ lib/
 │   └── answer_card.dart       # AnswerCard 卡片渲染组件
 └── utils/
     └── storage.dart           # SharedPreferences 封装
+```
+
+## 环境变量
+
+构建前需设置以下环境变量，否则依赖解析可能失败：
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `PUB_HOSTED_URL` | pub 镜像源（中国用户必设） | `https://pub.flutter-io.cn` |
+| `PUB_CACHE` | pub 缓存目录（可选，避免跨盘路径问题） | `D:\PUB` |
+
+```powershell
+# PowerShell
+$env:PUB_HOSTED_URL = "https://pub.flutter-io.cn"
+$env:PUB_CACHE = "D:\PUB"
+```
+
+```bash
+# bash / Git Bash
+export PUB_HOSTED_URL="https://pub.flutter-io.cn"
+export PUB_CACHE="D:/PUB"
 ```
 
 ## 构建命令

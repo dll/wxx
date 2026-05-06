@@ -62,6 +62,10 @@ class AuthProvider extends ChangeNotifier {
 
   /// 获取用户资料
   Future<void> fetchProfile() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
     try {
       final resp = await _api.get(ApiConfig.profile);
       _profile = UserProfile.fromJson(resp.data);
@@ -72,7 +76,11 @@ class AuthProvider extends ChangeNotifier {
           displayName: _profile!.displayName,
         );
       }
+      _loading = false;
+      notifyListeners();
     } catch (e) {
+      _error = '加载用户信息失败';
+      _loading = false;
       // 静默失败，使用缓存的用户信息
       final name = Storage.displayName;
       if (name != null) {
@@ -83,6 +91,7 @@ class AuthProvider extends ChangeNotifier {
           displayName: name,
         );
       }
+      notifyListeners();
     }
   }
 

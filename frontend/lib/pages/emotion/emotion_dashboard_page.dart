@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../models/models.dart';
+import '../../widgets/error_view.dart';
 
 /// 情感预警仪表盘（辅导员及以上角色可访问）
 class EmotionDashboardPage extends StatefulWidget {
@@ -326,58 +327,17 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
   }
 
   Widget _buildErrorState(EmotionProvider provider) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline,
-                size: 48,
-                color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 12),
-            Text(provider.error,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.error)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: provider.refresh,
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorView.error(
+      message: provider.error,
+      onRetry: provider.refresh,
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sentiment_satisfied_alt,
-                size: 64,
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              '暂无预警信息',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '当前没有符合条件的情感告警',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
+    return ErrorView.empty(
+      message: '暂无预警信息',
+      subtitle: '当前没有符合条件的情感告警',
+      icon: Icons.sentiment_satisfied_alt,
     );
   }
 

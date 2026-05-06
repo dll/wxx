@@ -7,6 +7,7 @@ class Storage {
   static const String _keyUsername = 'username';
   static const String _keyRole = 'role';
   static const String _keyDisplayName = 'display_name';
+  static const String _keyThemeMode = 'theme_mode';
 
   static late SharedPreferences _prefs;
 
@@ -43,4 +44,10 @@ class Storage {
     await _prefs.remove(_keyRole);
     await _prefs.remove(_keyDisplayName);
   }
+
+  // ── 主题模式 ──
+  /// 返回存储的主题模式：'light' / 'dark' / 'system'，默认 'system'
+  static String get themeMode => _prefs.getString(_keyThemeMode) ?? 'system';
+  static Future<void> setThemeMode(String mode) =>
+      _prefs.setString(_keyThemeMode, mode);
 }

@@ -104,7 +104,7 @@ class _ChatPageState extends State<ChatPage> {
       _scrollCtrl.animateTo(
         _scrollCtrl.position.maxScrollExtent + 100,
         duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+        curve: Curves.easeOutCubic,
       );
     }
   }
@@ -143,22 +143,30 @@ class _ChatPageState extends State<ChatPage> {
                       if (index == chat.messages.length && chat.sending) {
                         return _buildLoadingBubble(theme);
                       }
-                      return _buildMessage(chat.messages[index]);
+                      return _SlideInItem(
+                        key: ValueKey(index),
+                        child: _buildMessage(chat.messages[index]),
+                      );
                     },
                   ),
           ),
 
-          // 错误提示
-          if (chat.error != null)
-            Container(
-              width: double.infinity,
-              color: theme.colorScheme.errorContainer,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                chat.error!,
-                style: TextStyle(color: theme.colorScheme.onErrorContainer, fontSize: 13),
-              ),
-            ),
+          // 错误提示（带动画过渡）
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: chat.error != null
+                ? Container(
+                    key: const ValueKey('error-banner'),
+                    width: double.infinity,
+                    color: theme.colorScheme.errorContainer,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      chat.error!,
+                      style: TextStyle(color: theme.colorScheme.onErrorContainer, fontSize: 13),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('no-error')),
+          ),
 
           // 输入区域
           _buildInputBar(theme, chat.sending),
@@ -569,6 +577,51 @@ class _ChatPageState extends State<ChatPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 消息入场动画 — 新消息从下方滑入并淡入
+class _SlideInItem extends StatefulWidget {
+  final Widget child;
+  const _SlideInItem({super.key, required this.child});
+
+  @override
+  State<_SlideInItem> createState() => _SlideInItemState();
+}
+
+class _SlideInItemState extends State<_SlideInItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(_ctrl);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slide,
+      child: FadeTransition(opacity: _fade, child: widget.child),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/knowledge_provider.dart';
+import '../../widgets/error_view.dart';
 
 /// 知识大厅页面 — 卡片式分类浏览
 class BrowsePage extends StatefulWidget {
@@ -347,38 +348,17 @@ class _BrowsePageState extends State<BrowsePage> {
   }
 
   Widget _buildEmpty(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.menu_book_outlined, size: 64, color: theme.colorScheme.outline),
-        const SizedBox(height: 16),
-        Text('暂无知识内容', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text('知识库正在建设中，敬请期待', style: theme.textTheme.bodyMedium),
-      ],
-      ),
+    return ErrorView.empty(
+      message: '暂无知识内容',
+      subtitle: '知识库正在建设中，敬请期待',
+      icon: Icons.menu_book_outlined,
     );
   }
 
   Widget _buildError(BuildContext context, KnowledgeProvider provider, ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
-          const SizedBox(height: 16),
-          Text('加载失败', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(provider.error ?? '未知错误', style: theme.textTheme.bodySmall),
-          const SizedBox(height: 16),
-          FilledButton.tonalIcon(
-            onPressed: () => provider.load(),
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('重试'),
-          ),
-        ],
-      ),
+    return ErrorView.error(
+      message: provider.error ?? '加载失败',
+      onRetry: () => provider.load(),
     );
   }
 }

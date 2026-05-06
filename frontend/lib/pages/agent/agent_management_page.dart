@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/agent_provider.dart';
 import '../../models/models.dart';
+import '../../widgets/error_view.dart';
 
 /// 智能体管理页面（sys_admin / school_admin 可访问）
 class AgentManagementPage extends StatefulWidget {
@@ -42,7 +43,10 @@ class _AgentManagementPageState extends State<AgentManagementPage> {
             return _buildError(provider);
           }
           if (provider.agents.isEmpty) {
-            return const Center(child: Text('暂无智能体'));
+            return ErrorView.empty(
+              message: '暂无智能体',
+              icon: Icons.smart_toy_outlined,
+            );
           }
           return RefreshIndicator(
             onRefresh: () => provider.loadAgents(),
@@ -59,25 +63,9 @@ class _AgentManagementPageState extends State<AgentManagementPage> {
   }
 
   Widget _buildError(AgentProvider provider) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline,
-                size: 48, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 12),
-            Text(provider.error),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => provider.loadAgents(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorView.error(
+      message: provider.error,
+      onRetry: () => provider.loadAgents(),
     );
   }
 
@@ -399,7 +387,7 @@ class _AgentEditDialogState extends State<_AgentEditDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _type,
+                  initialValue: _type,
                   decoration: const InputDecoration(
                     labelText: '类型',
                     border: OutlineInputBorder(),

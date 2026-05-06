@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../main.dart';
+import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/storage.dart';
+import '../../widgets/error_view.dart';
 
 /// 个人中心页
 class ProfilePage extends StatefulWidget {
@@ -30,11 +33,29 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('个人中心')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 用户信息卡片
-          Card(
+      body: _buildBody(context, auth, theme, profile),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AuthProvider auth, ThemeData theme, UserProfile? profile) {
+    // 加载中（首次，非登录流程）
+    if (auth.loading && profile == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // 加载失败且无缓存数据
+    if (auth.error != null && profile == null) {
+      return ErrorView.error(
+        message: auth.error!,
+        onRetry: () => auth.fetchProfile(),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // 用户信息卡片
+        Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -83,6 +104,11 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
 
           const SizedBox(height: 24),
+
+          // 主题模式切换
+          _buildThemeSection(context),
+
+          const SizedBox(height: 16),
 
           // 智能体管理入口（管理员可访问）
           if (_canAccessAgents(profile?.role))
@@ -158,6 +184,57 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ],
+      );
+  }
+
+  /// 主题模式切换卡片
+  Widget _buildThemeSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final currentMode = themeNotifier.mode;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.brightness_6, color: theme.colorScheme.primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text('主题模式', style: theme.textTheme.bodyLarge),
+            ),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode, size: 18),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto, size: 18),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode, size: 18),
+                ),
+              ],
+              selected: {currentMode},
+              onSelectionChanged: (modes) {
+                themeNotifier.setMode(modes.first);
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12)),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
