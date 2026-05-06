@@ -5,26 +5,27 @@ APP_NAME   := wxx-server
 GO_DIR     := ./server
 BUILD_DIR  := ./bin
 FLUTTER_DIR:= ./frontend
-GO_FLAGS   := -tags "fts5"  # 启用 SQLite FTS5 全文检索支持
 
 # ---- Go 后端 ----
+# 注：go.mod 已移至项目根目录，所有 go 命令从根目录执行。
+# modernc.org/sqlite 纯 Go 驱动已内置 FTS5，无需额外构建标签。
 .PHONY: dev build test lint clean migrate
 
 dev:
-	cd $(GO_DIR) && go run $(GO_FLAGS) ./cmd/server
+	go run .
 
 build:
-	cd $(GO_DIR) && go build $(GO_FLAGS) -o ../$(BUILD_DIR)/$(APP_NAME) ./cmd/server
+	go build -ldflags="-s -w" -o $(BUILD_DIR)/$(APP_NAME) ./server/cmd/server
 
 test:
-	cd $(GO_DIR) && go test $(GO_FLAGS) ./... -v -cover
+	go test ./... -v -cover
 
 lint:
-	cd $(GO_DIR) && go vet $(GO_FLAGS) ./...
+	go vet ./...
 
 migrate:
 	@echo "执行 SQLite 迁移..."
-	cd $(GO_DIR) && go run $(GO_FLAGS) ./cmd/migrate
+	go run ./server/cmd/migrate
 
 clean:
 	rm -rf $(BUILD_DIR)

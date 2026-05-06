@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3" // SQLite 驱动（含 FTS5）
+	_ "modernc.org/sqlite" // SQLite 驱动（含 FTS5）
 )
 
 // NewTestDB 创建内存 SQLite 数据库并执行结构迁移脚本
@@ -15,7 +15,7 @@ import (
 func NewTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("打开内存数据库失败: %v", err)
 	}

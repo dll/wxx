@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/llm"
@@ -19,7 +19,7 @@ import (
 func openBenchDB(b *testing.B) *sql.DB {
 	b.Helper()
 
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		b.Fatalf("打开内存数据库失败: %v", err)
 	}

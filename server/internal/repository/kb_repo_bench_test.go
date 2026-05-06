@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/testutil"
@@ -53,7 +53,7 @@ func setupSearchBenchDB(b *testing.B, count int) *KBRepo {
 	b.Helper()
 
 	// 直接在内存中创建 SQLite 并执行迁移（避免依赖 NewTestDB 需要 *testing.T）
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		b.Fatalf("打开内存数据库失败: %v", err)
 	}

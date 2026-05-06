@@ -27,7 +27,7 @@ import (
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/dll/wxx/server/internal/testutil"
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -90,7 +90,7 @@ type stressApp struct {
 func setupApp() *stressApp {
 	gin.SetMode(gin.ReleaseMode)
 
-	db, err := sql.Open("sqlite3", ":memory:?_journal_mode=WAL&_busy_timeout=10000")
+	db, err := sql.Open("sqlite", ":memory:?_journal_mode=WAL&_busy_timeout=10000")
 	if err != nil {
 		log.Fatalf("数据库打开失败: %v", err)
 	}
