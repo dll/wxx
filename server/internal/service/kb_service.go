@@ -1,24 +1,35 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/temporal"
+	"github.com/dll/wxx/server/internal/temporal/workflows"
 	"github.com/google/uuid"
+	sdkclient "go.temporal.io/sdk/client"
 )
 
 // KBService 知识库管理业务服务
 type KBService struct {
-	kbRepo *repository.KBRepo
+	kbRepo         *repository.KBRepo
+	temporalClient *temporal.Client // 可选：Temporal 工作流客户端
 }
 
 // NewKBService 创建知识库服务
 func NewKBService(kbRepo *repository.KBRepo) *KBService {
 	return &KBService{kbRepo: kbRepo}
+}
+
+// SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）
+func (s *KBService) SetTemporalClient(tc *temporal.Client) {
+	s.temporalClient = tc
 }
 
 // List 分页查询知识资源
@@ -164,7 +175,16 @@ func (s *KBService) Update(resourceID string, req *model.KBUpdateRequest, userna
 
 // ImportResources 导入知识资源（NDJSON 格式，逐行 KBResource JSON）
 // 幂等键：(resource_id, version, status)；冲突按高版本覆盖、同版本跳过
+// 当 Temporal 已配置时，通过工作流引擎执行（获得重试/心跳保护）
 func (s *KBService) ImportResources(ndjsonData string, username string) (*model.KBImportResponse, error) {
+	if s.temporalClient != nil {
+		return s.importViaTemporal(ndjsonData, username)
+	}
+	return s.importDirect(ndjsonData, username)
+}
+
+// importDirect 直接导入（Temporal 未启用或降级时使用）
+func (s *KBService) importDirect(ndjsonData string, username string) (*model.KBImportResponse, error) {
 	lines := strings.Split(strings.TrimSpace(ndjsonData), "\n")
 	results := make([]*model.KBImportResult, 0, len(lines))
 	var created, updated, skipped int
@@ -261,4 +281,38 @@ func (s *KBService) ImportResources(ndjsonData string, username string) (*model.
 func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
 	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历
 	return s.kbRepo.ListSince(resourceType, sinceCursor, 5000)
+}
+
+// importViaTemporal 通过 Temporal 工作流引擎执行知识导入
+func (s *KBService) importViaTemporal(ndjsonData string, username string) (*model.KBImportResponse, error) {
+	ctx := context.Background()
+	workflowOpts := sdkclient.StartWorkflowOptions{
+		ID:                       fmt.Sprintf("kb-import-%s-%d", username, time.Now().UnixNano()),
+		TaskQueue:                s.temporalClient.TaskQueue(),
+		WorkflowExecutionTimeout: 10 * time.Minute, // 大量导入可能需要较长时间
+	}
+
+	input := workflows.KBImportInput{
+		NDJSONData: ndjsonData,
+		Username:   username,
+	}
+
+	run, err := s.temporalClient.SDKClient().ExecuteWorkflow(ctx, workflowOpts, workflows.KBImportWorkflow, input)
+	if err != nil {
+		log.Printf("启动知识导入工作流失败: %v，使用直接调用", err)
+		return s.importDirect(ndjsonData, username)
+	}
+
+	var output workflows.KBImportOutput
+	err = run.Get(ctx, &output)
+	if err != nil {
+		return nil, fmt.Errorf("知识导入工作流执行失败: %w", err)
+	}
+
+	var resp model.KBImportResponse
+	if err := json.Unmarshal([]byte(output.ImportResultJSON), &resp); err != nil {
+		return nil, fmt.Errorf("反序列化导入结果失败: %w", err)
+	}
+
+	return &resp, nil
 }

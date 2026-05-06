@@ -6,20 +6,25 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/temporal"
+	"github.com/dll/wxx/server/internal/temporal/workflows"
 	"github.com/google/uuid"
+	sdkclient "go.temporal.io/sdk/client"
 )
 
 // ChatService 问答业务服务（Context Engine 主链路）
 type ChatService struct {
-	sessionRepo *repository.SessionRepo
-	messageRepo *repository.MessageRepo
-	kbRepo      *repository.KBRepo
-	agentRepo   *repository.AgentRepo
-	llmClient   llm.ChatClient
+	sessionRepo    *repository.SessionRepo
+	messageRepo    *repository.MessageRepo
+	kbRepo         *repository.KBRepo
+	agentRepo      *repository.AgentRepo
+	llmClient      llm.ChatClient
+	temporalClient *temporal.Client // 可选：Temporal 工作流客户端
 }
 
 // NewChatService 创建问答服务
@@ -39,10 +44,23 @@ func NewChatService(
 	}
 }
 
+// SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）
+func (s *ChatService) SetTemporalClient(tc *temporal.Client) {
+	s.temporalClient = tc
+}
+
 // Ask 问答主链路
 // 1. 创建/获取会话 → 2. 搜索知识库 → 3. 拼装上下文 → 4. 调 LLM → 5. 构造 AnswerCard
+// 当 Temporal 已配置时，通过工作流引擎执行（获得重试/可观测性）
 func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessionID string, question string, agentID string) (*model.AnswerCard, string, error) {
 	traceID := uuid.New().String()
+
+	// 如果 Temporal 已启用，走工作流
+	if s.temporalClient != nil {
+		return s.askViaTemporal(ctx, userCtx, sessionID, question, agentID, traceID)
+	}
+
+	// ── 原有同步链路（不变）──
 
 	// ── 1. 会话管理 ──
 	if sessionID == "" {
@@ -285,4 +303,123 @@ func MarshalAnswerCard(card *model.AnswerCard) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+// askViaTemporal 通过 Temporal 工作流引擎执行问答链路
+// 工作流编排：验证会话 → 知识检索 → LLM 调用 → 构造 AnswerCard
+func (s *ChatService) askViaTemporal(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
+	workflowOpts := sdkclient.StartWorkflowOptions{
+		ID:                       "chat-" + traceID,
+		TaskQueue:                s.temporalClient.TaskQueue(),
+		WorkflowExecutionTimeout: 120 * time.Second,
+	}
+
+	input := workflows.ChatAskInput{
+		UserID:     userCtx.UserID,
+		Username:   userCtx.Username,
+		Role:       userCtx.Role,
+		OwnerScope: userCtx.OwnerScope,
+		OwnerID:    userCtx.OwnerID,
+		SessionID:  sessionID,
+		Question:   question,
+		AgentID:    agentID,
+		TraceID:    traceID,
+	}
+
+	run, err := s.temporalClient.SDKClient().ExecuteWorkflow(ctx, workflowOpts, workflows.ChatAskWorkflow, input)
+	if err != nil {
+		log.Printf("启动问答工作流失败 [trace=%s]: %v", traceID, err)
+		// 降级到同步直接调用
+		return s.askDirect(ctx, userCtx, sessionID, question, agentID, traceID)
+	}
+
+	var output workflows.ChatAskOutput
+	err = run.Get(ctx, &output)
+	if err != nil {
+		log.Printf("问答工作流执行失败 [trace=%s]: %v", traceID, err)
+		return s.askDirect(ctx, userCtx, sessionID, question, agentID, traceID)
+	}
+
+	// 反序列化 AnswerCard
+	var card model.AnswerCard
+	if err := json.Unmarshal([]byte(output.AnswerCardJSON), &card); err != nil {
+		log.Printf("反序列化 AnswerCard 失败 [trace=%s]: %v", traceID, err)
+		return s.fallbackAnswer(traceID, question), sessionID, nil
+	}
+
+	log.Printf("问答工作流完成 [trace=%s] session=%s", traceID, output.SessionID)
+	return &card, output.SessionID, nil
+}
+
+// askDirect 直接调用链路（Temporal 失败时的降级路径）
+func (s *ChatService) askDirect(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
+	log.Printf("使用直接调用链路 [trace=%s]", traceID)
+	// 复用原有同步逻辑（提取到 askDirect 中）
+	return s.askDirectImpl(ctx, userCtx, sessionID, question, agentID, traceID)
+}
+
+// askDirectImpl 直接调用链路的实现（原 Ask() 方法的核心逻辑）
+func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
+	// ── 1. 会话管理 ──
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+		err := s.sessionRepo.Create(&model.Session{
+			SessionID: sessionID,
+			UserID:    userCtx.UserID,
+		})
+		if err != nil {
+			return nil, "", fmt.Errorf("创建会话失败: %w", err)
+		}
+	} else {
+		session, err := s.sessionRepo.GetBySessionID(sessionID)
+		if err != nil {
+			return nil, "", fmt.Errorf("查询会话失败: %w", err)
+		}
+		if session == nil || session.UserID != userCtx.UserID {
+			return nil, "", fmt.Errorf("会话不存在或无权访问")
+		}
+		_ = s.sessionRepo.Touch(sessionID)
+	}
+
+	_ = s.messageRepo.Create(&model.Message{
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   question,
+		TraceID:   traceID,
+	})
+
+	// ── 2. FTS5 知识检索 ──
+	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
+	if err != nil {
+		log.Printf("知识检索失败 [trace=%s]: %v", traceID, err)
+	}
+
+	// ── 3. 拼装 LLM 上下文 ──
+	messages := s.buildMessages(ctx, sessionID, question, agentID, searchResults)
+
+	// ── 4. 调 LLM ──
+	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    messages,
+		Temperature: 0.3,
+		MaxTokens:   2048,
+	})
+	if err != nil {
+		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
+		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
+	}
+
+	// ── 5. 构造 AnswerCard ──
+	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID)
+
+	_ = s.messageRepo.Create(&model.Message{
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   llmResp.Content,
+		TraceID:   traceID,
+	})
+
+	log.Printf("问答完成 [trace=%s] prompt_tokens=%d output_tokens=%d sources=%d",
+		traceID, llmResp.PromptTokens, llmResp.OutputTokens, len(card.Sources))
+
+	return card, sessionID, nil
 }

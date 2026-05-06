@@ -17,6 +17,8 @@ import (
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/temporal"
+	temporalActivities "github.com/dll/wxx/server/internal/temporal/activities"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -68,6 +70,15 @@ func main() {
 		log.Println("讯飞语音客户端已启用")
 	} else {
 		log.Println("提示：未配置讯飞语音 API，语音功能不可用")
+	}
+
+	// ── Temporal 工作流引擎（初始化客户端，worker 稍后启动）──
+	temporalClient, temporalErr := temporal.New(cfg)
+	if temporalErr != nil {
+		log.Printf("警告：Temporal 初始化失败: %v（工作流引擎已禁用）", temporalErr)
+	}
+	if temporalClient != nil {
+		defer temporalClient.Close()
 	}
 
 	// Service 层
@@ -136,6 +147,44 @@ func main() {
 
 	// Integration handler（校外系统对接）
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
+
+	// ── Temporal Worker 启动 + 注入（在路由构建前完成）──
+	if temporalClient != nil {
+		// 构造 Activities 聚合（函数字段注入 service 方法，避免循环依赖）
+		temporalActs := &temporal.Activities{
+			Chat: &temporalActivities.ChatActivities{
+				SessionRepo: sessionRepo,
+				MessageRepo: messageRepo,
+				KBRepo:      kbRepo,
+				AgentRepo:   agentRepo,
+				LLMClient:   llmClient,
+			},
+			Emotion: &temporalActivities.EmotionActivities{
+				EmotionRepo: emotionRepo,
+				LLMClient:   llmClient,
+			},
+			Integration: &temporalActivities.IntegrationActivities{
+				ProxyXuegong: integrationSvc.ProxyXuegong,
+				ProxyYBT:     integrationSvc.ProxyYBT,
+			},
+			KB: &temporalActivities.KBActivities{
+				ImportResources: kbSvc.ImportResources,
+			},
+		}
+
+		temporal.StartWorker(temporalClient.SDKClient(), cfg.TemporalTaskQueue, temporalActs)
+		log.Println("Temporal worker 已启动")
+
+		// 注入 Temporal 客户端到服务（启用工作流调度）
+		// 注意：IntegrationService 和 KBService 的活动已通过函数字段绑定，
+		// 不再注入 temporalClient，避免活动调用 → 服务 → Temporal 的无限循环
+		if chatSvc != nil {
+			chatSvc.SetTemporalClient(temporalClient)
+		}
+		if emotionSvc != nil {
+			emotionSvc.SetTemporalClient(temporalClient)
+		}
+	}
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler, voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler)

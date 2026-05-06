@@ -11,14 +11,18 @@ import (
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/temporal"
+	"github.com/dll/wxx/server/internal/temporal/workflows"
 	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
+	sdkclient "go.temporal.io/sdk/client"
 )
 
 // EmotionService 情感预警业务服务
 type EmotionService struct {
-	emotionRepo *repository.EmotionRepo
-	llmClient   llm.ChatClient
+	emotionRepo    *repository.EmotionRepo
+	llmClient      llm.ChatClient
+	temporalClient *temporal.Client // 可选：Temporal 工作流客户端
 }
 
 // NewEmotionService 创建情感预警服务
@@ -27,6 +31,11 @@ func NewEmotionService(emotionRepo *repository.EmotionRepo, llmClient llm.ChatCl
 		emotionRepo: emotionRepo,
 		llmClient:   llmClient,
 	}
+}
+
+// SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）
+func (s *EmotionService) SetTemporalClient(tc *temporal.Client) {
+	s.temporalClient = tc
 }
 
 // emotionAnalysisResult LLM 情感分析结果结构
@@ -40,7 +49,14 @@ type emotionAnalysisResult struct {
 }
 
 // AnalyzeAndLog 分析文本情感并记录
+// 当 Temporal 已配置时，通过工作流引擎执行（获得重试/可观测性）
 func (s *EmotionService) AnalyzeAndLog(ctx context.Context, userID int64, username, sessionID, messageText string) (*model.EmotionLog, error) {
+	// 如果 Temporal 已启用，走工作流
+	if s.temporalClient != nil {
+		return s.analyzeViaTemporal(ctx, userID, username, sessionID, messageText)
+	}
+
+	// ── 原有同步链路（不变）──
 	// 调用 LLM 进行情感分析
 	analysis, err := s.analyzeEmotion(ctx, messageText)
 	if err != nil {
@@ -246,4 +262,84 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// analyzeViaTemporal 通过 Temporal 工作流引擎执行情感分析
+func (s *EmotionService) analyzeViaTemporal(ctx context.Context, userID int64, username, sessionID, messageText string) (*model.EmotionLog, error) {
+	workflowOpts := sdkclient.StartWorkflowOptions{
+		ID:                       "emotion-" + uuid.New().String()[:8],
+		TaskQueue:                s.temporalClient.TaskQueue(),
+		WorkflowExecutionTimeout: 60 * time.Second,
+	}
+
+	input := workflows.EmotionAnalyzeInput{
+		UserID:      userID,
+		Username:    username,
+		SessionID:   sessionID,
+		MessageText: messageText,
+	}
+
+	run, err := s.temporalClient.SDKClient().ExecuteWorkflow(ctx, workflowOpts, workflows.EmotionAnalyzeWorkflow, input)
+	if err != nil {
+		log.Printf("启动情感分析工作流失败: %v，使用直接调用", err)
+		return s.analyzeAndLogDirect(ctx, userID, username, sessionID, messageText)
+	}
+
+	var output workflows.EmotionAnalyzeOutput
+	err = run.Get(ctx, &output)
+	if err != nil {
+		log.Printf("情感分析工作流执行失败: %v，使用直接调用", err)
+		return s.analyzeAndLogDirect(ctx, userID, username, sessionID, messageText)
+	}
+
+	var logEntry model.EmotionLog
+	if err := json.Unmarshal([]byte(output.EmotionLogJSON), &logEntry); err != nil {
+		return nil, fmt.Errorf("反序列化情感记录失败: %w", err)
+	}
+
+	return &logEntry, nil
+}
+
+// analyzeAndLogDirect 情感分析直接调用（Temporal 失败时的降级路径）
+func (s *EmotionService) analyzeAndLogDirect(ctx context.Context, userID int64, username, sessionID, messageText string) (*model.EmotionLog, error) {
+	analysis, err := s.analyzeEmotion(ctx, messageText)
+	if err != nil {
+		log.Printf("情感分析失败: %v，使用兜底策略", err)
+		analysis = &emotionAnalysisResult{
+			Score:     0,
+			RiskLevel: "low",
+			Emotions:  []string{},
+			Reasoning: "分析失败，使用兜底策略",
+		}
+	}
+
+	analysisJSON, _ := json.Marshal(analysis)
+
+	alertID := "alert-" + uuid.New().String()[:8]
+	logEntry := &model.EmotionLog{
+		AlertID:      alertID,
+		UserID:       userID,
+		Username:     username,
+		SessionID:    sessionID,
+		MessageText:  util.TruncateString(messageText, 500),
+		Score:        analysis.Score,
+		RiskLevel:    analysis.RiskLevel,
+		AnalysisJSON: string(analysisJSON),
+		Notified:     boolToInt(analysis.RiskLevel == "high" || analysis.RiskLevel == "urgent"),
+		Status:       "pending",
+	}
+
+	id, err := s.emotionRepo.Create(logEntry)
+	if err != nil {
+		return nil, fmt.Errorf("保存情感记录失败: %w", err)
+	}
+
+	logEntry.ID = id
+
+	if analysis.RiskLevel == "high" || analysis.RiskLevel == "urgent" {
+		log.Printf("情感预警: user=%s risk=%s score=%.2f emotions=%v keywords=%v",
+			username, analysis.RiskLevel, analysis.Score, analysis.Emotions, analysis.Keywords)
+	}
+
+	return logEntry, nil
 }

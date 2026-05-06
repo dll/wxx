@@ -10,7 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // SQLite 驱动（含 FTS5）
 )
 
-// NewTestDB 创建内存 SQLite 数据库并执行迁移脚本
+// NewTestDB 创建内存 SQLite 数据库并执行结构迁移脚本
 // 返回 *sql.DB，测试结束后调用方负责 defer db.Close()
 func NewTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -20,19 +20,14 @@ func NewTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("打开内存数据库失败: %v", err)
 	}
 
-	// 执行 001_init.sql 迁移
-	migrationPath := "../../migrations/001_init.sql"
+	// 执行 001_init.sql 迁移（基础 schema）
+	migrationPath := resolveMigrationPath(t, "001_init.sql")
 	sqlContent, err := os.ReadFile(migrationPath)
 	if err != nil {
-		// 尝试从 server/ 根目录查找
-		migrationPath = "migrations/001_init.sql"
-		sqlContent, err = os.ReadFile(migrationPath)
-		if err != nil {
-			t.Fatalf("读取迁移文件失败: %v (已尝试 ../../migrations/ 和 migrations/)", err)
-		}
+		t.Fatalf("读取迁移文件失败: %v", err)
 	}
-
 	execMigrationSQL(t, db, string(sqlContent))
+
 	return db
 }
 
@@ -44,19 +39,31 @@ func NewTestDBFull(t *testing.T) *sql.DB {
 	t.Cleanup(func() { db.Close() })
 
 	// 执行种子数据迁移
-	seedPath := "../../migrations/002_test_data.sql"
-	sqlContent, err := os.ReadFile(seedPath)
+	seedPath := resolveMigrationPath(t, "002_test_data.sql")
+	seedContent, err := os.ReadFile(seedPath)
 	if err != nil {
-		seedPath = "migrations/002_test_data.sql"
-		sqlContent, err = os.ReadFile(seedPath)
-		if err != nil {
-			t.Logf("跳过种子数据: %v", err)
-			return db
+		t.Logf("跳过种子数据: %v", err)
+		return db
+	}
+	execMigrationSQL(t, db, string(seedContent))
+
+	return db
+}
+
+// resolveMigrationPath 在候选路径中查找迁移文件
+func resolveMigrationPath(t *testing.T, name string) string {
+	t.Helper()
+	candidates := []string{
+		"../../migrations/" + name,
+		"migrations/" + name,
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
 		}
 	}
-
-	execMigrationSQL(t, db, string(sqlContent))
-	return db
+	t.Fatalf("找不到迁移文件: %s (已尝试 ../../migrations/ 和 migrations/)", name)
+	return ""
 }
 
 // execMigrationSQL 解析并执行迁移 SQL（按分号分割，处理触发器复合语句）

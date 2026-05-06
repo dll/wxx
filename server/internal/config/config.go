@@ -56,6 +56,11 @@ type Config struct {
 	// 蔚园智答同步
 	WeiyuanSyncSecret string
 	WeiyuanImportURL  string
+
+	// Temporal 工作流引擎
+	TemporalHostPort  string // e.g., "localhost:7233"（空 = 禁用）
+	TemporalNamespace string // e.g., "wxx"
+	TemporalTaskQueue string // e.g., "wxx-critical"
 }
 
 // Load 加载配置。优先从 .env 文件读取，再从系统环境变量补充。
@@ -102,6 +107,11 @@ func Load() *Config {
 
 		WeiyuanSyncSecret: envOr("WEIYUAN_SYNC_SECRET", ""),
 		WeiyuanImportURL:  envOr("WEIYUAN_IMPORT_URL", ""),
+
+		// Temporal（空 = 禁用）
+		TemporalHostPort:  envOr("TEMPORAL_HOST_PORT", ""),
+		TemporalNamespace: envOr("TEMPORAL_NAMESPACE", "wxx"),
+		TemporalTaskQueue: envOr("TEMPORAL_TASK_QUEUE", "wxx-critical"),
 	}
 }
 

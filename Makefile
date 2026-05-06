@@ -108,3 +108,18 @@ hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "pre-commit 钩子安装完成"
+
+# ---- Temporal 工作流引擎 ----
+.PHONY: temporal-dev temporal-install
+
+temporal-dev:
+	@echo "启动 Temporal 开发服务器..."
+	temporal server start-dev --ip 0.0.0.0 --port 7233
+
+temporal-install:
+	@echo "请从以下地址下载 Temporal CLI 二进制："
+	@echo "  https://github.com/temporalio/cli/releases"
+	@echo "或使用包管理器安装："
+	@echo "  macOS:  brew install temporal"
+	@echo "  Linux:  curl -sSf https://temporal.download/cli.sh | sh"
+	@echo "  Windows: scoop bucket add temporal https://github.com/temporalio/scoop-temporal.git && scoop install temporal"

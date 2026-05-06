@@ -20,10 +20,12 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	user := &model.User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, display_name, role, owner_scope, owner_id, created_at, updated_at
+		`SELECT id, username, display_name, role, owner_scope, owner_id,
+		 created_at, updated_at
 		 FROM users WHERE username = ?`, username,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
-		&user.OwnerScope, &user.OwnerID, &user.CreatedAt, &user.UpdatedAt)
+		&user.OwnerScope, &user.OwnerID,
+		&user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -38,10 +40,12 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 	user := &model.User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, display_name, role, owner_scope, owner_id, created_at, updated_at
+		`SELECT id, username, display_name, role, owner_scope, owner_id,
+		 created_at, updated_at
 		 FROM users WHERE id = ?`, id,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
-		&user.OwnerScope, &user.OwnerID, &user.CreatedAt, &user.UpdatedAt)
+		&user.OwnerScope, &user.OwnerID,
+		&user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
