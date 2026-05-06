@@ -19,7 +19,7 @@ class _BrowsePageState extends State<BrowsePage> {
     super.initState();
     // 首次加载
     Future.microtask(() {
-      context.read<KnowledgeProvider>().load();
+      if (mounted) context.read<KnowledgeProvider>().load();
     });
   }
 

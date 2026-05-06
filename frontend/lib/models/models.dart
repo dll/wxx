@@ -289,7 +289,7 @@ class KnowledgeCard {
     );
   }
 
-  /// 解析 JSON 数组字符串 → List<String>
+  /// 解析 JSON 数组字符串 → `List<String>`
   static List<String> _parseTags(String raw) {
     if (raw.isEmpty || raw == '[]') return [];
     try {

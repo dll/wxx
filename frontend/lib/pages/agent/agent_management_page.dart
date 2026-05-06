@@ -30,7 +30,7 @@ class _AgentManagementPageState extends State<AgentManagementPage> {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: '创建智能体',
-            onPressed: () => _openEditDialog(context),
+            onPressed: () => _openEditDialog(),
           ),
         ],
       ),
@@ -70,7 +70,7 @@ class _AgentManagementPageState extends State<AgentManagementPage> {
   }
 
   /// 打开创建/编辑对话框
-  void _openEditDialog(BuildContext context, {Agent? agent}) {
+  void _openEditDialog({Agent? agent}) {
     showDialog(
       context: context,
       builder: (ctx) => _AgentEditDialog(agent: agent),
@@ -259,7 +259,7 @@ class _AgentCard extends StatelessWidget {
   void _showEditDialog(BuildContext context) {
     final pageState = context
         .findAncestorStateOfType<_AgentManagementPageState>();
-    pageState?._openEditDialog(context, agent: agent);
+    pageState?._openEditDialog(agent: agent);
   }
 
   Future<void> _handleDelete(BuildContext context) async {
@@ -473,7 +473,7 @@ class _AgentEditDialogState extends State<_AgentEditDialog> {
       ));
     }
 
-    if (context.mounted) {
+    if (mounted) {
       if (ok) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
