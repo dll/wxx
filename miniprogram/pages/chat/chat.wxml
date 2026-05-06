@@ -1,0 +1,94 @@
+<!-- 蔚小芯 — 问答对话页 -->
+<view class="chat-page">
+  <!-- 顶部操作栏 -->
+  <view class="chat-header">
+    <text class="header-title">蔚小芯问答</text>
+    <view class="header-actions">
+      <text class="btn-new" bindtap="newChat">新对话</text>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-chat" wx:if="{{showEmpty}}">
+    <text class="empty-icon">💬</text>
+    <text class="empty-title">你好，我是蔚小芯</text>
+    <text class="empty-desc">有什么可以帮你的？</text>
+    <view class="suggestions">
+      <view class="suggest-item" wx:for="{{suggestions || []}}" wx:key="index"
+        bindtap="onSuggestionTap" data-q="{{item}}">
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 消息列表 -->
+  <scroll-view
+    class="msg-list"
+    scroll-y
+    scroll-into-view="{{scrollToView}}"
+    scroll-with-animation
+    wx:if="{{!showEmpty}}"
+  >
+    <view class="msg-wrapper" wx:for="{{messages}}" wx:key="id" id="msg-{{index}}">
+      <!-- 用户消息 -->
+      <view class="msg-row user-msg" wx:if="{{item.role === 'user'}}">
+        <view class="msg-bubble user-bubble">
+          <text>{{item.content}}</text>
+        </view>
+        <image class="avatar" src="/images/avatar-default.png" mode="aspectFill" />
+      </view>
+
+      <!-- AI 消息 -->
+      <view class="msg-row ai-msg" wx:if="{{item.role === 'assistant'}}">
+        <image class="avatar" src="/images/avatar-ai.png" mode="aspectFill" />
+        <view class="msg-body">
+          <!-- 思考中 -->
+          <view class="msg-bubble ai-bubble thinking" wx:if="{{item.thinking}}">
+            <text>蔚小芯正在思考...</text>
+          </view>
+
+          <!-- 有 AnswerCard 则用组件渲染 -->
+          <block wx:elif="{{item.answerCard}}">
+            <view class="msg-bubble ai-bubble" wx:if="{{item.content && !item.answerCard.conclusion}}">
+              <text>{{item.content}}</text>
+            </view>
+            <answer-card
+              answer-card="{{item.answerCard}}"
+              bind:followup="onFollowUp"
+            />
+          </block>
+
+          <!-- 纯文本回答 -->
+          <view class="msg-bubble ai-bubble" wx:else>
+            <text>{{item.content}}</text>
+          </view>
+
+          <text class="msg-time" wx:if="{{item.time}}">{{item.time}}</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 底部输入栏 -->
+  <view class="input-bar">
+    <input
+      class="msg-input"
+      value="{{inputValue}}"
+      placeholder="输入你的问题..."
+      bindinput="onInput"
+      bindconfirm="sendMessage"
+      confirm-type="send"
+      disabled="{{sending}}"
+      maxlength="500"
+      adjust-position="{{true}}"
+    />
+    <button
+      class="send-btn"
+      bindtap="sendMessage"
+      disabled="{{sending || inputValue === ''}}"
+    >
+      <text wx:if="{{!sending}}">发送</text>
+      <text wx:else>...</text>
+    </button>
+  </view>
+</view>

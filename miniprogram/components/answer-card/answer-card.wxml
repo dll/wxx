@@ -1,0 +1,86 @@
+<!-- 蔚小芯 — AnswerCard 组件模板 -->
+<view class="answer-card" wx:if="{{card}}">
+  <!-- 置信度标签 -->
+  <view class="card-header" wx:if="{{confidenceLabel}}">
+    <view class="tag {{confidenceClass}}">{{confidenceLabel}}</view>
+  </view>
+
+  <!-- 结论 -->
+  <view class="conclusion" wx:if="{{card.conclusion}}">
+    <text>{{card.conclusion}}</text>
+  </view>
+
+  <!-- 兜底回答 -->
+  <view class="fallback" wx:if="{{card.fallback}}">
+    <text class="fallback-label">提示：</text>
+    <text>{{card.fallback}}</text>
+  </view>
+
+  <!-- 办理步骤 -->
+  <view class="steps-section" wx:if="{{hasSteps}}">
+    <view class="section-title">📋 办理步骤</view>
+    <view class="step-item" wx:for="{{card.steps}}" wx:key="index">
+      <view class="step-number">{{index + 1}}</view>
+      <view class="step-content">
+        <text class="step-title">{{item.title}}</text>
+        <text class="step-desc" wx:if="{{item.description}}">{{item.description}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 所需材料 -->
+  <view class="materials-section" wx:if="{{card.materials && card.materials.length > 0}}">
+    <view class="section-title">📎 所需材料</view>
+    <view class="material-tag" wx:for="{{card.materials}}" wx:key="index">
+      <text>{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 风险提示 -->
+  <view class="risks-section" wx:if="{{hasRisks}}">
+    <view class="section-title">⚠️ 注意事项</view>
+    <view class="risk-item" wx:for="{{card.risks}}" wx:key="index">
+      <text>• {{item}}</text>
+    </view>
+  </view>
+
+  <!-- 来源引用 -->
+  <view class="sources-section" wx:if="{{hasSources}}">
+    <view class="section-title">📖 参考来源</view>
+    <view
+      class="source-item"
+      wx:for="{{card.sources}}"
+      wx:key="index"
+      data-link="{{item.source_link}}"
+      bindtap="_onSourceTap"
+    >
+      <text class="source-title">{{item.title}}</text>
+      <text class="source-link" wx:if="{{item.source_link}}">🔗</text>
+    </view>
+  </view>
+
+  <!-- 追问建议 -->
+  <view class="followups-section" wx:if="{{hasFollowUps}}">
+    <view class="section-title">💡 你可能还想问</view>
+    <view
+      class="followup-item"
+      wx:for="{{card.follow_ups}}"
+      wx:key="index"
+      data-question="{{item}}"
+      bindtap="_onFollowUpTap"
+    >
+      <text>{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 快捷操作 -->
+  <view class="actions-section" wx:if="{{card.actions && card.actions.length > 0}}">
+    <button
+      class="action-btn btn-sm btn-outline"
+      wx:for="{{card.actions}}"
+      wx:key="index"
+    >
+      {{item.label}}
+    </button>
+  </view>
+</view>

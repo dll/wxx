@@ -1,0 +1,46 @@
+<!-- 蔚小芯 — 个人中心页 -->
+<view class="profile-page">
+  <!-- 用户信息卡片 -->
+  <view class="profile-card">
+    <image class="profile-avatar" src="/images/avatar-default.png" mode="aspectFill" />
+    <view class="profile-info">
+      <text class="profile-name">{{userInfo.display_name || '未登录'}}</text>
+      <view class="profile-meta">
+        <text class="tag tag-blue">{{roleLabel}}</text>
+        <text class="user-id" bindtap="handleCopyId">ID: {{userInfo.user_id || '-'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 菜单列表 -->
+  <view class="menu-section">
+    <view class="menu-item" wx:if="{{userInfo.role === 'sys_admin' || userInfo.role === 'school_admin'}}">
+      <text>智能体管理</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" wx:if="{{userInfo.role === 'counselor' || userInfo.role === 'college_admin' || userInfo.role === 'school_admin' || userInfo.role === 'sys_admin'}}">
+      <text>情感预警</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item">
+      <text>客服反馈</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item">
+      <text>关于蔚小芯</text>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="logout-section">
+    <button class="btn btn-outline logout-btn" bindtap="handleLogout">
+      退出登录
+    </button>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text>蔚小芯 v0.1.0 — 微信小程序</text>
+  </view>
+</view>

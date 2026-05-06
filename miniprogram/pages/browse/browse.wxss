@@ -1,0 +1,77 @@
+/* 蔚小芯 — 知识大厅页样式 */
+
+.browse-page {
+  min-height: 100vh;
+  background: var(--gray-100);
+}
+
+/* ── 分类标签栏 ── */
+.tab-bar {
+  display: flex;
+  white-space: nowrap;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-bottom: 1rpx solid var(--gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 12rpx 32rpx;
+  margin-right: 16rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+.tab-active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ── 资源列表 ── */
+.resource-list {
+  padding: 16rpx 24rpx;
+}
+
+.resource-card {
+  transition: all 0.3s;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.card-time {
+  font-size: 22rpx;
+  color: var(--gray-500);
+}
+
+.card-summary {
+  font-size: 26rpx;
+  color: var(--gray-700);
+  margin-bottom: 12rpx;
+}
+
+.card-content {
+  font-size: 26rpx;
+  color: var(--gray-700);
+  line-height: 1.8;
+  margin-bottom: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--gray-200);
+}
+
+.card-footer {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}

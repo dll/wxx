@@ -1,0 +1,111 @@
+/* 蔚小芯 — 登录页样式 */
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1565C0 0%, #1E88E5 50%, #42A5F5 100%);
+  padding: 48rpx;
+}
+
+/* ── 品牌区 ── */
+.brand-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 80rpx;
+}
+
+.logo {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 40rpx;
+  background: #fff;
+  margin-bottom: 32rpx;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.2);
+}
+
+.app-name {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 8rpx;
+  margin-bottom: 12rpx;
+}
+
+.slogan {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── 登录表单 ── */
+.login-section {
+  width: 100%;
+  max-width: 600rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.username-input {
+  width: 100%;
+  height: 96rpx;
+  padding: 0 36rpx;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20rpx;
+  font-size: 32rpx;
+  color: var(--gray-900);
+  margin-bottom: 32rpx;
+  box-sizing: border-box;
+}
+
+.username-input::placeholder {
+  color: var(--gray-500);
+}
+
+.btn-login {
+  width: 100%;
+  height: 96rpx;
+  background: #fff;
+  color: var(--primary);
+  border-radius: 48rpx;
+  font-size: 34rpx;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.15);
+}
+
+.btn-login:active {
+  opacity: 0.85;
+}
+
+.btn-login[disabled] {
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── 错误提示 ── */
+.error-msg {
+  margin-top: 32rpx;
+  padding: 16rpx 32rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12rpx;
+  color: #fff;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+/* ── 底部说明 ── */
+.footer-note {
+  position: absolute;
+  bottom: 80rpx;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+.footer-note text {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.6);
+}

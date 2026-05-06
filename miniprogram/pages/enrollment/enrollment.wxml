@@ -1,0 +1,108 @@
+<!-- 蔚小芯 — 流程指南页 -->
+<view class="enrollment-page">
+  <!-- 入学/离校 切换 -->
+  <view class="tab-row">
+    <view
+      class="tab-card {{activeTab === item.key ? 'tab-card-active' : ''}}"
+      wx:for-item="tab"
+      wx:for="{{tabs}}"
+      wx:key="key"
+      data-tab="{{tab.key}}"
+      bindtap="onTabChange"
+    >
+      <text>{{tab.label}}</text>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-center" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 错误提示 -->
+  <view class="empty-state" wx:elif="{{errorMsg}}">
+    <text class="icon">⚠️</text>
+    <text class="text">{{errorMsg}}</text>
+  </view>
+
+  <!-- 空结果 -->
+  <view class="empty-state" wx:elif="{{!loading && resources.length === 0}}">
+    <text class="icon">📋</text>
+    <text class="text">暂无相关流程指南</text>
+  </view>
+
+  <!-- 流程列表 -->
+  <view class="process-list" wx:else>
+    <view
+      class="card process-card"
+      wx:for="{{resources}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onItemTap"
+    >
+      <view class="process-header">
+        <text class="process-title">{{item.title}}</text>
+        <text class="expand-icon">{{item.expanded ? '▲' : '▼'}}</text>
+      </view>
+
+      <view class="process-summary ellipsis-2" wx:if="{{!item.expanded}}">
+        {{item.summary || item.content}}
+      </view>
+
+      <!-- 展开详情 -->
+      <view class="process-detail" wx:if="{{item.expanded}}">
+        <view class="divider"></view>
+
+        <!-- 办理步骤 -->
+        <view class="step-list" wx:if="{{item.detail && item.detail._tags && item.detail._tags.steps}}">
+          <view class="section-title">📋 办理步骤</view>
+          <view class="step-item" wx:for="{{item.detail._tags.steps}}" wx:key="index" wx:for-item="step">
+            <view class="step-num">{{index + 1}}</view>
+            <view class="step-info">
+              <text class="step-label">{{step.title || step.name || step}}</text>
+              <text class="step-desc" wx:if="{{step.description}}">{{step.description}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 材料清单 -->
+        <view class="materials" wx:if="{{item.detail && item.detail._tags && item.detail._tags.materials}}">
+          <view class="section-title">📎 所需材料</view>
+          <view class="material-item" wx:for="{{item.detail._tags.materials}}" wx:key="*this">
+            <text>• {{item}}</text>
+          </view>
+        </view>
+
+        <!-- 办理入口 -->
+        <view class="entry" wx:if="{{item.detail && item.detail._tags && item.detail._tags.entry_url}}">
+          <view class="section-title">🔗 办理入口</view>
+          <text class="entry-link">{{item.detail._tags.entry_url}}</text>
+        </view>
+
+        <!-- 办理地点 -->
+        <view class="location" wx:if="{{item.detail && item.detail._tags && item.detail._tags.location}}">
+          <view class="section-title">📍 办理地点</view>
+          <text>{{item.detail._tags.location}}</text>
+        </view>
+
+        <!-- 截止日期 -->
+        <view class="deadline" wx:if="{{item.detail && item.detail._tags && item.detail._tags.deadline}}">
+          <view class="section-title">⏰ 截止日期</view>
+          <text>{{item.detail._tags.deadline}}</text>
+        </view>
+
+        <!-- 注意事项 -->
+        <view class="notes" wx:if="{{item.detail && item.detail._tags && item.detail._tags.notes}}">
+          <view class="section-title">⚠️ 注意事项</view>
+          <text>{{item.detail._tags.notes}}</text>
+        </view>
+
+        <!-- 原文内容（兜底展示） -->
+        <view class="full-content" wx:if="{{item.content && (!item.detail || !item.detail._tags)}}">
+          <view class="section-title">📖 详细说明</view>
+          <text class="content-text">{{item.content}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

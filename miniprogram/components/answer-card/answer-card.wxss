@@ -1,0 +1,155 @@
+/* 蔚小芯 — AnswerCard 组件样式 */
+
+.answer-card {
+  padding: 16rpx 8rpx;
+}
+
+/* ── 卡片头部 ── */
+.card-header {
+  margin-bottom: 16rpx;
+}
+
+/* ── 结论 ── */
+.conclusion {
+  font-size: 30rpx;
+  line-height: 1.8;
+  color: var(--gray-900);
+  margin-bottom: 24rpx;
+  padding: 20rpx 24rpx;
+  background: #F3F8FF;
+  border-left: 6rpx solid var(--primary);
+  border-radius: 8rpx;
+}
+
+/* ── 兜底回答 ── */
+.fallback {
+  font-size: 28rpx;
+  color: var(--gray-700);
+  background: #FFF8E1;
+  padding: 20rpx 24rpx;
+  border-radius: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.fallback-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ── 区域标题 ── */
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 16rpx;
+  margin-top: 16rpx;
+}
+
+/* ── 步骤 ── */
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
+  padding: 16rpx;
+  background: var(--gray-50);
+  border-radius: 12rpx;
+}
+
+.step-number {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+  margin-top: 4rpx;
+}
+
+.step-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--gray-900);
+  margin-bottom: 4rpx;
+}
+
+.step-desc {
+  font-size: 24rpx;
+  color: var(--gray-500);
+}
+
+/* ── 材料标签 ── */
+.material-tag {
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  margin: 6rpx 8rpx 6rpx 0;
+  background: #E8F5E9;
+  color: var(--success);
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+
+/* ── 风险提示 ── */
+.risk-item {
+  font-size: 26rpx;
+  color: var(--warning);
+  margin-bottom: 8rpx;
+  padding-left: 8rpx;
+}
+
+/* ── 来源引用 ── */
+.source-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid var(--gray-200);
+}
+
+.source-title {
+  font-size: 26rpx;
+  color: var(--primary);
+  flex: 1;
+}
+
+.source-link {
+  font-size: 28rpx;
+  margin-left: 12rpx;
+}
+
+/* ── 追问建议 ── */
+.followup-item {
+  padding: 16rpx 20rpx;
+  margin-bottom: 12rpx;
+  background: #F3F8FF;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--primary);
+}
+
+.followup-item:active {
+  background: #E3F2FD;
+}
+
+/* ── 快捷操作 ── */
+.actions-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.action-btn {
+  flex: 0 0 auto;
+}

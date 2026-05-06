@@ -1,0 +1,95 @@
+/* 蔚小芯 — 个人中心页样式 */
+
+.profile-page {
+  min-height: 100vh;
+  background: var(--gray-100);
+}
+
+/* ── 用户信息卡片 ── */
+.profile-card {
+  display: flex;
+  align-items: center;
+  padding: 48rpx 32rpx;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: #fff;
+}
+
+.profile-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  margin-right: 24rpx;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-name {
+  font-size: 40rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.user-id {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4rpx 12rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8rpx;
+}
+
+/* ── 菜单 ── */
+.menu-section {
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  font-size: 30rpx;
+  border-bottom: 1rpx solid var(--gray-200);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-arrow {
+  font-size: 36rpx;
+  color: var(--gray-500);
+}
+
+/* ── 退出登录 ── */
+.logout-section {
+  padding: 48rpx 24rpx 24rpx;
+}
+
+.logout-btn {
+  width: 100%;
+}
+
+/* ── 版本信息 ── */
+.version-info {
+  text-align: center;
+  padding: 48rpx;
+}
+
+.version-info text {
+  font-size: 24rpx;
+  color: var(--gray-500);
+}

@@ -1,0 +1,39 @@
+<!-- 蔚小芯 — 登录页（用户名登录） -->
+<view class="login-page">
+  <!-- Logo + 品牌区 -->
+  <view class="brand-section">
+    <image class="logo" src="/images/logo.png" mode="aspectFit" />
+    <text class="app-name">蔚小芯</text>
+    <text class="slogan">智慧校园 AI 学工助手</text>
+  </view>
+
+  <!-- 登录表单 -->
+  <view class="login-section">
+    <input
+      class="username-input"
+      value="{{username}}"
+      placeholder="请输入用户名"
+      bindinput="onInput"
+      bindconfirm="handleLogin"
+      maxlength="50"
+      disabled="{{loading}}"
+    />
+    <button
+      class="btn btn-login"
+      bindtap="handleLogin"
+      disabled="{{loading || username === ''}}"
+      loading="{{loading}}"
+    >
+      登 录
+    </button>
+
+    <view class="error-msg" wx:if="{{errorMsg}}">
+      <text>{{errorMsg}}</text>
+    </view>
+  </view>
+
+  <!-- 底部说明 -->
+  <view class="footer-note">
+    <text>登录即表示同意《用户协议》和《隐私政策》</text>
+  </view>
+</view>

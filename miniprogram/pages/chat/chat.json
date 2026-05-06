@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "蔚小芯问答",
+  "usingComponents": {
+    "answer-card": "/components/answer-card/answer-card"
+  }
+}

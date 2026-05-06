@@ -1,0 +1,64 @@
+<!-- 蔚小芯 — 知识大厅页 -->
+<view class="browse-page">
+  <!-- 分类切换标签 -->
+  <scroll-view class="tab-bar" scroll-x>
+    <view
+      class="tab-item {{activeTab === item.key ? 'tab-active' : ''}}"
+      wx:for="{{tabs}}"
+      wx:key="key"
+      data-tab="{{item.key}}"
+      bindtap="onTabChange"
+    >
+      {{item.label}}
+    </view>
+  </scroll-view>
+
+  <!-- 知识资源列表 -->
+  <view class="resource-list">
+    <!-- 错误提示 -->
+    <view class="empty-state" wx:if="{{errorMsg}}">
+      <text class="icon">⚠️</text>
+      <text class="text">{{errorMsg}}</text>
+    </view>
+
+    <!-- 空结果 -->
+    <view class="empty-state" wx:elif="{{!loading && resources.length === 0}}">
+      <text class="icon">📚</text>
+      <text class="text">暂无相关知识</text>
+    </view>
+
+    <!-- 资源卡片 -->
+    <view
+      class="card resource-card"
+      wx:for="{{resources}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onItemTap"
+    >
+      <view class="card-header-row">
+        <view class="tag tag-blue" wx:if="{{item.resource_type}}">
+          {{item.resource_type === 'Policy' ? '政策' : item.resource_type === 'Process' ? '流程' : item.resource_type === 'FAQ' ? 'FAQ' : item.resource_type === 'Activity' ? '活动' : item.resource_type}}
+        </view>
+        <text class="card-time" wx:if="{{item.created_at}}">{{item.created_at.substring(0, 10)}}</text>
+      </view>
+      <view class="card-title">{{item.title}}</view>
+      <view class="card-summary ellipsis-2" wx:if="{{!item.expanded}}">{{item.summary}}</view>
+      <view class="card-content" wx:if="{{item.expanded}}">
+        <text>{{item.content}}</text>
+      </view>
+      <view class="card-footer" wx:if="{{item.tags}}">
+        <text class="tag tag-gray" wx:for="{{item.tags}}" wx:key="*this" wx:for-item="t">{{t}}</text>
+      </view>
+    </view>
+
+    <!-- 加载中 -->
+    <view class="loading-center" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+
+    <!-- 没有更多 -->
+    <view class="loading-center" wx:if="{{!hasMore && resources.length > 0}}">
+      <text style="color: var(--gray-500);">— 已加载全部 —</text>
+    </view>
+  </view>
+</view>

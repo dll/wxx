@@ -1,0 +1,126 @@
+/* 蔚小芯 — 流程指南页样式 */
+
+.enrollment-page {
+  min-height: 100vh;
+  background: var(--gray-100);
+  padding: 24rpx;
+}
+
+/* ── 入学/离校切换 ── */
+.tab-row {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.tab-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--gray-700);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.tab-card-active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(21, 101, 192, 0.3);
+}
+
+/* ── 流程卡片 ── */
+.process-card {
+  cursor: pointer;
+}
+
+.process-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.process-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--gray-900);
+  flex: 1;
+}
+
+.expand-icon {
+  font-size: 22rpx;
+  color: var(--gray-500);
+  margin-left: 16rpx;
+}
+
+.process-summary {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: var(--gray-700);
+}
+
+/* ── 展开详情 ── */
+.process-detail {
+  font-size: 26rpx;
+  color: var(--gray-700);
+  line-height: 1.8;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
+  padding: 12rpx;
+  background: var(--gray-50);
+  border-radius: 10rpx;
+}
+
+.step-num {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+  margin-top: 4rpx;
+}
+
+.step-info {
+  flex: 1;
+}
+
+.step-label {
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.step-desc {
+  font-size: 22rpx;
+  color: var(--gray-500);
+  display: block;
+  margin-top: 4rpx;
+}
+
+.material-item {
+  margin-bottom: 6rpx;
+  padding-left: 8rpx;
+}
+
+.entry-link {
+  color: var(--primary);
+  word-break: break-all;
+}
+
+.content-text {
+  line-height: 1.8;
+}

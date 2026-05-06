@@ -1,0 +1,194 @@
+/* 蔚小芯全局样式 — 基于 WeUI 风格规范 */
+
+page {
+  --primary: #1565C0;
+  --primary-light: #1E88E5;
+  --primary-dark: #0D47A1;
+  --accent: #FF6F00;
+  --success: #2E7D32;
+  --warning: #F57F17;
+  --danger: #C62828;
+  --gray-50: #FAFAFA;
+  --gray-100: #F5F5F5;
+  --gray-200: #EEEEEE;
+  --gray-300: #E0E0E0;
+  --gray-500: #9E9E9E;
+  --gray-700: #616161;
+  --gray-900: #212121;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica,
+    Arial, sans-serif;
+  font-size: 28rpx;
+  color: var(--gray-900);
+  background-color: var(--gray-100);
+  line-height: 1.6;
+}
+
+/* ── 通用布局 ── */
+.container {
+  min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.page-header {
+  padding: 32rpx 32rpx 16rpx;
+  background: var(--primary);
+  color: #fff;
+}
+
+.page-header .title {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.page-body {
+  padding: 24rpx;
+}
+
+/* ── 卡片 ── */
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+  color: var(--gray-900);
+}
+
+.card-subtitle {
+  font-size: 24rpx;
+  color: var(--gray-500);
+  margin-bottom: 16rpx;
+}
+
+/* ── 按钮 ── */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  padding: 0 48rpx;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:active {
+  background: var(--primary-dark);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2rpx solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-sm {
+  height: 64rpx;
+  font-size: 26rpx;
+  padding: 0 24rpx;
+  border-radius: 12rpx;
+}
+
+/* ── 标签/徽章 ── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.tag-blue {
+  background: #E3F2FD;
+  color: var(--primary);
+}
+
+.tag-green {
+  background: #E8F5E9;
+  color: var(--success);
+}
+
+.tag-orange {
+  background: #FFF3E0;
+  color: var(--accent);
+}
+
+.tag-red {
+  background: #FFEBEE;
+  color: var(--danger);
+}
+
+.tag-gray {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+/* ── 空状态 ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 48rpx;
+}
+
+.empty-state .icon {
+  font-size: 96rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.4;
+}
+
+.empty-state .text {
+  font-size: 28rpx;
+  color: var(--gray-500);
+  text-align: center;
+}
+
+/* ── 加载中 ── */
+.loading-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64rpx;
+}
+
+/* ── 分隔线 ── */
+.divider {
+  height: 1rpx;
+  background: var(--gray-200);
+  margin: 24rpx 0;
+}
+
+/* ── 文本省略 ── */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
