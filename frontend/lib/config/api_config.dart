@@ -2,7 +2,7 @@
 class ApiConfig {
   // 后端基础地址（开发环境）
   // Web 端与后端同源时可用相对路径；跨域时需完整 URL
-  static const String baseUrl = 'http://192.168.1.104:9091';
+  static const String baseUrl = 'https://wxx-server.vercel.app';
 
   // API 版本前缀
   static const String apiPrefix = '/api/v1';

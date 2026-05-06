@@ -13,18 +13,21 @@ func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 
-		// 允许的来源（开发阶段宽松配置，生产环境需收紧）
+		// 允许的来源（开发 + Vercel 生产环境）
 		allowedOrigins := []string{
-			"http://localhost:3000",  // Flutter Web 开发（旧端口）
-			"http://localhost:8080",  // 本地后端（旧端口）
-			"http://localhost:9091",  // 后端 API
-			"http://localhost:9092",  // Flutter Web
-			"http://localhost:9093",  // Flutter Web（备用）
+			"http://localhost:3000",
+			"http://localhost:8080",
+			"http://localhost:9091",
+			"http://localhost:9092",
+			"http://localhost:9093",
 			"http://127.0.0.1:3000",
 			"http://127.0.0.1:8080",
 			"http://127.0.0.1:9091",
 			"http://127.0.0.1:9092",
 			"http://127.0.0.1:9093",
+			"https://wxx-server.vercel.app",
+			"https://wxx-server-czldl.vercel.app",
+			"https://wxx-server-osgisone-czldl.vercel.app",
 		}
 
 		allowed := false
