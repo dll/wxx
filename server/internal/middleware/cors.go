@@ -28,6 +28,9 @@ func CORS() gin.HandlerFunc {
 			"https://wxx-server.vercel.app",
 			"https://wxx-server-czldl.vercel.app",
 			"https://wxx-server-osgisone-czldl.vercel.app",
+			"https://web-czldl.vercel.app",
+			"https://wxx-frontend-czldl.vercel.app",
+			"https://wxx-frontend.vercel.app",
 		}
 
 		allowed := false
