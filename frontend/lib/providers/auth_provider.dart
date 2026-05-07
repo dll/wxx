@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
+import '../config/router.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
@@ -105,5 +106,7 @@ class AuthProvider extends ChangeNotifier {
 
   void _handleUnauthorized() {
     logout();
+    // 通知 GoRouter 重新评估鉴权状态，自动跳转登录页
+    authRefreshNotifier.refresh();
   }
 }

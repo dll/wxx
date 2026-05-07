@@ -13,8 +13,16 @@ import '../pages/browse/browse_page.dart';
 import '../pages/emotion/emotion_dashboard_page.dart';
 import '../pages/agent/agent_management_page.dart';
 
+/// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
+class AuthRefreshNotifier extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
+
+final authRefreshNotifier = AuthRefreshNotifier();
+
 /// 应用路由配置
 final GoRouter appRouter = GoRouter(
+  refreshListenable: authRefreshNotifier,
   initialLocation: '/home',
   redirect: (context, state) {
     final loggedIn = Storage.isLoggedIn;
