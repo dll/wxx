@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
@@ -16,6 +18,18 @@ import (
 	"github.com/google/uuid"
 	sdkclient "go.temporal.io/sdk/client"
 )
+
+// answerCache 问答结果缓存（用于入学/离校等固定流程问题，避免重复调用 LLM）
+var (
+	answerCache   = make(map[string]*answerCacheEntry)
+	answerCacheMu sync.RWMutex
+)
+
+type answerCacheEntry struct {
+	Card      *model.AnswerCard
+	SessionID string
+	CachedAt  time.Time
+}
 
 // ChatService 问答业务服务（Context Engine 主链路）
 type ChatService struct {
@@ -54,6 +68,18 @@ func (s *ChatService) SetTemporalClient(tc *temporal.Client) {
 // 当 Temporal 已配置时，通过工作流引擎执行（获得重试/可观测性）
 func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessionID string, question string, agentID string) (*model.AnswerCard, string, error) {
 	traceID := uuid.New().String()
+
+	// │ ❶ 缓存检查 ── 入学/离校等固定流程问题命中缓存即返回
+	if agentID == "" && sessionID == "" {
+		cacheKey := cacheKeyForQuestion(question)
+		answerCacheMu.RLock()
+		if entry, ok := answerCache[cacheKey]; ok {
+			answerCacheMu.RUnlock()
+			log.Printf("问答缓存命中 [trace=%s] question_hash=%s cached=%s", traceID, cacheKey, entry.CachedAt.Format("15:04:05"))
+			return entry.Card, "", nil
+		}
+		answerCacheMu.RUnlock()
+	}
 
 	// 如果 Temporal 已启用，走工作流
 	if s.temporalClient != nil {
@@ -124,6 +150,19 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		Content:   llmResp.Content,
 		TraceID:   traceID,
 	})
+
+	// │ 缓存写入 ── 固定流程问题缓存 24 小时
+	if agentID == "" {
+		cacheKey := cacheKeyForQuestion(question)
+		answerCacheMu.Lock()
+		answerCache[cacheKey] = &answerCacheEntry{
+			Card:      card,
+			SessionID: sessionID,
+			CachedAt:  time.Now(),
+		}
+		answerCacheMu.Unlock()
+		log.Printf("问答缓存写入 [trace=%s] question_hash=%s", traceID, cacheKey)
+	}
 
 	log.Printf("问答完成 [trace=%s] prompt_tokens=%d output_tokens=%d sources=%d",
 		traceID, llmResp.PromptTokens, llmResp.OutputTokens, len(card.Sources))
@@ -305,6 +344,13 @@ func MarshalAnswerCard(card *model.AnswerCard) string {
 	return string(b)
 }
 
+// cacheKeyForQuestion 为问题生成缓存键（去空格 + 小写后取 MD5）
+func cacheKeyForQuestion(q string) string {
+	normalized := strings.ToLower(strings.TrimSpace(q))
+	sum := md5.Sum([]byte(normalized))
+	return fmt.Sprintf("%x", sum)
+}
+
 // askViaTemporal 通过 Temporal 工作流引擎执行问答链路
 // 工作流编排：验证会话 → 知识检索 → LLM 调用 → 构造 AnswerCard
 func (s *ChatService) askViaTemporal(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
@@ -417,6 +463,20 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		Content:   llmResp.Content,
 		TraceID:   traceID,
 	})
+
+	// │ 缓存写入 ── 固定流程问题缓存
+	if agentID == "" {
+		cacheKey := cacheKeyForQuestion(question)
+		answerCacheMu.Lock()
+		if _, exists := answerCache[cacheKey]; !exists {
+			answerCache[cacheKey] = &answerCacheEntry{
+				Card:      card,
+				SessionID: sessionID,
+				CachedAt:  time.Now(),
+			}
+		}
+		answerCacheMu.Unlock()
+	}
 
 	log.Printf("问答完成 [trace=%s] prompt_tokens=%d output_tokens=%d sources=%d",
 		traceID, llmResp.PromptTokens, llmResp.OutputTokens, len(card.Sources))

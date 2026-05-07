@@ -3,7 +3,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 import '../../providers/enrollment_provider.dart';
 import '../../widgets/error_view.dart';
-import '../../widgets/skeleton.dart';
+import '../../widgets/flow_progress.dart';
 
 /// 办事流程引导页（入学 / 离校）
 class EnrollmentPage extends StatefulWidget {
@@ -110,7 +110,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
   Widget _buildBody(EnrollmentProvider prov, ThemeData theme) {
     if (prov.loading) {
-      return const ChatSkeleton();
+      final flowName = prov.flowType == 'enrollment' ? '入学流程' : '离校流程';
+      return FlowProgressIndicator(flowName: flowName);
     }
 
     if (prov.error != null) {
