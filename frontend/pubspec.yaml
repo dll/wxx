@@ -48,6 +48,15 @@ dependencies:
   # Markdown 渲染（AnswerCard 内容）
   flutter_markdown_plus: ^1.0.7
 
+  # 临时文件路径
+  path_provider: ^2.1.0
+
+  # 语音录制（Android/iOS）
+  record: ^6.2.0
+
+  # 音频播放（Android/iOS）
+  audioplayers: ^6.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

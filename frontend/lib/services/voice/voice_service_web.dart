@@ -10,24 +10,27 @@ import '../api_service.dart';
 
 /// Web 平台语音服务实现
 /// 使用浏览器原生 MediaRecorder API 录音，Audio 元素播放
-
 class VoiceService {
   html.MediaRecorder? _recorder;
   final List<html.Blob> _chunks = [];
-  Completer<Uint8List>? _recordCompleter;
   html.AudioElement? _audio;
+
+  bool _isRecording = false;
+  bool _isPlaying = false;
 
   /// 是否支持语音功能（Web 平台始终返回 true，但需用户授权麦克风）
   bool get isSupported => true;
 
   /// 当前是否正在录音
-  bool get isRecording => _recorder?.state == 'recording';
+  bool get isRecording => _isRecording;
 
   /// 是否正在播放
-  bool get isPlaying => _audio != null && !_audio!.paused;
+  bool get isPlaying => _isPlaying;
 
-  /// 开始录音，返回 PCM 音频数据
-  Future<Uint8List> startRecording() async {
+  /// 开始录音
+  Future<void> startRecording() async {
+    if (_isRecording) return;
+
     _chunks.clear();
 
     // 请求麦克风权限
@@ -36,9 +39,6 @@ class VoiceService {
 
     // MediaRecorder 自动处理音频编码
     _recorder = html.MediaRecorder(stream);
-
-    final completer = Completer<Uint8List>();
-    _recordCompleter = completer;
 
     // 使用 EventStreamProvider 处理 dataavailable 事件（兼容 dart:html API 变更）
     const dataAvailEvent = html.EventStreamProvider<html.Event>('dataavailable');
@@ -53,13 +53,34 @@ class VoiceService {
     stopEvent.forTarget(_recorder!).listen((_) {
       // 停止所有轨道
       stream.getTracks().forEach((track) => track.stop());
+    });
+
+    _recorder!.start();
+    _isRecording = true;
+  }
+
+  /// 停止录音，返回音频字节
+  Future<Uint8List?> stopRecording() async {
+    if (_recorder == null || _recorder!.state != 'recording') {
+      _isRecording = false;
+      return null;
+    }
+
+    final completer = Completer<Uint8List?>();
+    _isRecording = false;
+
+    _recorder!.stop();
+
+    // 轮询等待 blob 收集完成（MediaRecorder 异步交付 dataavailable）
+    Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (_chunks.isEmpty && timer.tick < 20) return;
+      timer.cancel();
 
       if (_chunks.isEmpty) {
-        completer.completeError('未录制到音频数据');
+        completer.complete(null);
         return;
       }
 
-      // 合并所有 chunk 为一个 Blob
       final blob = html.Blob(_chunks);
       final reader = html.FileReader();
 
@@ -67,32 +88,20 @@ class VoiceService {
         if (reader.result is ByteBuffer) {
           completer.complete(Uint8List.view(reader.result as ByteBuffer));
         } else {
-          completer.completeError('读取音频数据失败');
+          completer.complete(null);
         }
       });
 
       reader.onError.listen((_) {
-        completer.completeError('读取音频数据失败');
+        completer.complete(null);
       });
 
       reader.readAsArrayBuffer(blob);
+      _chunks.clear();
     });
 
-    _recorder!.start();
-
-    return completer.future;
-  }
-
-  /// 停止录音
-  Future<Uint8List?> stopRecording() async {
-    if (_recorder == null || _recorder!.state != 'recording') {
-      return null;
-    }
-
-    _recorder!.stop();
-    final result = await _recordCompleter!.future;
+    final result = await completer.future;
     _recorder = null;
-    _recordCompleter = null;
     return result;
   }
 
@@ -123,7 +132,6 @@ class VoiceService {
   /// 调用后端 TTS 将文本转为语音，返回 MP3 音频字节
   Future<Uint8List?> textToSpeech(String text) async {
     try {
-      // TTS 返回原始音频流，需要指定 responseType 为 bytes
       final dio = Dio(BaseOptions(
         baseUrl: ApiConfig.baseUrl,
         connectTimeout: Duration(milliseconds: ApiConfig.connectTimeout),
@@ -131,7 +139,6 @@ class VoiceService {
         responseType: ResponseType.bytes,
       ));
 
-      // 手动注入 JWT token
       final token = Storage.token;
       final response = await dio.post(
         ApiConfig.voiceTts,
@@ -161,11 +168,13 @@ class VoiceService {
     final url = html.Url.createObjectUrl(blob);
 
     _audio = html.AudioElement(url);
+    _isPlaying = true;
     _audio!.play();
 
     _audio!.onEnded.listen((_) {
       html.Url.revokeObjectUrl(url);
       _audio = null;
+      _isPlaying = false;
     });
   }
 
@@ -176,13 +185,13 @@ class VoiceService {
       _audio!.currentTime = 0;
       _audio = null;
     }
+    _isPlaying = false;
   }
 
   /// 释放资源
   void dispose() {
     stopPlayback();
     _recorder = null;
-    _recordCompleter = null;
     _chunks.clear();
   }
 }
