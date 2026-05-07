@@ -2,14 +2,15 @@
 class ApiConfig {
   // 后端基础地址（开发环境）
   // Web 端与后端同源时可用相对路径；跨域时需完整 URL
-  static const String baseUrl = 'https://wxx-server.vercel.app';
+  static const String baseUrl = 'https://api.pydaydayup.xyz';
 
   // API 版本前缀
   static const String apiPrefix = '/api/v1';
 
   // 超时设置（毫秒）
-  static const int connectTimeout = 10000;
-  static const int receiveTimeout = 30000; // LLM 响应较慢，给足时间
+  // Vercel 冷启动 + 跨境延迟较长，连接超时适当放大
+  static const int connectTimeout = 30000;
+  static const int receiveTimeout = 60000; // LLM 响应较慢，给足时间
 
   // ── 接口路径 ──
   static const String login = '$apiPrefix/auth/login';

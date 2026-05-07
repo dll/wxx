@@ -53,7 +53,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = '网络错误，请检查后端是否启动';
+      _error = '网络错误: ${e.toString()}';
       _loading = false;
       notifyListeners();
       return false;

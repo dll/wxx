@@ -31,6 +31,8 @@ func CORS() gin.HandlerFunc {
 			"https://web-czldl.vercel.app",
 			"https://wxx-frontend-czldl.vercel.app",
 			"https://wxx-frontend.vercel.app",
+			"https://wxx.pydaydayup.xyz",
+			"https://api.pydaydayup.xyz",
 		}
 
 		allowed := false
