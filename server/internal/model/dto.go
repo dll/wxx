@@ -58,6 +58,7 @@ type UserContext struct {
 	OwnerScope  string // 归属范围
 	OwnerID     string // 归属 ID
 	DisplayName string // 显示名
+	Consented   bool   // 是否已同意隐私政策与用户协议
 }
 
 // ── 知识导出 DTO ──
@@ -255,6 +256,15 @@ type KBImportResponse struct {
 	Created  int               `json:"created"` // 新建数
 	Updated  int               `json:"updated"` // 更新数
 	Skipped  int               `json:"skipped"` // 跳过数
+}
+
+// ── 回答导出 DTO ──
+
+// ExportAnswerRequest 回答卡片导出请求
+type ExportAnswerRequest struct {
+	AnswerCard *AnswerCard `json:"answer_card" binding:"required"` // 回答卡片完整数据
+	Format     string      `json:"format"`                         // 导出格式：pdf / json / md（默认 pdf）
+	Watermark  bool        `json:"watermark"`                      // 是否添加水印
 }
 
 // ── 情感趋势分析 DTO ──

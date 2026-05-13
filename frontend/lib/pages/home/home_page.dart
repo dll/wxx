@@ -5,6 +5,9 @@ import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../utils/storage.dart';
+import '../../config/api_config.dart';
+import '../../services/api_service.dart';
+import '../../widgets/consent_dialog.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 
@@ -23,6 +26,21 @@ class _HomePageState extends State<HomePage> {
     // 延迟加载数据，避免 build 中途触发 notifyListeners
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
+      _checkConsent();
+    });
+  }
+
+  /// 检查是否已同意隐私政策与用户协议，未同意则弹出授权弹窗
+  void _checkConsent() {
+    if (!Storage.isLoggedIn) return;
+    if (Storage.consented) return;
+
+    ConsentDialog.show(context).then((agreed) {
+      if (agreed == true) {
+        Storage.setConsented(true);
+        // 异步通知后端记录同意状态
+        ApiService().post(ApiConfig.consent, data: {});
+      }
     });
   }
 

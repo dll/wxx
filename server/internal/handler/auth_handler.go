@@ -77,6 +77,36 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 			"role":         userCtx.Role,
 			"owner_scope":  userCtx.OwnerScope,
 			"owner_id":     userCtx.OwnerID,
+			"consented":    userCtx.Consented,
 		},
+	})
+}
+
+// Consent 记录用户同意隐私政策与用户协议
+// POST /api/v1/user/consent
+func (h *AuthHandler) Consent(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	// 更新用户同意状态
+	if err := h.authSvc.RecordConsent(userCtx.UserID); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "记录同意状态失败",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "授权已记录",
 	})
 }

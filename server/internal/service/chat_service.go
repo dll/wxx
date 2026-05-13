@@ -10,11 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/temporal"
 	"github.com/dll/wxx/server/internal/temporal/workflows"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
 	sdkclient "go.temporal.io/sdk/client"
 )
@@ -57,7 +59,8 @@ type ChatService struct {
 	kbRepo         *repository.KBRepo
 	agentRepo      *repository.AgentRepo
 	llmClient      llm.ChatClient
-	temporalClient *temporal.Client // 可选：Temporal 工作流客户端
+	temporalClient *temporal.Client      // 可选：Temporal 工作流客户端
+	orchestrator   *agent.Orchestrator   // 多智能体编排器（agentID 为空时启用）
 }
 
 // NewChatService 创建问答服务
@@ -68,13 +71,16 @@ func NewChatService(
 	agentRepo *repository.AgentRepo,
 	llmClient llm.ChatClient,
 ) *ChatService {
-	return &ChatService{
+	svc := &ChatService{
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
 		kbRepo:      kbRepo,
 		agentRepo:   agentRepo,
 		llmClient:   llmClient,
 	}
+	// 初始化多智能体编排器
+	svc.orchestrator = agent.NewOrchestrator(kbRepo)
+	return svc
 }
 
 // SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）
@@ -133,17 +139,25 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		TraceID:   traceID,
 	})
 
-	// ── 2. FTS5/BM25 知识检索 ──
+	// ── 2. 多智能体协同编排（agentID 为空时启用）──
+	var multiAgentResult *agent.MergedResult
+	if agentID == "" && s.orchestrator != nil {
+		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
+	}
+
+	// ── 3. FTS5/BM25 知识检索 ──
 	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
 		log.Printf("知识检索失败 [trace=%s]: %v", traceID, err)
 		// 检索失败不中断链路，走兜底
 	}
 
-	// ── 3. 拼装 LLM 上下文 ──
-	messages := s.buildMessages(ctx, sessionID, question, agentID, searchResults)
+	// ── 4. 拼装 LLM 上下文 ──
+	// 发送给 LLM 前对用户问题进行 PII 脱敏
+	sanitizedQuestion := util.SanitizeForLLM(question, 2000)
+	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, multiAgentResult)
 
-	// ── 4. 调 LLM ──
+	// ── 5. 调 LLM ──
 	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 		Messages:    messages,
 		Temperature: 0.3, // 问答场景用低温度，减少编造
@@ -155,8 +169,14 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
 	}
 
-	// ── 5. 构造 AnswerCard ──
-	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID)
+	// │ 内容安全过滤 ── LLM 返回内容检查
+	if fr := util.CheckContent(llmResp.Content); fr.Action == util.FilterBlock {
+		log.Printf("内容过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
+		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	}
+
+	// ── 6. 构造 AnswerCard ──
+	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID, multiAgentResult)
 
 	// 保存助手回复
 	_ = s.messageRepo.Create(&model.Message{
@@ -176,11 +196,17 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 }
 
 // buildMessages 构造 LLM 消息列表
-func (s *ChatService) buildMessages(ctx context.Context, sessionID string, question string, agentID string, results []*repository.SearchResult) []llm.ChatMessage {
+func (s *ChatService) buildMessages(ctx context.Context, sessionID string, question string, agentID string, results []*repository.SearchResult, multiAgentResult *agent.MergedResult) []llm.ChatMessage {
 	var messages []llm.ChatMessage
 
 	// 查找智能体的自定义系统提示词
 	systemPrompt := s.getSystemPrompt(agentID)
+
+	// 拼接多智能体协同结果
+	if multiAgentResult != nil && multiAgentResult.AgentCount > 0 {
+		systemPrompt += fmt.Sprintf("\n\n--- 多智能体协同分析（%d 个 Agent 参与）---\n%s",
+			multiAgentResult.AgentCount, multiAgentResult.Content)
+	}
 
 	// 拼接检索到的知识库内容
 	if len(results) > 0 {
@@ -241,7 +267,7 @@ func (s *ChatService) getSystemPrompt(agentID string) string {
 }
 
 // buildAnswerCard 从 LLM 回复和检索结果构造 AnswerCard
-func (s *ChatService) buildAnswerCard(content string, results []*repository.SearchResult, traceID string) *model.AnswerCard {
+func (s *ChatService) buildAnswerCard(content string, results []*repository.SearchResult, traceID string, multiAgentResult *agent.MergedResult) *model.AnswerCard {
 	card := &model.AnswerCard{
 		Conclusion: content,
 		TraceID:    traceID,
@@ -249,15 +275,32 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		Fallback:   false,
 	}
 
-	// 附加来源引用
+	// 附加来源引用（含多智能体来源）
+	sourceSet := make(map[string]bool)
 	for _, r := range results {
+		key := r.Resource.ResourceID + r.Resource.Version
+		if sourceSet[key] {
+			continue
+		}
+		sourceSet[key] = true
 		card.Sources = append(card.Sources, model.Source{
 			ResourceID:     r.Resource.ResourceID,
 			Title:          r.Resource.Title,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
-			RelevanceScore: -r.Score, // BM25 分数取反（原始为负值）
+			RelevanceScore: -r.Score,
 		})
+	}
+	// 合并多智能体来源（去重）
+	if multiAgentResult != nil {
+		for _, s := range multiAgentResult.Sources {
+			key := s.ResourceID + s.Version
+			if sourceSet[key] {
+				continue
+			}
+			sourceSet[key] = true
+			card.Sources = append(card.Sources, s)
+		}
 	}
 
 	// 无知识命中时降低置信度
@@ -270,6 +313,20 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 	card.FollowUps = generateFollowUps(content)
 
 	return card
+}
+
+// buildBlockedAnswer 内容过滤拦截时返回的兜底回答
+func (s *ChatService) buildBlockedAnswer(traceID string, category string) *model.AnswerCard {
+	return &model.AnswerCard{
+		Conclusion: util.FilterBlockResponse,
+		TraceID:    traceID,
+		Confidence: 0.0,
+		Fallback:   true,
+		FollowUps: []string{
+			"联系辅导员的方式是什么？",
+			"学工办公室在哪里？",
+		},
+	}
 }
 
 // fallbackAnswer 构造兜底回答
@@ -479,7 +536,8 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	}
 
 	// ── 3. 拼装 LLM 上下文 ──
-	messages := s.buildMessages(ctx, sessionID, question, agentID, searchResults)
+	sanitizedQuestion := util.SanitizeForLLM(question, 2000)
+	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, nil)
 
 	// ── 4. 调 LLM ──
 	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
@@ -492,8 +550,14 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
 	}
 
+	// 内容安全过滤
+	if fr := util.CheckContent(llmResp.Content); fr.Action == util.FilterBlock {
+		log.Printf("内容过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
+		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	}
+
 	// ── 5. 构造 AnswerCard ──
-	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID)
+	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID, nil)
 
 	_ = s.messageRepo.Create(&model.Message{
 		SessionID: sessionID,

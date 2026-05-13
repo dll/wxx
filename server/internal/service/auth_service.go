@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/middleware"
@@ -29,6 +30,19 @@ type LoginResult struct {
 	ExpiresIn   int    `json:"expires_in"` // 过期时间（秒）
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
+}
+
+// RecordConsent 记录用户同意隐私政策与用户协议
+func (s *AuthService) RecordConsent(userID int64) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("用户不存在: %d", userID)
+	}
+	log.Printf("用户同意隐私政策与用户协议: user=%s role=%s", user.Username, user.Role)
+	return nil
 }
 
 // LoginByUsername 通过用户名登录（开发环境简化登录，生产环境走 SSO）

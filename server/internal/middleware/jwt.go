@@ -20,6 +20,7 @@ type Claims struct {
 	OwnerScope  string `json:"owner_scope"`
 	OwnerID     string `json:"owner_id"`
 	DisplayName string `json:"display_name"`
+	Consented   bool   `json:"consented"`
 	jwt.RegisteredClaims
 }
 
@@ -40,6 +41,7 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		OwnerScope:  user.OwnerScope,
 		OwnerID:     user.OwnerID,
 		DisplayName: user.DisplayName,
+			Consented:   true, // 登录即视为已同意（首次使用由前端弹窗处理）
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -96,6 +98,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 
 		// 注入用户上下文
 		userCtx := &model.UserContext{
+			Consented:   claims.Consented,
 			UserID:      claims.UserID,
 			Username:    claims.Username,
 			Role:        claims.Role,

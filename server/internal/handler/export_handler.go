@@ -18,12 +18,63 @@ type exportService interface {
 
 // ExportHandler 知识导出 HTTP handler
 type ExportHandler struct {
-	kbSvc exportService
+	kbSvc     exportService
+	exportSvc *service.ExportService
 }
 
 // NewExportHandler 创建导出 handler
-func NewExportHandler(kbSvc *service.KBService) *ExportHandler {
-	return &ExportHandler{kbSvc: kbSvc}
+func NewExportHandler(kbSvc *service.KBService, exportSvc *service.ExportService) *ExportHandler {
+	return &ExportHandler{kbSvc: kbSvc, exportSvc: exportSvc}
+}
+
+// ExportAnswer 导出回答卡片为指定格式
+// POST /api/v1/export/answer
+func (h *ExportHandler) ExportAnswer(c *gin.Context) {
+	if h.exportSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, model.ErrorResponse{
+			Code:    503,
+			Message: "导出服务暂不可用",
+		})
+		return
+	}
+
+	var req model.ExportAnswerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数有误：" + err.Error(),
+		})
+		return
+	}
+
+	format := service.ExportPDF
+	switch req.Format {
+	case "json":
+		format = service.ExportJSON
+	case "md":
+		format = service.ExportMD
+	case "pdf", "":
+		format = service.ExportPDF
+	default:
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "不支持的导出格式：" + req.Format + "，可选：pdf / json / md",
+		})
+		return
+	}
+
+	data, mime, err := h.exportSvc.ExportAnswer(req.AnswerCard, format, req.Watermark)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "导出失败：" + err.Error(),
+		})
+		return
+	}
+
+	c.Header("Content-Type", mime)
+	c.Header("Content-Disposition", "attachment; filename=answer."+string(format))
+	c.Data(http.StatusOK, mime, data)
 }
 
 // Export 导出知识资源

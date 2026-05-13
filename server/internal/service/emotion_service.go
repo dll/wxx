@@ -56,11 +56,15 @@ func (s *EmotionService) AnalyzeAndLog(ctx context.Context, userID int64, userna
 		return s.analyzeViaTemporal(ctx, userID, username, sessionID, messageText)
 	}
 
-	// ── 原有同步链路（不变）──
-	// 调用 LLM 进行情感分析
+	// ── 阶段 0：关键词预筛 ──
+	if preResult := prefilterEmotion(messageText); preResult != nil && preResult.RiskLevel == "low" {
+		// 明显中性/积极消息，跳过 LLM 调用，直接记录
+		return s.saveEmotionLog(userID, username, sessionID, messageText, preResult)
+	}
+
+	// ── 阶段 1：LLM 情感分析 ──
 	analysis, err := s.analyzeEmotion(ctx, messageText)
 	if err != nil {
-		// 分析失败时记录低风险兜底
 		log.Printf("情感分析失败: %v，使用兜底策略", err)
 		analysis = &emotionAnalysisResult{
 			Score:     0,
@@ -70,10 +74,21 @@ func (s *EmotionService) AnalyzeAndLog(ctx context.Context, userID int64, userna
 		}
 	}
 
-	// 序列化完整分析结果
+	// ── 阶段 2：连续高风险升级 ──
+	if analysis.RiskLevel == "high" || analysis.RiskLevel == "urgent" {
+		if escalated := s.checkEscalation(userID, analysis); escalated {
+			analysis.RiskLevel = "urgent"
+			analysis.Reasoning += "（连续高风险，自动升级为紧急）"
+		}
+	}
+
+	return s.saveEmotionLog(userID, username, sessionID, messageText, analysis)
+}
+
+// saveEmotionLog 持久化情感记录
+func (s *EmotionService) saveEmotionLog(userID int64, username, sessionID, messageText string, analysis *emotionAnalysisResult) (*model.EmotionLog, error) {
 	analysisJSON, _ := json.Marshal(analysis)
 
-	// 创建记录
 	alertID := "alert-" + uuid.New().String()[:8]
 	logEntry := &model.EmotionLog{
 		AlertID:      alertID,
@@ -95,13 +110,27 @@ func (s *EmotionService) AnalyzeAndLog(ctx context.Context, userID int64, userna
 
 	logEntry.ID = id
 
-	// 高风险时输出预警日志
 	if analysis.RiskLevel == "high" || analysis.RiskLevel == "urgent" {
 		log.Printf("情感预警: user=%s risk=%s score=%.2f emotions=%v keywords=%v",
 			username, analysis.RiskLevel, analysis.Score, analysis.Emotions, analysis.Keywords)
 	}
 
 	return logEntry, nil
+}
+
+// checkEscalation 检查用户最近是否有连续高风险记录，触发升级
+func (s *EmotionService) checkEscalation(userID int64, current *emotionAnalysisResult) bool {
+	recentAlerts, _, err := s.emotionRepo.ListAlerts("", "", "", "", "", 1, 5)
+	if err != nil {
+		return false
+	}
+	highCount := 0
+	for _, alert := range recentAlerts {
+		if alert.UserID == userID && (alert.RiskLevel == "high" || alert.RiskLevel == "urgent") {
+			highCount++
+		}
+	}
+	return highCount >= 3 // 含当前已是第 3 次及以上高风险
 }
 
 // analyzeEmotion 调用 LLM 分析文本情感
@@ -195,29 +224,76 @@ func (s *EmotionService) UpdateAlertStatus(alertID, status, acknowledgedBy strin
 
 // ── 情感分析提示词 ──
 
-const emotionSystemPrompt = `你是高校学生心理健康评估助手。你的任务是分析学生消息中的情感状态，识别潜在的心理风险。
+// ── 情感分析提示词 ──
 
-你必须严格按以下 JSON 格式返回分析结果（不要返回其他内容）：
+const emotionSystemPrompt = `你是高校学生心理健康评估助手。分析学生消息中的情感状态，识别潜在的心理风险。
+
+必须严格按以下 JSON 格式返回（不要返回其他内容）：
 {
-  "score": <float, -1.0到1.0, -1=极度消极, 0=中性, 1=积极>,
+  "score": <float, -1.0到1.0>,
   "risk_level": "<low|medium|high|urgent>",
-  "emotions": ["<检测到的情绪>"],
-  "keywords": ["<高风险关键词>"],
-  "reasoning": "<简要分析理由>",
+  "emotions": ["<情绪>"],
+  "keywords": ["<关键词>"],
+  "reasoning": "<简要分析，不超过一句话>",
   "need_follow_up": <bool>
 }
 
 风险等级判断标准：
-- low: 正常交流，无明显负面情绪
-- medium: 有些焦虑或困扰，但无紧迫风险（如学业压力、人际困扰）
-- high: 明显的负面情绪，需要关注（如持续的焦虑、沮丧、愤怒、无助感）
-- urgent: 紧急情况，需要立即干预（如明确的自伤/伤人意图、严重绝望表述）
+- low: 正常交流（如"你好""怎么选课""奖学金什么时候发"）；轻度抱怨不算风险
+- medium: 明显焦虑或困扰，但无紧迫风险（如"最近很焦虑""考研压力大""和室友有点矛盾"）
+- high: 持续负面情绪需关注（如"失眠很久了""觉得生活无望""经常一个人哭"）
+- urgent: 需立即干预（如明确自伤意图"不想活了""伤害自己"、暴力威胁、严重绝望"一切都完了"）
 
-注意：不要过度敏感。学生对学业、考试、生活的正常抱怨不构成高风险。重点关注：
-1. 自我伤害或伤害他人的意图
-2. 严重的绝望、无助感
-3. 极端的社会孤立表述
-4. 突发的剧烈情绪变化`
+关键原则：
+- 不要过度敏感。正常学业咨询（选课、考试、流程）即使表达轻微焦虑也评为 low
+- 仅当出现自我伤害、伤害他人、严重绝望、极端孤立表述时评为 high/urgent
+- 愤怒倾向（"想打人""报复"）评为 high
+- 一次性的"好烦""郁闷"不构成风险，连续出现才值得关注`
+
+// prefilterEmotion 关键词预筛：明显中性/积极的直接跳过 LLM，加速处理
+func prefilterEmotion(text string) *emotionAnalysisResult {
+	lower := strings.ToLower(text)
+
+	// 积极/中性的高频短文本直接判定为 low
+	neutralPatterns := []string{
+		"你好", "谢谢", "好的", "收到", "明白了", "ok", "知道了",
+		"怎么", "如何", "什么", "哪里", "什么时候", "请问",
+		"选课", "考试时间", "成绩", "奖学金", "流程", "材料",
+		"在吗", "hi", "hello", "帮我查", "我想问",
+	}
+	for _, p := range neutralPatterns {
+		if strings.Contains(lower, p) && len([]rune(text)) <= 50 {
+			return &emotionAnalysisResult{
+				Score:     0.2,
+				RiskLevel: "low",
+				Emotions:  []string{"中立"},
+				Reasoning: "信息咨询类消息，无情绪风险",
+			}
+		}
+	}
+
+	// 紧急关键词检测（快速标记高概率紧急）
+	urgentKeywords := []string{
+		"不想活", "自杀", "自残", "自伤", "去死", "死掉",
+		"伤害自己", "结束生命", "活不下去", "没有意义",
+		"想死", "杀", "割腕", "跳楼",
+	}
+	for _, kw := range urgentKeywords {
+		if strings.Contains(lower, kw) {
+			return &emotionAnalysisResult{
+				Score:        -0.95,
+				RiskLevel:    "urgent",
+				Emotions:     []string{"绝望", "危机"},
+				Keywords:     []string{kw},
+				Reasoning:    "检测到自伤/自杀高风险关键词，立即评估为紧急",
+				NeedFollowUp: true,
+			}
+		}
+	}
+
+	// 不确定的情况返回 nil，走 LLM 分析
+	return nil
+}
 
 func buildEmotionPrompt(text string) string {
 	return fmt.Sprintf("请分析以下学生消息的情感状态：\n\n%s", text)

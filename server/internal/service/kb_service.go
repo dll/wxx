@@ -174,6 +174,98 @@ func (s *KBService) Update(resourceID string, req *model.KBUpdateRequest, userna
 	return s.kbRepo.GetByResourceID(resourceID)
 }
 
+// SubmitForReview 提交知识资源进入审核流程（draft → pending）
+// 仅限 student_union 及以上角色调用
+func (s *KBService) SubmitForReview(resourceID, username string) (*model.KBResource, error) {
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识资源失败: %w", err)
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+	}
+	if existing.Status != "draft" {
+		return nil, fmt.Errorf("仅草稿状态可提交审核，当前状态: %s", existing.Status)
+	}
+
+	existing.Status = "pending"
+	existing.UpdatedBy = username
+	if err := s.kbRepo.Update(existing); err != nil {
+		return nil, fmt.Errorf("更新状态失败: %w", err)
+	}
+	log.Printf("知识资源已提交审核 resource_id=%s by=%s", resourceID, username)
+	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// ApproveResource 审核通过知识资源（pending → published）
+// 仅限 counselor 及以上角色调用
+func (s *KBService) ApproveResource(resourceID, username string) (*model.KBResource, error) {
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识资源失败: %w", err)
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+	}
+	if existing.Status != "pending" {
+		return nil, fmt.Errorf("仅待审核状态可批准，当前状态: %s", existing.Status)
+	}
+
+	existing.Status = "published"
+	existing.UpdatedBy = username
+	if err := s.kbRepo.Update(existing); err != nil {
+		return nil, fmt.Errorf("更新状态失败: %w", err)
+	}
+	log.Printf("知识资源审核通过 resource_id=%s by=%s", resourceID, username)
+	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// RejectResource 驳回知识资源（pending → draft），附带驳回理由
+// 仅限 counselor 及以上角色调用
+func (s *KBService) RejectResource(resourceID, username, reason string) (*model.KBResource, error) {
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识资源失败: %w", err)
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+	}
+	if existing.Status != "pending" {
+		return nil, fmt.Errorf("仅待审核状态可驳回，当前状态: %s", existing.Status)
+	}
+
+	existing.Status = "draft"
+	existing.UpdatedBy = username
+	if err := s.kbRepo.Update(existing); err != nil {
+		return nil, fmt.Errorf("更新状态失败: %w", err)
+	}
+	log.Printf("知识资源已驳回 resource_id=%s by=%s reason=%s", resourceID, username, reason)
+	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// RetireResource 下架知识资源（published → retired）
+// 仅限 counselor 及以上角色调用
+func (s *KBService) RetireResource(resourceID, username string) (*model.KBResource, error) {
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识资源失败: %w", err)
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+	}
+	if existing.Status != "published" {
+		return nil, fmt.Errorf("仅已发布状态可下架，当前状态: %s", existing.Status)
+	}
+
+	existing.Status = "retired"
+	existing.UpdatedBy = username
+	if err := s.kbRepo.Update(existing); err != nil {
+		return nil, fmt.Errorf("更新状态失败: %w", err)
+	}
+	log.Printf("知识资源已下架 resource_id=%s by=%s", resourceID, username)
+	return s.kbRepo.GetByResourceID(resourceID)
+}
+
 // ImportResources 导入知识资源（NDJSON 格式，逐行 KBResource JSON）
 // 幂等键：(resource_id, version, status)；冲突按高版本覆盖、同版本跳过
 func (s *KBService) ImportResources(ndjsonData string, username string) (*model.KBImportResponse, error) {

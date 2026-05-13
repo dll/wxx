@@ -45,7 +45,7 @@ func (m *mockExportService) ExportResources(resourceType, sinceCursor string) ([
 // ═══ NewExportHandler 构造函数测试 ═══
 
 func TestNewExportHandler(t *testing.T) {
-	h := NewExportHandler(nil)
+	h := NewExportHandler(nil, nil)
 	if h == nil {
 		t.Fatal("NewExportHandler 不应返回 nil")
 	}

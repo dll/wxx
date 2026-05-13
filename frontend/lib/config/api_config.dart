@@ -15,6 +15,7 @@ class ApiConfig {
   // ── 接口路径 ──
   static const String login = '$apiPrefix/auth/login';
   static const String profile = '$apiPrefix/user/profile';
+  static const String consent = '$apiPrefix/user/consent';
   static const String chat = '$apiPrefix/chat';
   static const String sessions = '$apiPrefix/sessions';
   static String sessionMessages(String id) => '$apiPrefix/sessions/$id/messages';
@@ -32,6 +33,10 @@ class ApiConfig {
   static const String emotionAlerts = '$apiPrefix/emotion/alerts';
   static const String emotionStats = '$apiPrefix/emotion/stats';
   static String emotionAlertUpdate(String id) => '$apiPrefix/emotion/alerts/$id';
+
+  // ── 导出 ──
+  static const String export = '$apiPrefix/export';
+  static const String exportAnswer = '$apiPrefix/export/answer';
 
   // ── 智能体管理 ──
   static const String agents = '$apiPrefix/agents';

@@ -7,6 +7,7 @@ class Storage {
   static const String _keyUsername = 'username';
   static const String _keyRole = 'role';
   static const String _keyDisplayName = 'display_name';
+  static const String _keyConsented = 'consented';
   static const String _keyThemeMode = 'theme_mode';
 
   static late SharedPreferences _prefs;
@@ -36,6 +37,10 @@ class Storage {
     await _prefs.setString(_keyRole, role);
     await _prefs.setString(_keyDisplayName, displayName);
   }
+
+  // ── 同意授权状态 ──
+  static bool get consented => _prefs.getBool(_keyConsented) ?? false;
+  static Future<void> setConsented(bool v) => _prefs.setBool(_keyConsented, v);
 
   /// 清除所有登录信息
   static Future<void> clearAll() async {

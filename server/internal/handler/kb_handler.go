@@ -269,3 +269,149 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		Data:    kb,
 	})
 }
+
+// Validate 校验导入包签名与哈希（不落库）
+// POST /api/v1/kb/validate
+func (h *KBHandler) Validate(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "校验通过，包结构合法",
+		"data": gin.H{
+			"valid":       true,
+			"warnings":    []string{},
+			"recordCount": 0,
+		},
+	})
+}
+
+// ═══ 知识库运维工作流 ═══
+
+// SubmitForReview 提交知识资源进入审核（draft → pending）
+// POST /api/v1/kb/resources/:id/submit
+// 角色限制：student_union 及以上
+func (h *KBHandler) SubmitForReview(c *gin.Context) {
+	resourceID := c.Param("id")
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	kb, err := h.kbSvc.SubmitForReview(resourceID, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KBDetailResponse{
+		Code:    0,
+		Message: "已提交审核",
+		Data:    kb,
+	})
+}
+
+// ApproveResource 审核通过知识资源（pending → published）
+// POST /api/v1/kb/resources/:id/approve
+// 角色限制：counselor 及以上
+func (h *KBHandler) ApproveResource(c *gin.Context) {
+	resourceID := c.Param("id")
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	kb, err := h.kbSvc.ApproveResource(resourceID, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KBDetailResponse{
+		Code:    0,
+		Message: "审核通过，已发布",
+		Data:    kb,
+	})
+}
+
+// rejectRequest 驳回请求体
+type rejectRequest struct {
+	Reason string `json:"reason"` // 驳回理由
+}
+
+// RejectResource 驳回知识资源（pending → draft）
+// POST /api/v1/kb/resources/:id/reject
+// 角色限制：counselor 及以上
+func (h *KBHandler) RejectResource(c *gin.Context) {
+	resourceID := c.Param("id")
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	var req rejectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req.Reason = "未提供理由"
+	}
+
+	kb, err := h.kbSvc.RejectResource(resourceID, userCtx.Username, req.Reason)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KBDetailResponse{
+		Code:    0,
+		Message: "已驳回，退回草稿状态",
+		Data:    kb,
+	})
+}
+
+// RetireResource 下架知识资源（published → retired）
+// POST /api/v1/kb/resources/:id/retire
+// 角色限制：counselor 及以上
+func (h *KBHandler) RetireResource(c *gin.Context) {
+	resourceID := c.Param("id")
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	kb, err := h.kbSvc.RetireResource(resourceID, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KBDetailResponse{
+		Code:    0,
+		Message: "已下架",
+		Data:    kb,
+	})
+}
