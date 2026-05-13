@@ -52,6 +52,7 @@
 | 前端初始化指南 | `frontend/README.md` | Flutter 初始化步骤、技术选型、目录建议 |
 | 部署指南 | `docs/deployment.md` | 编译、运行、systemd 服务、备份、健康检查、更新流程 |
 | 内部 LLM Wiki | `knowledge/README.md` | raw/ / wiki/ 脚手架（非产品知识库） |
+| 第二阶段开发计划 | `docs/phase2-plan.md` | 9 专项 / 20 任务 / 3 周 / 角色闭环 |
 | 计划模板 | `templates/plan.template.md` | 任务方案模板 |
 | 变更日志模板 | `templates/CHANGELOG.template.md` | Keep a Changelog 格式 |
 
@@ -143,13 +144,13 @@ WXX/
 ├── knowledge/               # 内部 LLM Wiki 素材
 └── templates/               # 计划/变更日志模板
 
-## 当前状态（2026-05-06）
+## 当前状态（2026-05-13）
 
-- P0 核心功能完成：鉴权 + 问答 + 知识库 + Flutter 前端 + Context Engine
-- P1 基本完成：语音 ASR/TTS + 情感预警 + 多智能体管理
+- P0 核心功能完成；P1 基本完成；**第二阶段计划已制定**（`docs/phase2-plan.md`）
+- 待补齐：Eino 多智能体编排 / 安全合规（隐私政策、PII 脱敏、内容过滤）/ 多格式导出 / 评测基线
+- 六级角色功能需逐项验证；管理端页面（用户管理、审计日志、质量看板）待开发
 - 测试覆盖 62.1%（middleware 80.6% / handler 60.9% / service 82.1% / repository 79.9%）
-- Flutter Web 构建通过（`flutter build web`；含中文路径需 `--output` 指定 ASCII 路径）
-- 后端：`go build -tags fts5 ./...` 零错误；`go test -tags fts5 ./...` 全部通过
+- Flutter Web 构建通过；后端 `go build -tags fts5 ./...` 零错误
 ```
 
 ## 后端分层规则
