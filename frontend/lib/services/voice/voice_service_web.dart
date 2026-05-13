@@ -5,7 +5,6 @@ import 'dart:html' as html;
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../config/api_config.dart';
-import '../../utils/storage.dart';
 import '../api_service.dart';
 
 /// Web 平台语音服务实现
@@ -132,20 +131,9 @@ class VoiceService {
   /// 调用后端 TTS 将文本转为语音，返回 MP3 音频字节
   Future<Uint8List?> textToSpeech(String text) async {
     try {
-      final dio = Dio(BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
-        connectTimeout: Duration(milliseconds: ApiConfig.connectTimeout),
-        receiveTimeout: Duration(milliseconds: ApiConfig.receiveTimeout),
-        responseType: ResponseType.bytes,
-      ));
-
-      final token = Storage.token;
-      final response = await dio.post(
+      final response = await ApiService().postBytes(
         ApiConfig.voiceTts,
         data: {'text': text, 'voice': 'x_xiaoyan'},
-        options: Options(
-          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-        ),
       );
 
       if (response.statusCode == 200 && response.data != null) {

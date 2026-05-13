@@ -58,4 +58,13 @@ class ApiService {
   Future<Response> delete(String path) {
     return _dio.delete(path);
   }
+
+  /// 发送 POST 请求并以字节流接收响应（用于 TTS 等返回二进制数据的接口）
+  Future<Response> postBytes(String path, {dynamic data}) {
+    return _dio.post(
+      path,
+      data: data,
+      options: Options(responseType: ResponseType.bytes),
+    );
+  }
 }

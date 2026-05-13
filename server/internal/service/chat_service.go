@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"strings"
 	"sync"
@@ -20,10 +20,29 @@ import (
 )
 
 // answerCache 问答结果缓存（用于入学/离校等固定流程问题，避免重复调用 LLM）
+// 缓存 24 小时，后台每 30 分钟清理过期条目
 var (
 	answerCache   = make(map[string]*answerCacheEntry)
 	answerCacheMu sync.RWMutex
 )
+
+const answerCacheTTL = 24 * time.Hour
+
+func init() {
+	go func() {
+		for {
+			time.Sleep(30 * time.Minute)
+			answerCacheMu.Lock()
+			now := time.Now()
+			for k, v := range answerCache {
+				if now.Sub(v.CachedAt) > answerCacheTTL {
+					delete(answerCache, k)
+				}
+			}
+			answerCacheMu.Unlock()
+		}
+	}()
+}
 
 type answerCacheEntry struct {
 	Card      *model.AnswerCard
@@ -71,14 +90,10 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 
 	// │ ❶ 缓存检查 ── 入学/离校等固定流程问题命中缓存即返回
 	if agentID == "" && sessionID == "" {
-		cacheKey := cacheKeyForQuestion(question)
-		answerCacheMu.RLock()
-		if entry, ok := answerCache[cacheKey]; ok {
-			answerCacheMu.RUnlock()
-			log.Printf("问答缓存命中 [trace=%s] question_hash=%s cached=%s", traceID, cacheKey, entry.CachedAt.Format("15:04:05"))
-			return entry.Card, "", nil
+		if card := s.cacheGet(question); card != nil {
+			log.Printf("问答缓存命中 [trace=%s] question_hash=%s", traceID, cacheKeyForQuestion(question))
+			return card, "", nil
 		}
-		answerCacheMu.RUnlock()
 	}
 
 	// 如果 Temporal 已启用，走工作流
@@ -151,18 +166,8 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		TraceID:   traceID,
 	})
 
-	// │ 缓存写入 ── 固定流程问题缓存 24 小时
-	if agentID == "" {
-		cacheKey := cacheKeyForQuestion(question)
-		answerCacheMu.Lock()
-		answerCache[cacheKey] = &answerCacheEntry{
-			Card:      card,
-			SessionID: sessionID,
-			CachedAt:  time.Now(),
-		}
-		answerCacheMu.Unlock()
-		log.Printf("问答缓存写入 [trace=%s] question_hash=%s", traceID, cacheKey)
-	}
+	// │ 缓存写入 ── 入学/离校等固定流程问题缓存 24 小时
+	s.cacheSet(question, sessionID, card)
 
 	log.Printf("问答完成 [trace=%s] prompt_tokens=%d output_tokens=%d sources=%d",
 		traceID, llmResp.PromptTokens, llmResp.OutputTokens, len(card.Sources))
@@ -344,11 +349,44 @@ func MarshalAnswerCard(card *model.AnswerCard) string {
 	return string(b)
 }
 
-// cacheKeyForQuestion 为问题生成缓存键（去空格 + 小写后取 MD5）
+// cacheKeyForQuestion 为问题生成缓存键（去空格 + 小写后取 FNV-1a 64-bit 哈希）
 func cacheKeyForQuestion(q string) string {
 	normalized := strings.ToLower(strings.TrimSpace(q))
-	sum := md5.Sum([]byte(normalized))
-	return fmt.Sprintf("%x", sum)
+	h := fnv.New64a()
+	h.Write([]byte(normalized))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// cacheGet 从缓存读取（仅限无 agentID 且无 sessionID 的固定流程问题）
+func (s *ChatService) cacheGet(question string) *model.AnswerCard {
+	cacheKey := cacheKeyForQuestion(question)
+	answerCacheMu.RLock()
+	entry, ok := answerCache[cacheKey]
+	answerCacheMu.RUnlock()
+	if !ok {
+		return nil
+	}
+	if time.Since(entry.CachedAt) > answerCacheTTL {
+		return nil
+	}
+	return entry.Card
+}
+
+// cacheSet 写入缓存（仅限无 agentID 的固定流程问题）
+func (s *ChatService) cacheSet(question, sessionID string, card *model.AnswerCard) {
+	if sessionID != "" {
+		return
+	}
+	cacheKey := cacheKeyForQuestion(question)
+	answerCacheMu.Lock()
+	if _, exists := answerCache[cacheKey]; !exists {
+		answerCache[cacheKey] = &answerCacheEntry{
+			Card:      card,
+			SessionID: sessionID,
+			CachedAt:  time.Now(),
+		}
+	}
+	answerCacheMu.Unlock()
 }
 
 // askViaTemporal 通过 Temporal 工作流引擎执行问答链路
@@ -464,19 +502,8 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		TraceID:   traceID,
 	})
 
-	// │ 缓存写入 ── 固定流程问题缓存
-	if agentID == "" {
-		cacheKey := cacheKeyForQuestion(question)
-		answerCacheMu.Lock()
-		if _, exists := answerCache[cacheKey]; !exists {
-			answerCache[cacheKey] = &answerCacheEntry{
-				Card:      card,
-				SessionID: sessionID,
-				CachedAt:  time.Now(),
-			}
-		}
-		answerCacheMu.Unlock()
-	}
+	// │ 缓存写入 ── 入学/离校等固定流程问题缓存
+	s.cacheSet(question, sessionID, card)
 
 	log.Printf("问答完成 [trace=%s] prompt_tokens=%d output_tokens=%d sources=%d",
 		traceID, llmResp.PromptTokens, llmResp.OutputTokens, len(card.Sources))
