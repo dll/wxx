@@ -361,6 +361,11 @@ func (s *KBService) ImportResources(ndjsonData string, username string) (*model.
 	}, nil
 }
 
+// ListPending 查询所有待审核知识资源
+func (s *KBService) ListPending(page, pageSize int) ([]*model.KBResource, int, error) {
+	return s.List("", "", "pending", "", page, pageSize)
+}
+
 // ExportResources 导出知识资源（无分页，用于同步/备份）
 func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
 	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历

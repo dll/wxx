@@ -121,6 +121,34 @@ type SyncCursor struct {
 	UpdatedAt string `json:"updated_at" db:"updated_at"`
 }
 
+// Feedback 用户反馈，对应 feedback 表
+type Feedback struct {
+	ID         int64   `json:"id" db:"id"`
+	FeedbackID string  `json:"feedback_id" db:"feedback_id"`
+	UserID     int64   `json:"user_id" db:"user_id"`
+	Username   string  `json:"username" db:"username"`
+	MessageID  string  `json:"message_id" db:"message_id"`
+	ResourceID string  `json:"resource_id" db:"resource_id"`
+	Category   string  `json:"category" db:"category"`
+	Content    string  `json:"content" db:"content"`
+	Status     string  `json:"status" db:"status"`
+	ResolvedBy string  `json:"resolved_by" db:"resolved_by"`
+	ResolvedAt *string `json:"resolved_at" db:"resolved_at"`
+	CreatedAt  string  `json:"created_at" db:"created_at"`
+	UpdatedAt  string  `json:"updated_at" db:"updated_at"`
+}
+
+// SystemSetting 系统配置项，对应 system_settings 表
+type SystemSetting struct {
+	ID          int64  `json:"id" db:"id"`
+	Key         string `json:"key" db:"key"`
+	Value       string `json:"value" db:"value"`
+	Description string `json:"description" db:"description"`
+	UpdatedBy   string `json:"updated_by" db:"updated_by"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+	UpdatedAt   string `json:"updated_at" db:"updated_at"`
+}
+
 // EmotionStats 情感告警统计
 type EmotionStats struct {
 	Pending int `json:"pending"`

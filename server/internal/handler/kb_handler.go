@@ -270,17 +270,97 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 	})
 }
 
-// Validate 校验导入包签名与哈希（不落库）
+// Validate 校验导入包（不落库），逐行解析 NDJSON 并校验字段完整性
 // POST /api/v1/kb/validate
 func (h *KBHandler) Validate(c *gin.Context) {
+	body, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "读取请求体失败",
+		})
+		return
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(body)), "\n")
+	var warnings []string
+	validCount := 0
+	totalCount := 0
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		totalCount++
+
+		var kb model.KBResource
+		if err := json.Unmarshal([]byte(line), &kb); err != nil {
+			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行JSON解析失败: "+err.Error())
+			continue
+		}
+
+		var missing []string
+		if kb.ResourceID == "" {
+			missing = append(missing, "resource_id")
+		}
+		if kb.Title == "" {
+			missing = append(missing, "title")
+		}
+		if kb.Content == "" {
+			missing = append(missing, "content")
+		}
+		if kb.ResourceType == "" {
+			missing = append(missing, "resource_type")
+		}
+		if len(missing) > 0 {
+			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行缺少必填字段: "+strings.Join(missing, ", "))
+			continue
+		}
+
+		validTypes := map[string]bool{"Policy": true, "Process": true, "FAQ": true, "Activity": true}
+		if !validTypes[kb.ResourceType] {
+			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行无效资源类型: "+kb.ResourceType)
+			continue
+		}
+
+		validCount++
+	}
+
+	valid := len(warnings) == 0 && validCount > 0
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "校验通过，包结构合法",
+		"message": "校验完成",
 		"data": gin.H{
-			"valid":       true,
-			"warnings":    []string{},
-			"recordCount": 0,
+			"valid":       valid,
+			"warnings":    warnings,
+			"recordCount": validCount,
+			"totalCount":  totalCount,
 		},
+	})
+}
+
+// ListPendingReviews 待审核知识列表 GET /api/v1/review/pending
+// 角色限制：counselor 及以上
+func (h *KBHandler) ListPendingReviews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	resources, total, err := h.kbSvc.ListPending(page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询待审核列表失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.ReviewPendingResponse{
+		Code:    0,
+		Message: "success",
+		Data:    resources,
+		Total:   total,
 	})
 }
 

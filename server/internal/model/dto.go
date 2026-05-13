@@ -297,3 +297,97 @@ type EmotionTrendResponse struct {
 	Message string               `json:"message"`
 	Data    *EmotionTrendReport  `json:"data"`
 }
+
+// ── 管理端 DTO ──
+
+// AdminMetrics 质量看板指标
+type AdminMetrics struct {
+	HitRate        float64 `json:"hit_rate"`
+	FallbackRate   float64 `json:"fallback_rate"`
+	SourceCoverage float64 `json:"source_coverage"`
+	P95Latency     int64   `json:"p95_latency_ms"`
+	TotalQuestions int64   `json:"total_questions"`
+	TotalSessions  int64   `json:"total_sessions"`
+	ActiveUsersNow int64   `json:"active_users_today"`
+}
+
+// AdminMetricsResponse 质量看板响应
+type AdminMetricsResponse struct {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    *AdminMetrics `json:"data"`
+}
+
+// UserListResponse 用户列表响应
+type UserListResponse struct {
+	Code     int     `json:"code"`
+	Message  string  `json:"message"`
+	Data     []*User `json:"data"`
+	Total    int     `json:"total"`
+	Page     int     `json:"page"`
+	PageSize int     `json:"page_size"`
+}
+
+// UserUpdateRequest 修改用户请求
+type UserUpdateRequest struct {
+	Role       *string `json:"role"`
+	OwnerScope *string `json:"owner_scope"`
+	OwnerID    *string `json:"owner_id"`
+}
+
+// AuditListResponse 审计日志列表响应
+type AuditListResponse struct {
+	Code     int         `json:"code"`
+	Message  string      `json:"message"`
+	Data     []*AuditLog `json:"data"`
+	Total    int         `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+}
+
+// SettingsResponse 系统配置响应
+type SettingsResponse struct {
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []*SystemSetting `json:"data"`
+}
+
+// SettingsUpdateRequest 更新系统配置请求
+type SettingsUpdateRequest struct {
+	Settings map[string]string `json:"settings" binding:"required"`
+}
+
+// ── 反馈 DTO ──
+
+// FeedbackCreateRequest 提交反馈请求
+type FeedbackCreateRequest struct {
+	MessageID  string `json:"message_id"`
+	ResourceID string `json:"resource_id"`
+	Category   string `json:"category" binding:"required,oneof=answer_error suggestion other"`
+	Content    string `json:"content" binding:"required"`
+}
+
+// FeedbackUpdateRequest 处理反馈请求
+type FeedbackUpdateRequest struct {
+	Status string `json:"status" binding:"required,oneof=resolved dismissed"`
+}
+
+// FeedbackListResponse 反馈列表响应
+type FeedbackListResponse struct {
+	Code     int         `json:"code"`
+	Message  string      `json:"message"`
+	Data     []*Feedback `json:"data"`
+	Total    int         `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+}
+
+// ── 知识审核 DTO ──
+
+// ReviewPendingResponse 待审核列表响应
+type ReviewPendingResponse struct {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    []*KBResource `json:"data"`
+	Total   int           `json:"total"`
+}

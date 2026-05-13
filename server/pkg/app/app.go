@@ -85,6 +85,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	kbRepo := repository.NewKBRepo(db)
 	emotionRepo := repository.NewEmotionRepo(db)
 	agentRepo := repository.NewAgentRepo(db)
+	auditRepo := repository.NewAuditRepo(db)
+	feedbackRepo := repository.NewFeedbackRepo(db)
+	settingsRepo := repository.NewSettingsRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -131,6 +134,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 	agentSvc := service.NewAgentService(agentRepo)
 	integrationSvc := service.NewIntegrationService(cfg)
+	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
+	feedbackSvc := service.NewFeedbackService(feedbackRepo)
 
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -161,10 +166,13 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	exportSvc := service.NewExportService()
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
+	adminHandler := handler.NewAdminHandler(adminSvc)
+	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
-		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler)
+		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
+		adminHandler, feedbackHandler)
 
 	return router, nil
 }
@@ -328,6 +336,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	exportH *handler.ExportHandler,
 	integrationH *handler.IntegrationHandler,
 	recH *handler.RecommendationHandler,
+	adminH *handler.AdminHandler,
+	feedbackH *handler.FeedbackHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -390,22 +400,28 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				}
 			}
 
-			kb := secured.Group("/kb")
-			kb.Use(middleware.RequireRole("counselor"))
-			{
-				kb.GET("/resources", kbH.ListResources)
-				kb.POST("/resources", kbH.CreateResource)
-				kb.PUT("/resources/:id", kbH.UpdateResource)
-				kb.GET("/resources/:id", kbH.GetResource)
-				kb.POST("/import", kbH.Import)
-				kb.POST("/validate", kbH.Validate)
+				kb := secured.Group("/kb")
+				kb.Use(middleware.RequireRole("counselor"))
+				{
+					kb.GET("/resources", kbH.ListResources)
+					kb.POST("/resources", kbH.CreateResource)
+					kb.PUT("/resources/:id", kbH.UpdateResource)
+					kb.GET("/resources/:id", kbH.GetResource)
+					kb.POST("/import", kbH.Import)
+					kb.POST("/validate", kbH.Validate)
 
-					// 运维工作流（student_union 提交 → counselor 审核）
-					kb.POST("/resources/:id/submit", kbH.SubmitForReview)
+					// 审核操作（counselor 及以上）
 					kb.POST("/resources/:id/approve", kbH.ApproveResource)
 					kb.POST("/resources/:id/reject", kbH.RejectResource)
 					kb.POST("/resources/:id/retire", kbH.RetireResource)
-			}
+				}
+
+				// KB 提交审核（student_union 及以上）
+				kbSubmit := secured.Group("/kb")
+				kbSubmit.Use(middleware.RequireRole("student_union"))
+				{
+					kbSubmit.POST("/resources/:id/submit", kbH.SubmitForReview)
+				}
 
 			// 知识导出（所有认证用户可访问）
 			secured.GET("/kb/export", exportH.Export)
@@ -438,6 +454,47 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			secured.GET("/user/profile", authH.Profile)
 				secured.POST("/user/consent", authH.Consent)
+
+				// ── 管理端（college_admin 及以上）──
+				admin := secured.Group("/admin")
+				admin.Use(middleware.RequireRole("college_admin"))
+				{
+					admin.GET("/metrics", adminH.GetMetrics)
+					admin.GET("/users", adminH.ListUsers)
+					admin.GET("/audit", adminH.ListAudit)
+
+					// 学校管理员及以上可修改用户
+					adminUsers := admin.Group("")
+					adminUsers.Use(middleware.RequireRole("school_admin"))
+					{
+						adminUsers.PUT("/users/:id", adminH.UpdateUser)
+					}
+
+					// 系统管理员独占配置管理
+					adminSettings := admin.Group("")
+					adminSettings.Use(middleware.RequireRole("sys_admin"))
+					{
+						adminSettings.GET("/settings", adminH.GetSettings)
+						adminSettings.PUT("/settings", adminH.UpdateSettings)
+					}
+				}
+
+				// ── 知识审核（counselor 及以上）──
+				review := secured.Group("/review")
+				review.Use(middleware.RequireRole("counselor"))
+				{
+					review.GET("/pending", kbH.ListPendingReviews)
+				}
+
+				// ── 反馈（student 提交，student_union 查看/处理）──
+				secured.POST("/feedback", feedbackH.Submit)
+
+				feedback := secured.Group("/feedback")
+				feedback.Use(middleware.RequireRole("student_union"))
+				{
+					feedback.GET("", feedbackH.List)
+					feedback.PUT("/:id", feedbackH.Resolve)
+				}
 		}
 	}
 
