@@ -91,6 +91,15 @@ class WxxApp extends StatelessWidget {
                 centerTitle: true,
                 elevation: 0,
               ),
+              pageTransitionsTheme: const PageTransitionsTheme(
+                builders: {
+                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+                },
+              ),
             ),
             darkTheme: ThemeData(
               colorSchemeSeed: const Color(0xFF1565C0),
@@ -99,6 +108,15 @@ class WxxApp extends StatelessWidget {
               appBarTheme: const AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
+              ),
+              pageTransitionsTheme: const PageTransitionsTheme(
+                builders: {
+                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+                },
               ),
             ),
             routerConfig: appRouter,

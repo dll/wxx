@@ -22,7 +22,9 @@ class AnswerCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
+    return Semantics(
+      label: 'AI 回答卡片',
+      child: Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -199,6 +201,7 @@ class AnswerCardWidget extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
