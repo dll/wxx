@@ -168,11 +168,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 	adminHandler := handler.NewAdminHandler(adminSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
+	studentHandler := handler.NewStudentHandler()
+	counselorHandler := handler.NewCounselorHandler()
+	teacherHandler := handler.NewTeacherHandler()
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
-		adminHandler, feedbackHandler)
+		adminHandler, feedbackHandler, studentHandler, counselorHandler, teacherHandler)
 
 	return router, nil
 }
@@ -338,6 +341,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	recH *handler.RecommendationHandler,
 	adminH *handler.AdminHandler,
 	feedbackH *handler.FeedbackHandler,
+	studentH *handler.StudentHandler,
+	counselorH *handler.CounselorHandler,
+	teacherH *handler.TeacherHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -494,6 +500,62 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				{
 					feedback.GET("", feedbackH.List)
 					feedback.PUT("/:id", feedbackH.Resolve)
+				}
+
+				// ── 学生 AI 功能（所有认证用户可访问）──
+				student := secured.Group("/student")
+				{
+					student.GET("/daily-briefing", studentH.DailyBriefing)
+					student.GET("/learning-diary", studentH.LearningDiary)
+					student.POST("/checkin", studentH.Checkin)
+					student.GET("/checkin/history", studentH.CheckinHistory)
+					student.GET("/digital-twin", studentH.DigitalTwin)
+					student.GET("/personality", studentH.Personality)
+					student.GET("/achievements", studentH.Achievements)
+					student.GET("/course-map", studentH.CourseMap)
+					student.GET("/course-analytics", studentH.CourseAnalytics)
+					student.GET("/weekly-report", studentH.WeeklyReport)
+					student.GET("/freshman-plan", studentH.GenericAI("freshman-plan"))
+					student.GET("/growth-path", studentH.GenericAI("growth-path"))
+					student.GET("/political-study", studentH.GenericAI("political-study"))
+					student.GET("/ideological-record", studentH.GenericAI("ideological-record"))
+					student.GET("/party-progress", studentH.GenericAI("party-progress"))
+					student.GET("/campus-life", studentH.GenericAI("campus-life"))
+					student.GET("/schedule", studentH.GenericAI("schedule"))
+					student.GET("/competition-match", studentH.GenericAI("competition-match"))
+					student.GET("/study-buddy", studentH.GenericAI("study-buddy"))
+					student.GET("/mental-health", studentH.GenericAI("mental-health"))
+					student.GET("/digital-mentor", studentH.GenericAI("digital-mentor"))
+				}
+
+				// ── 辅导员 AI 功能（counselor 及以上）──
+				counselor := secured.Group("/counselor")
+				counselor.Use(middleware.RequireRole("counselor"))
+				{
+					counselor.GET("/daily-focus", counselorH.DailyFocus)
+					counselor.GET("/class-report", counselorH.ClassReport)
+					counselor.GET("/twin-board", counselorH.TwinBoard)
+					counselor.GET("/prediction", counselorH.Prediction)
+					counselor.POST("/intervention", counselorH.Intervention)
+					counselor.GET("/talk-record", counselorH.TalkRecord)
+					counselor.POST("/talk-record", counselorH.TalkRecord)
+					counselor.GET("/talk-tips", counselorH.TalkTips)
+					counselor.GET("/ideological", counselorH.Ideological)
+					counselor.GET("/class-profile", counselorH.ClassProfile)
+				}
+
+				// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
+				teacher := secured.Group("/teacher")
+				teacher.Use(middleware.RequireRole("counselor"))
+				{
+					teacher.GET("/daily-overview", teacherH.DailyOverview)
+					teacher.POST("/lesson-prep", teacherH.LessonPrep)
+					teacher.POST("/exam-gen", teacherH.ExamGen)
+					teacher.POST("/class-interact", teacherH.ClassInteract)
+					teacher.POST("/grading", teacherH.Grading)
+					teacher.GET("/heatmap", teacherH.Heatmap)
+					teacher.GET("/reflection", teacherH.Reflection)
+					teacher.GET("/style-distribution", teacherH.StyleDist)
 				}
 		}
 	}

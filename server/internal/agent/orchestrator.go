@@ -7,6 +7,7 @@ import (
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/util"
 )
 
 // Orchestrator 多智能体编排器
@@ -45,7 +46,7 @@ func (o *Orchestrator) Register(agent Agent) {
 func (o *Orchestrator) Execute(ctx context.Context, question string, userCtx *model.UserContext) (*MergedResult, error) {
 	// 1. 意图路由
 	agentNames := o.router.Route(question)
-	log.Printf("多智能体路由 [question=%s] agents=%v", truncateForLog(question), agentNames)
+	log.Printf("多智能体路由 [question=%s] agents=%v", util.TruncateString(question, 50), agentNames)
 
 	// 2. 并行执行子 Agent
 	results := o.executeParallel(ctx, question, userCtx, agentNames)
@@ -98,12 +99,4 @@ func (o *Orchestrator) executeParallel(ctx context.Context, question string, use
 		results = append(results, r)
 	}
 	return results
-}
-
-func truncateForLog(s string) string {
-	runes := []rune(s)
-	if len(runes) <= 50 {
-		return s
-	}
-	return string(runes[:50]) + "..."
 }

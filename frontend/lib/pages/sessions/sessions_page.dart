@@ -5,6 +5,7 @@ import '../../providers/session_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
+import '../../utils/date_utils.dart';
 
 /// 会话历史页
 class SessionsPage extends StatefulWidget {
@@ -134,7 +135,7 @@ class _SessionsPageState extends State<SessionsPage> {
                 ),
                 subtitle: session.updatedAt.isNotEmpty
                     ? Text(
-                        _formatTime(session.updatedAt),
+                        TimeFormatter.dateTime(session.updatedAt),
                         style: theme.textTheme.bodySmall,
                       )
                     : null,
@@ -150,18 +151,5 @@ class _SessionsPageState extends State<SessionsPage> {
         },
       ),
     );
-  }
-
-  String _formatTime(String isoTime) {
-    try {
-      final dt = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-        return '今天 ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-      }
-      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return isoTime;
-    }
   }
 }

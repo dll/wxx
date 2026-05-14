@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../utils/date_utils.dart';
 
 /// 收藏页面 — 展示所有已收藏的问答
 class BookmarksPage extends StatefulWidget {
@@ -108,7 +109,7 @@ class _BookmarkCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _formatTime(entry.createdAt),
+                  TimeFormatter.dateTime(entry.createdAt),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.outline,
                   ),
@@ -141,15 +142,5 @@ class _BookmarkCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatTime(String iso) {
-    if (iso.isEmpty) return '';
-    try {
-      final dt = DateTime.parse(iso);
-      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
   }
 }

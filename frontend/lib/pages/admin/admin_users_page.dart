@@ -13,12 +13,30 @@ class AdminUsersPage extends StatefulWidget {
 }
 
 class _AdminUsersPageState extends State<AdminUsersPage> {
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().fetchUsers();
     });
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final provider = context.read<AdminProvider>();
+      if (!provider.usersLoading && provider.users.length < provider.userTotal) {
+        provider.fetchUsers();
+      }
+    }
   }
 
   @override
@@ -115,18 +133,15 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         return RefreshIndicator(
           onRefresh: () => provider.fetchUsers(refresh: true),
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: provider.users.length + 1,
+            itemCount: provider.users.length + (provider.users.length < provider.userTotal ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == provider.users.length) {
-                if (provider.users.length < provider.userTotal) {
-                  provider.fetchUsers();
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                return const SizedBox.shrink();
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
               }
               return _UserTile(user: provider.users[index]);
             },
@@ -185,11 +200,7 @@ class _UserTile extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => _UserEditDialog(user: user),
-    ).then((_) {
-      if (context.mounted) {
-        context.read<AdminProvider>().fetchUsers(refresh: true);
-      }
-    });
+    );
   }
 }
 

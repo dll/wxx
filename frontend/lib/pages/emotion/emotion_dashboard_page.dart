@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../models/models.dart';
 import '../../widgets/error_view.dart';
+import '../../utils/date_utils.dart';
 
 /// 情感预警仪表盘（辅导员及以上角色可访问）
 class EmotionDashboardPage extends StatefulWidget {
@@ -418,7 +419,7 @@ class _AlertCardState extends State<_AlertCard> {
                                     fontWeight: FontWeight.w600)),
                           ),
                           const SizedBox(width: 8),
-                          Text(_formatTime(alert.createdAt),
+                          Text(TimeFormatter.relative(alert.createdAt),
                               style: theme.textTheme.bodySmall),
                         ],
                       ),
@@ -614,23 +615,6 @@ class _AlertCardState extends State<_AlertCard> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    }
-  }
-
-  String _formatTime(String raw) {
-    if (raw.isEmpty) return '';
-    // 后端格式: "2026-05-05 03:34:50"
-    try {
-      final dt = DateTime.parse(raw);
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return '刚刚';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-      if (diff.inHours < 24) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return raw;
     }
   }
 }

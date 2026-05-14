@@ -81,16 +81,3 @@ func TestOrchestrator_UnknownAgentSkipped(t *testing.T) {
 		t.Error("无 Agent 可用时应返回兜底回复")
 	}
 }
-
-func TestTruncateForLog(t *testing.T) {
-	short := "短文本"
-	if truncateForLog(short) != short {
-		t.Error("短文本不应被截断")
-	}
-	long := "这是一段超过五十个字符的长文本用于测试截断功能是否正常工作这里需要足够多的字符来触发截断逻辑"
-	result := truncateForLog(long)
-	runes := []rune(result)
-	if len(runes) > 54 {
-		t.Errorf("长文本应被截断，实际长度: %d", len(runes))
-	}
-}

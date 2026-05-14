@@ -12,12 +12,30 @@ class AdminAuditPage extends StatefulWidget {
 }
 
 class _AdminAuditPageState extends State<AdminAuditPage> {
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().fetchAuditLogs();
     });
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final provider = context.read<AdminProvider>();
+      if (!provider.auditLoading && provider.auditLogs.length < provider.auditTotal) {
+        provider.fetchAuditLogs();
+      }
+    }
   }
 
   @override
@@ -42,18 +60,15 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           return RefreshIndicator(
             onRefresh: () => provider.fetchAuditLogs(refresh: true),
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(12),
-              itemCount: provider.auditLogs.length + 1,
+              itemCount: provider.auditLogs.length + (provider.auditLogs.length < provider.auditTotal ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == provider.auditLogs.length) {
-                  if (provider.auditLogs.length < provider.auditTotal) {
-                    provider.fetchAuditLogs();
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  return const SizedBox.shrink();
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
                 }
                 return _AuditTile(log: provider.auditLogs[index]);
               },

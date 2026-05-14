@@ -6,6 +6,7 @@ import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
+import '../../utils/date_utils.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
 import '../../widgets/consent_dialog.dart';
@@ -381,7 +382,7 @@ class _HomePageState extends State<HomePage> {
           ...sessions.take(3).map((s) => ListTile(
                 leading: const Icon(Icons.chat_bubble_outline, size: 20),
                 title: Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(_formatTime(s.updatedAt),
+                subtitle: Text(TimeFormatter.relative(s.updatedAt),
                     style: TextStyle(fontSize: 12, color: theme.colorScheme.outline)),
                 trailing: const Icon(Icons.chevron_right, size: 18),
                 onTap: () {
@@ -394,21 +395,5 @@ class _HomePageState extends State<HomePage> {
               )),
       ],
     );
-  }
-
-  String _formatTime(String iso) {
-    if (iso.isEmpty) return '';
-    try {
-      final dt = DateTime.parse(iso);
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return '刚刚';
-      if (diff.inHours < 1) return '${diff.inMinutes}分钟前';
-      if (diff.inDays < 1) return '${diff.inHours}小时前';
-      if (diff.inDays < 7) return '${diff.inDays}天前';
-      return '${dt.month}/${dt.day}';
-    } catch (_) {
-      return '';
-    }
   }
 }
