@@ -1,8 +1,11 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/bookmark_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../widgets/answer_card.dart';
 
@@ -365,33 +368,54 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildAssistantMessage(Message msg) {
     final chat = context.read<ChatProvider>();
+    final bookmarkProv = context.read<BookmarkProvider>();
     final msgIndex = chat.messages.indexOf(msg);
     final isPlayingThis = chat.isPlaying && chat.playingIndex == msgIndex;
     final theme = Theme.of(context);
 
-    // TTS 播放按钮
-    Widget playButton = GestureDetector(
-      onTap: () => chat.playTTS(msgIndex),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isPlayingThis ? Icons.stop_circle_outlined : Icons.volume_up,
-              size: 16,
-              color: theme.colorScheme.outline,
+    // 找到此回答对应的用户提问
+    final question = _findQuestionFor(msgIndex);
+    final isMarked = bookmarkProv.isBookmarked(msg.content);
+
+    // 操作栏：朗读 + 复制 + PDF + 收藏
+    Widget actionBar = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 朗读按钮
+          _ActionChip(
+            icon: isPlayingThis ? Icons.stop_circle_outlined : Icons.volume_up,
+            label: isPlayingThis ? '停止' : '朗读',
+            onTap: () => chat.playTTS(msgIndex),
+          ),
+          const SizedBox(width: 4),
+          // 复制按钮
+          _ActionChip(
+            icon: Icons.content_copy,
+            label: '复制',
+            onTap: () => _copyAnswer(msg),
+          ),
+          const SizedBox(width: 4),
+          // 导出 PDF 按钮
+          _ActionChip(
+            icon: Icons.picture_as_pdf,
+            label: 'PDF',
+            onTap: () => _exportPdf(question, msg),
+          ),
+          const SizedBox(width: 4),
+          // 收藏按钮
+          _ActionChip(
+            icon: isMarked ? Icons.star : Icons.star_outline,
+            label: isMarked ? '已收藏' : '收藏',
+            onTap: () => bookmarkProv.toggle(
+              question: question,
+              conclusion: msg.content,
+              sources: msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
+              followUps: msg.answerCard?.followUps ?? [],
             ),
-            const SizedBox(width: 4),
-            Text(
-              isPlayingThis ? '停止' : '朗读',
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.outline,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -413,7 +437,7 @@ class _ChatPageState extends State<ChatPage> {
               ),
               Padding(
                 padding: const EdgeInsets.only(left: 12),
-                child: playButton,
+                child: actionBar,
               ),
             ],
           ),
@@ -447,11 +471,72 @@ class _ChatPageState extends State<ChatPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(left: 16),
-            child: playButton,
+            child: actionBar,
           ),
         ],
       ),
     );
+  }
+
+  /// 找到指定位置助手消息对应的用户提问
+  String _findQuestionFor(int assistantIndex) {
+    final messages = context.read<ChatProvider>().messages;
+    for (int i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].isUser) return messages[i].content;
+    }
+    return '';
+  }
+
+  /// 复制回答内容到剪贴板
+  void _copyAnswer(Message msg) {
+    final text = msg.content;
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已复制到剪贴板'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  /// 导出为 PDF（打开浏览器打印对话框）
+  void _exportPdf(String question, Message msg) {
+    final body = '''
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; color: #333; }
+  h1 { color: #1565C0; font-size: 20px; border-bottom: 2px solid #1565C0; padding-bottom: 8px; }
+  .question { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .answer { padding: 16px; line-height: 1.8; }
+  .source { background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 14px; }
+  .meta { color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 8px; }
+</style></head><body>
+<h1>蔚小芯 · 问答记录</h1>
+<div class="question"><strong>问题：</strong>${_htmlEscape(question)}</div>
+<div class="answer"><strong>回答：</strong>${_htmlEscape(msg.content)}</div>
+${msg.answerCard?.sources != null && msg.answerCard!.sources.isNotEmpty
+  ? '<div class="source"><strong>信息来源：</strong><ul>${msg.answerCard!.sources.map((s) => '<li>${_htmlEscape(s.title)}</li>').join()}</ul></div>'
+  : ''}
+<div class="meta">导出时间：${DateTime.now().toString().substring(0, 19)} · 蔚小芯 AI 学工助手</div>
+<script>window.onload = () => window.print();</script>
+</body></html>''';
+
+    final blob = html.Blob([body], 'text/html');
+    final url = html.Url.createObjectUrl(blob);
+    html.window.open(url, '_blank');
+    // 打印自动触发：Blob URL 加载后浏览器弹出打印对话框
+    Future.delayed(const Duration(seconds: 10), () {
+      html.Url.revokeObjectUrl(url);
+    });
+  }
+
+  String _htmlEscape(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
   }
 
   Widget _buildLoadingBubble(ThemeData theme) {
@@ -622,6 +707,41 @@ class _SlideInItemState extends State<_SlideInItem>
     return SlideTransition(
       position: _slide,
       child: FadeTransition(opacity: _fade, child: widget.child),
+    );
+  }
+}
+
+/// 消息操作芯片 — 用于朗读、复制、PDF、收藏等操作
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionChip({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: theme.colorScheme.outline),
+              const SizedBox(width: 2),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: theme.colorScheme.outline),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

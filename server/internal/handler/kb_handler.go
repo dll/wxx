@@ -287,6 +287,8 @@ func (h *KBHandler) Validate(c *gin.Context) {
 	validCount := 0
 	totalCount := 0
 
+	validTypes := map[string]bool{"Policy": true, "Process": true, "FAQ": true, "Activity": true}
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -318,7 +320,6 @@ func (h *KBHandler) Validate(c *gin.Context) {
 			continue
 		}
 
-		validTypes := map[string]bool{"Policy": true, "Process": true, "FAQ": true, "Activity": true}
 		if !validTypes[kb.ResourceType] {
 			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行无效资源类型: "+kb.ResourceType)
 			continue

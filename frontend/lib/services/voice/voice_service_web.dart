@@ -8,11 +8,11 @@ import '../../config/api_config.dart';
 import '../api_service.dart';
 
 /// Web 平台语音服务实现
-/// 使用浏览器原生 MediaRecorder API 录音，Audio 元素播放
+/// 使用浏览器原生 MediaRecorder API 录音，SpeechSynthesis API 朗读
 class VoiceService {
   html.MediaRecorder? _recorder;
   final List<html.Blob> _chunks = [];
-  html.AudioElement? _audio;
+  html.SpeechSynthesisUtterance? _utterance;
 
   bool _isRecording = false;
   bool _isPlaying = false;
@@ -128,51 +128,48 @@ class VoiceService {
     }
   }
 
-  /// 调用后端 TTS 将文本转为语音，返回 MP3 音频字节
+  /// 调用浏览器内置 SpeechSynthesis API 将文本转为语音（免费，无需后端）
   Future<Uint8List?> textToSpeech(String text) async {
     try {
-      final response = await ApiService().postBytes(
-        ApiConfig.voiceTts,
-        data: {'text': text, 'voice': 'x_xiaoyan'},
-      );
+      final completer = Completer<void>();
 
-      if (response.statusCode == 200 && response.data != null) {
-        if (response.data is List<int>) {
-          return Uint8List.fromList(response.data as List<int>);
-        }
-      }
-      return null;
-    } on DioException {
+      _utterance = html.SpeechSynthesisUtterance(text);
+      _utterance!.lang = 'zh-CN';
+      _utterance!.rate = 1.0;
+      _utterance!.pitch = 1.0;
+
+      _utterance!.onEnd.listen((_) {
+        _isPlaying = false;
+        if (!completer.isCompleted) completer.complete();
+      });
+
+      _utterance!.onError.listen((_) {
+        _isPlaying = false;
+        if (!completer.isCompleted) completer.completeError('SpeechSynthesis error');
+      });
+
+      _isPlaying = true;
+      html.window.speechSynthesis!.speak(_utterance!);
+
+      // 阻塞等待朗读完成，保持与 playTTS 流程兼容
+      await completer.future;
+
+      return Uint8List(0); // 非 null 表示成功
+    } catch (_) {
+      _isPlaying = false;
       return null;
     }
   }
 
-  /// 播放 MP3 音频
+  /// 播放音频（Web 上由 textToSpeech 已完成朗读，此方法为空操作）
   Future<void> playAudio(Uint8List audioData) async {
-    _audio?.remove();
-    _audio = null;
-
-    final blob = html.Blob([audioData], 'audio/mpeg');
-    final url = html.Url.createObjectUrl(blob);
-
-    _audio = html.AudioElement(url);
-    _isPlaying = true;
-    _audio!.play();
-
-    _audio!.onEnded.listen((_) {
-      html.Url.revokeObjectUrl(url);
-      _audio = null;
-      _isPlaying = false;
-    });
+    // SpeechSynthesis 已在 textToSpeech 中完成播放
   }
 
   /// 停止播放
   void stopPlayback() {
-    if (_audio != null) {
-      _audio!.pause();
-      _audio!.currentTime = 0;
-      _audio = null;
-    }
+    html.window.speechSynthesis?.cancel();
+    _utterance = null;
     _isPlaying = false;
   }
 

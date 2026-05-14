@@ -7,6 +7,7 @@ import (
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
 )
 
@@ -45,13 +46,7 @@ func (s *FeedbackService) Submit(userID int64, username string, req *model.Feedb
 
 // List 分页查询反馈列表
 func (s *FeedbackService) List(status string, page, pageSize int) ([]*model.Feedback, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
+	offset, _, _ := util.Paginate(page, pageSize)
 
 	items, err := s.feedbackRepo.List(status, offset, pageSize)
 	if err != nil {

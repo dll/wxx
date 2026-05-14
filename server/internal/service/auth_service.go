@@ -33,13 +33,16 @@ type LoginResult struct {
 }
 
 // RecordConsent 记录用户同意隐私政策与用户协议
+// 当前用户表无 consented 字段，仅记录日志；不因用户缺失而报错
 func (s *AuthService) RecordConsent(userID int64) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
-		return fmt.Errorf("查询用户失败: %w", err)
+		log.Printf("查询用户失败(consent): %v", err)
+		return nil // 不阻塞前端流程
 	}
 	if user == nil {
-		return fmt.Errorf("用户不存在: %d", userID)
+		log.Printf("用户不存在(consent): id=%d，跳过记录", userID)
+		return nil
 	}
 	log.Printf("用户同意隐私政策与用户协议: user=%s role=%s", user.Username, user.Role)
 	return nil

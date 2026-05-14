@@ -3,9 +3,11 @@ package service
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/util"
 )
 
 // AdminService 管理端业务服务
@@ -44,8 +46,10 @@ func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 	}
 	m.TotalSessions = int64(sessionTotal)
 
-	// 统计今日活跃用户
-	auditToday, err := s.auditRepo.Count("", "", "", "date('now')", "date('now','+1 day')")
+	// 统计今日活跃用户（计算当天日期范围传入）
+	today := time.Now().Format("2006-01-02")
+	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	auditToday, err := s.auditRepo.Count("", "", "", today, tomorrow)
 	if err != nil {
 		log.Printf("[AdminService] 统计今日活跃用户失败: %v", err)
 		auditToday = 0
@@ -63,13 +67,7 @@ func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 
 // ListUsers 分页查询用户列表，按调用者 scope 过滤
 func (s *AdminService) ListUsers(role, ownerScope, ownerID string, page, pageSize int) ([]*model.User, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
+	offset, page, pageSize := util.Paginate(page, pageSize)
 
 	users, err := s.userRepo.List(role, ownerScope, ownerID, offset, pageSize)
 	if err != nil {
@@ -114,13 +112,7 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 
 // ListAudit 分页查询审计日志
 func (s *AdminService) ListAudit(username, action, resource, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
+	offset, page, pageSize := util.Paginate(page, pageSize)
 
 	logs, err := s.auditRepo.List(username, action, resource, startDate, endDate, offset, pageSize)
 	if err != nil {

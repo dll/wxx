@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
@@ -54,10 +55,7 @@ class _HomePageState extends State<HomePage> {
     context.read<SessionProvider>().fetchSessions();
   }
 
-  bool _canAccessAlerts(String? role) {
-    const alertRoles = ['counselor', 'college_admin', 'school_admin', 'sys_admin'];
-    return role != null && alertRoles.contains(role);
-  }
+  bool _canAccessAlerts(String? role) => RoleUtils.canAccessEmotion(role);
 
   @override
   Widget build(BuildContext context) {

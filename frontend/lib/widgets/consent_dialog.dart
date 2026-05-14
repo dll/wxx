@@ -12,8 +12,8 @@ class ConsentDialog extends StatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => ConsentDialog(
-        onConsent: () => Navigator.of(context).pop(true),
+      builder: (dialogContext) => ConsentDialog(
+        onConsent: () => Navigator.of(dialogContext).pop(true),
       ),
     );
   }
