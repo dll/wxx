@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
-import '../../widgets/error_view.dart';
+import '../../config/api_config.dart';
 
-/// AI 双向匹配适合的竞赛项目
 class CompetitionMatchPage extends StatefulWidget {
   const CompetitionMatchPage({super.key});
-
   @override
   State<CompetitionMatchPage> createState() => _CompetitionMatchPageState();
 }
@@ -16,7 +14,7 @@ class _CompetitionMatchPageState extends State<CompetitionMatchPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<StudentFeatureProvider>().fetchAchievements();
+      context.read<StudentFeatureProvider>().askAI(ApiConfig.competitionMatch);
     });
   }
 
@@ -24,73 +22,55 @@ class _CompetitionMatchPageState extends State<CompetitionMatchPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<StudentFeatureProvider>();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 竞赛匹配')),
+      appBar: AppBar(title: const Text('竞赛匹配')),
       body: RefreshIndicator(
-        onRefresh: () => provider.fetchAchievements(),
-        child: provider.loading
+        onRefresh: () => provider.askAI(ApiConfig.competitionMatch),
+        child: provider.aiLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _buildHeader(theme),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.7)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.emoji_events, color: theme.colorScheme.onPrimary, size: 32),
+                      const SizedBox(width: 16),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('竞赛匹配', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('AI 推荐适合的竞赛', style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 13)),
+                      ])),
+                    ]),
+                  ),
                   const SizedBox(height: 16),
-                  _buildContent(theme, provider),
+                  if (provider.aiResponse.isNotEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SelectableText(provider.aiResponse, style: theme.textTheme.bodyMedium),
+                      ),
+                    )
+                  else
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(children: [
+                          Icon(Icons.emoji_events, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                          const SizedBox(height: 12),
+                          Text('暂无内容', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        ]),
+                      ),
+                    ),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.military_tech, color: theme.colorScheme.onPrimary, size: 32),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('AI 竞赛匹配', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('AI 双向匹配适合的竞赛项目', style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 13)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(ThemeData theme, StudentFeatureProvider provider) {
-    if (provider.error.isNotEmpty) {
-      return ErrorView.error(message: provider.error, onRetry: () => provider.fetchAchievements());
-    }
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: theme.colorScheme.outlineVariant)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.military_tech, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-            const SizedBox(height: 12),
-            Text('功能开发中', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text('AI 双向匹配适合的竞赛项目', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
-          ],
-        ),
       ),
     );
   }

@@ -3,10 +3,8 @@ import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../widgets/error_view.dart';
 
-/// AI 撰写学习周记与归因分析
 class WeeklyReportPage extends StatefulWidget {
   const WeeklyReportPage({super.key});
-
   @override
   State<WeeklyReportPage> createState() => _WeeklyReportPageState();
 }
@@ -24,74 +22,88 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<StudentFeatureProvider>();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 学习周报')),
+      appBar: AppBar(title: const Text('学习周报')),
       body: RefreshIndicator(
         onRefresh: () => provider.fetchWeeklyReport(),
         child: provider.loading
             ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildHeader(theme),
-                  const SizedBox(height: 16),
-                  _buildContent(theme, provider),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.summarize, color: theme.colorScheme.onPrimary, size: 32),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('AI 学习周报', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('AI 撰写学习周记与归因分析', style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 13)),
-              ],
-            ),
-          ),
-        ],
+            : provider.error.isNotEmpty
+                ? ErrorView.error(message: provider.error, onRetry: () => provider.fetchWeeklyReport())
+                : _buildContent(theme, provider),
       ),
     );
   }
 
   Widget _buildContent(ThemeData theme, StudentFeatureProvider provider) {
-    if (provider.error.isNotEmpty) {
-      return ErrorView.error(message: provider.error, onRetry: () => provider.fetchWeeklyReport());
-    }
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: theme.colorScheme.outlineVariant)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.summarize, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-            const SizedBox(height: 12),
-            Text('功能开发中', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text('AI 撰写学习周记与归因分析', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
-          ],
+    final r = provider.weeklyReport;
+    if (r == null || r.isEmpty) return const Center(child: Text('暂无数据'));
+    final week = r['week'] as String? ?? '';
+    final totalMinutes = r['total_minutes'] as int? ?? 0;
+    final highlights = (r['highlights'] as List?)?.cast<String>() ?? [];
+    final improvements = (r['improvements'] as List?)?.cast<String>() ?? [];
+    final nextWeekGoals = (r['next_week_goals'] as List?)?.cast<String>() ?? [];
+    final summary = r['summary'] as String? ?? '';
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Card(
+          color: theme.colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (week.isNotEmpty) Text(week, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.timer_outlined),
+                const SizedBox(width: 8),
+                Text('本周学习 $totalMinutes 分钟', style: theme.textTheme.titleMedium),
+              ]),
+            ]),
+          ),
         ),
-      ),
+        if (highlights.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('本周亮点', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...highlights.map((h) => ListTile(
+            leading: const Icon(Icons.star, color: Colors.amber, size: 20),
+            title: Text(h),
+            dense: true,
+          )),
+        ],
+        if (improvements.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('待改进', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...improvements.map((i) => ListTile(
+            leading: const Icon(Icons.trending_up, color: Colors.orange, size: 20),
+            title: Text(i),
+            dense: true,
+          )),
+        ],
+        if (nextWeekGoals.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('下周目标', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...nextWeekGoals.map((g) => ListTile(
+            leading: const Icon(Icons.flag, color: Colors.green, size: 20),
+            title: Text(g),
+            dense: true,
+          )),
+        ],
+        if (summary.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Card(child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('AI 总结', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Text(summary),
+            ]),
+          )),
+        ],
+      ],
     );
   }
 }
