@@ -3,15 +3,19 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../../models/models.dart';
 
 /// AnswerCard 卡片组件
-/// 渲染 AI 回答的结构化内容：结论 + 步骤 + 来源 + 风险 + 追问
+/// 渲染 AI 回答的结构化内容：结论 + 步骤 + 来源 + 风险 + 追问 + 导出/反馈
 class AnswerCardWidget extends StatelessWidget {
   final AnswerCard card;
   final void Function(String question)? onFollowUp;
+  final void Function()? onExport;
+  final void Function()? onFeedback;
 
   const AnswerCardWidget({
     super.key,
     required this.card,
     this.onFollowUp,
+    this.onExport,
+    this.onFeedback,
   });
 
   @override
@@ -168,6 +172,28 @@ class AnswerCardWidget extends StatelessWidget {
                   color: theme.colorScheme.outline,
                   fontStyle: FontStyle.italic,
                 ),
+              ),
+            ],
+
+            // 操作按钮（导出 + 反馈）
+            if (onExport != null || onFeedback != null) ...[
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (onFeedback != null)
+                    TextButton.icon(
+                      onPressed: onFeedback,
+                      icon: const Icon(Icons.feedback_outlined, size: 16),
+                      label: const Text('反馈纠错'),
+                    ),
+                  if (onExport != null)
+                    TextButton.icon(
+                      onPressed: onExport,
+                      icon: const Icon(Icons.download_outlined, size: 16),
+                      label: const Text('导出'),
+                    ),
+                ],
               ),
             ],
           ],

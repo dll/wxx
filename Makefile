@@ -104,6 +104,17 @@ all-apk-safe: flutter-build-apk-safe
 
 test-all: test flutter-test
 
+# ---- 评测与压测 ----
+.PHONY: test-eval stress
+
+test-eval:
+	@echo "运行问答质量评测（需要 -token 参数）..."
+	cd server && go run -tags fts5 cmd/eval/main.go -baseline ../specs/eval-baseline.ndjson -token $(TOKEN)
+
+stress:
+	@echo "运行压测（默认 50 并发）..."
+	cd server && go run -tags fts5 cmd/stress/main.go -c $(or $(CONCURRENCY),50) -token $(TOKEN)
+
 hooks:
 	@echo "安装 pre-commit 钩子..."
 	cp scripts/pre-commit .git/hooks/pre-commit
