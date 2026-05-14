@@ -41,4 +41,82 @@ class ApiConfig {
   // ── 智能体管理 ──
   static const String agents = '$apiPrefix/agents';
   static String agentDetail(String id) => '$apiPrefix/agents/$id';
+
+  // ── 管理端 ──
+  static const String adminMetrics = '$apiPrefix/admin/metrics';
+  static const String adminUsers = '$apiPrefix/admin/users';
+  static String adminUserUpdate(String id) => '$apiPrefix/admin/users/$id';
+  static const String adminAudit = '$apiPrefix/admin/audit';
+  static const String adminSettings = '$apiPrefix/admin/settings';
+
+  // ── 知识管理 ──
+  static const String kbResources = '$apiPrefix/kb/resources';
+  static String kbResource(String id) => '$apiPrefix/kb/resources/$id';
+  static String kbApprove(String id) => '$apiPrefix/kb/resources/$id/approve';
+  static String kbReject(String id) => '$apiPrefix/kb/resources/$id/reject';
+  static String kbSubmitReview(String id) => '$apiPrefix/kb/resources/$id/submit';
+
+  // ── 知识审核 ──
+  static const String reviewPending = '$apiPrefix/review/pending';
+
+  // ── 反馈 ──
+  static const String feedback = '$apiPrefix/feedback';
+  static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
+
+  // ── 学生 AI 功能 ──
+  static const String dailyBriefing = '$apiPrefix/student/daily-briefing';
+  static const String learningDiary = '$apiPrefix/student/learning-diary';
+  static const String checkin = '$apiPrefix/student/checkin';
+  static const String checkinHistory = '$apiPrefix/student/checkin/history';
+  static const String digitalTwin = '$apiPrefix/student/digital-twin';
+  static const String personalityInsight = '$apiPrefix/student/personality';
+  static const String growthPath = '$apiPrefix/student/growth-path';
+  static const String courseMap = '$apiPrefix/student/course-map';
+  static const String courseAnalytics = '$apiPrefix/student/course-analytics';
+  static const String weeklyReport = '$apiPrefix/student/weekly-report';
+  static const String achievements = '$apiPrefix/student/achievements';
+  static const String freshmanPlan = '$apiPrefix/student/freshman-plan';
+  static const String ideologicalRecord = '$apiPrefix/student/ideological-record';
+  static const String partyProgress = '$apiPrefix/student/party-progress';
+  static const String politicalStudy = '$apiPrefix/student/political-study';
+  static const String campusLife = '$apiPrefix/student/campus-life';
+  static const String schedule = '$apiPrefix/student/schedule';
+  static const String competitionMatch = '$apiPrefix/student/competition-match';
+  static const String studyBuddy = '$apiPrefix/student/study-buddy';
+  static const String mentalHealth = '$apiPrefix/student/mental-health';
+  static const String digitalMentor = '$apiPrefix/student/digital-mentor';
+
+  // ── 辅导员 AI 功能 ──
+  static const String counselorDailyFocus = '$apiPrefix/counselor/daily-focus';
+  static const String counselorClassReport = '$apiPrefix/counselor/class-report';
+  static const String counselorTwinBoard = '$apiPrefix/counselor/twin-board';
+  static const String counselorPrediction = '$apiPrefix/counselor/prediction';
+  static const String counselorIntervention = '$apiPrefix/counselor/intervention';
+  static const String counselorTalkRecord = '$apiPrefix/counselor/talk-record';
+  static const String counselorTalkTips = '$apiPrefix/counselor/talk-tips';
+  static const String counselorIdeological = '$apiPrefix/counselor/ideological';
+  static const String counselorClassProfile = '$apiPrefix/counselor/class-profile';
+
+  // ── 教师 AI 功能 ──
+  static const String teacherDailyOverview = '$apiPrefix/teacher/daily-overview';
+  static const String teacherLessonPrep = '$apiPrefix/teacher/lesson-prep';
+  static const String teacherExamGen = '$apiPrefix/teacher/exam-gen';
+  static const String teacherClassInteract = '$apiPrefix/teacher/class-interact';
+  static const String teacherGrading = '$apiPrefix/teacher/grading';
+  static const String teacherHeatmap = '$apiPrefix/teacher/heatmap';
+  static const String teacherReflection = '$apiPrefix/teacher/reflection';
+  static const String teacherStyleDist = '$apiPrefix/teacher/style-distribution';
+
+  // ── 教辅 AI 功能 ──
+  static const String assistantScheduleCheck = '$apiPrefix/assistant/schedule-check';
+  static const String assistantGradAudit = '$apiPrefix/assistant/graduation-audit';
+  static const String assistantExamArrange = '$apiPrefix/assistant/exam-arrange';
+
+  // ── 学生会 AI 功能 ──
+  static const String unionEventPlan = '$apiPrefix/union/event-plan';
+  static const String unionPosterGen = '$apiPrefix/union/poster-gen';
+
+  // ── 学院管理员 AI 功能 ──
+  static const String collegeTwinScreen = '$apiPrefix/college/twin-screen';
+  static const String collegeDataAnalysis = '$apiPrefix/college/data-analysis';
 }

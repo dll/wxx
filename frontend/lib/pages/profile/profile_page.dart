@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 
@@ -112,39 +113,100 @@ class _ProfilePageState extends State<ProfilePage> {
 
           // 智能体管理入口（管理员可访问）
           if (_canAccessAgents(profile?.role))
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              child: ListTile(
-                leading: Icon(Icons.smart_toy_outlined,
-                    color: theme.colorScheme.primary),
-                title: const Text('智能体管理'),
-                subtitle: const Text('管理 AI 智能体的注册、配置和状态'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/agents'),
-              ),
-            ),
+            _buildMenuCard(context, Icons.smart_toy_outlined, '智能体管理', '管理 AI 智能体的注册、配置和状态', '/agents'),
+
+          // 质量看板（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.dashboard_outlined, '质量看板', '查看系统问答质量指标', '/admin/metrics'),
+
+          // 用户管理（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.people_outline, '用户管理', '管理用户角色和归属范围', '/admin/users'),
+
+          // 审计日志（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.history, '审计日志', '查看系统操作记录', '/admin/audit'),
+
+          // 系统配置（sys_admin 独占）
+          if (profile?.role == 'sys_admin')
+            _buildMenuCard(context, Icons.settings_outlined, '系统配置', '管理系统运行参数', '/admin/settings'),
+
+          // 知识审核（counselor 及以上）
+          if (_canAccessEmotion(profile?.role))
+            _buildMenuCard(context, Icons.rate_review_outlined, '知识审核', '审核待发布的知识资源', '/review'),
+
+          // 我的提交（student_union 及以上）
+          if (_canSubmitKB(profile?.role))
+            _buildMenuCard(context, Icons.note_add_outlined, '知识提交', '创建和管理知识资源', '/my-submissions'),
+
+          // 我的收藏（所有角色可访问）
+          _buildMenuCard(context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
+
+          // 反馈管理（student_union 及以上）
+          if (_canSubmitKB(profile?.role))
+            _buildMenuCard(context, Icons.feedback_outlined, '反馈管理', '查看和处理用户反馈', '/feedback'),
+
+          // ── 角色 AI 功能入口 ──
+          // 学生 AI 功能
+          if (profile?.role == 'student' || profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.wb_sunny_outlined, '今日速览', 'AI 每日学习概览', '/student/daily-briefing'),
+            _buildMenuCard(context, Icons.auto_stories, '学习日记', 'AI 自动生成学习日记', '/student/learning-diary'),
+            _buildMenuCard(context, Icons.check_circle_outline, '每日打卡', '学习打卡与连续记录', '/student/checkin'),
+            _buildMenuCard(context, Icons.person_pin, '数字孪生', '我的数字画像', '/student/digital-twin'),
+            _buildMenuCard(context, Icons.psychology_outlined, '性格洞察', 'AI 性格分析', '/student/personality'),
+            _buildMenuCard(context, Icons.emoji_events_outlined, '积分成就', '学习积分与成就', '/student/achievements'),
+            _buildMenuCard(context, Icons.map_outlined, '课程地图', '课程学习路径', '/student/course-map'),
+            _buildMenuCard(context, Icons.analytics_outlined, '课程学情', '课程学习分析', '/student/course-analytics'),
+            _buildMenuCard(context, Icons.summarize_outlined, '学习周报', 'AI 周度学习总结', '/student/weekly-report'),
+          ],
+
+          // 辅导员 AI 功能
+          if (profile?.role == 'counselor') ...[
+            _buildMenuCard(context, Icons.visibility_outlined, 'AI 今日关注', '重点关注学生提醒', '/counselor/daily-focus'),
+            _buildMenuCard(context, Icons.assessment_outlined, '班级学情日报', '班级每日学情分析', '/counselor/class-report'),
+            _buildMenuCard(context, Icons.dashboard_outlined, '数字孪生看板', '学生数字画像看板', '/counselor/twin-board'),
+            _buildMenuCard(context, Icons.warning_outlined, '预测性预警', 'AI 风险预测', '/counselor/prediction'),
+            _buildMenuCard(context, Icons.auto_fix_high, 'AI 干预方案', '智能干预方案生成', '/counselor/intervention'),
+            _buildMenuCard(context, Icons.record_voice_over, '谈心谈话', '谈话记录管理', '/counselor/talk-record'),
+            _buildMenuCard(context, Icons.tips_and_updates_outlined, '话术推荐', 'AI 谈话话术', '/counselor/talk-tips'),
+            _buildMenuCard(context, Icons.psychology, '思想档案', '学生思想动态', '/counselor/ideological'),
+            _buildMenuCard(context, Icons.groups_outlined, '班级画像', '班级性格画像', '/counselor/class-profile'),
+          ],
+
+          // 教师 AI 功能
+          if (profile?.role == 'teacher') ...[
+            _buildMenuCard(context, Icons.school_outlined, '今日授课', 'AI 授课概览', '/teacher/daily-overview'),
+            _buildMenuCard(context, Icons.auto_awesome, 'AI 备课', '智能备课助手', '/teacher/lesson-prep'),
+            _buildMenuCard(context, Icons.quiz_outlined, 'AI 出题', '智能考试出题', '/teacher/exam-gen'),
+            _buildMenuCard(context, Icons.live_help_outlined, '课堂互动', 'AI 课堂互动', '/teacher/class-interact'),
+            _buildMenuCard(context, Icons.grading, 'AI 批改', '智能作业批改', '/teacher/grading'),
+            _buildMenuCard(context, Icons.grid_on, '学情热力图', '班级学情可视化', '/teacher/heatmap'),
+            _buildMenuCard(context, Icons.self_improvement, '教学反思', 'AI 教学反思', '/teacher/reflection'),
+            _buildMenuCard(context, Icons.pie_chart_outline, '学习风格', '学生学习风格分布', '/teacher/style-dist'),
+          ],
+
+          // 教辅 AI 功能
+          if (profile?.role == 'assistant') ...[
+            _buildMenuCard(context, Icons.event_busy, '排课检测', '排课冲突检测', '/assistant/schedule-check'),
+            _buildMenuCard(context, Icons.school, '毕业审核', '毕业资格审核', '/assistant/grad-audit'),
+            _buildMenuCard(context, Icons.event_note, '考试编排', '考试安排管理', '/assistant/exam-arrange'),
+          ],
+
+          // 学生会 AI 功能
+          if (profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.event, 'AI 活动策划', '智能活动方案生成', '/union/event-plan'),
+            _buildMenuCard(context, Icons.brush, 'AI 海报文案', '智能海报文案生成', '/union/poster-gen'),
+          ],
+
+          // 学院管理员 AI 功能
+          if (_canAccessAdmin(profile?.role)) ...[
+            _buildMenuCard(context, Icons.dashboard, '数字孪生大屏', '学院全景数据', '/college/twin-screen'),
+            _buildMenuCard(context, Icons.analytics, '数据分析', '学院数据分析报告', '/college/data-analysis'),
+          ],
 
           // 情感预警入口（辅导员及以上角色可访问）
           if (_canAccessEmotion(profile?.role))
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              child: ListTile(
-                leading: Icon(Icons.warning_amber_rounded,
-                    color: theme.colorScheme.error),
-                title: const Text('情感预警'),
-                subtitle: const Text('查看和管理学生情感告警'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/emotion'),
-              ),
-            ),
+            _buildMenuCard(context, Icons.warning_amber_rounded, '情感预警', '查看和管理学生情感告警', '/emotion', iconColor: theme.colorScheme.error),
 
           const SizedBox(height: 16),
 
@@ -258,20 +320,33 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  /// 判断角色是否可访问情感预警
-  bool _canAccessEmotion(String? role) {
-    const allowedRoles = {
-      'sys_admin',
-      'school_admin',
-      'college_admin',
-      'counselor',
-    };
-    return role != null && allowedRoles.contains(role);
+  Widget _buildMenuCard(BuildContext context, IconData icon, String title, String subtitle, String route, {Color? iconColor}) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: iconColor ?? theme.colorScheme.primary),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.go(route),
+      ),
+    );
   }
 
+  /// 判断角色是否可访问情感预警
+  bool _canAccessEmotion(String? role) => RoleUtils.canAccessEmotion(role);
+
   /// 判断角色是否可访问智能体管理
-  bool _canAccessAgents(String? role) {
-    const allowedRoles = {'sys_admin', 'school_admin'};
-    return role != null && allowedRoles.contains(role);
-  }
+  bool _canAccessAgents(String? role) => RoleUtils.canAccessAgents(role);
+
+  /// 判断角色是否可访问管理端（college_admin 及以上）
+  bool _canAccessAdmin(String? role) => RoleUtils.canAccessAdmin(role);
+
+  /// 判断角色是否可提交知识（student_union 及以上）
+  bool _canSubmitKB(String? role) => RoleUtils.canSubmitKB(role);
 }

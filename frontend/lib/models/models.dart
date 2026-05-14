@@ -527,6 +527,203 @@ class Agent {
   bool get isActive => status == 'active';
 }
 
+// ── 管理端模型 ──
+
+/// 质量看板指标（对齐后端 model.AdminMetrics）
+class AdminMetrics {
+  final double hitRate;
+  final double fallbackRate;
+  final double sourceCoverage;
+  final int p95LatencyMs;
+  final int totalQuestions;
+  final int totalSessions;
+  final int activeUsersToday;
+
+  AdminMetrics({
+    this.hitRate = 0,
+    this.fallbackRate = 0,
+    this.sourceCoverage = 0,
+    this.p95LatencyMs = 0,
+    this.totalQuestions = 0,
+    this.totalSessions = 0,
+    this.activeUsersToday = 0,
+  });
+
+  factory AdminMetrics.fromJson(Map<String, dynamic> json) {
+    return AdminMetrics(
+      hitRate: (json['hit_rate'] ?? 0).toDouble(),
+      fallbackRate: (json['fallback_rate'] ?? 0).toDouble(),
+      sourceCoverage: (json['source_coverage'] ?? 0).toDouble(),
+      p95LatencyMs: json['p95_latency_ms'] ?? 0,
+      totalQuestions: json['total_questions'] ?? 0,
+      totalSessions: json['total_sessions'] ?? 0,
+      activeUsersToday: json['active_users_today'] ?? 0,
+    );
+  }
+}
+
+/// 审计日志（对齐后端 model.AuditLog）
+class AuditLog {
+  final int id;
+  final int? userId;
+  final String username;
+  final String role;
+  final String action;
+  final String resource;
+  final String detail;
+  final String traceId;
+  final String ip;
+  final int durationMs;
+  final int resultCode;
+  final String createdAt;
+
+  AuditLog({
+    required this.id,
+    this.userId,
+    this.username = '',
+    this.role = '',
+    this.action = '',
+    this.resource = '',
+    this.detail = '',
+    this.traceId = '',
+    this.ip = '',
+    this.durationMs = 0,
+    this.resultCode = 0,
+    this.createdAt = '',
+  });
+
+  factory AuditLog.fromJson(Map<String, dynamic> json) {
+    return AuditLog(
+      id: json['id'] ?? 0,
+      userId: json['user_id'],
+      username: json['username'] ?? '',
+      role: json['role'] ?? '',
+      action: json['action'] ?? '',
+      resource: json['resource'] ?? '',
+      detail: json['detail'] ?? '',
+      traceId: json['trace_id'] ?? '',
+      ip: json['ip'] ?? '',
+      durationMs: json['duration_ms'] ?? 0,
+      resultCode: json['result_code'] ?? 0,
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+
+  String get actionLabel {
+    const map = {
+      'login': '登录',
+      'chat': '对话',
+      'knowledge_browse': '浏览知识',
+      'export': '导出',
+      'profile_update': '修改资料',
+      'api_call': 'API 调用',
+    };
+    return map[action] ?? action;
+  }
+}
+
+/// 用户反馈（对齐后端 model.Feedback）
+class FeedbackEntry {
+  final int id;
+  final String feedbackId;
+  final int userId;
+  final String username;
+  final String messageId;
+  final String resourceId;
+  final String category;
+  final String content;
+  final String status;
+  final String resolvedBy;
+  final String? resolvedAt;
+  final String createdAt;
+  final String updatedAt;
+
+  FeedbackEntry({
+    required this.id,
+    this.feedbackId = '',
+    this.userId = 0,
+    this.username = '',
+    this.messageId = '',
+    this.resourceId = '',
+    this.category = 'answer_error',
+    this.content = '',
+    this.status = 'pending',
+    this.resolvedBy = '',
+    this.resolvedAt,
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  factory FeedbackEntry.fromJson(Map<String, dynamic> json) {
+    return FeedbackEntry(
+      id: json['id'] ?? 0,
+      feedbackId: json['feedback_id'] ?? '',
+      userId: json['user_id'] ?? 0,
+      username: json['username'] ?? '',
+      messageId: json['message_id'] ?? '',
+      resourceId: json['resource_id'] ?? '',
+      category: json['category'] ?? 'answer_error',
+      content: json['content'] ?? '',
+      status: json['status'] ?? 'pending',
+      resolvedBy: json['resolved_by'] ?? '',
+      resolvedAt: json['resolved_at'],
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+    );
+  }
+
+  String get categoryLabel {
+    const map = {
+      'answer_error': '回答有误',
+      'suggestion': '功能建议',
+      'other': '其他',
+    };
+    return map[category] ?? category;
+  }
+
+  String get statusLabel {
+    const map = {
+      'pending': '待处理',
+      'resolved': '已处理',
+      'dismissed': '已驳回',
+    };
+    return map[status] ?? status;
+  }
+}
+
+/// 系统配置项（对齐后端 model.SystemSetting）
+class SystemSetting {
+  final int id;
+  final String key;
+  final String value;
+  final String description;
+  final String updatedBy;
+  final String createdAt;
+  final String updatedAt;
+
+  SystemSetting({
+    required this.id,
+    this.key = '',
+    this.value = '',
+    this.description = '',
+    this.updatedBy = '',
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  factory SystemSetting.fromJson(Map<String, dynamic> json) {
+    return SystemSetting(
+      id: json['id'] ?? 0,
+      key: json['key'] ?? '',
+      value: json['value'] ?? '',
+      description: json['description'] ?? '',
+      updatedBy: json['updated_by'] ?? '',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+    );
+  }
+}
+
 /// 创建/更新智能体请求
 class AgentSaveRequest {
   final String agentId;
@@ -562,4 +759,425 @@ class AgentSaveRequest {
         if (temperature != null) 'temperature': temperature,
         if (maxTokens != null) 'max_tokens': maxTokens,
       };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 学生 AI 功能模型
+// ═══════════════════════════════════════════════════════════════
+
+/// AI 今日速览
+class DailyBriefing {
+  final String date;
+  final String greeting;
+  final List<BriefingItem> courses;
+  final List<BriefingItem> deadlines;
+  final List<BriefingItem> activities;
+  final String weather;
+  final String motto;
+
+  DailyBriefing({
+    required this.date,
+    this.greeting = '',
+    this.courses = const [],
+    this.deadlines = const [],
+    this.activities = const [],
+    this.weather = '',
+    this.motto = '',
+  });
+
+  factory DailyBriefing.fromJson(Map<String, dynamic> json) {
+    return DailyBriefing(
+      date: json['date'] ?? '',
+      greeting: json['greeting'] ?? '',
+      courses: (json['courses'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
+      deadlines: (json['deadlines'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
+      activities: (json['activities'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
+      weather: json['weather'] ?? '',
+      motto: json['motto'] ?? '',
+    );
+  }
+}
+
+class BriefingItem {
+  final String title;
+  final String subtitle;
+  final String time;
+  final String icon;
+
+  BriefingItem({this.title = '', this.subtitle = '', this.time = '', this.icon = ''});
+
+  factory BriefingItem.fromJson(Map<String, dynamic> json) {
+    return BriefingItem(
+      title: json['title'] ?? '',
+      subtitle: json['subtitle'] ?? '',
+      time: json['time'] ?? '',
+      icon: json['icon'] ?? '',
+    );
+  }
+}
+
+/// AI 学习日记
+class LearningDiary {
+  final String date;
+  final List<String> coursesStudied;
+  final List<String> keyPoints;
+  final int studyMinutes;
+  final List<QuizItem> quiz;
+  final String tomorrowPlan;
+  final String encouragement;
+
+  LearningDiary({
+    required this.date,
+    this.coursesStudied = const [],
+    this.keyPoints = const [],
+    this.studyMinutes = 0,
+    this.quiz = const [],
+    this.tomorrowPlan = '',
+    this.encouragement = '',
+  });
+
+  factory LearningDiary.fromJson(Map<String, dynamic> json) {
+    return LearningDiary(
+      date: json['date'] ?? '',
+      coursesStudied: List<String>.from(json['courses_studied'] ?? []),
+      keyPoints: List<String>.from(json['key_points'] ?? []),
+      studyMinutes: json['study_minutes'] ?? 0,
+      quiz: (json['quiz'] as List?)?.map((e) => QuizItem.fromJson(e)).toList() ?? [],
+      tomorrowPlan: json['tomorrow_plan'] ?? '',
+      encouragement: json['encouragement'] ?? '',
+    );
+  }
+}
+
+class QuizItem {
+  final String question;
+  final List<String> options;
+  final int correctIndex;
+  final String explanation;
+
+  QuizItem({this.question = '', this.options = const [], this.correctIndex = 0, this.explanation = ''});
+
+  factory QuizItem.fromJson(Map<String, dynamic> json) {
+    return QuizItem(
+      question: json['question'] ?? '',
+      options: List<String>.from(json['options'] ?? []),
+      correctIndex: json['correct_index'] ?? 0,
+      explanation: json['explanation'] ?? '',
+    );
+  }
+}
+
+/// 个人数字孪生
+class DigitalTwinData {
+  final List<TwinDimension> dimensions;
+  final List<TwinDimension> idealDimensions;
+  final String aiSummary;
+  final List<String> suggestions;
+
+  DigitalTwinData({this.dimensions = const [], this.idealDimensions = const [], this.aiSummary = '', this.suggestions = const []});
+
+  factory DigitalTwinData.fromJson(Map<String, dynamic> json) {
+    return DigitalTwinData(
+      dimensions: (json['dimensions'] as List?)?.map((e) => TwinDimension.fromJson(e)).toList() ?? [],
+      idealDimensions: (json['ideal_dimensions'] as List?)?.map((e) => TwinDimension.fromJson(e)).toList() ?? [],
+      aiSummary: json['ai_summary'] ?? '',
+      suggestions: List<String>.from(json['suggestions'] ?? []),
+    );
+  }
+}
+
+class TwinDimension {
+  final String name;
+  final double score;
+  final String label;
+
+  TwinDimension({this.name = '', this.score = 0, this.label = ''});
+
+  factory TwinDimension.fromJson(Map<String, dynamic> json) {
+    return TwinDimension(
+      name: json['name'] ?? '',
+      score: (json['score'] ?? 0).toDouble(),
+      label: json['label'] ?? '',
+    );
+  }
+}
+
+/// 打卡记录
+class CheckinRecord {
+  final String date;
+  final int streak;
+  final int totalDays;
+  final int longestStreak;
+  final bool todayChecked;
+  final List<String> recentDates;
+
+  CheckinRecord({this.date = '', this.streak = 0, this.totalDays = 0, this.longestStreak = 0, this.todayChecked = false, this.recentDates = const []});
+
+  factory CheckinRecord.fromJson(Map<String, dynamic> json) {
+    return CheckinRecord(
+      date: json['date'] ?? '',
+      streak: json['streak'] ?? 0,
+      totalDays: json['total_days'] ?? 0,
+      longestStreak: json['longest_streak'] ?? 0,
+      todayChecked: json['today_checked'] ?? false,
+      recentDates: List<String>.from(json['recent_dates'] ?? []),
+    );
+  }
+}
+
+/// 学习积分与成就
+class AchievementData {
+  final int totalPoints;
+  final int level;
+  final String levelName;
+  final int nextLevelPoints;
+  final List<Achievement> badges;
+  final int weeklyRank;
+
+  AchievementData({this.totalPoints = 0, this.level = 1, this.levelName = '青铜', this.nextLevelPoints = 100, this.badges = const [], this.weeklyRank = 0});
+
+  factory AchievementData.fromJson(Map<String, dynamic> json) {
+    return AchievementData(
+      totalPoints: json['total_points'] ?? 0,
+      level: json['level'] ?? 1,
+      levelName: json['level_name'] ?? '青铜',
+      nextLevelPoints: json['next_level_points'] ?? 100,
+      badges: (json['badges'] as List?)?.map((e) => Achievement.fromJson(e)).toList() ?? [],
+      weeklyRank: json['weekly_rank'] ?? 0,
+    );
+  }
+}
+
+class Achievement {
+  final String id;
+  final String name;
+  final String icon;
+  final String description;
+  final bool unlocked;
+  final String unlockedAt;
+
+  Achievement({this.id = '', this.name = '', this.icon = '', this.description = '', this.unlocked = false, this.unlockedAt = ''});
+
+  factory Achievement.fromJson(Map<String, dynamic> json) {
+    return Achievement(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      icon: json['icon'] ?? '',
+      description: json['description'] ?? '',
+      unlocked: json['unlocked'] ?? false,
+      unlockedAt: json['unlocked_at'] ?? '',
+    );
+  }
+}
+
+/// 课程地图节点
+class CourseNode {
+  final String id;
+  final String name;
+  final int credits;
+  final int semester;
+  final String status;
+  final List<String> prerequisites;
+  final String category;
+
+  CourseNode({this.id = '', this.name = '', this.credits = 0, this.semester = 1, this.status = 'pending', this.prerequisites = const [], this.category = ''});
+
+  factory CourseNode.fromJson(Map<String, dynamic> json) {
+    return CourseNode(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      credits: json['credits'] ?? 0,
+      semester: json['semester'] ?? 1,
+      status: json['status'] ?? 'pending',
+      prerequisites: List<String>.from(json['prerequisites'] ?? []),
+      category: json['category'] ?? '',
+    );
+  }
+
+  String get statusLabel => {'completed': '已修', 'current': '在修', 'pending': '待修', 'elective': '可选'}[status] ?? '待修';
+}
+
+/// 课程学情看板
+class CourseAnalyticsData {
+  final String courseName;
+  final double progress;
+  final int rankPercentile;
+  final List<KnowledgePoint> knowledgePoints;
+  final List<String> weakPoints;
+
+  CourseAnalyticsData({this.courseName = '', this.progress = 0, this.rankPercentile = 50, this.knowledgePoints = const [], this.weakPoints = const []});
+
+  factory CourseAnalyticsData.fromJson(Map<String, dynamic> json) {
+    return CourseAnalyticsData(
+      courseName: json['course_name'] ?? '',
+      progress: (json['progress'] ?? 0).toDouble(),
+      rankPercentile: json['rank_percentile'] ?? 50,
+      knowledgePoints: (json['knowledge_points'] as List?)?.map((e) => KnowledgePoint.fromJson(e)).toList() ?? [],
+      weakPoints: List<String>.from(json['weak_points'] ?? []),
+    );
+  }
+}
+
+class KnowledgePoint {
+  final String name;
+  final double mastery;
+
+  KnowledgePoint({this.name = '', this.mastery = 0});
+
+  factory KnowledgePoint.fromJson(Map<String, dynamic> json) {
+    return KnowledgePoint(name: json['name'] ?? '', mastery: (json['mastery'] ?? 0).toDouble());
+  }
+
+  String get level => mastery >= 0.8 ? 'good' : mastery >= 0.5 ? 'medium' : 'weak';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 辅导员 AI 功能模型
+// ═══════════════════════════════════════════════════════════════
+
+/// AI 今日关注
+class DailyFocusData {
+  final String date;
+  final double classHealthScore;
+  final List<FocusStudent> topStudents;
+  final Map<String, int> overview;
+
+  DailyFocusData({this.date = '', this.classHealthScore = 0, this.topStudents = const [], this.overview = const {}});
+
+  factory DailyFocusData.fromJson(Map<String, dynamic> json) {
+    return DailyFocusData(
+      date: json['date'] ?? '',
+      classHealthScore: (json['class_health_score'] ?? 0).toDouble(),
+      topStudents: (json['top_students'] as List?)?.map((e) => FocusStudent.fromJson(e)).toList() ?? [],
+      overview: Map<String, int>.from(json['overview'] ?? {}),
+    );
+  }
+}
+
+class FocusStudent {
+  final String name;
+  final String reason;
+  final String riskLevel;
+  final String suggestion;
+
+  FocusStudent({this.name = '', this.reason = '', this.riskLevel = 'low', this.suggestion = ''});
+
+  factory FocusStudent.fromJson(Map<String, dynamic> json) {
+    return FocusStudent(
+      name: json['name'] ?? '',
+      reason: json['reason'] ?? '',
+      riskLevel: json['risk_level'] ?? 'low',
+      suggestion: json['suggestion'] ?? '',
+    );
+  }
+}
+
+/// 班级学情日报
+class ClassReportData {
+  final String date;
+  final String className;
+  final double activeRate;
+  final int absentCount;
+  final double homeworkRate;
+  final int emotionAlertCount;
+  final double checkinRate;
+  final List<String> anomalies;
+  final String aiNarrative;
+
+  ClassReportData({
+    this.date = '', this.className = '', this.activeRate = 0, this.absentCount = 0,
+    this.homeworkRate = 0, this.emotionAlertCount = 0, this.checkinRate = 0,
+    this.anomalies = const [], this.aiNarrative = '',
+  });
+
+  factory ClassReportData.fromJson(Map<String, dynamic> json) {
+    return ClassReportData(
+      date: json['date'] ?? '',
+      className: json['class_name'] ?? '',
+      activeRate: (json['active_rate'] ?? 0).toDouble(),
+      absentCount: json['absent_count'] ?? 0,
+      homeworkRate: (json['homework_rate'] ?? 0).toDouble(),
+      emotionAlertCount: json['emotion_alert_count'] ?? 0,
+      checkinRate: (json['checkin_rate'] ?? 0).toDouble(),
+      anomalies: List<String>.from(json['anomalies'] ?? []),
+      aiNarrative: json['ai_narrative'] ?? '',
+    );
+  }
+}
+
+/// 谈心谈话记录
+class TalkRecord {
+  final String id;
+  final String studentName;
+  final String date;
+  final String topic;
+  final String emotion;
+  final String summary;
+  final List<String> followUps;
+  final String status;
+
+  TalkRecord({this.id = '', this.studentName = '', this.date = '', this.topic = '', this.emotion = '', this.summary = '', this.followUps = const [], this.status = 'pending'});
+
+  factory TalkRecord.fromJson(Map<String, dynamic> json) {
+    return TalkRecord(
+      id: json['id'] ?? '',
+      studentName: json['student_name'] ?? '',
+      date: json['date'] ?? '',
+      topic: json['topic'] ?? '',
+      emotion: json['emotion'] ?? '',
+      summary: json['summary'] ?? '',
+      followUps: List<String>.from(json['follow_ups'] ?? []),
+      status: json['status'] ?? 'pending',
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 教师 AI 功能模型
+// ═══════════════════════════════════════════════════════════════
+
+/// AI 备课助手输出
+class LessonPlan {
+  final String topic;
+  final String outline;
+  final List<String> keyPoints;
+  final List<String> difficulties;
+  final List<String> strategies;
+  final List<String> interactions;
+  final List<String> homework;
+
+  LessonPlan({this.topic = '', this.outline = '', this.keyPoints = const [], this.difficulties = const [], this.strategies = const [], this.interactions = const [], this.homework = const []});
+
+  factory LessonPlan.fromJson(Map<String, dynamic> json) {
+    return LessonPlan(
+      topic: json['topic'] ?? '',
+      outline: json['outline'] ?? '',
+      keyPoints: List<String>.from(json['key_points'] ?? []),
+      difficulties: List<String>.from(json['difficulties'] ?? []),
+      strategies: List<String>.from(json['strategies'] ?? []),
+      interactions: List<String>.from(json['interactions'] ?? []),
+      homework: List<String>.from(json['homework'] ?? []),
+    );
+  }
+}
+
+/// 班级学情热力图数据
+class ClassHeatmapData {
+  final String courseName;
+  final List<KnowledgePoint> points;
+  final List<String> weakTopFive;
+  final int totalStudents;
+  final int anomalyCount;
+
+  ClassHeatmapData({this.courseName = '', this.points = const [], this.weakTopFive = const [], this.totalStudents = 0, this.anomalyCount = 0});
+
+  factory ClassHeatmapData.fromJson(Map<String, dynamic> json) {
+    return ClassHeatmapData(
+      courseName: json['course_name'] ?? '',
+      points: (json['points'] as List?)?.map((e) => KnowledgePoint.fromJson(e)).toList() ?? [],
+      weakTopFive: List<String>.from(json['weak_top_five'] ?? []),
+      totalStudents: json['total_students'] ?? 0,
+      anomalyCount: json['anomaly_count'] ?? 0,
+    );
+  }
 }

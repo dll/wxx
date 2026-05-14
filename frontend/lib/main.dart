@@ -9,6 +9,12 @@ import 'providers/knowledge_provider.dart';
 import 'providers/emotion_provider.dart';
 import 'providers/agent_provider.dart';
 import 'providers/home_provider.dart';
+import 'providers/admin_provider.dart';
+import 'providers/feedback_provider.dart';
+import 'providers/bookmark_provider.dart';
+import 'providers/student_feature_provider.dart';
+import 'providers/counselor_feature_provider.dart';
+import 'providers/teacher_feature_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -63,6 +69,12 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EmotionProvider()),
         ChangeNotifierProvider(create: (_) => AgentProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
+        ChangeNotifierProvider(create: (_) => FeedbackProvider()),
+        ChangeNotifierProvider(create: (_) => BookmarkProvider()),
+        ChangeNotifierProvider(create: (_) => StudentFeatureProvider()),
+        ChangeNotifierProvider(create: (_) => CounselorFeatureProvider()),
+        ChangeNotifierProvider(create: (_) => TeacherFeatureProvider()),
         ChangeNotifierProvider(create: (_) => ThemeNotifier()),
       ],
       child: Consumer<ThemeNotifier>(

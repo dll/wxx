@@ -1,0 +1,239 @@
+import 'package:flutter/foundation.dart';
+
+import '../models/models.dart';
+import '../services/api_service.dart';
+import '../config/api_config.dart';
+
+/// 学生 AI 功能状态管理
+class StudentFeatureProvider extends ChangeNotifier {
+  final ApiService _api = ApiService();
+
+  // ── 通用状态 ──
+  bool _loading = false;
+  String _error = '';
+  bool get loading => _loading;
+  String get error => _error;
+
+  // ── 今日速览 ──
+  DailyBriefing? _briefing;
+  DailyBriefing? get briefing => _briefing;
+
+  Future<void> fetchDailyBriefing() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.dailyBriefing);
+      if (res.statusCode == 200 && res.data != null) {
+        _briefing = DailyBriefing.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 学习日记 ──
+  LearningDiary? _diary;
+  LearningDiary? get diary => _diary;
+
+  Future<void> fetchLearningDiary() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.learningDiary);
+      if (res.statusCode == 200 && res.data != null) {
+        _diary = LearningDiary.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 打卡 ──
+  CheckinRecord? _checkin;
+  CheckinRecord? get checkin => _checkin;
+
+  Future<void> fetchCheckin() async {
+    try {
+      final res = await _api.get(ApiConfig.checkinHistory);
+      if (res.statusCode == 200 && res.data != null) {
+        _checkin = CheckinRecord.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+    notifyListeners();
+  }
+
+  Future<bool> doCheckin() async {
+    try {
+      final res = await _api.post(ApiConfig.checkin, data: {});
+      if (res.statusCode == 200) {
+        await fetchCheckin();
+        return true;
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+    return false;
+  }
+
+  // ── 数字孪生 ──
+  DigitalTwinData? _twin;
+  DigitalTwinData? get twin => _twin;
+
+  Future<void> fetchDigitalTwin() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.digitalTwin);
+      if (res.statusCode == 200 && res.data != null) {
+        _twin = DigitalTwinData.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 积分成就 ──
+  AchievementData? _achievements;
+  AchievementData? get achievements => _achievements;
+
+  Future<void> fetchAchievements() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.achievements);
+      if (res.statusCode == 200 && res.data != null) {
+        _achievements = AchievementData.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 课程地图 ──
+  List<CourseNode> _courseNodes = [];
+  List<CourseNode> get courseNodes => _courseNodes;
+
+  Future<void> fetchCourseMap() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.courseMap);
+      if (res.statusCode == 200 && res.data != null) {
+        final list = res.data is List ? res.data : res.data['data'] ?? [];
+        _courseNodes = (list as List).map((e) => CourseNode.fromJson(e)).toList();
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 课程学情 ──
+  List<CourseAnalyticsData> _courseAnalytics = [];
+  List<CourseAnalyticsData> get courseAnalytics => _courseAnalytics;
+
+  Future<void> fetchCourseAnalytics() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.courseAnalytics);
+      if (res.statusCode == 200 && res.data != null) {
+        final list = res.data is List ? res.data : res.data['data'] ?? [];
+        _courseAnalytics = (list as List).map((e) => CourseAnalyticsData.fromJson(e)).toList();
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 性格洞察 ──
+  Map<String, dynamic>? _personality;
+  Map<String, dynamic>? get personality => _personality;
+
+  Future<void> fetchPersonality() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.personalityInsight);
+      if (res.statusCode == 200 && res.data != null) {
+        _personality = res.data is Map<String, dynamic> ? res.data : (res.data['data'] as Map<String, dynamic>?) ?? {};
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 学习周报 ──
+  Map<String, dynamic>? _weeklyReport;
+  Map<String, dynamic>? get weeklyReport => _weeklyReport;
+
+  Future<void> fetchWeeklyReport() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.weeklyReport);
+      if (res.statusCode == 200 && res.data != null) {
+        _weeklyReport = res.data is Map<String, dynamic> ? res.data : (res.data['data'] as Map<String, dynamic>?) ?? {};
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 通用 AI 对话请求（用于多个 AI 功能） ──
+  String _aiResponse = '';
+  String get aiResponse => _aiResponse;
+  bool _aiLoading = false;
+  bool get aiLoading => _aiLoading;
+
+  Future<String> askAI(String endpoint, {Map<String, dynamic>? data}) async {
+    _aiLoading = true;
+    _aiResponse = '';
+    notifyListeners();
+    try {
+      final res = await _api.post(endpoint, data: data ?? {});
+      if (res.statusCode == 200 && res.data != null) {
+        _aiResponse = res.data is String ? res.data : (res.data['content'] ?? res.data['response'] ?? '');
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _aiLoading = false;
+      notifyListeners();
+    }
+    return _aiResponse;
+  }
+}
