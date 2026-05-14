@@ -39,11 +39,13 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     final r = provider.weeklyReport;
     if (r == null || r.isEmpty) return const Center(child: Text('暂无数据'));
     final week = r['week'] as String? ?? '';
-    final totalMinutes = r['total_minutes'] as int? ?? 0;
+    final totalHours = (r['total_hours'] as num?)?.toDouble() ?? 0;
+    final coursesCount = r['courses_count'] as int? ?? 0;
+    final assignments = r['assignments'] as int? ?? 0;
+    final rankChange = r['rank_change'] as int? ?? 0;
     final highlights = (r['highlights'] as List?)?.cast<String>() ?? [];
     final improvements = (r['improvements'] as List?)?.cast<String>() ?? [];
     final nextWeekGoals = (r['next_week_goals'] as List?)?.cast<String>() ?? [];
-    final summary = r['summary'] as String? ?? '';
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -53,11 +55,12 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (week.isNotEmpty) Text(week, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(children: [
-                const Icon(Icons.timer_outlined),
-                const SizedBox(width: 8),
-                Text('本周学习 $totalMinutes 分钟', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                _metric(theme, '学习', '${totalHours.toStringAsFixed(1)}h', Icons.timer),
+                _metric(theme, '课程', '$coursesCount门', Icons.school),
+                _metric(theme, '作业', '$assignments份', Icons.assignment),
+                _metric(theme, '排名', rankChange > 0 ? '↑$rankChange' : rankChange < 0 ? '↓${-rankChange}' : '-', Icons.trending_up),
               ]),
             ]),
           ),
@@ -68,8 +71,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...highlights.map((h) => ListTile(
             leading: const Icon(Icons.star, color: Colors.amber, size: 20),
-            title: Text(h),
-            dense: true,
+            title: Text(h), dense: true,
           )),
         ],
         if (improvements.isNotEmpty) ...[
@@ -78,8 +80,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...improvements.map((i) => ListTile(
             leading: const Icon(Icons.trending_up, color: Colors.orange, size: 20),
-            title: Text(i),
-            dense: true,
+            title: Text(i), dense: true,
           )),
         ],
         if (nextWeekGoals.isNotEmpty) ...[
@@ -88,22 +89,19 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...nextWeekGoals.map((g) => ListTile(
             leading: const Icon(Icons.flag, color: Colors.green, size: 20),
-            title: Text(g),
-            dense: true,
-          )),
-        ],
-        if (summary.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Card(child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('AI 总结', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Text(summary),
-            ]),
+            title: Text(g), dense: true,
           )),
         ],
       ],
     );
+  }
+
+  Widget _metric(ThemeData theme, String label, String value, IconData icon) {
+    return Column(children: [
+      Icon(icon, size: 20, color: theme.colorScheme.onPrimaryContainer),
+      const SizedBox(height: 4),
+      Text(value, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+      Text(label, style: theme.textTheme.bodySmall),
+    ]);
   }
 }

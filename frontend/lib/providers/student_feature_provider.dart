@@ -224,9 +224,9 @@ class StudentFeatureProvider extends ChangeNotifier {
     _aiResponse = '';
     notifyListeners();
     try {
-      final res = await _api.post(endpoint, data: data ?? {});
+      final res = await _api.get(endpoint);
       if (res.statusCode == 200 && res.data != null) {
-        _aiResponse = res.data is String ? res.data : (res.data['content'] ?? res.data['response'] ?? '');
+        _aiResponse = res.data is String ? res.data : (res.data['response'] ?? res.data['content'] ?? '');
       }
     } catch (e) {
       _error = e.toString();

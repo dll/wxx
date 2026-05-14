@@ -44,21 +44,24 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         if (t.dimensions.isNotEmpty) ...[
           Text('能力维度', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
-          ...t.dimensions.map((d) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(d.name),
-                Text('${(d.score * 100).toInt()}%', style: theme.textTheme.bodySmall),
+          ...t.dimensions.map((d) {
+            final normalized = d.score > 1 ? d.score / 100.0 : d.score;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(d.name),
+                  Text(d.label.isNotEmpty ? d.label : '${(normalized * 100).toInt()}%', style: theme.textTheme.bodySmall),
+                ]),
+                const SizedBox(height: 4),
+                LinearProgressIndicator(
+                  value: normalized.clamp(0.0, 1.0),
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  color: normalized >= 0.8 ? Colors.green : normalized >= 0.5 ? Colors.orange : Colors.red,
+                ),
               ]),
-              const SizedBox(height: 4),
-              LinearProgressIndicator(
-                value: d.score,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color: d.score >= 0.8 ? Colors.green : d.score >= 0.5 ? Colors.orange : Colors.red,
-              ),
-            ]),
-          )),
+            );
+          }),
         ],
         if (t.aiSummary.isNotEmpty) ...[
           const SizedBox(height: 16),
