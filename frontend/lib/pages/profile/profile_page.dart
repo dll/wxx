@@ -106,6 +106,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 24),
 
+          // 语音功能开关
+          _buildVoiceToggle(context, auth),
+
+          const SizedBox(height: 16),
+
           // 主题模式切换
           _buildThemeSection(context),
 
@@ -141,6 +146,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
           // 我的收藏（所有角色可访问）
           _buildMenuCard(context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
+
+          // AI 模型配置（所有角色可访问）
+          _buildMenuCard(context, Icons.tune, 'AI 模型配置', '配置 DeepSeek / 智谱 / 讯飞星火模型参数', '/profile/model-config'),
 
           // 反馈管理（student_union 及以上）
           if (_canSubmitKB(profile?.role))
@@ -275,6 +283,42 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       );
+  }
+
+  /// 语音功能开关卡片
+  Widget _buildVoiceToggle(BuildContext context, AuthProvider auth) {
+    final theme = Theme.of(context);
+    // 首次加载时触发获取语音配置
+    if (auth.voiceEnabled == null) {
+      auth.getVoiceConfig().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+    final enabled = (auth.voiceEnabled ?? 0) == 1;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: SwitchListTile(
+        secondary: Icon(
+          Icons.mic,
+          color: enabled ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+        ),
+        title: const Text('语音功能'),
+        subtitle: Text(enabled ? '语音唤醒与语音输入已开启' : '开启后可唤醒语音助手'),
+        value: enabled,
+        onChanged: (v) async {
+          final ok = await auth.updateVoiceConfig(v ? 1 : 0);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ok ? '语音设置已更新' : '设置失败')),
+            );
+          }
+        },
+      ),
+    );
   }
 
   /// 主题模式切换卡片

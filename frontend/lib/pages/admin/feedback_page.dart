@@ -149,14 +149,55 @@ class _FeedbackCard extends StatelessWidget {
             Text('— ${feedback.username}',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            // 截图预览
+            if (feedback.screenshotUrl.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _showFullScreenshot(context, feedback.screenshotUrl),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    feedback.screenshotUrl,
+                    height: 120,
+                    cacheHeight: 240,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 40,
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      child: Center(
+                        child: Text('截图加载失败', style: theme.textTheme.labelSmall),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            // 回复内容
+            if (feedback.reply.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '回复：${feedback.reply}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
             if (isPending) ...[
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () =>
-                        _handleResolve(context, 'dismissed'),
+                    onPressed: () => _doResolve(context, 'dismissed'),
                     icon: const Icon(Icons.close, size: 16),
                     label: const Text('驳回'),
                     style: OutlinedButton.styleFrom(
@@ -166,8 +207,7 @@ class _FeedbackCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
-                    onPressed: () =>
-                        _handleResolve(context, 'resolved'),
+                    onPressed: () => _showReplyDialog(context),
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('处理'),
                     style: FilledButton.styleFrom(
@@ -183,7 +223,57 @@ class _FeedbackCard extends StatelessWidget {
     );
   }
 
-  Future<void> _handleResolve(BuildContext context, String status) async {
+  void _showFullScreenshot(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: InteractiveViewer(
+          child: Image.network(url, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+        ),
+      ),
+    );
+  }
+
+  void _showReplyDialog(BuildContext context) {
+    final replyCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('处理反馈'),
+        content: TextField(
+          controller: replyCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: '可选：给用户回复...',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await context
+                  .read<FeedbackProvider>()
+                  .resolveFeedback(feedback.feedbackId, 'resolved', reply: replyCtrl.text);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(ok ? '操作成功' : '操作失败')),
+                );
+              }
+            },
+            child: const Text('确认处理'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doResolve(BuildContext context, String status) async {
     final ok = await context
         .read<FeedbackProvider>()
         .resolveFeedback(feedback.feedbackId, status);

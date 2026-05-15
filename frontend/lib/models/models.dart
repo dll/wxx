@@ -632,9 +632,11 @@ class FeedbackEntry {
   final String resourceId;
   final String category;
   final String content;
+  final String screenshotUrl;
   final String status;
   final String resolvedBy;
   final String? resolvedAt;
+  final String reply;
   final String createdAt;
   final String updatedAt;
 
@@ -647,9 +649,11 @@ class FeedbackEntry {
     this.resourceId = '',
     this.category = 'answer_error',
     this.content = '',
+    this.screenshotUrl = '',
     this.status = 'pending',
     this.resolvedBy = '',
     this.resolvedAt,
+    this.reply = '',
     this.createdAt = '',
     this.updatedAt = '',
   });
@@ -664,9 +668,11 @@ class FeedbackEntry {
       resourceId: json['resource_id'] ?? '',
       category: json['category'] ?? 'answer_error',
       content: json['content'] ?? '',
+      screenshotUrl: json['screenshot_url'] ?? '',
       status: json['status'] ?? 'pending',
       resolvedBy: json['resolved_by'] ?? '',
       resolvedAt: json['resolved_at'],
+      reply: json['reply'] ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -1180,4 +1186,101 @@ class ClassHeatmapData {
       anomalyCount: json['anomaly_count'] ?? 0,
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI 模型配置模型
+// ═══════════════════════════════════════════════════════════════
+
+/// 用户 AI 模型配置（对齐后端 model.UserModelConfig）
+class ModelConfig {
+  final int id;
+  final int userId;
+  final String deepseekKey;
+  final String deepseekModel;
+  final double deepseekTemp;
+  final int deepseekMaxTokens;
+  final String zhipuKey;
+  final String zhipuModel;
+  final double zhipuTemp;
+  final int zhipuMaxTokens;
+  final String xunfeiAppId;
+  final String xunfeiKey;
+  final String xunfeiSecret;
+  final String xunfeiModel;
+  final double xunfeiTemp;
+  final int xunfeiMaxTokens;
+  final String defaultProvider;
+  final String createdAt;
+  final String updatedAt;
+
+  ModelConfig({
+    this.id = 0,
+    this.userId = 0,
+    this.deepseekKey = '',
+    this.deepseekModel = '',
+    this.deepseekTemp = 0.7,
+    this.deepseekMaxTokens = 2048,
+    this.zhipuKey = '',
+    this.zhipuModel = '',
+    this.zhipuTemp = 0.7,
+    this.zhipuMaxTokens = 2048,
+    this.xunfeiAppId = '',
+    this.xunfeiKey = '',
+    this.xunfeiSecret = '',
+    this.xunfeiModel = '',
+    this.xunfeiTemp = 0.7,
+    this.xunfeiMaxTokens = 2048,
+    this.defaultProvider = 'deepseek',
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  factory ModelConfig.fromJson(Map<String, dynamic> json) {
+    return ModelConfig(
+      id: json['id'] ?? 0,
+      userId: json['user_id'] ?? 0,
+      deepseekKey: json['deepseek_key'] ?? '',
+      deepseekModel: json['deepseek_model'] ?? '',
+      deepseekTemp: (json['deepseek_temp'] ?? 0.7).toDouble(),
+      deepseekMaxTokens: json['deepseek_max_tokens'] ?? 2048,
+      zhipuKey: json['zhipu_key'] ?? '',
+      zhipuModel: json['zhipu_model'] ?? '',
+      zhipuTemp: (json['zhipu_temp'] ?? 0.7).toDouble(),
+      zhipuMaxTokens: json['zhipu_max_tokens'] ?? 2048,
+      xunfeiAppId: json['xunfei_app_id'] ?? '',
+      xunfeiKey: json['xunfei_key'] ?? '',
+      xunfeiSecret: json['xunfei_secret'] ?? '',
+      xunfeiModel: json['xunfei_model'] ?? '',
+      xunfeiTemp: (json['xunfei_temp'] ?? 0.7).toDouble(),
+      xunfeiMaxTokens: json['xunfei_max_tokens'] ?? 2048,
+      defaultProvider: json['default_provider'] ?? 'deepseek',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+    );
+  }
+
+  /// 默认模型中文名
+  String get defaultProviderLabel {
+    const map = {'deepseek': 'DeepSeek', 'zhipu': '智谱清言', 'xunfei': '讯飞星火'};
+    return map[defaultProvider] ?? defaultProvider;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'deepseek_key': deepseekKey,
+        'deepseek_model': deepseekModel,
+        'deepseek_temp': deepseekTemp,
+        'deepseek_max_tokens': deepseekMaxTokens,
+        'zhipu_key': zhipuKey,
+        'zhipu_model': zhipuModel,
+        'zhipu_temp': zhipuTemp,
+        'zhipu_max_tokens': zhipuMaxTokens,
+        'xunfei_app_id': xunfeiAppId,
+        'xunfei_key': xunfeiKey,
+        'xunfei_secret': xunfeiSecret,
+        'xunfei_model': xunfeiModel,
+        'xunfei_temp': xunfeiTemp,
+        'xunfei_max_tokens': xunfeiMaxTokens,
+        'default_provider': defaultProvider,
+      };
 }

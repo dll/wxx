@@ -78,6 +78,7 @@ import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
 import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
+import '../pages/profile/model_config_page.dart';
 
 /// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
 class AuthRefreshNotifier extends ChangeNotifier {
@@ -141,6 +142,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: '/profile/model-config',
+          builder: (context, state) => const ModelConfigPage(),
         ),
         GoRoute(
           path: '/admin/metrics',

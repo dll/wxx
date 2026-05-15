@@ -65,7 +65,14 @@ class ApiConfig {
 
   // ── 反馈 ──
   static const String feedback = '$apiPrefix/feedback';
+  static const String feedbackScreenshot = '$apiPrefix/feedback/screenshot';
   static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
+
+  // ── 语音配置 ──
+  static const String voiceConfig = '$apiPrefix/user/voice-config';
+
+  // ── AI 模型配置 ──
+  static const String modelConfig = '$apiPrefix/user/model-config';
 
   // ── 学生 AI 功能 ──
   static const String dailyBriefing = '$apiPrefix/student/daily-briefing';

@@ -56,8 +56,52 @@ class FeedbackProvider extends ChangeNotifier {
   }
 
   void setStatusFilter(String status) {
+    if (_statusFilter == status) return;
     _statusFilter = status;
     fetchFeedbacks(refresh: true);
+  }
+
+  /// 上传截图，返回文件 URL（上传成功后前端用于回填）
+  Future<String?> uploadScreenshot(String filePath) async {
+    try {
+      final response = await _api.upload(
+        ApiConfig.feedbackScreenshot,
+        filePath: filePath,
+        fieldName: 'file',
+      );
+      if (response.data['code'] == 0) {
+        return response.data['data']?['url'] as String?;
+      }
+      _error = response.data['message'] ?? '上传截图失败';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _error = '截图上传网络错误: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// 通过 bytes 上传截图（Web 端）
+  Future<String?> uploadScreenshotBytes(List<int> bytes, String filename) async {
+    try {
+      final response = await _api.uploadBytes(
+        ApiConfig.feedbackScreenshot,
+        bytes: bytes,
+        filename: filename,
+        fieldName: 'file',
+      );
+      if (response.data['code'] == 0) {
+        return response.data['data']?['url'] as String?;
+      }
+      _error = response.data['message'] ?? '上传截图失败';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _error = '截图上传网络错误: $e';
+      notifyListeners();
+      return null;
+    }
   }
 
   Future<bool> submitFeedback({
@@ -65,6 +109,7 @@ class FeedbackProvider extends ChangeNotifier {
     required String content,
     String messageId = '',
     String resourceId = '',
+    String screenshotUrl = '',
   }) async {
     try {
       final response = await _api.post(ApiConfig.feedback, data: {
@@ -72,6 +117,7 @@ class FeedbackProvider extends ChangeNotifier {
         'content': content,
         'message_id': messageId,
         'resource_id': resourceId,
+        'screenshot_url': screenshotUrl,
       });
       if (response.data['code'] == 0) {
         return true;
@@ -86,11 +132,14 @@ class FeedbackProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> resolveFeedback(String feedbackId, String status) async {
+  Future<bool> resolveFeedback(String feedbackId, String status, {String reply = ''}) async {
     try {
       final response = await _api.put(
         ApiConfig.feedbackResolve(feedbackId),
-        data: {'status': status},
+        data: {
+          'status': status,
+          'reply': reply,
+        },
       );
       if (response.data['code'] == 0) {
         await fetchFeedbacks(refresh: true);

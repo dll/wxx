@@ -67,4 +67,21 @@ class ApiService {
       options: Options(responseType: ResponseType.bytes),
     );
   }
+
+  /// 上传文件（原生平台）
+  Future<Response> upload(String path, {required String filePath, required String fieldName}) async {
+    final filename = filePath.split('/').last;
+    final formData = FormData.fromMap({
+      fieldName: await MultipartFile.fromFile(filePath, filename: filename),
+    });
+    return _dio.post(path, data: formData);
+  }
+
+  /// 上传文件（Web / bytes）
+  Future<Response> uploadBytes(String path, {required List<int> bytes, required String filename, required String fieldName}) async {
+    final formData = FormData.fromMap({
+      fieldName: MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    return _dio.post(path, data: formData);
+  }
 }

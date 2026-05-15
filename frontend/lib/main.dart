@@ -15,6 +15,7 @@ import 'providers/bookmark_provider.dart';
 import 'providers/student_feature_provider.dart';
 import 'providers/counselor_feature_provider.dart';
 import 'providers/teacher_feature_provider.dart';
+import 'providers/model_config_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -75,6 +76,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StudentFeatureProvider()),
         ChangeNotifierProvider(create: (_) => CounselorFeatureProvider()),
         ChangeNotifierProvider(create: (_) => TeacherFeatureProvider()),
+        ChangeNotifierProvider(create: (_) => ModelConfigProvider()),
         ChangeNotifierProvider(create: (_) => ThemeNotifier()),
       ],
       child: Consumer<ThemeNotifier>(

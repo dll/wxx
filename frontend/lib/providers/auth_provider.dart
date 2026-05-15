@@ -12,11 +12,13 @@ class AuthProvider extends ChangeNotifier {
   bool _loading = false;
   String? _error;
   UserProfile? _profile;
+  int? _voiceEnabled;
 
   bool get loading => _loading;
   String? get error => _error;
   UserProfile? get profile => _profile;
   bool get isLoggedIn => Storage.isLoggedIn;
+  int? get voiceEnabled => _voiceEnabled;
 
   AuthProvider() {
     // 设置 401 回调
@@ -120,6 +122,38 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       _error = '网络错误';
       notifyListeners();
+      return false;
+    }
+  }
+
+  /// 获取语音开关配置（优先使用缓存）
+  Future<int> getVoiceConfig() async {
+    if (_voiceEnabled != null) return _voiceEnabled!;
+    try {
+      final resp = await _api.get(ApiConfig.voiceConfig);
+      if (resp.data['code'] == 0) {
+        _voiceEnabled = resp.data['data']?['voice_enabled'] ?? 0;
+        return _voiceEnabled!;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// 更新语音开关
+  Future<bool> updateVoiceConfig(int enabled) async {
+    try {
+      final resp = await _api.put(ApiConfig.voiceConfig, data: {
+        'voice_enabled': enabled,
+      });
+      if (resp.data['code'] == 0) {
+        _voiceEnabled = enabled;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
       return false;
     }
   }
