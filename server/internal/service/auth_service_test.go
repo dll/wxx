@@ -20,7 +20,7 @@ func TestAuthService_LoginByUsername_NewUser(t *testing.T) {
 
 	svc := NewAuthService(cfg, repository.NewUserRepo(db))
 
-	result, err := svc.LoginByUsername("张三")
+	result, err := svc.LoginByUsername("张三", "", "")
 	if err != nil {
 		t.Fatalf("LoginByUsername 失败: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestAuthService_LoginByUsername_ExistingUser(t *testing.T) {
 
 	svc := NewAuthService(cfg, userRepo)
 
-	result, err := svc.LoginByUsername("existing")
+	result, err := svc.LoginByUsername("existing", "", "")
 	if err != nil {
 		t.Fatalf("LoginByUsername 失败: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestAuthService_LoginByUsername_EmptyUsername(t *testing.T) {
 	cfg := &config.Config{JWTSecret: "test-secret", JWTExpireHours: 2}
 	svc := NewAuthService(cfg, repository.NewUserRepo(db))
 
-	_, err := svc.LoginByUsername("")
+	_, err := svc.LoginByUsername("", "", "")
 	if err == nil {
 		t.Fatal("空用户名应返回错误")
 	}
@@ -98,13 +98,13 @@ func TestAuthService_LoginByUsername_RepeatedLogin(t *testing.T) {
 	svc := NewAuthService(cfg, repository.NewUserRepo(db))
 
 	// 首次登录（创建用户）
-	result1, err := svc.LoginByUsername("repeat")
+	result1, err := svc.LoginByUsername("repeat", "", "")
 	if err != nil {
 		t.Fatalf("首次登录失败: %v", err)
 	}
 
 	// 二次登录（使用已有用户）
-	result2, err := svc.LoginByUsername("repeat")
+	result2, err := svc.LoginByUsername("repeat", "", "")
 	if err != nil {
 		t.Fatalf("二次登录失败: %v", err)
 	}

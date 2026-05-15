@@ -2,14 +2,16 @@ package model
 
 // User 用户，对应 users 表
 type User struct {
-	ID          int64  `json:"id" db:"id"`
-	Username    string `json:"username" db:"username"`         // 用户名（唯一）
-	DisplayName string `json:"display_name" db:"display_name"` // 显示名
-	Role        string `json:"role" db:"role"`                 // 角色枚举
-	OwnerScope  string `json:"owner_scope" db:"owner_scope"`   // 归属范围：school/college/class
-	OwnerID     string `json:"owner_id" db:"owner_id"`         // 归属 ID
-	CreatedAt   string `json:"created_at" db:"created_at"`
-	UpdatedAt   string `json:"updated_at" db:"updated_at"`
+	ID           int64  `json:"id" db:"id"`
+	Username     string `json:"username" db:"username"`         // 用户名（唯一）
+	DisplayName  string `json:"display_name" db:"display_name"` // 显示名
+	Role         string `json:"role" db:"role"`                 // 角色枚举
+	OwnerScope   string `json:"owner_scope" db:"owner_scope"`   // 归属范围：school/college/class
+	OwnerID      string `json:"owner_id" db:"owner_id"`         // 归属 ID
+	PasswordHash string `json:"-" db:"password_hash"`           // bcrypt 密码哈希（空=免密）
+	VoiceEnabled int    `json:"voice_enabled" db:"voice_enabled"` // 语音开关：0=关闭 1=开启
+	CreatedAt    string `json:"created_at" db:"created_at"`
+	UpdatedAt    string `json:"updated_at" db:"updated_at"`
 }
 
 // Session 会话，对应 sessions 表
@@ -123,19 +125,44 @@ type SyncCursor struct {
 
 // Feedback 用户反馈，对应 feedback 表
 type Feedback struct {
-	ID         int64   `json:"id" db:"id"`
-	FeedbackID string  `json:"feedback_id" db:"feedback_id"`
-	UserID     int64   `json:"user_id" db:"user_id"`
-	Username   string  `json:"username" db:"username"`
-	MessageID  string  `json:"message_id" db:"message_id"`
-	ResourceID string  `json:"resource_id" db:"resource_id"`
-	Category   string  `json:"category" db:"category"`
-	Content    string  `json:"content" db:"content"`
-	Status     string  `json:"status" db:"status"`
-	ResolvedBy string  `json:"resolved_by" db:"resolved_by"`
-	ResolvedAt *string `json:"resolved_at" db:"resolved_at"`
-	CreatedAt  string  `json:"created_at" db:"created_at"`
-	UpdatedAt  string  `json:"updated_at" db:"updated_at"`
+	ID            int64   `json:"id" db:"id"`
+	FeedbackID    string  `json:"feedback_id" db:"feedback_id"`
+	UserID        int64   `json:"user_id" db:"user_id"`
+	Username      string  `json:"username" db:"username"`
+	MessageID     string  `json:"message_id" db:"message_id"`
+	ResourceID    string  `json:"resource_id" db:"resource_id"`
+	Category      string  `json:"category" db:"category"`
+	Content       string  `json:"content" db:"content"`
+	ScreenshotURL string  `json:"screenshot_url" db:"screenshot_url"` // 截图存储路径
+	Status        string  `json:"status" db:"status"`
+	ResolvedBy    string  `json:"resolved_by" db:"resolved_by"`
+	ResolvedAt    *string `json:"resolved_at" db:"resolved_at"`
+	Reply         string  `json:"reply" db:"reply"` // 管理员回复
+	CreatedAt     string  `json:"created_at" db:"created_at"`
+	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
+}
+
+// UserModelConfig 用户 AI 模型配置，对应 user_model_configs 表
+type UserModelConfig struct {
+	ID              int64   `json:"id" db:"id"`
+	UserID          int64   `json:"user_id" db:"user_id"`
+	DeepseekKey     string  `json:"deepseek_key" db:"deepseek_key"`
+	DeepseekModel   string  `json:"deepseek_model" db:"deepseek_model"`
+	DeepseekTemp    float64 `json:"deepseek_temp" db:"deepseek_temp"`
+	DeepseekMaxTok  int     `json:"deepseek_max_tokens" db:"deepseek_max_tokens"`
+	ZhipuKey        string  `json:"zhipu_key" db:"zhipu_key"`
+	ZhipuModel      string  `json:"zhipu_model" db:"zhipu_model"`
+	ZhipuTemp       float64 `json:"zhipu_temp" db:"zhipu_temp"`
+	ZhipuMaxTok     int     `json:"zhipu_max_tokens" db:"zhipu_max_tokens"`
+	XunfeiAppID     string  `json:"xunfei_app_id" db:"xunfei_app_id"`
+	XunfeiKey       string  `json:"xunfei_key" db:"xunfei_key"`
+	XunfeiSecret    string  `json:"xunfei_secret" db:"xunfei_secret"`
+	XunfeiModel     string  `json:"xunfei_model" db:"xunfei_model"`
+	XunfeiTemp      float64 `json:"xunfei_temp" db:"xunfei_temp"`
+	XunfeiMaxTok    int     `json:"xunfei_max_tokens" db:"xunfei_max_tokens"`
+	DefaultProvider string  `json:"default_provider" db:"default_provider"`
+	CreatedAt       string  `json:"created_at" db:"created_at"`
+	UpdatedAt       string  `json:"updated_at" db:"updated_at"`
 }
 
 // SystemSetting 系统配置项，对应 system_settings 表

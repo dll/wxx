@@ -22,6 +22,8 @@ func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
 // loginRequest 登录请求（开发环境简化版）
 type loginRequest struct {
 	Username string `json:"username" binding:"required"`
+	Role     string `json:"role"`     // 可选，新用户创建时的角色，默认 "student"
+	Password string `json:"password"` // 可选，密码（未设置密码的用户可留空）
 }
 
 // Login 开发环境简化登录
@@ -37,7 +39,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authSvc.LoginByUsername(req.Username)
+	result, err := h.authSvc.LoginByUsername(req.Username, req.Role, req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -108,5 +110,117 @@ func (h *AuthHandler) Consent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "授权已记录",
+	})
+}
+
+// changePasswordRequest 修改密码请求
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// ChangePassword 用户自助修改密码
+// PUT /api/v1/user/password
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	var req changePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数错误：" + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	if err := h.authSvc.ChangePassword(userCtx.UserID, req.OldPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "密码修改成功",
+	})
+}
+
+// GetVoiceConfig 获取用户语音开关配置
+// GET /api/v1/user/voice-config
+func (h *AuthHandler) GetVoiceConfig(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	enabled, err := h.authSvc.GetVoiceConfig(userCtx.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    model.VoiceConfigResponse{VoiceEnabled: enabled},
+	})
+}
+
+// UpdateVoiceConfig 更新用户语音开关
+// PUT /api/v1/user/voice-config
+func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	var req model.VoiceConfigUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败: " + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	if err := h.authSvc.UpdateVoiceConfig(userCtx.UserID, req.VoiceEnabled); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "语音配置已更新",
 	})
 }

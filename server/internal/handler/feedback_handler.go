@@ -1,13 +1,18 @@
 package handler
 
 import (
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // FeedbackHandler 用户反馈 HTTP handler
@@ -103,7 +108,7 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 		return
 	}
 
-	fb, err := h.feedbackSvc.Resolve(feedbackID, userCtx.Username, req.Status)
+	fb, err := h.feedbackSvc.Resolve(feedbackID, userCtx.Username, req.Status, req.Reply)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
@@ -116,5 +121,74 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 		"code":    0,
 		"message": "反馈已处理",
 		"data":    fb,
+	})
+}
+
+// UploadScreenshot 上传反馈截图 POST /api/v1/feedback/screenshot
+func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "未获取到上传文件: " + err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	// 限制文件大小（5MB）
+	if header.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "文件大小超过 5MB 限制",
+		})
+		return
+	}
+
+	// 生成唯一文件名
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".png"
+	}
+	filename := "fb-screenshot-" + uuid.New().String()[:8] + ext
+
+	// 确保上传目录存在
+	uploadDir := "data/uploads/feedback"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "服务器存储初始化失败",
+		})
+		return
+	}
+
+	dstPath := filepath.Join(uploadDir, filename)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "创建文件失败",
+		})
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "写入文件失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "截图上传成功",
+		"data": gin.H{
+			"url":       "/uploads/feedback/" + filename,
+			"filename":  filename,
+			"size":      header.Size,
+			"timestamp": time.Now().Format(time.RFC3339),
+		},
 	})
 }

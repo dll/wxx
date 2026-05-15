@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/dll/wxx/server/internal/config"
@@ -26,30 +24,6 @@ func setupEmotionTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 
 	db := testutil.NewTestDBFull(t)
 	t.Cleanup(func() { db.Close() })
-
-	// 执行情感预警相关迁移（emotion_logs 需要 004 + 006 的完整 schema）
-	for _, m := range []string{
-		"../../migrations/004_emotion_enhance.sql",
-		"../../migrations/006_fix_emotion_risk_level.sql",
-	} {
-		sql, err := os.ReadFile(m)
-		if err != nil {
-			// 尝试从 server/ 根目录查找
-			sql, err = os.ReadFile(strings.TrimPrefix(m, "../../"))
-			if err != nil {
-				t.Fatalf("读取迁移文件 %s 失败: %v", m, err)
-			}
-		}
-		for _, stmt := range testutil.SplitSQL(string(sql)) {
-			stmt = strings.TrimSpace(stmt)
-			if stmt == "" {
-				continue
-			}
-			if _, err := db.Exec(stmt); err != nil {
-				t.Fatalf("执行迁移语句失败 [%s]: %v\nSQL: %s", m, err, stmt[:min(len(stmt), 100)])
-			}
-		}
-	}
 
 	// 插入测试用户（emotion 查询 JOIN users 表）
 	db.Exec(`INSERT INTO users (id, username, display_name, role, owner_scope, owner_id)
@@ -153,29 +127,6 @@ func setupEmotionFullTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 
 	db := testutil.NewTestDBFull(t)
 	t.Cleanup(func() { db.Close() })
-
-	// 执行情感预警相关迁移
-	for _, m := range []string{
-		"../../migrations/004_emotion_enhance.sql",
-		"../../migrations/006_fix_emotion_risk_level.sql",
-	} {
-		sql, err := os.ReadFile(m)
-		if err != nil {
-			sql, err = os.ReadFile(strings.TrimPrefix(m, "../../"))
-			if err != nil {
-				t.Fatalf("读取迁移文件 %s 失败: %v", m, err)
-			}
-		}
-		for _, stmt := range testutil.SplitSQL(string(sql)) {
-			stmt = strings.TrimSpace(stmt)
-			if stmt == "" {
-				continue
-			}
-			if _, err := db.Exec(stmt); err != nil {
-				t.Fatalf("执行迁移语句失败 [%s]: %v", m, err)
-			}
-		}
-	}
 
 	// 插入测试用户
 	db.Exec(`INSERT INTO users (id, username, display_name, role, owner_scope, owner_id)

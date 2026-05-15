@@ -16,12 +16,16 @@ func NewFeedbackRepo(db *sql.DB) *FeedbackRepo {
 	return &FeedbackRepo{db: db}
 }
 
-// Create 创建反馈
+// listFeedbackCols 统一 SELECT 列名
+const listFeedbackCols = `id, feedback_id, user_id, username, message_id, resource_id,
+ category, content, screenshot_url, status, resolved_by, resolved_at, reply, created_at, updated_at`
+
+// Create 创建反馈（含截图链接）
 func (r *FeedbackRepo) Create(fb *model.Feedback) (int64, error) {
 	result, err := r.db.Exec(
-		`INSERT INTO feedback (feedback_id, user_id, username, message_id, resource_id, category, content)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		fb.FeedbackID, fb.UserID, fb.Username, fb.MessageID, fb.ResourceID, fb.Category, fb.Content,
+		`INSERT INTO feedback (feedback_id, user_id, username, message_id, resource_id, category, content, screenshot_url)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		fb.FeedbackID, fb.UserID, fb.Username, fb.MessageID, fb.ResourceID, fb.Category, fb.Content, fb.ScreenshotURL,
 	)
 	if err != nil {
 		return 0, err
@@ -31,9 +35,7 @@ func (r *FeedbackRepo) Create(fb *model.Feedback) (int64, error) {
 
 // List 分页查询反馈列表
 func (r *FeedbackRepo) List(status string, offset, limit int) ([]*model.Feedback, error) {
-	query := `SELECT id, feedback_id, user_id, username, message_id, resource_id,
-		category, content, status, resolved_by, resolved_at, created_at, updated_at
-		FROM feedback WHERE 1=1`
+	query := `SELECT ` + listFeedbackCols + ` FROM feedback WHERE 1=1`
 	var args []interface{}
 
 	if status != "" {
@@ -54,8 +56,8 @@ func (r *FeedbackRepo) List(status string, offset, limit int) ([]*model.Feedback
 	for rows.Next() {
 		fb := &model.Feedback{}
 		if err := rows.Scan(&fb.ID, &fb.FeedbackID, &fb.UserID, &fb.Username,
-			&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content,
-			&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.CreatedAt, &fb.UpdatedAt); err != nil {
+			&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content, &fb.ScreenshotURL,
+			&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.Reply, &fb.CreatedAt, &fb.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, fb)
@@ -84,12 +86,10 @@ func (r *FeedbackRepo) Count(status string) (int, error) {
 func (r *FeedbackRepo) GetByFeedbackID(feedbackID string) (*model.Feedback, error) {
 	fb := &model.Feedback{}
 	err := r.db.QueryRow(
-		`SELECT id, feedback_id, user_id, username, message_id, resource_id,
-		 category, content, status, resolved_by, resolved_at, created_at, updated_at
-		 FROM feedback WHERE feedback_id = ?`, feedbackID,
+		`SELECT `+listFeedbackCols+` FROM feedback WHERE feedback_id = ?`, feedbackID,
 	).Scan(&fb.ID, &fb.FeedbackID, &fb.UserID, &fb.Username,
-		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content,
-		&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.CreatedAt, &fb.UpdatedAt)
+		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content, &fb.ScreenshotURL,
+		&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.Reply, &fb.CreatedAt, &fb.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -100,12 +100,12 @@ func (r *FeedbackRepo) GetByFeedbackID(feedbackID string) (*model.Feedback, erro
 	return fb, nil
 }
 
-// Update 更新反馈状态
+// Update 更新反馈状态和回复
 func (r *FeedbackRepo) Update(fb *model.Feedback) error {
 	_, err := r.db.Exec(
-		`UPDATE feedback SET status=?, resolved_by=?, resolved_at=?, updated_at=datetime('now')
+		`UPDATE feedback SET status=?, resolved_by=?, resolved_at=?, reply=?, updated_at=datetime('now')
 		 WHERE feedback_id=?`,
-		fb.Status, fb.ResolvedBy, fb.ResolvedAt, fb.FeedbackID,
+		fb.Status, fb.ResolvedBy, fb.ResolvedAt, fb.Reply, fb.FeedbackID,
 	)
 	return err
 }

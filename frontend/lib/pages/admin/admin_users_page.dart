@@ -216,12 +216,20 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   late String _role;
   late String _scope;
   bool _saving = false;
+  final _pwdCtrl = TextEditingController();
+  bool _resetting = false;
 
   @override
   void initState() {
     super.initState();
     _role = widget.user.role;
     _scope = widget.user.college; // owner_scope 复用 college 字段
+  }
+
+  @override
+  void dispose() {
+    _pwdCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -267,6 +275,31 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               if (v != null) setState(() => _scope = v);
             },
           ),
+          const Divider(height: 24),
+          TextField(
+            controller: _pwdCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: '新密码（重置用）',
+              hintText: '输入新密码后点击下方按钮',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _resetting ? null : _handleResetPassword,
+              icon: _resetting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.lock_reset, size: 18),
+              label: Text(_resetting ? '重置中...' : '重置密码'),
+            ),
+          ),
         ],
       ),
       actions: [
@@ -304,6 +337,37 @@ class _UserEditDialogState extends State<_UserEditDialog> {
           SnackBar(
               content:
                   Text(context.read<AdminProvider>().error)),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleResetPassword() async {
+    final pwd = _pwdCtrl.text;
+    if (pwd.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('新密码至少 6 位')),
+      );
+      return;
+    }
+    setState(() => _resetting = true);
+    final ok = await context.read<AdminProvider>().resetUserPassword(
+          widget.user.id,
+          pwd,
+        );
+    if (mounted) {
+      setState(() => _resetting = false);
+      if (ok) {
+        _pwdCtrl.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('密码已重置')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.read<AdminProvider>().error),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }

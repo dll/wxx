@@ -13,6 +13,7 @@ import (
 	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/ports"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/temporal"
 	"github.com/dll/wxx/server/internal/temporal/workflows"
@@ -53,34 +54,37 @@ type answerCacheEntry struct {
 }
 
 // ChatService 问答业务服务（Context Engine 主链路）
+// 依赖 Outbound Port 接口，不直接依赖 SQLite / 具体实现。
 type ChatService struct {
-	sessionRepo    *repository.SessionRepo
-	messageRepo    *repository.MessageRepo
-	kbRepo         *repository.KBRepo
-	agentRepo      *repository.AgentRepo
+	sessionRepo    ports.SessionRepository
+	messageRepo    ports.MessageRepository
+	kbRepo         ports.KBRepository
+	agentRepo      ports.AgentRepository
 	llmClient      llm.ChatClient
-	temporalClient *temporal.Client      // 可选：Temporal 工作流客户端
-	orchestrator   *agent.Orchestrator   // 多智能体编排器（agentID 为空时启用）
+	temporalClient *temporal.Client           // 可选：Temporal 工作流客户端
+	orchestrator   ports.AgentOrchestrator    // 多智能体编排器（agentID 为空时启用，可选注入）
 }
 
-// NewChatService 创建问答服务
+// NewChatService 创建问答服务（依赖通过 Outbound Port 接口注入）
 func NewChatService(
-	sessionRepo *repository.SessionRepo,
-	messageRepo *repository.MessageRepo,
-	kbRepo *repository.KBRepo,
-	agentRepo *repository.AgentRepo,
+	sessionRepo ports.SessionRepository,
+	messageRepo ports.MessageRepository,
+	kbRepo ports.KBRepository,
+	agentRepo ports.AgentRepository,
 	llmClient llm.ChatClient,
 ) *ChatService {
-	svc := &ChatService{
+	return &ChatService{
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
 		kbRepo:      kbRepo,
 		agentRepo:   agentRepo,
 		llmClient:   llmClient,
 	}
-	// 初始化多智能体编排器
-	svc.orchestrator = agent.NewOrchestrator(kbRepo)
-	return svc
+}
+
+// SetOrchestrator 注入多智能体编排器（可选，nil = 不启用多 Agent 协同）
+func (s *ChatService) SetOrchestrator(o ports.AgentOrchestrator) {
+	s.orchestrator = o
 }
 
 // SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）

@@ -42,6 +42,10 @@ class ApiConfig {
   static const String agents = '$apiPrefix/agents';
   static String agentDetail(String id) => '$apiPrefix/agents/$id';
 
+  // ── 密码管理 ──
+  static const String changePassword = '$apiPrefix/user/password';
+  static String resetPassword(int id) => '$apiPrefix/admin/users/$id/password';
+
   // ── 管理端 ──
   static const String adminMetrics = '$apiPrefix/admin/metrics';
   static const String adminUsers = '$apiPrefix/admin/users';

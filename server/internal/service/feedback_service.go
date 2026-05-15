@@ -21,17 +21,18 @@ func NewFeedbackService(feedbackRepo *repository.FeedbackRepo) *FeedbackService 
 	return &FeedbackService{feedbackRepo: feedbackRepo}
 }
 
-// Submit 提交反馈
+// Submit 提交反馈（含可选截图）
 func (s *FeedbackService) Submit(userID int64, username string, req *model.FeedbackCreateRequest) (*model.Feedback, error) {
 	fb := &model.Feedback{
-		FeedbackID: "fb-" + uuid.New().String()[:8],
-		UserID:     userID,
-		Username:   username,
-		MessageID:  req.MessageID,
-		ResourceID: req.ResourceID,
-		Category:   req.Category,
-		Content:    req.Content,
-		Status:     "pending",
+		FeedbackID:    "fb-" + uuid.New().String()[:8],
+		UserID:        userID,
+		Username:      username,
+		MessageID:     req.MessageID,
+		ResourceID:    req.ResourceID,
+		Category:      req.Category,
+		Content:       req.Content,
+		ScreenshotURL: req.ScreenshotURL,
+		Status:        "pending",
 	}
 
 	id, err := s.feedbackRepo.Create(fb)
@@ -40,7 +41,8 @@ func (s *FeedbackService) Submit(userID int64, username string, req *model.Feedb
 	}
 
 	fb.ID = id
-	log.Printf("用户反馈已提交 feedback_id=%s category=%s by=%s", fb.FeedbackID, fb.Category, username)
+	log.Printf("用户反馈已提交 feedback_id=%s category=%s has_screenshot=%v by=%s",
+		fb.FeedbackID, fb.Category, fb.ScreenshotURL != "", username)
 	return fb, nil
 }
 
@@ -61,8 +63,8 @@ func (s *FeedbackService) List(status string, page, pageSize int) ([]*model.Feed
 	return items, total, nil
 }
 
-// Resolve 处理反馈（标记为已解决或驳回）
-func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status string) (*model.Feedback, error) {
+// Resolve 处理反馈（标记为已解决或驳回，含可选回复）
+func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status, reply string) (*model.Feedback, error) {
 	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
 	if err != nil {
 		return nil, fmt.Errorf("查询反馈失败: %w", err)
@@ -78,11 +80,13 @@ func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status string) (*model
 	fb.Status = status
 	fb.ResolvedBy = resolvedBy
 	fb.ResolvedAt = &now
+	fb.Reply = reply
 
 	if err := s.feedbackRepo.Update(fb); err != nil {
 		return nil, fmt.Errorf("更新反馈状态失败: %w", err)
 	}
 
-	log.Printf("反馈已处理 feedback_id=%s status=%s by=%s", feedbackID, status, resolvedBy)
+	log.Printf("反馈已处理 feedback_id=%s status=%s reply=%s by=%s",
+		feedbackID, status, reply, resolvedBy)
 	return fb, nil
 }

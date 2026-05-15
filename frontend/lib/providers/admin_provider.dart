@@ -208,4 +208,21 @@ class AdminProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// 管理员重置用户密码（仅 sys_admin）
+  Future<bool> resetUserPassword(int userId, String newPassword) async {
+    try {
+      final resp = await _api.put(ApiConfig.resetPassword(userId), data: {
+        'password': newPassword,
+      });
+      if (resp.data['code'] == 0) return true;
+      _error = resp.data['message'] ?? '重置密码失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }

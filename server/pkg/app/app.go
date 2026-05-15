@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server"
+	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/handler"
 	"github.com/dll/wxx/server/internal/llm"
@@ -69,7 +70,6 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 注意：serverless 环境无法 defer db.Close()，依赖进程退出时 OS 清理
 
 	// ── 3. 自动迁移 ──
 	if err := runMigrations(db); err != nil {
@@ -88,6 +88,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	auditRepo := repository.NewAuditRepo(db)
 	feedbackRepo := repository.NewFeedbackRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db)
+	modelConfigRepo := repository.NewModelConfigRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -111,7 +112,6 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// ── Temporal（Vercel 环境禁用）──
 	if os.Getenv("VERCEL") == "" && cfg.TemporalHostPort != "" {
 		log.Printf("Temporal 已配置: %s", cfg.TemporalHostPort)
-		// 实际启动在 cmd/server/main.go 中处理，此处仅占位
 	} else if os.Getenv("VERCEL") != "" {
 		log.Println("Vercel 环境：Temporal 工作流引擎已禁用")
 	}
@@ -124,6 +124,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	var chatSvc *service.ChatService
 	if llmClient != nil {
 		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
+		chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo))
 	}
 
 	var emotionSvc *service.EmotionService
@@ -136,6 +137,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo)
+	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -166,8 +168,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	exportSvc := service.NewExportService()
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
-	adminHandler := handler.NewAdminHandler(adminSvc)
+	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
+	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	studentHandler := handler.NewStudentHandler()
 	counselorHandler := handler.NewCounselorHandler()
 	teacherHandler := handler.NewTeacherHandler()
@@ -178,19 +181,18 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
-		adminHandler, feedbackHandler, studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler)
+		adminHandler, feedbackHandler, modelConfigHandler,
+		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler)
 
 	return router, nil
 }
 
 // initDB 初始化 SQLite 连接
 func initDB(dbPath string) (*sql.DB, error) {
-	// 确保数据目录存在
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, err
 	}
 
-	// modernc.org/sqlite 使用 _pragma 参数设置连接选项
 	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -211,7 +213,6 @@ func initDB(dbPath string) (*sql.DB, error) {
 
 // runMigrations 从嵌入的迁移文件执行数据库迁移
 func runMigrations(db *sql.DB) error {
-	// 创建迁移记录表
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		filename TEXT NOT NULL UNIQUE,
@@ -220,13 +221,11 @@ func runMigrations(db *sql.DB) error {
 		return err
 	}
 
-	// 读取嵌入的迁移文件
 	entries, err := server.Migrations.ReadDir("migrations")
 	if err != nil {
 		return err
 	}
 
-	// 按文件名排序
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	})
@@ -237,7 +236,6 @@ func runMigrations(db *sql.DB) error {
 			continue
 		}
 
-		// 检查是否已执行
 		var count int
 		err := db.QueryRow("SELECT COUNT(*) FROM _migrations WHERE filename = ?", entry.Name()).Scan(&count)
 		if err != nil {
@@ -247,7 +245,6 @@ func runMigrations(db *sql.DB) error {
 			continue
 		}
 
-		// 读取并执行
 		content, err := server.Migrations.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return err
@@ -257,7 +254,6 @@ func runMigrations(db *sql.DB) error {
 			return err
 		}
 
-		// 记录迁移
 		if _, err := db.Exec("INSERT INTO _migrations (filename) VALUES (?)", entry.Name()); err != nil {
 			return err
 		}
@@ -344,6 +340,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	recH *handler.RecommendationHandler,
 	adminH *handler.AdminHandler,
 	feedbackH *handler.FeedbackHandler,
+	modelConfigH *handler.ModelConfigHandler,
 	studentH *handler.StudentHandler,
 	counselorH *handler.CounselorHandler,
 	teacherH *handler.TeacherHandler,
@@ -359,6 +356,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(middleware.TraceID())
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
+
+	// 静态文件服务：上传文件（截图等）
+	router.Static("/uploads", "data/uploads")
 
 	// 根路由
 	router.GET("/", func(c *gin.Context) {
@@ -412,28 +412,27 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				}
 			}
 
-				kb := secured.Group("/kb")
-				kb.Use(middleware.RequireRole("counselor"))
-				{
-					kb.GET("/resources", kbH.ListResources)
-					kb.POST("/resources", kbH.CreateResource)
-					kb.PUT("/resources/:id", kbH.UpdateResource)
-					kb.GET("/resources/:id", kbH.GetResource)
-					kb.POST("/import", kbH.Import)
-					kb.POST("/validate", kbH.Validate)
+			kb := secured.Group("/kb")
+			kb.Use(middleware.RequireRole("counselor"))
+			{
+				kb.GET("/resources", kbH.ListResources)
+				kb.POST("/resources", kbH.CreateResource)
+				kb.PUT("/resources/:id", kbH.UpdateResource)
+				kb.GET("/resources/:id", kbH.GetResource)
+				kb.POST("/import", kbH.Import)
+				kb.POST("/validate", kbH.Validate)
 
-					// 审核操作（counselor 及以上）
-					kb.POST("/resources/:id/approve", kbH.ApproveResource)
-					kb.POST("/resources/:id/reject", kbH.RejectResource)
-					kb.POST("/resources/:id/retire", kbH.RetireResource)
-				}
+				kb.POST("/resources/:id/approve", kbH.ApproveResource)
+				kb.POST("/resources/:id/reject", kbH.RejectResource)
+				kb.POST("/resources/:id/retire", kbH.RetireResource)
+			}
 
-				// KB 提交审核（student_union 及以上）
-				kbSubmit := secured.Group("/kb")
-				kbSubmit.Use(middleware.RequireRole("student_union"))
-				{
-					kbSubmit.POST("/resources/:id/submit", kbH.SubmitForReview)
-				}
+			// KB 提交审核（student_union 及以上）
+			kbSubmit := secured.Group("/kb")
+			kbSubmit.Use(middleware.RequireRole("student_union"))
+			{
+				kbSubmit.POST("/resources/:id/submit", kbH.SubmitForReview)
+			}
 
 			// 知识导出（所有认证用户可访问）
 			secured.GET("/kb/export", exportH.Export)
@@ -454,7 +453,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			}
 
 			secured.GET("/export", exportH.Export)
-				secured.POST("/export/answer", exportH.ExportAnswer)
+			secured.POST("/export/answer", exportH.ExportAnswer)
 
 			integration := secured.Group("/integration")
 			integration.Use(middleware.RequireRole("counselor"))
@@ -465,139 +464,153 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			}
 
 			secured.GET("/user/profile", authH.Profile)
-				secured.POST("/user/consent", authH.Consent)
+			secured.POST("/user/consent", authH.Consent)
+			secured.PUT("/user/password", authH.ChangePassword)
 
-				// ── 管理端（college_admin 及以上）──
-				admin := secured.Group("/admin")
-				admin.Use(middleware.RequireRole("college_admin"))
+			// 语音配置
+			secured.GET("/user/voice-config", authH.GetVoiceConfig)
+			secured.PUT("/user/voice-config", authH.UpdateVoiceConfig)
+
+			// AI 模型配置
+			secured.GET("/user/model-config", modelConfigH.Get)
+			secured.PUT("/user/model-config", modelConfigH.Save)
+
+			// ── 管理端（college_admin 及以上）──
+			admin := secured.Group("/admin")
+			admin.Use(middleware.RequireRole("college_admin"))
+			{
+				admin.GET("/metrics", adminH.GetMetrics)
+				admin.GET("/users", adminH.ListUsers)
+				admin.GET("/audit", adminH.ListAudit)
+
+				adminUsers := admin.Group("")
+				adminUsers.Use(middleware.RequireRole("school_admin"))
 				{
-					admin.GET("/metrics", adminH.GetMetrics)
-					admin.GET("/users", adminH.ListUsers)
-					admin.GET("/audit", adminH.ListAudit)
-
-					// 学校管理员及以上可修改用户
-					adminUsers := admin.Group("")
-					adminUsers.Use(middleware.RequireRole("school_admin"))
-					{
-						adminUsers.PUT("/users/:id", adminH.UpdateUser)
-					}
-
-					// 系统管理员独占配置管理
-					adminSettings := admin.Group("")
-					adminSettings.Use(middleware.RequireRole("sys_admin"))
-					{
-						adminSettings.GET("/settings", adminH.GetSettings)
-						adminSettings.PUT("/settings", adminH.UpdateSettings)
-					}
+					adminUsers.PUT("/users/:id", adminH.UpdateUser)
 				}
 
-				// ── 知识审核（counselor 及以上）──
-				review := secured.Group("/review")
-				review.Use(middleware.RequireRole("counselor"))
+				adminPwd := admin.Group("")
+				adminPwd.Use(middleware.RequireRole("sys_admin"))
 				{
-					review.GET("/pending", kbH.ListPendingReviews)
+					adminPwd.PUT("/users/:id/password", adminH.ResetUserPassword)
 				}
 
-				// ── 反馈（student 提交，student_union 查看/处理）──
-				secured.POST("/feedback", feedbackH.Submit)
-
-				feedback := secured.Group("/feedback")
-				feedback.Use(middleware.RequireRole("student_union"))
+				adminSettings := admin.Group("")
+				adminSettings.Use(middleware.RequireRole("sys_admin"))
 				{
-					feedback.GET("", feedbackH.List)
-					feedback.PUT("/:id", feedbackH.Resolve)
+					adminSettings.GET("/settings", adminH.GetSettings)
+					adminSettings.PUT("/settings", adminH.UpdateSettings)
 				}
+			}
 
-				// ── 学生 AI 功能（所有认证用户可访问）──
-				student := secured.Group("/student")
-				{
-					student.GET("/daily-briefing", studentH.DailyBriefing)
-					student.GET("/learning-diary", studentH.LearningDiary)
-					student.POST("/checkin", studentH.Checkin)
-					student.GET("/checkin/history", studentH.CheckinHistory)
-					student.GET("/digital-twin", studentH.DigitalTwin)
-					student.GET("/personality", studentH.Personality)
-					student.GET("/achievements", studentH.Achievements)
-					student.GET("/course-map", studentH.CourseMap)
-					student.GET("/course-analytics", studentH.CourseAnalytics)
-					student.GET("/weekly-report", studentH.WeeklyReport)
-					student.GET("/freshman-plan", studentH.GenericAI("freshman-plan"))
-					student.GET("/growth-path", studentH.GenericAI("growth-path"))
-					student.GET("/political-study", studentH.GenericAI("political-study"))
-					student.GET("/ideological-record", studentH.GenericAI("ideological-record"))
-					student.GET("/party-progress", studentH.GenericAI("party-progress"))
-					student.GET("/campus-life", studentH.GenericAI("campus-life"))
-					student.GET("/schedule", studentH.GenericAI("schedule"))
-					student.GET("/competition-match", studentH.GenericAI("competition-match"))
-					student.GET("/study-buddy", studentH.GenericAI("study-buddy"))
-					student.GET("/mental-health", studentH.GenericAI("mental-health"))
-					student.GET("/digital-mentor", studentH.GenericAI("digital-mentor"))
+			// ── 知识审核（counselor 及以上）──
+			review := secured.Group("/review")
+			review.Use(middleware.RequireRole("counselor"))
+			{
+				review.GET("/pending", kbH.ListPendingReviews)
+			}
+
+			// ── 反馈（student 提交，截图上传所有认证用户可访问）──
+			secured.POST("/feedback", feedbackH.Submit)
+			secured.POST("/feedback/screenshot", feedbackH.UploadScreenshot)
+
+			feedback := secured.Group("/feedback")
+			feedback.Use(middleware.RequireRole("student_union"))
+			{
+				feedback.GET("", feedbackH.List)
+				feedback.PUT("/:id", feedbackH.Resolve)
+			}
+
+			// ── 学生 AI 功能（所有认证用户可访问）──
+			student := secured.Group("/student")
+			{
+				student.GET("/daily-briefing", studentH.DailyBriefing)
+				student.GET("/learning-diary", studentH.LearningDiary)
+				student.POST("/checkin", studentH.Checkin)
+				student.GET("/checkin/history", studentH.CheckinHistory)
+				student.GET("/digital-twin", studentH.DigitalTwin)
+				student.GET("/personality", studentH.Personality)
+				student.GET("/achievements", studentH.Achievements)
+				student.GET("/course-map", studentH.CourseMap)
+				student.GET("/course-analytics", studentH.CourseAnalytics)
+				student.GET("/weekly-report", studentH.WeeklyReport)
+				student.GET("/freshman-plan", studentH.GenericAI("freshman-plan"))
+				student.GET("/growth-path", studentH.GenericAI("growth-path"))
+				student.GET("/political-study", studentH.GenericAI("political-study"))
+				student.GET("/ideological-record", studentH.GenericAI("ideological-record"))
+				student.GET("/party-progress", studentH.GenericAI("party-progress"))
+				student.GET("/campus-life", studentH.GenericAI("campus-life"))
+				student.GET("/schedule", studentH.GenericAI("schedule"))
+				student.GET("/competition-match", studentH.GenericAI("competition-match"))
+				student.GET("/study-buddy", studentH.GenericAI("study-buddy"))
+				student.GET("/mental-health", studentH.GenericAI("mental-health"))
+				student.GET("/digital-mentor", studentH.GenericAI("digital-mentor"))
 				student.GET("/qa-plaza", studentH.QAPlaza)
 				student.GET("/hot-topics", studentH.HotTopics)
 				student.GET("/qa-leaderboard", studentH.QALeaderboard)
 				student.GET("/private-chat", studentH.PrivateChat)
 				student.GET("/process-enhanced", studentH.ProcessEnhanced)
-				}
+			}
 
-				// ── 辅导员 AI 功能（counselor 及以上）──
-				counselor := secured.Group("/counselor")
-				counselor.Use(middleware.RequireRole("counselor"))
-				{
-					counselor.GET("/daily-focus", counselorH.DailyFocus)
-					counselor.GET("/class-report", counselorH.ClassReport)
-					counselor.GET("/twin-board", counselorH.TwinBoard)
-					counselor.GET("/prediction", counselorH.Prediction)
-					counselor.POST("/intervention", counselorH.Intervention)
-					counselor.GET("/talk-record", counselorH.TalkRecord)
-					counselor.POST("/talk-record", counselorH.TalkRecord)
-					counselor.GET("/talk-tips", counselorH.TalkTips)
-					counselor.GET("/ideological", counselorH.Ideological)
-					counselor.GET("/class-profile", counselorH.ClassProfile)
+			// ── 辅导员 AI 功能（counselor 及以上）──
+			counselor := secured.Group("/counselor")
+			counselor.Use(middleware.RequireRole("counselor"))
+			{
+				counselor.GET("/daily-focus", counselorH.DailyFocus)
+				counselor.GET("/class-report", counselorH.ClassReport)
+				counselor.GET("/twin-board", counselorH.TwinBoard)
+				counselor.GET("/prediction", counselorH.Prediction)
+				counselor.POST("/intervention", counselorH.Intervention)
+				counselor.GET("/talk-record", counselorH.TalkRecord)
+				counselor.POST("/talk-record", counselorH.TalkRecord)
+				counselor.GET("/talk-tips", counselorH.TalkTips)
+				counselor.GET("/ideological", counselorH.Ideological)
+				counselor.GET("/class-profile", counselorH.ClassProfile)
 				counselor.GET("/community-manage", counselorH.CommunityManage)
 				counselor.GET("/hot-topic-sense", counselorH.HotTopicSense)
 				counselor.GET("/process-edit", counselorH.ProcessEdit)
 				counselor.GET("/student-list", counselorH.StudentList)
-				}
+			}
 
-				// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
-				teacher := secured.Group("/teacher")
-				teacher.Use(middleware.RequireRole("counselor"))
-				{
-					teacher.GET("/daily-overview", teacherH.DailyOverview)
-					teacher.POST("/lesson-prep", teacherH.LessonPrep)
-					teacher.POST("/exam-gen", teacherH.ExamGen)
-					teacher.POST("/class-interact", teacherH.ClassInteract)
-					teacher.POST("/grading", teacherH.Grading)
-					teacher.GET("/heatmap", teacherH.Heatmap)
-					teacher.GET("/reflection", teacherH.Reflection)
-					teacher.GET("/style-distribution", teacherH.StyleDist)
+			// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
+			teacher := secured.Group("/teacher")
+			teacher.Use(middleware.RequireRole("counselor"))
+			{
+				teacher.GET("/daily-overview", teacherH.DailyOverview)
+				teacher.POST("/lesson-prep", teacherH.LessonPrep)
+				teacher.POST("/exam-gen", teacherH.ExamGen)
+				teacher.POST("/class-interact", teacherH.ClassInteract)
+				teacher.POST("/grading", teacherH.Grading)
+				teacher.GET("/heatmap", teacherH.Heatmap)
+				teacher.GET("/reflection", teacherH.Reflection)
+				teacher.GET("/style-distribution", teacherH.StyleDist)
 				teacher.GET("/community-qa", teacherH.CommunityQA)
-				}
+			}
 
 			// ── 教辅 AI 功能（counselor 及以上）──
 			assistantGroup := secured.Group("/assistant")
 			assistantGroup.Use(middleware.RequireRole("counselor"))
-				{
-					assistantGroup.GET("/schedule-check", assistantH.ScheduleCheck)
-					assistantGroup.GET("/graduation-audit", assistantH.GradAudit)
-					assistantGroup.GET("/exam-arrange", assistantH.ExamArrange)
-				}
+			{
+				assistantGroup.GET("/schedule-check", assistantH.ScheduleCheck)
+				assistantGroup.GET("/graduation-audit", assistantH.GradAudit)
+				assistantGroup.GET("/exam-arrange", assistantH.ExamArrange)
+			}
 
 			// ── 学生会 AI 功能（student_union 及以上）──
 			unionGroup := secured.Group("/union")
 			unionGroup.Use(middleware.RequireRole("student_union"))
-				{
-					unionGroup.GET("/event-plan", unionH.EventPlan)
-					unionGroup.GET("/poster-gen", unionH.PosterGen)
-				}
+			{
+				unionGroup.GET("/event-plan", unionH.EventPlan)
+				unionGroup.GET("/poster-gen", unionH.PosterGen)
+			}
 
 			// ── 学院管理员 AI 功能（college_admin 及以上）──
 			collegeGroup := secured.Group("/college")
 			collegeGroup.Use(middleware.RequireRole("college_admin"))
-				{
-					collegeGroup.GET("/twin-screen", collegeH.TwinScreen)
-					collegeGroup.GET("/data-analysis", collegeH.DataAnalysis)
-				}
+			{
+				collegeGroup.GET("/twin-screen", collegeH.TwinScreen)
+				collegeGroup.GET("/data-analysis", collegeH.DataAnalysis)
+			}
 		}
 	}
 

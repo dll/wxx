@@ -361,15 +361,17 @@ type SettingsUpdateRequest struct {
 
 // FeedbackCreateRequest 提交反馈请求
 type FeedbackCreateRequest struct {
-	MessageID  string `json:"message_id"`
-	ResourceID string `json:"resource_id"`
-	Category   string `json:"category" binding:"required,oneof=answer_error suggestion other"`
-	Content    string `json:"content" binding:"required"`
+	MessageID     string `json:"message_id"`
+	ResourceID    string `json:"resource_id"`
+	Category      string `json:"category" binding:"required,oneof=answer_error suggestion other"`
+	Content       string `json:"content" binding:"required"`
+	ScreenshotURL string `json:"screenshot_url"` // 截图路径（上传后回填）
 }
 
 // FeedbackUpdateRequest 处理反馈请求
 type FeedbackUpdateRequest struct {
 	Status string `json:"status" binding:"required,oneof=resolved dismissed"`
+	Reply  string `json:"reply"` // 管理员回复（可选）
 }
 
 // FeedbackListResponse 反馈列表响应
@@ -390,4 +392,37 @@ type ReviewPendingResponse struct {
 	Message string        `json:"message"`
 	Data    []*KBResource `json:"data"`
 	Total   int           `json:"total"`
+}
+
+// ── 语音配置 DTO ──
+
+// VoiceConfigResponse 语音配置响应
+type VoiceConfigResponse struct {
+	VoiceEnabled int `json:"voice_enabled"` // 0=关闭 1=开启
+}
+
+// VoiceConfigUpdateRequest 更新语音配置请求
+type VoiceConfigUpdateRequest struct {
+	VoiceEnabled int `json:"voice_enabled" binding:"oneof=0 1"`
+}
+
+// ── 模型配置 DTO ──
+
+// ModelConfigSaveRequest 保存模型配置请求
+type ModelConfigSaveRequest struct {
+	DeepseekKey     string  `json:"deepseek_key"`
+	DeepseekModel   string  `json:"deepseek_model"`
+	DeepseekTemp    float64 `json:"deepseek_temp"`
+	DeepseekMaxTok  int     `json:"deepseek_max_tokens"`
+	ZhipuKey        string  `json:"zhipu_key"`
+	ZhipuModel      string  `json:"zhipu_model"`
+	ZhipuTemp       float64 `json:"zhipu_temp"`
+	ZhipuMaxTok     int     `json:"zhipu_max_tokens"`
+	XunfeiAppID     string  `json:"xunfei_app_id"`
+	XunfeiKey       string  `json:"xunfei_key"`
+	XunfeiSecret    string  `json:"xunfei_secret"`
+	XunfeiModel     string  `json:"xunfei_model"`
+	XunfeiTemp      float64 `json:"xunfei_temp"`
+	XunfeiMaxTok    int     `json:"xunfei_max_tokens"`
+	DefaultProvider string  `json:"default_provider" binding:"required,oneof=deepseek zhipu xunfei"`
 }

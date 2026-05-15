@@ -43,6 +43,22 @@ func openBenchDB(b *testing.B) *sql.DB {
 		}
 	}
 
+	// 执行后续增量迁移
+	for _, m := range []string{"010_add_password_hash.sql"} {
+		p, err := os.ReadFile("../../migrations/" + m)
+		if err != nil {
+			b.Fatalf("读取迁移文件失败 %s: %v", m, err)
+		}
+		for _, stmt := range testutil.SplitSQL(string(p)) {
+			if stmt == "" {
+				continue
+			}
+			if _, err := db.Exec(stmt); err != nil {
+				b.Fatalf("迁移失败 %s: %v", m, err)
+			}
+		}
+	}
+
 	return db
 }
 
@@ -161,7 +177,7 @@ func BenchmarkLoginByUsername(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := authSvc.LoginByUsername("benchuser-" + string(rune('0'+i%10)))
+		_, err := authSvc.LoginByUsername("benchuser-"+string(rune('0'+i%10)), "", "")
 		if err != nil {
 			b.Fatalf("LoginByUsername 失败: %v", err)
 		}

@@ -24,7 +24,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// 登录
-  Future<bool> login(String username, String password) async {
+  Future<bool> login(String username, String password, [String role = 'student']) async {
     _loading = true;
     _error = null;
     notifyListeners();
@@ -33,6 +33,7 @@ class AuthProvider extends ChangeNotifier {
       final resp = await _api.post(ApiConfig.login, data: {
         'username': username,
         'password': password,
+        'role': role,
       });
 
       final data = resp.data;
@@ -103,6 +104,24 @@ class AuthProvider extends ChangeNotifier {
     _profile = null;
     _error = null;
     notifyListeners();
+  }
+
+  /// 用户自助修改密码
+  Future<bool> changePassword(String oldPassword, String newPassword) async {
+    try {
+      final resp = await _api.put(ApiConfig.changePassword, data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      });
+      if (resp.data['code'] == 0) return true;
+      _error = resp.data['message'] ?? '修改密码失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误';
+      notifyListeners();
+      return false;
+    }
   }
 
   void _handleUnauthorized() {

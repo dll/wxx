@@ -13,11 +13,12 @@ import (
 // AdminHandler 管理端 HTTP handler
 type AdminHandler struct {
 	adminSvc *service.AdminService
+	authSvc  *service.AuthService
 }
 
 // NewAdminHandler 创建管理端 handler
-func NewAdminHandler(adminSvc *service.AdminService) *AdminHandler {
-	return &AdminHandler{adminSvc: adminSvc}
+func NewAdminHandler(adminSvc *service.AdminService, authSvc *service.AuthService) *AdminHandler {
+	return &AdminHandler{adminSvc: adminSvc, authSvc: authSvc}
 }
 
 // GetMetrics 质量看板 GET /api/v1/admin/metrics
@@ -213,5 +214,50 @@ func (h *AdminHandler) UpdateSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "系统配置已更新",
+	})
+}
+
+// ResetUserPassword 管理员重置用户密码 PUT /api/v1/admin/users/:id/password
+func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "用户 ID 格式错误",
+		})
+		return
+	}
+
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数错误：" + err.Error(),
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+		})
+		return
+	}
+
+	if err := h.authSvc.ResetPassword(userCtx.UserID, userID, req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "密码已重置",
 	})
 }

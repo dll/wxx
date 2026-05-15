@@ -220,6 +220,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 16),
 
+          // 修改密码
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.lock_outline, color: theme.colorScheme.primary),
+              title: const Text('修改密码'),
+              subtitle: const Text('修改登录密码'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showChangePasswordDialog(context),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // 关于
           Card(
             elevation: 0,
@@ -307,6 +325,93 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 显示修改密码对话框
+  void _showChangePasswordDialog(BuildContext context) {
+    final oldPwdCtrl = TextEditingController();
+    final newPwdCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('修改密码'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: oldPwdCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '旧密码',
+                  hintText: '未设置过密码可留空',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: newPwdCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '新密码',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                validator: (v) {
+                  if (v == null || v.length < 6) return '新密码至少 6 位';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '确认新密码',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                validator: (v) {
+                  if (v != newPwdCtrl.text) return '两次密码不一致';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              final auth = context.read<AuthProvider>();
+              final ok = await auth.changePassword(
+                oldPwdCtrl.text,
+                newPwdCtrl.text,
+              );
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? '密码修改成功' : (auth.error ?? '修改失败')),
+                    backgroundColor: ok ? null : Theme.of(context).colorScheme.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('确认修改'),
+          ),
+        ],
       ),
     );
   }

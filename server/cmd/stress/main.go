@@ -152,7 +152,7 @@ func setupApp() *stressApp {
 
 	server := httptest.NewServer(router)
 
-	result, _ := authSvc.LoginByUsername("stress-user")
+	result, _ := authSvc.LoginByUsername("stress-user", "", "")
 	token := result.Token
 
 	log.Printf("Token 角色=%s scope=%s", result.Role, "college")

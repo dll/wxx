@@ -15,6 +15,18 @@ class _LoginPageState extends State<LoginPage> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
+  String _selectedRole = 'student';
+
+  static const _roleOptions = [
+    {'value': 'sys_admin', 'label': '系统管理员'},
+    {'value': 'school_admin', 'label': '学校管理员'},
+    {'value': 'college_admin', 'label': '学院管理员'},
+    {'value': 'counselor', 'label': '辅导员'},
+    {'value': 'teacher', 'label': '教师'},
+    {'value': 'assistant', 'label': '教辅'},
+    {'value': 'student_union', 'label': '学生会'},
+    {'value': 'student', 'label': '学生'},
+  ];
 
   @override
   void dispose() {
@@ -35,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(username, password);
+    final ok = await auth.login(username, password, _selectedRole);
 
     if (!mounted) return;
 
@@ -112,6 +124,26 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     onSubmitted: (_) => _doLogin(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 角色选择（开发环境）
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: '角色（开发环境可选）',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _roleOptions.map((r) {
+                      return DropdownMenuItem(
+                        value: r['value'] as String,
+                        child: Text(r['label'] as String),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedRole = v);
+                    },
                   ),
                   const SizedBox(height: 24),
 

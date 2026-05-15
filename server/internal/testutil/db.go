@@ -28,6 +28,25 @@ func NewTestDB(t *testing.T) *sql.DB {
 	}
 	execMigrationSQL(t, db, string(sqlContent))
 
+	// 执行后续增量迁移（仅 schema，不含种子数据）
+	for _, m := range []string{
+		"004_emotion_enhance.sql",
+		"005_agents.sql",
+		"006_fix_emotion_risk_level.sql",
+		"009_feedback_and_settings.sql",
+		"010_add_password_hash.sql",
+		"011_feedback_enhance.sql",
+		"012_voice_config.sql",
+		"013_user_model_config.sql",
+	} {
+		p := resolveMigrationPath(t, m)
+		c, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("读取迁移文件失败 %s: %v", m, err)
+		}
+		execMigrationSQL(t, db, string(c))
+	}
+
 	return db
 }
 
