@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
-import '../../config/api_config.dart';
+import 'package:provider/provider.dart';
+import '../../providers/counselor_feature_provider.dart';
 
 /// 辅导员 — 学生列表页面
 class StudentListPage extends StatefulWidget {
@@ -11,48 +11,46 @@ class StudentListPage extends StatefulWidget {
 }
 
 class _StudentListPageState extends State<StudentListPage> {
-  final ApiService _api = ApiService();
-  List<Map<String, dynamic>> _students = [];
-  bool _loading = true;
   String _search = '';
+  List<Map<String, dynamic>> _filteredCache = [];
+  List<Map<String, dynamic>> _lastSource = [];
+  String _lastSearch = '';
 
   @override
   void initState() {
     super.initState();
-    _fetchStudents();
+    context.read<CounselorFeatureProvider>().fetchStudentList();
   }
 
-  Future<void> _fetchStudents() async {
-    setState(() => _loading = true);
-    try {
-      final res = await _api.get(ApiConfig.counselorStudentList);
-      if (res.statusCode == 200 && res.data != null) {
-        final list = res.data is List ? res.data : res.data['students'] ?? [];
-        _students = List<Map<String, dynamic>>.from(list);
-      }
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
-  }
-
-  List<Map<String, dynamic>> get _filtered {
-    if (_search.isEmpty) return _students;
-    return _students.where((s) {
-      final name = (s['name'] ?? '').toString().toLowerCase();
-      final id = (s['student_id'] ?? '').toString().toLowerCase();
+  List<Map<String, dynamic>> _getFiltered(List<Map<String, dynamic>> students) {
+    if (identical(students, _lastSource) && _search == _lastSearch) {
+      return _filteredCache;
+    }
+    _lastSource = students;
+    _lastSearch = _search;
+    if (_search.isEmpty) {
+      _filteredCache = students;
+    } else {
       final q = _search.toLowerCase();
-      return name.contains(q) || id.contains(q);
-    }).toList();
+      _filteredCache = students.where((s) {
+        final name = (s['name'] ?? '').toString().toLowerCase();
+        final id = (s['student_id'] ?? '').toString().toLowerCase();
+        return name.contains(q) || id.contains(q);
+      }).toList();
+    }
+    return _filteredCache;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final prov = context.watch<CounselorFeatureProvider>();
+    final filtered = _getFiltered(prov.studentList);
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的学生')),
       body: Column(
         children: [
-          // 搜索栏
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -64,41 +62,46 @@ class _StudentListPageState extends State<StudentListPage> {
                 fillColor: theme.colorScheme.surfaceContainerHighest,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              onChanged: (v) => setState(() => _search = v),
+              onChanged: (v) {
+                if (v != _search) setState(() => _search = v);
+              },
             ),
           ),
-          // 统计栏
-          if (!_loading)
+          if (!prov.loading)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
                   Icon(Icons.people, size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 6),
-                  Text('共 ${_filtered.length} 名学生',
+                  Text('共 ${filtered.length} 名学生',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       )),
                 ],
               ),
             ),
+          if (prov.error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(prov.error, style: TextStyle(color: theme.colorScheme.error)),
+            ),
           const SizedBox(height: 4),
-          // 列表
           Expanded(
-            child: _loading
+            child: prov.loading
                 ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
+                : filtered.isEmpty
                     ? Center(
                         child: Text('暂无学生数据',
                             style: TextStyle(color: theme.colorScheme.outline)))
                     : RefreshIndicator(
-                        onRefresh: _fetchStudents,
+                        onRefresh: prov.fetchStudentList,
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          itemCount: _filtered.length,
+                          itemCount: filtered.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) =>
-                              _buildStudentTile(_filtered[index], theme),
+                              _buildStudentTile(filtered[index], theme),
                         ),
                       ),
           ),

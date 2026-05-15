@@ -1,3 +1,4 @@
+import 'dart:convert' show HtmlEscape;
 import '../../utils/web_export.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,8 @@ import '../../providers/feedback_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
+
+const _htmlEscaper = HtmlEscape();
 
 /// 对话主页
 class ChatPage extends StatefulWidget {
@@ -150,7 +153,7 @@ class _ChatPageState extends State<ChatPage> {
                       }
                       return _SlideInItem(
                         key: ValueKey(index),
-                        child: _buildMessage(chat.messages[index]),
+                        child: _buildMessage(chat.messages[index], index),
                       );
                     },
                   ),
@@ -290,11 +293,11 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildMessage(Message msg) {
+  Widget _buildMessage(Message msg, int index) {
     if (msg.isUser) {
       return _buildUserBubble(msg);
     }
-    return _buildAssistantMessage(msg);
+    return _buildAssistantMessage(msg, index);
   }
 
   Widget _buildUserBubble(Message msg) {
@@ -368,10 +371,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildAssistantMessage(Message msg) {
+  Widget _buildAssistantMessage(Message msg, int msgIndex) {
     final chat = context.read<ChatProvider>();
     final bookmarkProv = context.read<BookmarkProvider>();
-    final msgIndex = chat.messages.indexOf(msg);
     final isPlayingThis = chat.isPlaying && chat.playingIndex == msgIndex;
     final theme = Theme.of(context);
 
@@ -511,27 +513,53 @@ class _ChatPageState extends State<ChatPage> {
 
   /// 导出为 PDF（打开浏览器打印对话框）
   void _exportPdf(String question, Message msg) {
-    final body = '''
+    final body = _buildExportHtml(question, msg, forPrint: true);
+    openHtmlInNewTab(body);
+  }
+
+  /// 导出为 PNG 长图
+  void _exportPng(String question, Message msg) {
+    final body = _buildExportHtml(question, msg, forPng: true);
+    openHtmlInNewTab(body);
+  }
+
+  String _buildExportHtml(String question, Message msg, {bool forPrint = false, bool forPng = false}) {
+    final esc = _htmlEscaper.convert;
+    final sources = msg.answerCard?.sources ?? [];
+    final pngExtra = forPng ? ' width: 600px; margin: 0 auto;' : '';
+    final answerStyle = forPng ? ' white-space: pre-wrap;' : '';
+
+    String sourceHtml = '';
+    if (sources.isNotEmpty) {
+      if (forPng) {
+        sourceHtml = '<div class="source"><strong>来源：</strong>${esc(sources.map((s) => s.title).join(', '))}</div>';
+      } else {
+        sourceHtml = '<div class="source"><strong>信息来源：</strong><ul>${sources.map((s) => '<li>${esc(s.title)}</li>').join()}</ul></div>';
+      }
+    }
+
+    final printScript = forPrint ? '<script>window.onload = () => window.print();</script>' : '';
+    final tipHtml = forPng ? '<div class="tip">长按保存图片 · 蔚小芯 AI 学工助手</div>' : '';
+
+    return '''
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-  body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; color: #333; }
+  body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; color: #333;$pngExtra }
   h1 { color: #1565C0; font-size: 20px; border-bottom: 2px solid #1565C0; padding-bottom: 8px; }
   .question { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
-  .answer { padding: 16px; line-height: 1.8; }
+  .answer { padding: 16px; line-height: 1.8;$answerStyle }
   .source { background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 14px; }
   .meta { color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 8px; }
+  .tip { text-align: center; color: #999; font-size: 11px; margin-top: 16px; }
 </style></head><body>
 <h1>蔚小芯 · 问答记录</h1>
-<div class="question"><strong>问题：</strong>${_htmlEscape(question)}</div>
-<div class="answer"><strong>回答：</strong>${_htmlEscape(msg.content)}</div>
-${msg.answerCard?.sources != null && msg.answerCard!.sources.isNotEmpty
-  ? '<div class="source"><strong>信息来源：</strong><ul>${msg.answerCard!.sources.map((s) => '<li>${_htmlEscape(s.title)}</li>').join()}</ul></div>'
-  : ''}
+<div class="question"><strong>问题：</strong>${esc(question)}</div>
+<div class="answer"><strong>回答：</strong>${esc(msg.content)}</div>
+$sourceHtml
 <div class="meta">导出时间：${DateTime.now().toString().substring(0, 19)} · 蔚小芯 AI 学工助手</div>
-<script>window.onload = () => window.print();</script>
+$tipHtml
+$printScript
 </body></html>''';
-
-    openHtmlInNewTab(body);
   }
 
   /// 多格式导出对话框
@@ -550,31 +578,6 @@ ${msg.answerCard?.sources != null && msg.answerCard!.sources.isNotEmpty
         _exportMarkdown(question, msg);
         break;
     }
-  }
-
-  /// 导出为 PNG 长图
-  void _exportPng(String question, Message msg) {
-    final sources = msg.answerCard?.sources.map((s) => s.title).join(', ') ?? '';
-    final body = """
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-  body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; color: #333; width: 600px; margin: 0 auto; }
-  h1 { color: #1565C0; font-size: 20px; border-bottom: 2px solid #1565C0; padding-bottom: 8px; }
-  .question { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
-  .answer { padding: 16px; line-height: 1.8; white-space: pre-wrap; }
-  .source { background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 14px; }
-  .meta { color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 8px; }
-  .tip { text-align: center; color: #999; font-size: 11px; margin-top: 16px; }
-</style></head><body>
-<h1>蔚小芯 · 问答记录</h1>
-<div class="question"><strong>问题：</strong>${_htmlEscape(question)}</div>
-<div class="answer"><strong>回答：</strong>${_htmlEscape(msg.content)}</div>
-${sources.isNotEmpty ? '<div class="source"><strong>来源：</strong>${_htmlEscape(sources)}</div>' : ''}
-<div class="meta">导出时间：${DateTime.now().toString().substring(0, 19)}</div>
-<div class="tip">长按保存图片 · 蔚小芯 AI 学工助手</div>
-</body></html>""";
-
-    openHtmlInNewTab(body);
   }
 
   /// 导出为 Markdown
@@ -639,16 +642,21 @@ ${sources.isNotEmpty ? '<div class="source"><strong>来源：</strong>${_htmlEsc
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
+              onPressed: () {
+                contentCtrl.dispose();
+                Navigator.of(ctx).pop();
+              },
               child: const Text('取消'),
             ),
             FilledButton(
               onPressed: () async {
                 if (contentCtrl.text.trim().isEmpty) return;
+                final text = contentCtrl.text.trim();
+                contentCtrl.dispose();
                 Navigator.of(ctx).pop();
                 final ok = await context.read<FeedbackProvider>().submitFeedback(
                   category: category,
-                  content: contentCtrl.text.trim(),
+                  content: text,
                   messageId: msg.id ?? '',
                 );
                 if (mounted) {
@@ -665,13 +673,6 @@ ${sources.isNotEmpty ? '<div class="source"><strong>来源：</strong>${_htmlEsc
     );
   }
 
-  String _htmlEscape(String text) {
-    return text
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;');
-  }
 
   Widget _buildLoadingBubble(ThemeData theme) {
     return Align(

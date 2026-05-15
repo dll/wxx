@@ -217,4 +217,26 @@ class CounselorFeatureProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // ── 学生列表 ──
+  List<Map<String, dynamic>> _studentList = [];
+  List<Map<String, dynamic>> get studentList => _studentList;
+
+  Future<void> fetchStudentList() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.counselorStudentList);
+      if (res.statusCode == 200 && res.data != null) {
+        final list = res.data is List ? res.data : res.data['students'] ?? [];
+        _studentList = List<Map<String, dynamic>>.from(list);
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
 }
