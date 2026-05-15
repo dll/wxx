@@ -86,6 +86,13 @@ class ApiConfig {
   static const String mentalHealth = '$apiPrefix/student/mental-health';
   static const String digitalMentor = '$apiPrefix/student/digital-mentor';
 
+  // ── 学生社区互动功能 ──
+  static const String qaPlaza = '$apiPrefix/student/qa-plaza';
+  static const String hotTopics = '$apiPrefix/student/hot-topics';
+  static const String qaLeaderboard = '$apiPrefix/student/qa-leaderboard';
+  static const String privateChat = '$apiPrefix/student/private-chat';
+  static const String processEnhanced = '$apiPrefix/student/process-enhanced';
+
   // ── 辅导员 AI 功能 ──
   static const String counselorDailyFocus = '$apiPrefix/counselor/daily-focus';
   static const String counselorClassReport = '$apiPrefix/counselor/class-report';
@@ -97,6 +104,11 @@ class ApiConfig {
   static const String counselorIdeological = '$apiPrefix/counselor/ideological';
   static const String counselorClassProfile = '$apiPrefix/counselor/class-profile';
 
+  // ── 辅导员社区功能 ──
+  static const String counselorCommunityManage = '$apiPrefix/counselor/community-manage';
+  static const String counselorHotTopicSense = '$apiPrefix/counselor/hot-topic-sense';
+  static const String counselorProcessEdit = '$apiPrefix/counselor/process-edit';
+
   // ── 教师 AI 功能 ──
   static const String teacherDailyOverview = '$apiPrefix/teacher/daily-overview';
   static const String teacherLessonPrep = '$apiPrefix/teacher/lesson-prep';
@@ -106,6 +118,9 @@ class ApiConfig {
   static const String teacherHeatmap = '$apiPrefix/teacher/heatmap';
   static const String teacherReflection = '$apiPrefix/teacher/reflection';
   static const String teacherStyleDist = '$apiPrefix/teacher/style-distribution';
+
+  // ── 教师社区功能 ──
+  static const String teacherCommunityQA = '$apiPrefix/teacher/community-qa';
 
   // ── 教辅 AI 功能 ──
   static const String assistantScheduleCheck = '$apiPrefix/assistant/schedule-check';

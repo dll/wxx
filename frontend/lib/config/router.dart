@@ -41,6 +41,11 @@ import '../pages/student/competition_match_page.dart';
 import '../pages/student/study_buddy_page.dart';
 import '../pages/student/mental_health_page.dart';
 import '../pages/student/digital_mentor_page.dart';
+import '../pages/student/qa_plaza_page.dart';
+import '../pages/student/hot_topics_page.dart';
+import '../pages/student/qa_leaderboard_page.dart';
+import '../pages/student/private_chat_page.dart';
+import '../pages/student/process_enhanced_page.dart';
 // ── 辅导员 AI 功能页面 ──
 import '../pages/counselor/daily_focus_page.dart';
 import '../pages/counselor/class_report_page.dart';
@@ -51,6 +56,9 @@ import '../pages/counselor/talk_record_page.dart';
 import '../pages/counselor/talk_tips_page.dart';
 import '../pages/counselor/ideological_page.dart';
 import '../pages/counselor/class_profile_page.dart';
+import '../pages/counselor/community_manage_page.dart';
+import '../pages/counselor/hot_topic_sense_page.dart';
+import '../pages/counselor/process_edit_page.dart';
 // ── 教师 AI 功能页面 ──
 import '../pages/teacher/daily_overview_page.dart';
 import '../pages/teacher/lesson_prep_page.dart';
@@ -60,6 +68,7 @@ import '../pages/teacher/grading_page.dart';
 import '../pages/teacher/heatmap_page.dart';
 import '../pages/teacher/reflection_page.dart';
 import '../pages/teacher/style_dist_page.dart';
+import '../pages/teacher/community_qa_page.dart';
 // ── 教辅/学生会/学院管理员 AI 功能页面 ──
 import '../pages/assistant_role/schedule_check_page.dart';
 import '../pages/assistant_role/grad_audit_page.dart';
@@ -185,6 +194,11 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/student/study-buddy', builder: (_, __) => const StudyBuddyPage()),
         GoRoute(path: '/student/mental-health', builder: (_, __) => const MentalHealthPage()),
         GoRoute(path: '/student/digital-mentor', builder: (_, __) => const DigitalMentorPage()),
+        GoRoute(path: '/student/qa-plaza', builder: (_, __) => const QAPlazaPage()),
+        GoRoute(path: '/student/hot-topics', builder: (_, __) => const HotTopicsPage()),
+        GoRoute(path: '/student/qa-leaderboard', builder: (_, __) => const QALeaderboardPage()),
+        GoRoute(path: '/student/private-chat', builder: (_, __) => const PrivateChatPage()),
+        GoRoute(path: '/student/process-enhanced', builder: (_, __) => const ProcessEnhancedPage()),
         // ── 辅导员 AI 功能路由 ──
         GoRoute(path: '/counselor/daily-focus', builder: (_, __) => const DailyFocusPage()),
         GoRoute(path: '/counselor/class-report', builder: (_, __) => const ClassReportPage()),
@@ -195,6 +209,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/counselor/talk-tips', builder: (_, __) => const TalkTipsPage()),
         GoRoute(path: '/counselor/ideological', builder: (_, __) => const CounselorIdeologicalPage()),
         GoRoute(path: '/counselor/class-profile', builder: (_, __) => const ClassProfilePage()),
+        GoRoute(path: '/counselor/community-manage', builder: (_, __) => const CommunityManagePage()),
+        GoRoute(path: '/counselor/hot-topic-sense', builder: (_, __) => const HotTopicSensePage()),
+        GoRoute(path: '/counselor/process-edit', builder: (_, __) => const ProcessEditPage()),
         // ── 教师 AI 功能路由 ──
         GoRoute(path: '/teacher/daily-overview', builder: (_, __) => const DailyOverviewPage()),
         GoRoute(path: '/teacher/lesson-prep', builder: (_, __) => const LessonPrepPage()),
@@ -204,6 +221,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/teacher/heatmap', builder: (_, __) => const HeatmapPage()),
         GoRoute(path: '/teacher/reflection', builder: (_, __) => const ReflectionPage()),
         GoRoute(path: '/teacher/style-dist', builder: (_, __) => const StyleDistPage()),
+        GoRoute(path: '/teacher/community-qa', builder: (_, __) => const CommunityQAPage()),
         // ── 教辅/学生会/学院管理员 AI 功能路由 ──
         GoRoute(path: '/assistant/schedule-check', builder: (_, __) => const ScheduleCheckPage()),
         GoRoute(path: '/assistant/grad-audit', builder: (_, __) => const GradAuditPage()),

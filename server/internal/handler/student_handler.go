@@ -159,6 +159,89 @@ func (h *StudentHandler) WeeklyReport(c *gin.Context) {
 	})
 }
 
+// QAPlaza 问答广场
+func (h *StudentHandler) QAPlaza(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"hot_questions": []gin.H{
+			{"id": "1", "title": "转专业需要什么条件？", "author": "匿名同学", "answers": 5, "views": 128, "ai_answer": "转专业一般需要：1.大一第一学期结束后申请 2.绩点达到3.0以上 3.通过目标专业考核", "tags": []string{"政策", "学业"}},
+			{"id": "2", "title": "图书馆自习室怎么预约？", "author": "学习达人", "answers": 3, "views": 89, "ai_answer": "通过校园APP→图书馆→座位预约，每天22:00开放次日预约", "tags": []string{"生活", "图书馆"}},
+			{"id": "3", "title": "ACM竞赛如何入门？", "author": "编程新手", "answers": 8, "views": 256, "ai_answer": "建议从C++基础开始，刷LeetCode简单题，参加校内训练赛", "tags": []string{"竞赛", "学业"}},
+		},
+		"categories": []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
+		"my_posts":   2,
+		"my_answers": 5,
+	})
+}
+
+// HotTopics 热点关注
+func (h *StudentHandler) HotTopics(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"topics": []gin.H{
+			{"id": "1", "title": "期中考试安排", "heat": 95, "trend": "rising", "posts": 23, "summary": "本学期期中考试集中在第10-11周，数据结构和高数为重点关注科目"},
+			{"id": "2", "title": "暑期实习招聘", "heat": 82, "trend": "rising", "posts": 15, "summary": "多家互联网公司开放暑期实习岗位，建议提前准备简历和算法"},
+			{"id": "3", "title": "校园网升级", "heat": 68, "trend": "stable", "posts": 12, "summary": "校园网将于下周升级至千兆，届时可能短暂断网"},
+			{"id": "4", "title": "社团招新", "heat": 55, "trend": "falling", "posts": 8, "summary": "本学期第二轮社团招新已结束，共12个社团完成纳新"},
+		},
+		"updated_at": time.Now().Format("2006-01-02 15:04"),
+	})
+}
+
+// QALeaderboard 问答排行榜
+func (h *StudentHandler) QALeaderboard(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"hot_questions": []gin.H{
+			{"rank": 1, "title": "ACM竞赛如何入门？", "views": 256, "answers": 8, "score": 92.5},
+			{"rank": 2, "title": "转专业需要什么条件？", "views": 128, "answers": 5, "score": 85.0},
+			{"rank": 3, "title": "考研还是就业？", "views": 198, "answers": 12, "score": 80.3},
+		},
+		"top_answerers": []gin.H{
+			{"rank": 1, "name": "知识达人", "answers": 23, "adopted": 15, "score": 95.0},
+			{"rank": 2, "name": "热心学长", "answers": 18, "adopted": 10, "score": 82.5},
+			{"rank": 3, "name": "编程高手", "answers": 12, "adopted": 8, "score": 78.0},
+		},
+		"contributors": []gin.H{
+			{"rank": 1, "name": "知识达人", "contributions": 15, "quality_score": 4.8},
+			{"rank": 2, "name": "热心学长", "contributions": 10, "quality_score": 4.5},
+			{"rank": 3, "name": "学霸笔记", "contributions": 8, "quality_score": 4.3},
+		},
+		"period": "本周",
+	})
+}
+
+// PrivateChat 站内私聊
+func (h *StudentHandler) PrivateChat(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"conversations": []gin.H{
+			{"id": "1", "name": "李辅导员", "role": "counselor", "last_message": "明天下午来办公室聊聊", "time": "10:30", "unread": 1},
+			{"id": "2", "name": "张学长", "role": "student", "last_message": "ACM训练资料已发你邮箱", "time": "昨天", "unread": 0},
+			{"id": "3", "name": "AI学友-王同学", "role": "student", "last_message": "明天一起去图书馆复习吧", "time": "昨天", "unread": 0},
+		},
+		"recommended_contacts": []gin.H{
+			{"name": "赵学姐", "reason": "同专业大三，擅长算法", "match_score": 88},
+			{"name": "刘同学", "reason": "学习风格互补，可组队复习", "match_score": 82},
+		},
+	})
+}
+
+// ProcessEnhanced AI 办事流程增强
+func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"processes": []gin.H{
+			{
+				"id": "1", "title": "缓考申请流程", "status": "in_progress", "current_step": 2,
+				"steps": []gin.H{
+					{"step": 1, "title": "填写缓考申请表", "status": "completed", "contact": "教务处张老师", "phone": "0550-3510XXX", "location": "行政楼B102", "office_hours": "周一至五 8:30-11:30, 14:00-17:00", "faq": []gin.H{{"q": "申请表在哪下载？", "a": "教务系统→表格下载→缓考申请表"}}},
+					{"step": 2, "title": "辅导员签字", "status": "in_progress", "contact": "李辅导员", "phone": "0550-3510XXX", "location": "信息楼205", "office_hours": "周一至五 9:00-17:00", "faq": []gin.H{{"q": "辅导员不在怎么办？", "a": "可先在系统提交电子版，辅导员线上审批"}}},
+					{"step": 3, "title": "教务处审批", "status": "pending", "contact": "教务处", "phone": "0550-3510XXX", "location": "行政楼A201", "office_hours": "周一至五 8:30-17:00", "faq": []gin.H{{"q": "审批需要多久？", "a": "一般3个工作日内完成"}}},
+				},
+			},
+		},
+		"reminders": []gin.H{
+			{"title": "缓考申请截止", "deadline": "2026-05-20", "days_left": 5},
+		},
+	})
+}
+
 // GenericAI 通用 AI 响应（用于多个简单功能）
 func (h *StudentHandler) GenericAI(feature string) gin.HandlerFunc {
 	responses := map[string]gin.H{

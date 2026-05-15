@@ -154,3 +154,23 @@ func (h *TeacherHandler) StyleDist(c *gin.Context) {
 		},
 	})
 }
+
+// CommunityQA 社区专业答疑
+func (h *TeacherHandler) CommunityQA(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"my_answers": []gin.H{
+			{"id": "1", "question": "递归和迭代的区别是什么？", "answer": "递归是函数调用自身，迭代是循环结构。递归代码简洁但有栈溢出风险，迭代效率更高。", "likes": 12, "certified": true, "time": "2026-05-14"},
+			{"id": "2", "question": "什么是死锁？", "answer": "死锁是两个或多个进程互相等待对方释放资源而无限等待的状态。四个必要条件：互斥、占有等待、不可抢占、循环等待。", "likes": 8, "certified": true, "time": "2026-05-13"},
+		},
+		"pending_questions": []gin.H{
+			{"id": "3", "question": "B+树和B树的区别？", "course": "数据结构", "asker": "匿名同学", "time": "1小时前"},
+			{"id": "4", "question": "虚拟内存的页面置换算法有哪些？", "course": "操作系统", "asker": "学习中", "time": "3小时前"},
+		},
+		"stats": gin.H{
+			"total_answers":    15,
+			"certified_count":  12,
+			"likes_received":   45,
+			"questions_in_faq": 8,
+		},
+	})
+}

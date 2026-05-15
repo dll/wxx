@@ -1,4 +1,4 @@
-import 'dart:html' as html;
+import '../../utils/web_export.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -522,13 +522,7 @@ ${msg.answerCard?.sources != null && msg.answerCard!.sources.isNotEmpty
 <script>window.onload = () => window.print();</script>
 </body></html>''';
 
-    final blob = html.Blob([body], 'text/html');
-    final url = html.Url.createObjectUrl(blob);
-    html.window.open(url, '_blank');
-    // 打印自动触发：Blob URL 加载后浏览器弹出打印对话框
-    Future.delayed(const Duration(seconds: 10), () {
-      html.Url.revokeObjectUrl(url);
-    });
+    openHtmlInNewTab(body);
   }
 
   String _htmlEscape(String text) {

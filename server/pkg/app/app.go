@@ -171,11 +171,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	studentHandler := handler.NewStudentHandler()
 	counselorHandler := handler.NewCounselorHandler()
 	teacherHandler := handler.NewTeacherHandler()
+	assistantHandler := handler.NewAssistantHandler()
+	unionHandler := handler.NewUnionHandler()
+	collegeHandler := handler.NewCollegeHandler()
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
-		adminHandler, feedbackHandler, studentHandler, counselorHandler, teacherHandler)
+		adminHandler, feedbackHandler, studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler)
 
 	return router, nil
 }
@@ -344,6 +347,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	studentH *handler.StudentHandler,
 	counselorH *handler.CounselorHandler,
 	teacherH *handler.TeacherHandler,
+	assistantH *handler.AssistantHandler,
+	unionH *handler.UnionHandler,
+	collegeH *handler.CollegeHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -526,6 +532,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 					student.GET("/study-buddy", studentH.GenericAI("study-buddy"))
 					student.GET("/mental-health", studentH.GenericAI("mental-health"))
 					student.GET("/digital-mentor", studentH.GenericAI("digital-mentor"))
+				student.GET("/qa-plaza", studentH.QAPlaza)
+				student.GET("/hot-topics", studentH.HotTopics)
+				student.GET("/qa-leaderboard", studentH.QALeaderboard)
+				student.GET("/private-chat", studentH.PrivateChat)
+				student.GET("/process-enhanced", studentH.ProcessEnhanced)
 				}
 
 				// ── 辅导员 AI 功能（counselor 及以上）──
@@ -542,6 +553,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 					counselor.GET("/talk-tips", counselorH.TalkTips)
 					counselor.GET("/ideological", counselorH.Ideological)
 					counselor.GET("/class-profile", counselorH.ClassProfile)
+				counselor.GET("/community-manage", counselorH.CommunityManage)
+				counselor.GET("/hot-topic-sense", counselorH.HotTopicSense)
+				counselor.GET("/process-edit", counselorH.ProcessEdit)
 				}
 
 				// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
@@ -556,6 +570,32 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 					teacher.GET("/heatmap", teacherH.Heatmap)
 					teacher.GET("/reflection", teacherH.Reflection)
 					teacher.GET("/style-distribution", teacherH.StyleDist)
+				teacher.GET("/community-qa", teacherH.CommunityQA)
+				}
+
+			// ── 教辅 AI 功能（counselor 及以上）──
+			assistantGroup := secured.Group("/assistant")
+			assistantGroup.Use(middleware.RequireRole("counselor"))
+				{
+					assistantGroup.GET("/schedule-check", assistantH.ScheduleCheck)
+					assistantGroup.GET("/graduation-audit", assistantH.GradAudit)
+					assistantGroup.GET("/exam-arrange", assistantH.ExamArrange)
+				}
+
+			// ── 学生会 AI 功能（student_union 及以上）──
+			unionGroup := secured.Group("/union")
+			unionGroup.Use(middleware.RequireRole("student_union"))
+				{
+					unionGroup.GET("/event-plan", unionH.EventPlan)
+					unionGroup.GET("/poster-gen", unionH.PosterGen)
+				}
+
+			// ── 学院管理员 AI 功能（college_admin 及以上）──
+			collegeGroup := secured.Group("/college")
+			collegeGroup.Use(middleware.RequireRole("college_admin"))
+				{
+					collegeGroup.GET("/twin-screen", collegeH.TwinScreen)
+					collegeGroup.GET("/data-analysis", collegeH.DataAnalysis)
 				}
 		}
 	}

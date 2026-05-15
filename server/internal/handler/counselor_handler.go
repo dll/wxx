@@ -143,3 +143,57 @@ func (h *CounselorHandler) ClassProfile(c *gin.Context) {
 		"suggestions":     []string{"多组织团队活动促进内向同学融入", "利用分析型同学带动学术氛围"},
 	})
 }
+
+// CommunityManage 社区问答管理
+func (h *CounselorHandler) CommunityManage(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"pending_review": []gin.H{
+			{"id": "1", "title": "感觉压力很大怎么办", "author": "匿名", "type": "心理求助", "risk": "medium", "time": "2小时前"},
+			{"id": "2", "title": "奖学金评定标准有误？", "author": "张同学", "type": "政策误读", "risk": "low", "time": "5小时前"},
+		},
+		"flagged_posts": []gin.H{
+			{"id": "3", "title": "对某课程评价", "reason": "内容争议", "reports": 3},
+		},
+		"stats": gin.H{
+			"total_posts_today":  12,
+			"reviewed":           8,
+			"official_responses": 2,
+			"hidden":             1,
+		},
+	})
+}
+
+// HotTopicSense 热点话题感知
+func (h *CounselorHandler) HotTopicSense(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"hot_topics": []gin.H{
+			{"title": "期中考试焦虑", "heat": 92, "sentiment": "negative", "affected_students": 15, "suggestion": "建议组织考前辅导和心理疏导"},
+			{"title": "实习招聘信息", "heat": 78, "sentiment": "neutral", "affected_students": 22, "suggestion": "可组织就业指导讲座"},
+			{"title": "宿舍空调报修", "heat": 65, "sentiment": "negative", "affected_students": 8, "suggestion": "已反馈后勤处，预计3天内解决"},
+		},
+		"keywords":   []string{"考试", "实习", "焦虑", "空调", "选课"},
+		"alert_topics": []gin.H{
+			{"title": "期中考试焦虑", "reason": "多名学生表达负面情绪，需关注心理状态"},
+		},
+	})
+}
+
+// ProcessEdit 流程步骤编辑
+func (h *CounselorHandler) ProcessEdit(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"editable_processes": []gin.H{
+			{"id": "1", "title": "请假审批流程", "steps_count": 4, "last_updated": "2026-05-10", "status": "active"},
+			{"id": "2", "title": "缓考申请流程", "steps_count": 3, "last_updated": "2026-05-08", "status": "active"},
+			{"id": "3", "title": "学生证补办流程", "steps_count": 5, "last_updated": "2026-04-20", "status": "active"},
+		},
+		"recent_edits": []gin.H{
+			{"process": "请假审批流程", "step": "辅导员审批", "field": "office_hours", "old_value": "9:00-17:00", "new_value": "8:30-17:30", "time": "2026-05-12"},
+		},
+		"permissions": gin.H{
+			"can_edit_contact":  true,
+			"can_edit_location": true,
+			"can_edit_faq":      true,
+			"can_edit_media":    false,
+		},
+	})
+}

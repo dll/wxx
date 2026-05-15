@@ -158,6 +158,11 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.map_outlined, '课程地图', '课程学习路径', '/student/course-map'),
             _buildMenuCard(context, Icons.analytics_outlined, '课程学情', '课程学习分析', '/student/course-analytics'),
             _buildMenuCard(context, Icons.summarize_outlined, '学习周报', 'AI 周度学习总结', '/student/weekly-report'),
+            _buildMenuCard(context, Icons.forum_outlined, '问答广场', '校园问答社区', '/student/qa-plaza'),
+            _buildMenuCard(context, Icons.local_fire_department, '热点关注', '校园热点话题', '/student/hot-topics'),
+            _buildMenuCard(context, Icons.leaderboard_outlined, '问答排行', '问答贡献排行榜', '/student/qa-leaderboard'),
+            _buildMenuCard(context, Icons.chat_outlined, '站内私聊', 'AI 学伴私信', '/student/private-chat'),
+            _buildMenuCard(context, Icons.account_tree_outlined, 'AI 办事流程', '智能流程引导', '/student/process-enhanced'),
           ],
 
           // 辅导员 AI 功能
@@ -171,6 +176,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.tips_and_updates_outlined, '话术推荐', 'AI 谈话话术', '/counselor/talk-tips'),
             _buildMenuCard(context, Icons.psychology, '思想档案', '学生思想动态', '/counselor/ideological'),
             _buildMenuCard(context, Icons.groups_outlined, '班级画像', '班级性格画像', '/counselor/class-profile'),
+            _buildMenuCard(context, Icons.admin_panel_settings, '社区管理', '问答社区内容管理', '/counselor/community-manage'),
+            _buildMenuCard(context, Icons.trending_up, '热点感知', '校园舆情热点感知', '/counselor/hot-topic-sense'),
+            _buildMenuCard(context, Icons.edit_note, '流程编辑', '办事流程编辑管理', '/counselor/process-edit'),
           ],
 
           // 教师 AI 功能
@@ -183,6 +191,7 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.grid_on, '学情热力图', '班级学情可视化', '/teacher/heatmap'),
             _buildMenuCard(context, Icons.self_improvement, '教学反思', 'AI 教学反思', '/teacher/reflection'),
             _buildMenuCard(context, Icons.pie_chart_outline, '学习风格', '学生学习风格分布', '/teacher/style-dist'),
+            _buildMenuCard(context, Icons.question_answer_outlined, '社区问答', '教师社区答疑', '/teacher/community-qa'),
           ],
 
           // 教辅 AI 功能
