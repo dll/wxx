@@ -108,6 +108,7 @@ class ApiConfig {
   static const String counselorCommunityManage = '$apiPrefix/counselor/community-manage';
   static const String counselorHotTopicSense = '$apiPrefix/counselor/hot-topic-sense';
   static const String counselorProcessEdit = '$apiPrefix/counselor/process-edit';
+  static const String counselorStudentList = '$apiPrefix/counselor/student-list';
 
   // ── 教师 AI 功能 ──
   static const String teacherDailyOverview = '$apiPrefix/teacher/daily-overview';

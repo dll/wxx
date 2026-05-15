@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/bookmark_provider.dart';
+import '../../providers/feedback_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../widgets/answer_card.dart';
+import '../../widgets/export_dialog.dart';
 
 /// 对话主页
 class ChatPage extends StatefulWidget {
@@ -397,11 +399,18 @@ class _ChatPageState extends State<ChatPage> {
             onTap: () => _copyAnswer(msg),
           ),
           const SizedBox(width: 4),
-          // 导出 PDF 按钮
+          // 多格式导出按钮
           _ActionChip(
-            icon: Icons.picture_as_pdf,
-            label: 'PDF',
-            onTap: () => _exportPdf(question, msg),
+            icon: Icons.download,
+            label: '导出',
+            onTap: () => _showExportDialog(question, msg),
+          ),
+          const SizedBox(width: 4),
+          // 纠错反馈按钮
+          _ActionChip(
+            icon: Icons.feedback_outlined,
+            label: '纠错',
+            onTap: () => _showFeedbackDialog(msg),
           ),
           const SizedBox(width: 4),
           // 收藏按钮
@@ -523,6 +532,137 @@ ${msg.answerCard?.sources != null && msg.answerCard!.sources.isNotEmpty
 </body></html>''';
 
     openHtmlInNewTab(body);
+  }
+
+  /// 多格式导出对话框
+  void _showExportDialog(String question, Message msg) async {
+    final format = await ExportDialog.show(context, contentId: msg.id ?? '');
+    if (format == null || !mounted) return;
+
+    switch (format) {
+      case 'pdf':
+        _exportPdf(question, msg);
+        break;
+      case 'png':
+        _exportPng(question, msg);
+        break;
+      case 'md':
+        _exportMarkdown(question, msg);
+        break;
+    }
+  }
+
+  /// 导出为 PNG 长图
+  void _exportPng(String question, Message msg) {
+    final sources = msg.answerCard?.sources.map((s) => s.title).join(', ') ?? '';
+    final body = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; padding: 40px; color: #333; width: 600px; margin: 0 auto; }
+  h1 { color: #1565C0; font-size: 20px; border-bottom: 2px solid #1565C0; padding-bottom: 8px; }
+  .question { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .answer { padding: 16px; line-height: 1.8; white-space: pre-wrap; }
+  .source { background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 14px; }
+  .meta { color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 8px; }
+  .tip { text-align: center; color: #999; font-size: 11px; margin-top: 16px; }
+</style></head><body>
+<h1>蔚小芯 · 问答记录</h1>
+<div class="question"><strong>问题：</strong>${_htmlEscape(question)}</div>
+<div class="answer"><strong>回答：</strong>${_htmlEscape(msg.content)}</div>
+${sources.isNotEmpty ? '<div class="source"><strong>来源：</strong>${_htmlEscape(sources)}</div>' : ''}
+<div class="meta">导出时间：${DateTime.now().toString().substring(0, 19)}</div>
+<div class="tip">长按保存图片 · 蔚小芯 AI 学工助手</div>
+</body></html>""";
+
+    openHtmlInNewTab(body);
+  }
+
+  /// 导出为 Markdown
+  void _exportMarkdown(String question, Message msg) {
+    final sources = msg.answerCard?.sources.map((s) => '- ${s.title}').join('\n') ?? '';
+    final md = StringBuffer();
+    md.writeln('# 蔚小芯 · 问答记录\n');
+    md.writeln('## 问题\n');
+    md.writeln('$question\n');
+    md.writeln('## 回答\n');
+    md.writeln('${msg.content}\n');
+    if (sources.isNotEmpty) {
+      md.writeln('## 参考来源\n');
+      md.writeln('$sources\n');
+    }
+    md.writeln('---\n');
+    md.writeln('> 导出时间：${DateTime.now().toString().substring(0, 19)} · 蔚小芯 AI 学工助手');
+
+    Clipboard.setData(ClipboardData(text: md.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Markdown 已复制到剪贴板'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
+
+  /// 纠错反馈对话框
+  void _showFeedbackDialog(Message msg) {
+    final contentCtrl = TextEditingController();
+    String category = 'answer_error';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('反馈纠错'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('反馈类型', style: TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'answer_error', label: Text('回答有误')),
+                  ButtonSegment(value: 'suggestion', label: Text('建议改进')),
+                  ButtonSegment(value: 'other', label: Text('其他')),
+                ],
+                selected: {category},
+                onSelectionChanged: (v) => setState(() => category = v.first),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contentCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: '请描述问题或建议...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (contentCtrl.text.trim().isEmpty) return;
+                Navigator.of(ctx).pop();
+                final ok = await context.read<FeedbackProvider>().submitFeedback(
+                  category: category,
+                  content: contentCtrl.text.trim(),
+                  messageId: msg.id ?? '',
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(ok ? '反馈已提交，感谢！' : '提交失败，请重试')),
+                  );
+                }
+              },
+              child: const Text('提交'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _htmlEscape(String text) {

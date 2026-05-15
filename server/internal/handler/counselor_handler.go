@@ -197,3 +197,22 @@ func (h *CounselorHandler) ProcessEdit(c *gin.Context) {
 		},
 	})
 }
+
+// StudentList 学生列表
+func (h *CounselorHandler) StudentList(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"students": []gin.H{
+			{"name": "张明", "student_id": "2023010101", "class_name": "计科2301", "status": "warning", "gpa": 3.2, "checkin_days": 35},
+			{"name": "李华", "student_id": "2023010102", "class_name": "计科2301", "status": "alert", "gpa": 2.8, "checkin_days": 28},
+			{"name": "王芳", "student_id": "2023010103", "class_name": "计科2301", "status": "normal", "gpa": 3.8, "checkin_days": 42},
+			{"name": "赵强", "student_id": "2023010104", "class_name": "计科2301", "status": "normal", "gpa": 3.5, "checkin_days": 40},
+			{"name": "刘洋", "student_id": "2023010105", "class_name": "计科2301", "status": "normal", "gpa": 3.6, "checkin_days": 41},
+			{"name": "陈静", "student_id": "2023010106", "class_name": "计科2301", "status": "normal", "gpa": 3.9, "checkin_days": 42},
+			{"name": "周磊", "student_id": "2023010107", "class_name": "计科2301", "status": "warning", "gpa": 2.9, "checkin_days": 30},
+			{"name": "吴敏", "student_id": "2023010108", "class_name": "计科2301", "status": "normal", "gpa": 3.4, "checkin_days": 38},
+			{"name": "孙浩", "student_id": "2023010109", "class_name": "计科2301", "status": "normal", "gpa": 3.7, "checkin_days": 39},
+			{"name": "郑雪", "student_id": "2023010110", "class_name": "计科2301", "status": "normal", "gpa": 4.0, "checkin_days": 42},
+		},
+		"total": 45,
+	})
+}

@@ -179,6 +179,7 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.admin_panel_settings, '社区管理', '问答社区内容管理', '/counselor/community-manage'),
             _buildMenuCard(context, Icons.trending_up, '热点感知', '校园舆情热点感知', '/counselor/hot-topic-sense'),
             _buildMenuCard(context, Icons.edit_note, '流程编辑', '办事流程编辑管理', '/counselor/process-edit'),
+            _buildMenuCard(context, Icons.people_alt_outlined, '学生列表', '查看管理学生名单', '/counselor/student-list'),
           ],
 
           // 教师 AI 功能

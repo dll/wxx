@@ -556,6 +556,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				counselor.GET("/community-manage", counselorH.CommunityManage)
 				counselor.GET("/hot-topic-sense", counselorH.HotTopicSense)
 				counselor.GET("/process-edit", counselorH.ProcessEdit)
+				counselor.GET("/student-list", counselorH.StudentList)
 				}
 
 				// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
