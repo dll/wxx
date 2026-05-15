@@ -79,6 +79,7 @@ import '../pages/union/poster_gen_page.dart';
 import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
 import '../pages/profile/model_config_page.dart';
+import '../widgets/fab_menu.dart';
 
 /// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
 class AuthRefreshNotifier extends ChangeNotifier {
@@ -308,6 +309,7 @@ class MainShell extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: const FabMenu(),
     );
   }
 
@@ -317,6 +319,7 @@ class MainShell extends StatelessWidget {
     final index = _currentIndex(context);
     return Scaffold(
       body: child,
+      floatingActionButton: const FabMenu(),
       bottomNavigationBar: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
