@@ -2,19 +2,30 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/feedback_provider.dart';
-import '../utils/web_screenshot.dart';
+import '../utils/screenshot_capture.dart';
 
 /// 反馈提交对话框 — 自动截屏 + 分类选择 + 内容描述
-Future<void> showFeedbackDialog(BuildContext context) {
-  return showDialog(
+///
+/// 流程：先在不弹 dialog 时抓主页面帧 → 再弹出 dialog 把帧带进去预览
+Future<void> showFeedbackDialog(BuildContext context) async {
+  // 先抓当前主页面帧（dialog 还没弹，截到的是用户真实看到的画面）
+  final shot = await captureScreenshot();
+
+  if (!context.mounted) return;
+  await showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (ctx) => const _FeedbackDialog(),
+    builder: (ctx) => _FeedbackDialog(
+      initialBytes: shot.bytes,
+      initialError: shot.success ? null : shot.error,
+    ),
   );
 }
 
 class _FeedbackDialog extends StatefulWidget {
-  const _FeedbackDialog();
+  final Uint8List? initialBytes;
+  final String? initialError;
+  const _FeedbackDialog({this.initialBytes, this.initialError});
 
   @override
   State<_FeedbackDialog> createState() => _FeedbackDialogState();
@@ -23,37 +34,21 @@ class _FeedbackDialog extends StatefulWidget {
 class _FeedbackDialogState extends State<_FeedbackDialog> {
   String _category = 'answer_error';
   final _contentCtrl = TextEditingController();
-  String? _screenshotBase64;
   Uint8List? _screenshotBytes;
-  bool _capturing = true;
   bool _submitting = false;
   String? _screenshotError;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _captureScreenshot());
+    _screenshotBytes = widget.initialBytes;
+    _screenshotError = widget.initialError;
   }
 
   @override
   void dispose() {
     _contentCtrl.dispose();
     super.dispose();
-  }
-
-  /// 调用平台截屏入口（Web 抓 canvas，非 Web 走 stub）
-  Future<void> _captureScreenshot() async {
-    final result = await captureCurrentPage();
-    if (!mounted) return;
-    setState(() {
-      _capturing = false;
-      if (result.success) {
-        _screenshotBase64 = result.base64;
-        _screenshotBytes = result.bytes;
-      } else {
-        _screenshotError = result.error ?? '截屏不可用';
-      }
-    });
   }
 
   Future<void> _submit() async {
@@ -203,48 +198,37 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
         aspectRatio: 16 / 9,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(11),
-          child: _capturing
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(strokeWidth: 2),
-                      SizedBox(height: 8),
-                      Text('正在截取页面...', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
+          child: _screenshotBytes != null
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(
+                      _screenshotBytes!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildNoScreenshot(theme),
+                    ),
+                    // 截屏成功标记
+                    Positioned(
+                      top: 8, right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('已截屏', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 )
-              : _screenshotBase64 != null
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.memory(
-                          _screenshotBytes!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildNoScreenshot(theme),
-                        ),
-                        // 截屏成功标记
-                        Positioned(
-                          top: 8, right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check, color: Colors.white, size: 14),
-                                SizedBox(width: 4),
-                                Text('已截屏', style: TextStyle(color: Colors.white, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : _buildNoScreenshot(theme),
+              : _buildNoScreenshot(theme),
         ),
       ),
     );

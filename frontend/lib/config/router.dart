@@ -79,6 +79,7 @@ import '../pages/union/poster_gen_page.dart';
 import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
 import '../pages/profile/model_config_page.dart';
+import '../utils/screenshot_capture.dart';
 import '../widgets/fab_menu.dart';
 
 /// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
@@ -304,7 +305,7 @@ class MainShell extends StatelessWidget {
           Expanded(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
-              child: child,
+              child: RepaintBoundary(key: screenshotKey, child: child),
             ),
           ),
         ],
@@ -318,7 +319,7 @@ class MainShell extends StatelessWidget {
     final theme = Theme.of(context);
     final index = _currentIndex(context);
     return Scaffold(
-      body: child,
+      body: RepaintBoundary(key: screenshotKey, child: child),
       floatingActionButton: const FabMenu(),
       bottomNavigationBar: ClipRRect(
         child: BackdropFilter(
