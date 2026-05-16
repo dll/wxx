@@ -81,6 +81,8 @@ class AuthProvider extends ChangeNotifier {
           displayName: _profile!.displayName,
         );
       }
+      // 拉取能力清单（用于菜单/按钮可见性）
+      await _refreshCapabilities();
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -97,6 +99,19 @@ class AuthProvider extends ChangeNotifier {
         );
       }
       notifyListeners();
+    }
+  }
+
+  /// 拉取并缓存当前用户的能力清单（含继承）
+  Future<void> _refreshCapabilities() async {
+    try {
+      final resp = await _api.get(ApiConfig.capabilities);
+      if (resp.data['code'] == 0) {
+        final list = resp.data['data']?['capabilities'] as List? ?? [];
+        await Storage.setCapabilities(list.map((e) => e.toString()).toList());
+      }
+    } catch (_) {
+      // 静默失败：能力清单加载失败不影响登录主流程，前端按"无能力"降级
     }
   }
 

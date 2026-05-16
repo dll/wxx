@@ -71,6 +71,9 @@ class ApiConfig {
   // ── 语音配置 ──
   static const String voiceConfig = '$apiPrefix/user/voice-config';
 
+  // ── 当前用户能力清单（基于角色继承自动展开）──
+  static const String capabilities = '$apiPrefix/user/capabilities';
+
   // ── AI 模型配置 ──
   static const String modelConfig = '$apiPrefix/user/model-config';
 

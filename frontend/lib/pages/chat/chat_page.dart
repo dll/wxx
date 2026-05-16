@@ -1,5 +1,6 @@
 import 'dart:convert' show HtmlEscape;
 import '../../utils/web_export.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/feedback_provider.dart';
 import '../../services/voice/voice_navigator.dart';
+import '../../services/voice/web_speech_recognizer.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
 
@@ -29,6 +31,11 @@ class _ChatPageState extends State<ChatPage> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _initialQuestionHandled = false;
+
+  // ── 浏览器实时语音识别（替代之前的 MediaRecorder + 后端 ASR）──
+  WebSpeechRecognizer? _speech;
+  bool _isListening = false;
+  String _interimText = '';
 
   @override
   void initState() {
@@ -56,6 +63,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
+    _speech?.dispose();
     super.dispose();
   }
 
@@ -70,12 +78,99 @@ class _ChatPageState extends State<ChatPage> {
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
-  /// 处理语音录制结果：先检查导航指令，否则作为聊天消息发送
+  /// 切换语音录入：开始/停止
+  /// 使用浏览器 SpeechRecognition API 实时识别，文字直接写入输入框
+  Future<void> _toggleVoiceInput() async {
+    final chat = context.read<ChatProvider>();
+
+    if (_isListening) {
+      // 移动端：停止后通过后端 ASR 识别
+      if (!kIsWeb && chat.isRecording) {
+        await _handleVoiceResult();
+        return;
+      }
+      _stopVoiceInput(autoSend: false);
+      return;
+    }
+
+    if (!kIsWeb) {
+      // 移动端走旧的 MediaRecorder + 后端 ASR 流程
+      _startMobileRecording();
+      return;
+    }
+
+    _speech ??= WebSpeechRecognizer()
+      ..onTranscript = _onSpeechTranscript
+      ..onError = _onSpeechError
+      ..onEnd = _onSpeechEnd;
+
+    setState(() {
+      _isListening = true;
+      _interimText = '';
+    });
+    _speech!.start(continuous: true);
+  }
+
+  void _onSpeechTranscript(String interim, String finalText, bool isFinal) {
+    if (!mounted) return;
+    setState(() {
+      if (finalText.isNotEmpty) {
+        // 累加最终文本到输入框：每次直接读当前输入框内容，避免 stale state
+        final current = _inputCtrl.text;
+        final separator = current.isEmpty || current.endsWith(' ') ? '' : ' ';
+        _inputCtrl.text = '$current$separator$finalText'.trim();
+        _inputCtrl.selection = TextSelection.collapsed(offset: _inputCtrl.text.length);
+        _interimText = '';
+      } else {
+        _interimText = interim;
+      }
+    });
+  }
+
+  void _onSpeechError(String error) {
+    if (!mounted) return;
+    setState(() => _isListening = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('语音识别错误：$error'), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  void _onSpeechEnd() {
+    if (!mounted) return;
+    if (_isListening) {
+      // 浏览器自动结束，但用户还在录音状态 → 重启
+      _speech?.start(continuous: true);
+    }
+  }
+
+  /// 停止语音输入
+  /// [autoSend] 是否自动发送当前内容
+  void _stopVoiceInput({bool autoSend = false}) {
+    _speech?.stop();
+    if (!mounted) return;
+    setState(() {
+      _isListening = false;
+      _interimText = '';
+    });
+    if (autoSend && _inputCtrl.text.trim().isNotEmpty) {
+      _send();
+    }
+  }
+
+  /// 移动端录音：使用旧的 MediaRecorder + 后端 ASR
+  Future<void> _startMobileRecording() async {
+    final chat = context.read<ChatProvider>();
+    setState(() => _isListening = true);
+    await chat.startRecording();
+  }
+
+  /// 移动端语音录制结果：先检查导航指令，否则作为聊天消息发送
   Future<void> _handleVoiceResult() async {
     final chat = context.read<ChatProvider>();
     if (!chat.isRecording) return;
 
     chat.stopRecording();
+    setState(() => _isListening = false);
 
     final audioData = await chat.voice.stopRecording();
     if (audioData == null) return;
@@ -703,8 +798,7 @@ $printScript
   }
 
   Widget _buildInputBar(ThemeData theme, bool sending) {
-    final chat = context.read<ChatProvider>();
-    final isRecording = chat.isRecording;
+    final isListening = _isListening;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
@@ -717,23 +811,59 @@ $printScript
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 录音状态提示
-            if (isRecording)
+            // 录音状态条 + 实时识别文字 + 一键退出
+            if (isListening)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _PulseIcon(icon: Icons.mic, color: theme.colorScheme.error),
-                    const SizedBox(width: 8),
-                    Text(
-                      '正在聆听...',
-                      style: TextStyle(
-                        color: theme.colorScheme.error,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    _PulseIcon(icon: Icons.graphic_eq, color: theme.colorScheme.error),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '正在聆听... 再次点击麦克风停止',
+                            style: TextStyle(
+                              color: theme.colorScheme.error,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (_interimText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                _interimText,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onErrorContainer,
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
+                    // 一键退出按钮
+                    IconButton(
+                      onPressed: () => _stopVoiceInput(autoSend: false),
+                      icon: Icon(Icons.close, color: theme.colorScheme.error),
+                      tooltip: '退出录音',
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
@@ -741,27 +871,29 @@ $printScript
             // 输入栏
             Row(
               children: [
-                // 麦克风按钮（按住录音）
-                GestureDetector(
-                  onLongPressStart: (_) => chat.startRecording(),
-                  onLongPressEnd: (_) => _handleVoiceResult(),
-                  onLongPressCancel: () => _handleVoiceResult(),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: BoxDecoration(
-                      color: isRecording
-                          ? theme.colorScheme.errorContainer
-                          : theme.colorScheme.surfaceContainerHighest,
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.mic,
-                      size: 22,
-                      color: isRecording
-                          ? theme.colorScheme.onErrorContainer
-                          : theme.colorScheme.onSurfaceVariant,
+                // 麦克风按钮（点击切换）
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _toggleVoiceInput,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: isListening
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(
+                        isListening ? Icons.stop : Icons.mic,
+                        size: 22,
+                        color: isListening
+                            ? Colors.white
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -771,8 +903,9 @@ $printScript
                     controller: _inputCtrl,
                     maxLines: 4,
                     minLines: 1,
+                    enabled: !isListening,
                     decoration: InputDecoration(
-                      hintText: isRecording ? '松开发送语音...' : '输入你的问题...',
+                      hintText: isListening ? '语音识别中...' : '输入你的问题...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -786,12 +919,12 @@ $printScript
                   ),
                 ),
                 const SizedBox(width: 8),
-                // 发送按钮（录音中隐藏）
-                if (!isRecording)
-                  IconButton.filled(
-                    onPressed: sending ? null : _send,
-                    icon: const Icon(Icons.send),
-                  ),
+                // 发送按钮
+                IconButton.filled(
+                  onPressed: sending ? null : (isListening ? () => _stopVoiceInput(autoSend: true) : _send),
+                  icon: const Icon(Icons.send),
+                  tooltip: isListening ? '停止并发送' : '发送',
+                ),
               ],
             ),
           ],

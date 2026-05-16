@@ -74,19 +74,19 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
                   children: [
                     _buildPanel(
                       keyCtrl: _dsKeyCtrl, keyHint: 'DeepSeek API Key',
-                      modelCtrl: _dsModelCtrl, modelHint: '模型名称（如 deepseek-chat）',
+                      modelCtrl: _dsModelCtrl, modelHint: '模型名称（如 deepseek-v4-pro）',
                       temp: _dsTemp, onTempChanged: (v) => _dsTemp = v,
                       maxTokens: _dsMaxTokens, onTokensChanged: (v) => _dsMaxTokens = v,
                     ),
                     _buildPanel(
                       keyCtrl: _zpKeyCtrl, keyHint: '智谱 API Key',
-                      modelCtrl: _zpModelCtrl, modelHint: '模型名称（如 glm-4-flash）',
+                      modelCtrl: _zpModelCtrl, modelHint: '模型名称（如 glm-4）',
                       temp: _zpTemp, onTempChanged: (v) => _zpTemp = v,
                       maxTokens: _zpMaxTokens, onTokensChanged: (v) => _zpMaxTokens = v,
                     ),
                     _buildPanel(
                       keyCtrl: _xfKeyCtrl, keyHint: '讯飞 API Key',
-                      modelCtrl: _xfModelCtrl, modelHint: '模型名称（如 spark-v3.5）',
+                      modelCtrl: _xfModelCtrl, modelHint: '模型名称（如 spark-v4.0）',
                       temp: _xfTemp, onTempChanged: (v) => _xfTemp = v,
                       maxTokens: _xfMaxTokens, onTokensChanged: (v) => _xfMaxTokens = v,
                       extraFields: [

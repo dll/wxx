@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 本地存储工具，封装 SharedPreferences
-/// 用于持久化 JWT Token、用户信息等
+/// 用于持久化 JWT Token、用户信息、能力清单等
 class Storage {
   static const String _keyToken = 'jwt_token';
   static const String _keyUsername = 'username';
@@ -9,6 +9,7 @@ class Storage {
   static const String _keyDisplayName = 'display_name';
   static const String _keyConsented = 'consented';
   static const String _keyThemeMode = 'theme_mode';
+  static const String _keyCapabilities = 'capabilities';
 
   static late SharedPreferences _prefs;
 
@@ -42,12 +43,21 @@ class Storage {
   static bool get consented => _prefs.getBool(_keyConsented) ?? false;
   static Future<void> setConsented(bool v) => _prefs.setBool(_keyConsented, v);
 
+  // ── 能力清单（来自后端 /user/capabilities）──
+  /// 当前用户拥有的能力 ID 列表，含继承
+  static List<String> get capabilities =>
+      _prefs.getStringList(_keyCapabilities) ?? const [];
+
+  static Future<void> setCapabilities(List<String> caps) =>
+      _prefs.setStringList(_keyCapabilities, caps);
+
   /// 清除所有登录信息
   static Future<void> clearAll() async {
     await _prefs.remove(_keyToken);
     await _prefs.remove(_keyUsername);
     await _prefs.remove(_keyRole);
     await _prefs.remove(_keyDisplayName);
+    await _prefs.remove(_keyCapabilities);
   }
 
   // ── 主题模式 ──
