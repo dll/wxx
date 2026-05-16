@@ -1,10 +1,8 @@
-import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/feedback_provider.dart';
+import '../utils/web_screenshot.dart';
 
 /// 反馈提交对话框 — 自动截屏 + 分类选择 + 内容描述
 Future<void> showFeedbackDialog(BuildContext context) {
@@ -43,62 +41,19 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     super.dispose();
   }
 
-  /// 捕获 Flutter 渲染的 Canvas 元素截图
+  /// 调用平台截屏入口（Web 抓 canvas，非 Web 走 stub）
   Future<void> _captureScreenshot() async {
-    try {
-      // Flutter Web 将所有内容渲染到 <canvas> 元素
-      final canvases = html.document.querySelectorAll('canvas');
-      if (canvases.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _capturing = false;
-          _screenshotError = '当前页面未找到画布';
-        });
-        return;
-      }
-
-      // 找最后一个 CanvasElement（CanvasKit 可能有多个，HTML 渲染器可能没有）
-      html.CanvasElement? canvas;
-      for (var i = canvases.length - 1; i >= 0; i--) {
-        final el = canvases[i];
-        if (el is html.CanvasElement) {
-          canvas = el;
-          break;
-        }
-      }
-      if (canvas == null) {
-        if (!mounted) return;
-        setState(() {
-          _capturing = false;
-          _screenshotError = '当前渲染器不支持截屏（HTML 渲染器）';
-        });
-        return;
-      }
-
-      final dataUrl = canvas.toDataUrl('image/png', 0.85);
-
-      if (!mounted) return;
-      // 解析 data URL 提取 base64 和 bytes
-      if (dataUrl.startsWith('data:image/png;base64,')) {
-        final base64 = dataUrl.replaceFirst('data:image/png;base64,', '');
-        setState(() {
-          _screenshotBase64 = base64;
-          _screenshotBytes = base64Decode(base64);
-          _capturing = false;
-        });
+    final result = await captureCurrentPage();
+    if (!mounted) return;
+    setState(() {
+      _capturing = false;
+      if (result.success) {
+        _screenshotBase64 = result.base64;
+        _screenshotBytes = result.bytes;
       } else {
-        setState(() {
-          _capturing = false;
-          _screenshotError = '截屏数据格式异常';
-        });
+        _screenshotError = result.error ?? '截屏不可用';
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _capturing = false;
-        _screenshotError = '截屏失败：$e';
-      });
-    }
+    });
   }
 
   Future<void> _submit() async {
