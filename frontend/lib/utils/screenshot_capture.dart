@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 /// 全局 GlobalKey — 挂在 MainShell 顶层 RepaintBoundary 上
@@ -18,10 +19,13 @@ class ScreenshotResult {
   bool get success => bytes != null && bytes!.isNotEmpty;
 }
 
-/// 抓取主页面当前帧
+/// 抓取主页面当前帧（跨 Web/Android/iOS 通用）
 ///
-/// 基于 RepaintBoundary.toImage，跨 Web/Android/iOS 通用，无需 dart:html。
-/// [pixelRatio] 截图分辨率倍率，默认 2.0；超出此值会显著增大文件体积
+/// 关键防御：
+/// 1. 等 endOfFrame 让 RepaintBoundary 完成渲染，避免 Web 上 LateInitializationError
+/// 2. 优先 toImageSync（Flutter 3.7+），同步路径在 Web 上更稳定
+/// 3. 失败时兜底走 await toImage
+/// 4. 用完立即 dispose 释放显存
 Future<ScreenshotResult> captureScreenshot({double pixelRatio = 2.0}) async {
   try {
     final ctx = screenshotKey.currentContext;
@@ -32,20 +36,38 @@ Future<ScreenshotResult> captureScreenshot({double pixelRatio = 2.0}) async {
     if (boundary == null) {
       return const ScreenshotResult(error: '未找到 RepaintBoundary');
     }
-    // Web 平台首次渲染需等下一帧
+
+    // 等当前帧渲染完成（关键：解决 Web 上 LateInitializationError）
+    await SchedulerBinding.instance.endOfFrame;
     if (boundary.debugNeedsPaint) {
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
-    final image = await boundary.toImage(pixelRatio: pixelRatio);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) {
-      return const ScreenshotResult(error: '截图编码失败');
+
+    ui.Image? image;
+    try {
+      // Flutter 3.7+ 同步快照，Web 上比 toImage 稳定
+      image = boundary.toImageSync(pixelRatio: pixelRatio);
+    } catch (e1) {
+      if (kDebugMode) debugPrint('toImageSync 失败，回退 toImage: $e1');
+      try {
+        image = await boundary.toImage(pixelRatio: pixelRatio);
+      } catch (e2) {
+        if (kDebugMode) debugPrint('toImage 失败: $e2');
+        return ScreenshotResult(error: '截图引擎异常：$e2');
+      }
     }
-    return ScreenshotResult(bytes: byteData.buffer.asUint8List());
+
+    try {
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        return const ScreenshotResult(error: '截图编码失败');
+      }
+      return ScreenshotResult(bytes: byteData.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
   } catch (e) {
-    if (kDebugMode) {
-      debugPrint('captureScreenshot 失败: $e');
-    }
+    if (kDebugMode) debugPrint('captureScreenshot 失败: $e');
     return ScreenshotResult(error: '截图失败：$e');
   }
 }
