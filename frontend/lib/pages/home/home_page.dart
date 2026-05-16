@@ -10,6 +10,7 @@ import '../../utils/date_utils.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
 import '../../widgets/consent_dialog.dart';
+import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 
@@ -80,6 +81,9 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.all(16),
           children: [
             _buildWelcomeBanner(theme),
+            const SizedBox(height: 12),
+            // 日期时间 + 校历入口
+            const DateTimeBanner(),
             const SizedBox(height: 20),
             // 辅导员及以上：告警概览
             if (_canAccessAlerts(role)) ...[

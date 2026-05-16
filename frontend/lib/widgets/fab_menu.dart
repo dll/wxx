@@ -110,7 +110,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
               // 子菜单（倒序遍历，从下往上排列）
               for (int i = _items.length - 1; i >= 0; i--)
                 _buildSubItem(_items[i], i, theme),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               // 主按钮
               _buildMainFab(theme),
             ],
@@ -120,7 +120,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     );
   }
 
-  /// 子菜单项：磨砂玻璃标签 + 圆形图标按钮
+  /// 子菜单项：磨砂玻璃标签 + 圆形图标按钮（紧凑型）
   Widget _buildSubItem(_FabItem item, int index, ThemeData theme) {
     return SlideTransition(
       position: Tween<Offset>(
@@ -130,7 +130,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       child: FadeTransition(
         opacity: _fadeAnims[index],
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 8),
           child: GestureDetector(
             onTap: () {
               _close();
@@ -139,10 +139,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 磨砂玻璃标签
                 _FrostedLabel(text: item.label, theme: theme),
-                const SizedBox(width: 12),
-                // 圆形图标
+                const SizedBox(width: 6),
                 _IconCircle(icon: item.icon, color: item.color),
               ],
             ),
@@ -171,8 +169,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
           _dy = (_dy - d.delta.dy).clamp(8.0, 350.0);
         }),
         child: Container(
-          width: 56,
-          height: 56,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -185,8 +183,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             boxShadow: [
               BoxShadow(
                 color: activeColor.withValues(alpha: 0.45),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
                 spreadRadius: 1,
               ),
             ],
@@ -197,7 +195,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
               _isOpen ? Icons.close : Icons.add,
               key: ValueKey(_isOpen),
               color: Colors.white,
-              size: 28,
+              size: 24,
             ),
           ),
         ),
@@ -226,7 +224,7 @@ class _FabItem {
   const _FabItem({required this.icon, required this.label, required this.color});
 }
 
-/// 磨砂玻璃标签
+/// 磨砂玻璃标签（紧凑型）
 class _FrostedLabel extends StatelessWidget {
   final String text;
   final ThemeData theme;
@@ -235,30 +233,30 @@ class _FrostedLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(6),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Text(
             text,
-            style: theme.textTheme.labelLarge?.copyWith(
+            style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+              fontSize: 12,
             ),
           ),
         ),
@@ -267,7 +265,7 @@ class _FrostedLabel extends StatelessWidget {
   }
 }
 
-/// 彩色圆形图标按钮
+/// 彩色圆形图标按钮（紧凑型）
 class _IconCircle extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -276,21 +274,21 @@ class _IconCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 44,
-      height: 44,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.4),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
             spreadRadius: 1,
           ),
         ],
       ),
-      child: Icon(icon, color: Colors.white, size: 22),
+      child: Icon(icon, color: Colors.white, size: 18),
     );
   }
 }
