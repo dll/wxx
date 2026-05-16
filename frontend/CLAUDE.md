@@ -17,8 +17,12 @@ flutter run -d chrome
 # 构建 Web（中文路径需用临时目录绕过 impellerc bug）
 flutter build web --release
 
-# 构建 APK
-flutter build apk --release
+# 构建 APK（产物自动重命名为 蔚小芯.apk，详见 docs/deployment.md）
+make flutter-build-apk        # ASCII 路径
+make flutter-build-apk-safe   # 路径含中文时使用
+
+# 部署 Web 到 Vercel（wxx-frontend 项目，域名 wxx.pydaydayup.xyz）
+make deploy-web
 
 # 测试
 flutter test
@@ -28,6 +32,14 @@ flutter test test/path_to_test.dart
 ```
 
 **已知问题**：Flutter `impellerc` 对中文路径有 bug，Web 构建时需使用不含中文的输出路径（junction/symlink 绕过）。
+
+## 应用命名规范（强制）
+
+- 用户可见名称统一为「蔚小芯」：`AndroidManifest.xml` 的 `android:label`、`web/index.html` 的 `<title>` 和 `apple-mobile-web-app-title`、`web/manifest.json` 的 `name` / `short_name`
+- 技术 ID 仍用 `wxx_app` / `com.wxx.wxx_app`
+- APK 分发文件名固定为 `蔚小芯.apk`（Makefile 自动从 `apk/release/蔚小芯-release.apk` 复制到 `flutter-apk/蔚小芯.apk`）
+- Vercel 前端项目 `wxx-frontend`，绝不可在仓库根目录运行 `vercel deploy`，否则会把静态文件传到后端项目（详见 `docs/deployment.md`）
+
 
 ## 架构概览
 
@@ -104,4 +116,10 @@ class XxxProvider extends ChangeNotifier {
 
 ## 部署
 
-Flutter Web 构建产物部署到 Vercel（域名 `wxx.pydaydayup.xyz`）。使用 prebuilt 模式：构建后将 `build/web/` 内容放入 `.vercel/output/static/`，配合 `config.json`（`{"version": 3}`）执行 `vercel deploy --prebuilt`。
+Flutter Web 构建产物部署到 Vercel **`wxx-frontend`** 项目（域名 `wxx.pydaydayup.xyz`）。
+
+```bash
+make deploy-web   # 自动构建 + 同步 prebuilt + vercel deploy --prod
+```
+
+**绝对禁止**在仓库根目录运行 `vercel deploy`：根 `.vercel/repo.json` 指向 `wxx-server`，前端产物会污染后端 API。误部署回滚步骤详见 `docs/deployment.md`。

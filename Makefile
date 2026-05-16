@@ -68,8 +68,11 @@ flutter-build-web-output:
 #    若已设置: export FLUTTER_STORAGE_BASE_URL="https://storage.googleapis.com"
 # 2. 项目路径不含中文/非 ASCII 字符（impellerc 限制）
 #    否则请用 make flutter-build-apk-safe
+# 输出后会自动复制为「蔚小芯.apk」（命名规则见 docs/deployment.md）
 flutter-build-apk:
 	cd $(FLUTTER_DIR) && FLUTTER_STORAGE_BASE_URL="$${FLUTTER_STORAGE_BASE_URL:-https://storage.googleapis.com}" flutter build apk --release
+	cp "$(FLUTTER_DIR)/build/app/outputs/apk/release/蔚小芯-release.apk" "$(FLUTTER_DIR)/build/app/outputs/flutter-apk/蔚小芯.apk"
+	@echo "=== APK 输出: $(FLUTTER_DIR)/build/app/outputs/flutter-apk/蔚小芯.apk ==="
 
 # ASCII 安全路径构建 APK — 复制到临时 ASCII 目录，覆盖镜像变量
 APK_BUILD_TMP := E:/wxx_apk_build
@@ -85,12 +88,28 @@ flutter-build-apk-safe:
 	@echo "=== 步骤 5/5: 拷贝构建产物回原目录 ==="
 	cp $(APK_BUILD_TMP)/build/app/outputs/flutter-apk/app-debug.apk $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
 	cp $(APK_BUILD_TMP)/build/app/outputs/flutter-apk/app-release.apk $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
+	cp "$(APK_BUILD_TMP)/build/app/outputs/apk/release/蔚小芯-release.apk" "$(FLUTTER_DIR)/build/app/outputs/flutter-apk/蔚小芯.apk"
 	rm -rf $(APK_BUILD_TMP)
 	@echo "=== APK 构建完成 ==="
 	ls -lh $(FLUTTER_DIR)/build/app/outputs/flutter-apk/
 
 flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
+
+# ---- Vercel 前端部署 ----
+.PHONY: deploy-web deploy-web-prebuilt
+
+# 标准部署：把 build/web 同步到 frontend/.vercel/output/static 后通过 prebuilt 推送到 wxx-frontend 项目
+# 域名: https://wxx.pydaydayup.xyz （详见 docs/deployment.md）
+deploy-web: flutter-build-web
+	cp -rf $(FLUTTER_DIR)/build/web/* $(FLUTTER_DIR)/.vercel/output/static/
+	cd $(FLUTTER_DIR) && npx --yes vercel deploy --prebuilt --prod
+	@echo "=== 已部署到 https://wxx.pydaydayup.xyz ==="
+
+# 仅推送已存在的 prebuilt 产物（不重新编译）
+deploy-web-prebuilt:
+	cd $(FLUTTER_DIR) && npx --yes vercel deploy --prebuilt --prod
+	@echo "=== 已部署到 https://wxx.pydaydayup.xyz ==="
 
 # ---- 全部 ----
 .PHONY: all test-all hooks all-safe all-apk-safe

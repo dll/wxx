@@ -25,6 +25,8 @@
 - **政策/条件类回答** 必须附带 `sources[]`；低置信走兜底，禁止编造条款与关键数字
 - **多智能体管理中心自研**；编排运行时 = Eino（开源）+ 自研封装
 - **Flutter UI 规范**：Material Design 3 基线，响应式布局 + 暗黑模式 + 磨砂质感 + 动画微交互，详见 `docs/蔚小芯开发规范.md` §13
+- **应用命名规范**：用户可见名称一律为「蔚小芯」（Android `android:label` / Web `<title>` / `manifest.json` 的 `name`/`short_name` / 后端 `/health` 的 `service` 字段）；APK 分发文件名固定为 `蔚小芯.apk`；技术 ID（`wxx_app` / `com.wxx.wxx_app` / 仓库 `wxx`）保持英文。详见 `docs/deployment.md`「应用命名规范」
+- **Vercel 部署**：前端项目 `wxx-frontend`（域名 `wxx.pydaydayup.xyz`），后端项目 `wxx-server`（域名 `api.pydaydayup.xyz`）。**绝不可在仓库根目录运行 `vercel deploy`**——根 `.vercel/repo.json` 指向 `wxx-server`，前端产物会污染后端 API。统一使用 `make deploy-web` 一键部署
 
 ## Harness 协作纪律
 
@@ -108,8 +110,9 @@ make lint                    # go vet 静态检查
 make flutter-get             # 安装依赖
 make flutter-run             # 开发运行
 make flutter-build-web       # 构建 Web
-make flutter-build-apk       # 构建 APK
+make flutter-build-apk       # 构建 APK（自动产出 蔚小芯.apk）
 make flutter-test            # 前端测试
+make deploy-web              # 构建 Web 并部署到 Vercel wxx-frontend
 
 # 全栈
 make all                     # 后端编译 + 前端 Web 构建

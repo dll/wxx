@@ -1,6 +1,117 @@
 # 部署指南 — 蔚小芯
 
 > 蔚小芯采用轻量单机部署，不依赖 Docker/容器/集群。
+> 后端走 systemd / 自托管二进制；前端 Web 部署到 Vercel；移动端打 APK。
+
+## 应用命名规范（强制）
+
+> 所有面向用户的入口名称统一为「蔚小芯」，包括：
+
+| 平面 | 字段 | 值 |
+|------|------|-----|
+| Android | `android:label` (`AndroidManifest.xml`) | 蔚小芯 |
+| Android | APK 输出（Gradle `outputFileName`） | `蔚小芯-release.apk` / `蔚小芯-debug.apk` |
+| Android | 最终分发文件（`build/app/outputs/flutter-apk/`） | `蔚小芯.apk` |
+| Web | `<title>` (`web/index.html`) | 蔚小芯 |
+| Web | `meta description` | 蔚小芯 — 滁州学院信息学院智慧学工 AI 助手 |
+| Web | `apple-mobile-web-app-title` | 蔚小芯 |
+| Web | `manifest.json` `name` / `short_name` | 蔚小芯 |
+| Web | `manifest.json` `description` | 蔚小芯 — 滁州学院信息学院智慧学工 AI 助手 |
+| 后端 | `/health` 返回 `service` 字段 | 蔚小芯 |
+
+技术 ID（不暴露给用户）保留英文：
+- Flutter 包名：`wxx_app`（`pubspec.yaml`）
+- Android applicationId：`com.wxx.wxx_app`
+- 仓库名：`wxx`
+- 后端二进制：`wxx-server`
+
+## 构建与产物规范（强制）
+
+### Flutter Web
+
+```bash
+cd frontend && flutter build web --release
+```
+
+产物：`frontend/build/web/`。验证标题是否为「蔚小芯」：
+
+```bash
+grep -c "蔚小芯" frontend/build/web/index.html  # 期望 ≥ 3
+grep -c "蔚小芯" frontend/build/web/manifest.json  # 期望 ≥ 3
+```
+
+### Android APK
+
+```bash
+make flutter-build-apk        # 路径含 ASCII，零中文
+make flutter-build-apk-safe   # 路径含中文（推荐，复制到 ASCII 临时目录）
+```
+
+执行后产物：
+
+| 路径 | 用途 |
+|------|------|
+| `frontend/build/app/outputs/apk/release/蔚小芯-release.apk` | Gradle 直出（中文名由 `app/build.gradle.kts` 的 `outputFileName` 控制） |
+| `frontend/build/app/outputs/flutter-apk/app-release.apk` | Flutter SDK 内部固定名（保留备份） |
+| `frontend/build/app/outputs/flutter-apk/蔚小芯.apk` | **对外分发文件**，由 Makefile 自动复制 |
+
+> Gradle 改名后 Flutter SDK 仍会生成 `app-release.apk`（来自其内部硬编码逻辑）。Makefile 在构建结束后会自动把中文 APK 复制到 `flutter-apk/蔚小芯.apk`，分发请使用此文件。
+
+## Vercel 前端部署（强制流程）
+
+> 前端 Vercel 项目：`wxx-frontend`（绑定域名 `https://wxx.pydaydayup.xyz`）
+> 后端 Vercel 项目：`wxx-server`（绑定域名 `https://api.pydaydayup.xyz`，`api/index.go` 入口）
+
+**两个项目必须各自独立部署，绝不可在仓库根执行 `vercel deploy build/web`** —— 仓库根 `.vercel/repo.json` 指向 `wxx-server`，会把前端产物错传到后端项目，导致 API 服务中断。
+
+### 标准部署命令（推荐）
+
+```bash
+make deploy-web
+```
+
+该 target 会：
+1. 重新构建 `frontend/build/web/`
+2. 同步到 `frontend/.vercel/output/static/`
+3. 通过 `vercel deploy --prebuilt --prod --cwd frontend` 部署到 `wxx-frontend` 项目
+
+### 仅推送已构建产物
+
+```bash
+make deploy-web-prebuilt
+```
+
+### 手动部署（与 Makefile 等价）
+
+```bash
+cd frontend
+flutter build web --release
+cp -rf build/web/* .vercel/output/static/
+npx --yes vercel deploy --prebuilt --prod
+```
+
+### 部署后验证
+
+```bash
+curl -s https://wxx.pydaydayup.xyz/ | grep -o "蔚小芯"   # 必须有输出
+curl -s https://api.pydaydayup.xyz/health                # 必须 200，service=蔚小芯
+```
+
+### 误部署回滚
+
+如果不小心把前端产物推到了 `wxx-server`：
+
+```bash
+# 1. 列出 wxx-server 历史
+npx vercel ls wxx-server
+
+# 2. 找一个最近 ● Ready 的稳定部署 url（30s 左右构建时长的就是 Go 后端正常部署）
+# 3. 把生产域名 alias 切回去
+npx vercel alias set <stable-deployment-url> api.pydaydayup.xyz
+
+# 4. 验证
+curl -s https://api.pydaydayup.xyz/health
+```
 
 ## 环境要求
 

@@ -1,11 +1,11 @@
 {
-    "name": "wxx_app",
-    "short_name": "wxx_app",
+    "name": "蔚小芯",
+    "short_name": "蔚小芯",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "蔚小芯 — 滁州学院信息学院智慧学工 AI 助手",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
