@@ -20,6 +20,7 @@ func NewQAAgent() *QAAgent {
 	return &QAAgent{searchTopK: 5}
 }
 
+func (a *QAAgent) Key() string  { return "qa-default" }
 func (a *QAAgent) Name() string { return "通用问答" }
 
 func (a *QAAgent) Execute(ctx context.Context, question string, userCtx *model.UserContext, kbRepo *repository.KBRepo) (*AgentResult, error) {
@@ -45,7 +46,8 @@ func (a *QAAgent) Execute(ctx context.Context, question string, userCtx *model.U
 	for i, r := range results {
 		parts = append(parts, fmt.Sprintf("资料%d：%s\n%s", i+1, r.Resource.Title, truncate(r.Resource.Content, 800)))
 	}
-	content := fmt.Sprintf("基于以下资料回答用户问题「%s」：\n\n%s", question, strings.Join(parts, "\n\n"))
+	roleHint := rolePerspective(userCtx)
+	content := fmt.Sprintf("基于以下资料回答用户问题「%s」。\n\n%s\n\n%s", question, roleHint, strings.Join(parts, "\n\n"))
 
 	// 构造 sources
 	sources := kbResultsToSources(results)

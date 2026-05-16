@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS user_model_configs (
     user_id         INTEGER NOT NULL UNIQUE REFERENCES users(id),
     -- DeepSeek 配置
     deepseek_key    TEXT    NOT NULL DEFAULT '',
-    deepseek_model  TEXT    NOT NULL DEFAULT 'deepseek-chat',
+    deepseek_model  TEXT    NOT NULL DEFAULT 'deepseek-v4-pro',
     deepseek_temp   REAL    NOT NULL DEFAULT 0.7,
     deepseek_max_tokens INTEGER NOT NULL DEFAULT 2048,
     -- 智谱清言配置
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS user_model_configs (
     xunfei_app_id   TEXT    NOT NULL DEFAULT '',
     xunfei_key      TEXT    NOT NULL DEFAULT '',
     xunfei_secret   TEXT    NOT NULL DEFAULT '',
-    xunfei_model    TEXT    NOT NULL DEFAULT 'spark-v3.5',
+    xunfei_model    TEXT    NOT NULL DEFAULT 'spark-v4.0',
     xunfei_temp     REAL    NOT NULL DEFAULT 0.7,
     xunfei_max_tokens INTEGER NOT NULL DEFAULT 2048,
     -- 默认模型选择

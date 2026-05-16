@@ -18,6 +18,9 @@ type AuthService struct {
 	userRepo *repository.UserRepo
 }
 
+// ErrUserNotFound 用户不存在 sentinel error，调用方可用 errors.Is 识别后单独处理
+var ErrUserNotFound = errors.New("用户不存在")
+
 // NewAuthService 创建认证服务
 func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo) *AuthService {
 	return &AuthService{
@@ -173,13 +176,14 @@ func (s *AuthService) ResetPassword(adminID int64, targetUserID int64, newPasswo
 }
 
 // GetVoiceConfig 获取用户语音开关配置
+// 用户不存在时返回 ErrUserNotFound（sentinel），由 handler 决定如何降级
 func (s *AuthService) GetVoiceConfig(userID int64) (int, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return 0, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if user == nil {
-		return 0, fmt.Errorf("用户不存在")
+		return 0, ErrUserNotFound
 	}
 	return user.VoiceEnabled, nil
 }

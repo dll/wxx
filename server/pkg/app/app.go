@@ -13,6 +13,7 @@ import (
 
 	"github.com/dll/wxx/server"
 	"github.com/dll/wxx/server/internal/agent"
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/handler"
 	"github.com/dll/wxx/server/internal/llm"
@@ -124,7 +125,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	var chatSvc *service.ChatService
 	if llmClient != nil {
 		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
-		chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo))
+		chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo, llmClient))
 	}
 
 	var emotionSvc *service.EmotionService
@@ -134,6 +135,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	agentSvc := service.NewAgentService(agentRepo)
+	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, llmClient)
+	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo)
@@ -171,8 +174,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
-	studentHandler := handler.NewStudentHandler()
-	counselorHandler := handler.NewCounselorHandler()
+	studentHandler := handler.NewStudentHandler(studentSvc)
+	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 	teacherHandler := handler.NewTeacherHandler()
 	assistantHandler := handler.NewAssistantHandler()
 	unionHandler := handler.NewUnionHandler()
@@ -376,94 +379,100 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	v1 := router.Group("/api/v1")
 	{
 		// 认证（公开）
-		auth := v1.Group("/auth")
+		authGroup := v1.Group("/auth")
 		{
-			auth.POST("/login", authH.Login)
+			authGroup.POST("/login", authH.Login)
+			authGroup.POST("/qr-login", handler.CreateQRSession)
+			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
+			authGroup.PUT("/qr-scan", handler.ScanQRSession)
 		}
 
 		// 需要 JWT 认证
 		secured := v1.Group("/")
 		secured.Use(middleware.JWTAuth(cfg))
 		{
+			// ── AI 对话（self.chat）──
 			if chatH != nil {
-				secured.POST("/chat", chatH.Ask)
+				secured.POST("/chat", auth.RequireCapability(auth.SelfChat), chatH.Ask)
 			} else {
 				secured.POST("/chat", placeholderHandler("对话接口（LLM 未配置）"))
 			}
 
-			secured.GET("/sessions", sessionH.ListSessions)
-			secured.GET("/sessions/:id/messages", sessionH.GetMessages)
-			secured.DELETE("/sessions/:id", sessionH.DeleteSession)
-			secured.GET("/knowledge", kbH.BrowseKnowledge)
-			secured.GET("/recommendations", recH.GetRecommendations)
+			// ── 会话/知识/推荐（self.* 能力）──
+			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
+			secured.GET("/sessions/:id/messages", auth.RequireCapability(auth.SelfSessionRead), sessionH.GetMessages)
+			secured.DELETE("/sessions/:id", auth.RequireCapability(auth.SelfSessionDelete), sessionH.DeleteSession)
+			secured.GET("/knowledge", auth.RequireCapability(auth.SelfKnowledgeRead), kbH.BrowseKnowledge)
+			secured.GET("/recommendations", auth.RequireCapability(auth.SelfRecommendRead), recH.GetRecommendations)
 
+			// ── 情感数据 ──
 			if emotionH != nil {
-				secured.GET("/emotion/stats", emotionH.GetStats)
+				// 自身情感统计：所有用户都可看自己（self.emotion.stats 由 student 起继承）
+				secured.GET("/emotion/stats", auth.RequireCapability(auth.SelfEmotionStats), emotionH.GetStats)
 			}
 
 			if emotionH != nil {
 				emotion := secured.Group("/emotion")
-				emotion.Use(middleware.RequireRole("counselor"))
 				{
-					emotion.POST("/analyze", emotionH.Analyze)
-					emotion.GET("/alerts", emotionH.ListAlerts)
-					emotion.PUT("/alerts/:id", emotionH.UpdateAlert)
-					emotion.GET("/trends", emotionH.Trends)
+					emotion.POST("/analyze", auth.RequireCapability(auth.CounselorAlertAnalyze), emotionH.Analyze)
+					emotion.GET("/alerts", auth.RequireCapability(auth.CounselorAlertRead), emotionH.ListAlerts)
+					emotion.PUT("/alerts/:id", auth.RequireCapability(auth.CounselorAlertHandle), emotionH.UpdateAlert)
+					emotion.GET("/trends", auth.RequireCapability(auth.CounselorEmotionTrends), emotionH.Trends)
 				}
 			}
 
+			// ── 知识库 CRUD（counselor.kb.write）──
 			kb := secured.Group("/kb")
-			kb.Use(middleware.RequireRole("counselor"))
 			{
-				kb.GET("/resources", kbH.ListResources)
-				kb.POST("/resources", kbH.CreateResource)
-				kb.PUT("/resources/:id", kbH.UpdateResource)
-				kb.GET("/resources/:id", kbH.GetResource)
-				kb.POST("/import", kbH.Import)
-				kb.POST("/validate", kbH.Validate)
+				kb.GET("/resources", auth.RequireCapability(auth.CounselorKBWrite), kbH.ListResources)
+				kb.POST("/resources", auth.RequireCapability(auth.CounselorKBWrite), kbH.CreateResource)
+				kb.PUT("/resources/:id", auth.RequireCapability(auth.CounselorKBWrite), kbH.UpdateResource)
+				kb.GET("/resources/:id", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetResource)
+				kb.POST("/import", auth.RequireCapability(auth.CounselorKBWrite), kbH.Import)
+				kb.POST("/validate", auth.RequireCapability(auth.CounselorKBWrite), kbH.Validate)
 
-				kb.POST("/resources/:id/approve", kbH.ApproveResource)
-				kb.POST("/resources/:id/reject", kbH.RejectResource)
-				kb.POST("/resources/:id/retire", kbH.RetireResource)
+				// 知识审核（counselor.kb.review）
+				kb.POST("/resources/:id/approve", auth.RequireCapability(auth.CounselorKBReview), kbH.ApproveResource)
+				kb.POST("/resources/:id/reject", auth.RequireCapability(auth.CounselorKBReview), kbH.RejectResource)
+				kb.POST("/resources/:id/retire", auth.RequireCapability(auth.CounselorKBReview), kbH.RetireResource)
+
+				// 知识提交（union.kb.submit，student_union 起）
+				kb.POST("/resources/:id/submit", auth.RequireCapability(auth.UnionKBSubmit), kbH.SubmitForReview)
 			}
 
-			// KB 提交审核（student_union 及以上）
-			kbSubmit := secured.Group("/kb")
-			kbSubmit.Use(middleware.RequireRole("student_union"))
-			{
-				kbSubmit.POST("/resources/:id/submit", kbH.SubmitForReview)
-			}
+			// ── 知识导出（self.export.self，所有人）──
+			secured.GET("/kb/export", auth.RequireCapability(auth.SelfExportSelf), exportH.Export)
 
-			// 知识导出（所有认证用户可访问）
-			secured.GET("/kb/export", exportH.Export)
-
+			// ── 智能体管理（school.agent.write）──
 			agents := secured.Group("/agents")
-			agents.Use(middleware.RequireRole("school_admin"))
 			{
-				agents.GET("", agentH.List)
-				agents.POST("", agentH.Create)
-				agents.GET("/:id", agentH.Get)
-				agents.PUT("/:id", agentH.Update)
-				agents.DELETE("/:id", agentH.Delete)
+				agents.GET("", auth.RequireCapability(auth.SchoolAgentWrite), agentH.List)
+				agents.POST("", auth.RequireCapability(auth.SchoolAgentWrite), agentH.Create)
+				agents.GET("/:id", auth.RequireCapability(auth.SchoolAgentWrite), agentH.Get)
+				agents.PUT("/:id", auth.RequireCapability(auth.SchoolAgentWrite), agentH.Update)
+				agents.DELETE("/:id", auth.RequireCapability(auth.SchoolAgentWrite), agentH.Delete)
 			}
 
+			// ── 语音 ASR/TTS（self.voice）──
 			if voiceH != nil {
-				secured.POST("/voice/asr", voiceH.ASR)
-				secured.POST("/voice/tts", voiceH.TTS)
+				secured.POST("/voice/asr", auth.RequireCapability(auth.SelfVoice), voiceH.ASR)
+				secured.POST("/voice/tts", auth.RequireCapability(auth.SelfVoice), voiceH.TTS)
 			}
 
-			secured.GET("/export", exportH.Export)
-			secured.POST("/export/answer", exportH.ExportAnswer)
+			// ── 通用导出（self.export.self）──
+			secured.GET("/export", auth.RequireCapability(auth.SelfExportSelf), exportH.Export)
+			secured.POST("/export/answer", auth.RequireCapability(auth.SelfExportSelf), exportH.ExportAnswer)
 
+			// ── 校外系统对接（counselor.integration.read）──
 			integration := secured.Group("/integration")
-			integration.Use(middleware.RequireRole("counselor"))
 			{
-				integration.GET("/status", integrationH.Status)
-				integration.GET("/xuegong/*path", integrationH.ProxyXuegong)
-				integration.GET("/ybt/*path", integrationH.ProxyYBT)
+				integration.GET("/status", auth.RequireCapability(auth.CounselorIntegrationRead), integrationH.Status)
+				integration.GET("/xuegong/*path", auth.RequireCapability(auth.CounselorIntegrationRead), integrationH.ProxyXuegong)
+				integration.GET("/ybt/*path", auth.RequireCapability(auth.CounselorIntegrationRead), integrationH.ProxyYBT)
 			}
 
 			secured.GET("/user/profile", authH.Profile)
+			secured.POST("/auth/qr-confirm", handler.ConfirmQRSession)
 			secured.POST("/user/consent", authH.Consent)
 			secured.PUT("/user/password", authH.ChangePassword)
 
@@ -471,145 +480,140 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/user/voice-config", authH.GetVoiceConfig)
 			secured.PUT("/user/voice-config", authH.UpdateVoiceConfig)
 
+			// 当前用户能力清单（基于角色继承自动展开）
+			secured.GET("/user/capabilities", authH.GetCapabilities)
+
 			// AI 模型配置
 			secured.GET("/user/model-config", modelConfigH.Get)
 			secured.PUT("/user/model-config", modelConfigH.Save)
 
-			// ── 管理端（college_admin 及以上）──
+			// ── 管理端 ──
 			admin := secured.Group("/admin")
-			admin.Use(middleware.RequireRole("college_admin"))
 			{
-				admin.GET("/metrics", adminH.GetMetrics)
-				admin.GET("/users", adminH.ListUsers)
-				admin.GET("/audit", adminH.ListAudit)
+				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), adminH.GetMetrics)
+				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsers)
+				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
 
-				adminUsers := admin.Group("")
-				adminUsers.Use(middleware.RequireRole("school_admin"))
-				{
-					adminUsers.PUT("/users/:id", adminH.UpdateUser)
-				}
-
-				adminPwd := admin.Group("")
-				adminPwd.Use(middleware.RequireRole("sys_admin"))
-				{
-					adminPwd.PUT("/users/:id/password", adminH.ResetUserPassword)
-				}
-
-				adminSettings := admin.Group("")
-				adminSettings.Use(middleware.RequireRole("sys_admin"))
-				{
-					adminSettings.GET("/settings", adminH.GetSettings)
-					adminSettings.PUT("/settings", adminH.UpdateSettings)
-				}
+				admin.PUT("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.UpdateUser)
+				admin.PUT("/users/:id/password", auth.RequireCapability(auth.SystemPasswordReset), adminH.ResetUserPassword)
+				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
+				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)
 			}
 
-			// ── 知识审核（counselor 及以上）──
+			// ── 知识审核 ──
 			review := secured.Group("/review")
-			review.Use(middleware.RequireRole("counselor"))
 			{
-				review.GET("/pending", kbH.ListPendingReviews)
+				review.GET("/pending", auth.RequireCapability(auth.CounselorReviewPending), kbH.ListPendingReviews)
 			}
 
-			// ── 反馈（student 提交，截图上传所有认证用户可访问）──
-			secured.POST("/feedback", feedbackH.Submit)
-			secured.POST("/feedback/screenshot", feedbackH.UploadScreenshot)
+			// ── 反馈 ──
+			secured.POST("/feedback", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Submit)
+			secured.POST("/feedback/screenshot", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.UploadScreenshot)
 
 			feedback := secured.Group("/feedback")
-			feedback.Use(middleware.RequireRole("student_union"))
 			{
-				feedback.GET("", feedbackH.List)
-				feedback.PUT("/:id", feedbackH.Resolve)
+				feedback.GET("", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
+				feedback.PUT("/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
 			}
 
-			// ── 学生 AI 功能（所有认证用户可访问）──
+			// ── 学生 AI 功能（个人能力，所有角色继承自 student 都可用）──
 			student := secured.Group("/student")
 			{
-				student.GET("/daily-briefing", studentH.DailyBriefing)
-				student.GET("/learning-diary", studentH.LearningDiary)
-				student.POST("/checkin", studentH.Checkin)
-				student.GET("/checkin/history", studentH.CheckinHistory)
-				student.GET("/digital-twin", studentH.DigitalTwin)
-				student.GET("/personality", studentH.Personality)
-				student.GET("/achievements", studentH.Achievements)
-				student.GET("/course-map", studentH.CourseMap)
-				student.GET("/course-analytics", studentH.CourseAnalytics)
-				student.GET("/weekly-report", studentH.WeeklyReport)
-				student.GET("/freshman-plan", studentH.GenericAI("freshman-plan"))
-				student.GET("/growth-path", studentH.GenericAI("growth-path"))
-				student.GET("/political-study", studentH.GenericAI("political-study"))
-				student.GET("/ideological-record", studentH.GenericAI("ideological-record"))
-				student.GET("/party-progress", studentH.GenericAI("party-progress"))
-				student.GET("/campus-life", studentH.GenericAI("campus-life"))
-				student.GET("/schedule", studentH.GenericAI("schedule"))
-				student.GET("/competition-match", studentH.GenericAI("competition-match"))
-				student.GET("/study-buddy", studentH.GenericAI("study-buddy"))
-				student.GET("/mental-health", studentH.GenericAI("mental-health"))
-				student.GET("/digital-mentor", studentH.GenericAI("digital-mentor"))
-				student.GET("/qa-plaza", studentH.QAPlaza)
-				student.GET("/hot-topics", studentH.HotTopics)
-				student.GET("/qa-leaderboard", studentH.QALeaderboard)
-				student.GET("/private-chat", studentH.PrivateChat)
-				student.GET("/process-enhanced", studentH.ProcessEnhanced)
+				student.GET("/daily-briefing", auth.RequireCapability(auth.SelfBriefingRead), studentH.DailyBriefing)
+				student.GET("/learning-diary", auth.RequireCapability(auth.SelfDiaryRead), studentH.LearningDiary)
+				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
+				student.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+				student.GET("/digital-twin", auth.RequireCapability(auth.SelfTwinRead), studentH.DigitalTwin)
+				student.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
+				student.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)
+				student.GET("/course-map", auth.RequireCapability(auth.SelfCourseMapRead), studentH.CourseMap)
+				student.GET("/course-analytics", auth.RequireCapability(auth.SelfCourseAnalytics), studentH.CourseAnalytics)
+				student.GET("/weekly-report", auth.RequireCapability(auth.SelfWeeklyReport), studentH.WeeklyReport)
+				student.GET("/freshman-plan", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("freshman-plan"))
+				student.GET("/growth-path", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("growth-path"))
+				student.GET("/political-study", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("political-study"))
+				student.GET("/ideological-record", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("ideological-record"))
+				student.GET("/party-progress", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("party-progress"))
+				student.GET("/campus-life", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("campus-life"))
+				student.GET("/schedule", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("schedule"))
+				student.GET("/competition-match", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("competition-match"))
+				student.GET("/study-buddy", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("study-buddy"))
+				student.GET("/mental-health", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("mental-health"))
+				student.GET("/digital-mentor", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("digital-mentor"))
+				student.GET("/qa-plaza", auth.RequireCapability(auth.SelfCommunityRead), studentH.QAPlaza)
+				student.GET("/hot-topics", auth.RequireCapability(auth.SelfCommunityRead), studentH.HotTopics)
+				student.GET("/qa-leaderboard", auth.RequireCapability(auth.SelfCommunityRead), studentH.QALeaderboard)
+				student.GET("/private-chat", auth.RequireCapability(auth.SelfPrivateChat), studentH.PrivateChat)
+				student.GET("/process-enhanced", auth.RequireCapability(auth.SelfProcessRead), studentH.ProcessEnhanced)
 			}
 
-			// ── 辅导员 AI 功能（counselor 及以上）──
+			// ── 个人通用入口 /me/* —— 与 /student/* 个人能力等价的语义化别名 ──
+			// 适用于"任何角色访问自己的"场景，避免高阶用户访问 /student/ 路径的语义违和
+			me := secured.Group("/me")
+			{
+				me.GET("/daily-briefing", auth.RequireCapability(auth.SelfBriefingRead), studentH.DailyBriefing)
+				me.GET("/learning-diary", auth.RequireCapability(auth.SelfDiaryRead), studentH.LearningDiary)
+				me.GET("/digital-twin", auth.RequireCapability(auth.SelfTwinRead), studentH.DigitalTwin)
+				me.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
+				me.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)
+				me.GET("/weekly-report", auth.RequireCapability(auth.SelfWeeklyReport), studentH.WeeklyReport)
+				me.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
+				me.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+			}
+
+			// ── 辅导员 AI 功能 ──
 			counselor := secured.Group("/counselor")
-			counselor.Use(middleware.RequireRole("counselor"))
 			{
-				counselor.GET("/daily-focus", counselorH.DailyFocus)
-				counselor.GET("/class-report", counselorH.ClassReport)
-				counselor.GET("/twin-board", counselorH.TwinBoard)
-				counselor.GET("/prediction", counselorH.Prediction)
-				counselor.POST("/intervention", counselorH.Intervention)
-				counselor.GET("/talk-record", counselorH.TalkRecord)
-				counselor.POST("/talk-record", counselorH.TalkRecord)
-				counselor.GET("/talk-tips", counselorH.TalkTips)
-				counselor.GET("/ideological", counselorH.Ideological)
-				counselor.GET("/class-profile", counselorH.ClassProfile)
-				counselor.GET("/community-manage", counselorH.CommunityManage)
-				counselor.GET("/hot-topic-sense", counselorH.HotTopicSense)
-				counselor.GET("/process-edit", counselorH.ProcessEdit)
-				counselor.GET("/student-list", counselorH.StudentList)
+				counselor.GET("/daily-focus", auth.RequireCapability(auth.CounselorDailyFocusRead), counselorH.DailyFocus)
+				counselor.GET("/class-report", auth.RequireCapability(auth.CounselorClassReport), counselorH.ClassReport)
+				counselor.GET("/twin-board", auth.RequireCapability(auth.CounselorTwinBoard), counselorH.TwinBoard)
+				counselor.GET("/prediction", auth.RequireCapability(auth.CounselorPredictionRead), counselorH.Prediction)
+				counselor.POST("/intervention", auth.RequireCapability(auth.CounselorInterventionWrite), counselorH.Intervention)
+				counselor.GET("/talk-record", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.TalkRecord)
+				counselor.POST("/talk-record", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.TalkRecord)
+				counselor.GET("/talk-tips", auth.RequireCapability(auth.CounselorTalkTips), counselorH.TalkTips)
+				counselor.GET("/ideological", auth.RequireCapability(auth.CounselorIdeological), counselorH.Ideological)
+				counselor.GET("/class-profile", auth.RequireCapability(auth.CounselorClassProfile), counselorH.ClassProfile)
+				counselor.GET("/community-manage", auth.RequireCapability(auth.CounselorCommunityManage), counselorH.CommunityManage)
+				counselor.GET("/hot-topic-sense", auth.RequireCapability(auth.CounselorHotTopicSense), counselorH.HotTopicSense)
+				counselor.GET("/process-edit", auth.RequireCapability(auth.CounselorProcessEdit), counselorH.ProcessEdit)
+				counselor.GET("/student-list", auth.RequireCapability(auth.CounselorStudentList), counselorH.StudentList)
 			}
 
-			// ── 教师 AI 功能（counselor 及以上，含 teacher 角色）──
+			// ── 教师 AI 功能 ──
 			teacher := secured.Group("/teacher")
-			teacher.Use(middleware.RequireRole("counselor"))
 			{
-				teacher.GET("/daily-overview", teacherH.DailyOverview)
-				teacher.POST("/lesson-prep", teacherH.LessonPrep)
-				teacher.POST("/exam-gen", teacherH.ExamGen)
-				teacher.POST("/class-interact", teacherH.ClassInteract)
-				teacher.POST("/grading", teacherH.Grading)
-				teacher.GET("/heatmap", teacherH.Heatmap)
-				teacher.GET("/reflection", teacherH.Reflection)
-				teacher.GET("/style-distribution", teacherH.StyleDist)
-				teacher.GET("/community-qa", teacherH.CommunityQA)
+				teacher.GET("/daily-overview", auth.RequireCapability(auth.TeacherDailyOverview), teacherH.DailyOverview)
+				teacher.POST("/lesson-prep", auth.RequireCapability(auth.TeacherLessonPrep), teacherH.LessonPrep)
+				teacher.POST("/exam-gen", auth.RequireCapability(auth.TeacherExamGen), teacherH.ExamGen)
+				teacher.POST("/class-interact", auth.RequireCapability(auth.TeacherClassInteract), teacherH.ClassInteract)
+				teacher.POST("/grading", auth.RequireCapability(auth.TeacherGrading), teacherH.Grading)
+				teacher.GET("/heatmap", auth.RequireCapability(auth.TeacherHeatmapRead), teacherH.Heatmap)
+				teacher.GET("/reflection", auth.RequireCapability(auth.TeacherReflection), teacherH.Reflection)
+				teacher.GET("/style-distribution", auth.RequireCapability(auth.TeacherStyleDist), teacherH.StyleDist)
+				teacher.GET("/community-qa", auth.RequireCapability(auth.TeacherCommunityQA), teacherH.CommunityQA)
 			}
 
-			// ── 教辅 AI 功能（counselor 及以上）──
+			// ── 教辅 AI 功能 ──
 			assistantGroup := secured.Group("/assistant")
-			assistantGroup.Use(middleware.RequireRole("counselor"))
 			{
-				assistantGroup.GET("/schedule-check", assistantH.ScheduleCheck)
-				assistantGroup.GET("/graduation-audit", assistantH.GradAudit)
-				assistantGroup.GET("/exam-arrange", assistantH.ExamArrange)
+				assistantGroup.GET("/schedule-check", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.ScheduleCheck)
+				assistantGroup.GET("/graduation-audit", auth.RequireCapability(auth.AssistantGradAudit), assistantH.GradAudit)
+				assistantGroup.GET("/exam-arrange", auth.RequireCapability(auth.AssistantExamArrange), assistantH.ExamArrange)
 			}
 
-			// ── 学生会 AI 功能（student_union 及以上）──
+			// ── 学生会 AI 功能 ──
 			unionGroup := secured.Group("/union")
-			unionGroup.Use(middleware.RequireRole("student_union"))
 			{
-				unionGroup.GET("/event-plan", unionH.EventPlan)
-				unionGroup.GET("/poster-gen", unionH.PosterGen)
+				unionGroup.GET("/event-plan", auth.RequireCapability(auth.UnionEventPlan), unionH.EventPlan)
+				unionGroup.GET("/poster-gen", auth.RequireCapability(auth.UnionPosterGen), unionH.PosterGen)
 			}
 
-			// ── 学院管理员 AI 功能（college_admin 及以上）──
+			// ── 学院管理员 AI 功能 ──
 			collegeGroup := secured.Group("/college")
-			collegeGroup.Use(middleware.RequireRole("college_admin"))
 			{
-				collegeGroup.GET("/twin-screen", collegeH.TwinScreen)
-				collegeGroup.GET("/data-analysis", collegeH.DataAnalysis)
+				collegeGroup.GET("/twin-screen", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.TwinScreen)
+				collegeGroup.GET("/data-analysis", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.DataAnalysis)
 			}
 		}
 	}

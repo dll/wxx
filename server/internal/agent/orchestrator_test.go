@@ -15,6 +15,7 @@ type mockAgent struct {
 	confidence float64
 }
 
+func (m *mockAgent) Key() string  { return m.name }
 func (m *mockAgent) Name() string { return m.name }
 
 func (m *mockAgent) Execute(_ context.Context, _ string, _ *model.UserContext, _ *repository.KBRepo) (*AgentResult, error) {

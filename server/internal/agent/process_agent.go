@@ -20,6 +20,7 @@ func NewProcessAgent() *ProcessAgent {
 	return &ProcessAgent{searchTopK: 5}
 }
 
+func (a *ProcessAgent) Key() string  { return "process-guide" }
 func (a *ProcessAgent) Name() string { return "流程指引" }
 
 func (a *ProcessAgent) Execute(ctx context.Context, question string, userCtx *model.UserContext, kbRepo *repository.KBRepo) (*AgentResult, error) {
@@ -60,9 +61,11 @@ func (a *ProcessAgent) Execute(ctx context.Context, question string, userCtx *mo
 		))
 	}
 
+	roleHint := rolePerspective(userCtx)
 	content := fmt.Sprintf(
-		"请为以下问题生成步骤清单式回答「%s」。要求：\n1. 分步骤列出（每步含：做什么、材料、入口、时限）\n2. 标注办理地点和联系方式\n3. 提醒注意事项\n\n参考资料：\n%s",
+		"请为以下问题生成步骤清单式回答「%s」。要求：\n1. 分步骤列出（每步含：做什么、材料、入口、时限）\n2. 标注办理地点和联系方式\n3. 提醒注意事项\n\n%s\n\n参考资料：\n%s",
 		question,
+		roleHint,
 		strings.Join(parts, "\n\n"),
 	)
 

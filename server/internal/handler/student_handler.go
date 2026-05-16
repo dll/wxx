@@ -5,18 +5,39 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // StudentHandler 学生角色 AI 功能接口
-type StudentHandler struct{}
-
-func NewStudentHandler() *StudentHandler {
-	return &StudentHandler{}
+type StudentHandler struct {
+	svc *service.StudentService
 }
 
-// DailyBriefing 今日速览
+// NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
+func NewStudentHandler(svc *service.StudentService) *StudentHandler {
+	return &StudentHandler{svc: svc}
+}
+
+// DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
 func (h *StudentHandler) DailyBriefing(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			briefing, err := h.svc.GenerateDailyBriefing(c.Request.Context(), userCtx.UserID)
+			if err == nil && briefing != nil {
+				c.JSON(http.StatusOK, briefing)
+				return
+			}
+		}
+	}
+	// 兜底：未注入 svc 或异常时使用旧 mock
+	h.mockDailyBriefing(c)
+}
+
+// mockDailyBriefing 兜底 mock 数据（保留给开发环境/svc 未注入场景）
+func (h *StudentHandler) mockDailyBriefing(c *gin.Context) {
 	today := time.Now().Format("2006-01-02")
 	c.JSON(http.StatusOK, gin.H{
 		"date":     today,
@@ -32,8 +53,9 @@ func (h *StudentHandler) DailyBriefing(c *gin.Context) {
 		"activities": []gin.H{
 			{"title": "ACM 训练赛", "subtitle": "信息楼 301", "time": "19:00", "icon": "emoji_events"},
 		},
-		"weather": "晴 26°C",
-		"motto":   "学如逆水行舟，不进则退。",
+		"weather":     "晴 26°C",
+		"motto":       "学如逆水行舟，不进则退。",
+		"data_source": "fallback",
 	})
 }
 

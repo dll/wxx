@@ -20,6 +20,7 @@ func NewPolicyAgent() *PolicyAgent {
 	return &PolicyAgent{searchTopK: 5}
 }
 
+func (a *PolicyAgent) Key() string  { return "policy-expert" }
 func (a *PolicyAgent) Name() string { return "政策解读" }
 
 func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *model.UserContext, kbRepo *repository.KBRepo) (*AgentResult, error) {
@@ -61,9 +62,11 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 		))
 	}
 
+	roleHint := rolePerspective(userCtx)
 	content := fmt.Sprintf(
-		"请严格基于以下政策原文回答用户问题「%s」。要求：\n1. 必须引用原文条款\n2. 标注版本号和生效日期\n3. 不确定的内容明确说明\n\n%s",
+		"请严格基于以下政策原文回答用户问题「%s」。要求：\n1. 必须引用原文条款\n2. 标注版本号和生效日期\n3. 不确定的内容明确说明\n\n%s\n\n%s",
 		question,
+		roleHint,
 		strings.Join(parts, "\n\n"),
 	)
 

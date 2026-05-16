@@ -19,8 +19,11 @@ var roleHierarchy = map[string]int{
 	"teacher":   35,
 }
 
-// RequireRole RBAC 角色权限中间件
+// RequireRole RBAC 角色权限中间件（按角色权重比较）
 // minRole 指定允许访问的最低角色级别
+//
+// Deprecated: 新代码建议使用 auth.RequireCapability 进行能力级授权。
+// RequireRole 仅保留以兼容存量端点；新增端点请基于 capability 设计。
 func RequireRole(minRole string) gin.HandlerFunc {
 	minLevel, ok := roleHierarchy[minRole]
 	if !ok {

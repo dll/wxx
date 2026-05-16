@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
@@ -172,6 +174,15 @@ func (h *AuthHandler) GetVoiceConfig(c *gin.Context) {
 
 	enabled, err := h.authSvc.GetVoiceConfig(userCtx.UserID)
 	if err != nil {
+		// 用户不存在（Vercel 冷启动后 DB 重建场景）→ 返回默认 0，不当成错误
+		if errors.Is(err, service.ErrUserNotFound) {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    0,
+				"message": "success",
+				"data":    model.VoiceConfigResponse{VoiceEnabled: 0},
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: err.Error(),
@@ -222,5 +233,36 @@ func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "语音配置已更新",
+	})
+}
+
+// GetCapabilities 获取当前用户拥有的能力列表（含继承）
+// GET /api/v1/user/capabilities
+// 前端登录后拉取一次，缓存用于菜单/按钮可见性判断
+func (h *AuthHandler) GetCapabilities(c *gin.Context) {
+	user := middleware.GetUserContext(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	caps := auth.CapabilitiesOf(user.Role)
+	// 转 string 切片便于 JSON 序列化
+	strCaps := make([]string, len(caps))
+	for i, c := range caps {
+		strCaps[i] = string(c)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data": gin.H{
+			"role":         user.Role,
+			"capabilities": strCaps,
+		},
 	})
 }

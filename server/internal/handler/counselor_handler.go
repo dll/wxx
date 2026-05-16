@@ -4,18 +4,38 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // CounselorHandler 辅导员角色 AI 功能接口
-type CounselorHandler struct{}
-
-func NewCounselorHandler() *CounselorHandler {
-	return &CounselorHandler{}
+type CounselorHandler struct {
+	svc *service.CounselorService
 }
 
-// DailyFocus AI 今日关注
+// NewCounselorHandler 创建辅导员 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走 mock
+func NewCounselorHandler(svc *service.CounselorService) *CounselorHandler {
+	return &CounselorHandler{svc: svc}
+}
+
+// DailyFocus AI 今日关注 — 真实数据 + LLM 简报
 func (h *CounselorHandler) DailyFocus(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			focus, err := h.svc.GenerateDailyFocus(c.Request.Context(), userCtx)
+			if err == nil && focus != nil {
+				c.JSON(http.StatusOK, focus)
+				return
+			}
+		}
+	}
+	h.mockDailyFocus(c)
+}
+
+// mockDailyFocus 兜底 mock（svc 未注入或异常时使用）
+func (h *CounselorHandler) mockDailyFocus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"date":               time.Now().Format("2006-01-02"),
 		"class_health_score": 82.5,
@@ -30,6 +50,7 @@ func (h *CounselorHandler) DailyFocus(c *gin.Context) {
 			"attention": 5,
 			"warning":   2,
 		},
+		"data_source": "fallback",
 	})
 }
 
