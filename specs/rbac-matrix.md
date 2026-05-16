@@ -92,6 +92,12 @@
 | **语音** | | | | | | |
 | `POST /voice/asr` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `POST /voice/tts` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **校园文化（全员可见）** | | | | | | |
+| `GET /culture/anthems` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /culture/radio` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /culture/lectures` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /culture/events` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `GET /culture/volunteer` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **系统（预留）** | | | | | | |
 | 用户管理 | 全部 | 学校级 | 本院级 | ❌ | ❌ | ❌ |
 | 审计日志查看 | 全部 | 全部 | 本院 | ❌ | ❌ | ❌ |

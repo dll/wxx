@@ -55,6 +55,8 @@
 | 部署指南 | `docs/deployment.md` | 编译、运行、systemd 服务、备份、健康检查、更新流程 |
 | 内部 LLM Wiki | `knowledge/README.md` | raw/ / wiki/ 脚手架（非产品知识库） |
 | 第二阶段开发计划 | `docs/phase2-plan.md` | 9 专项 / 20 任务 / 3 周 / 角色闭环 |
+| 角色功能聚合表 | `docs/role-features.md` | 八角色 × 全部能力速查（含校园文化） |
+| 第三方应用接入协议 | `docs/external-apps.md` | manifest 协议 + 三种适配模式 |
 | 计划模板 | `templates/plan.template.md` | 任务方案模板 |
 | 变更日志模板 | `templates/CHANGELOG.template.md` | Keep a Changelog 格式 |
 

@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'feedback_dialog.dart';
+import 'focus_mode.dart';
 import 'voice_dialog.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
@@ -27,6 +28,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   static const _items = <_FabItem>[
     _FabItem(icon: Icons.feedback_outlined, label: '问题反馈', color: Color(0xFF6750A4)),
     _FabItem(icon: Icons.mic, label: '语音导航', color: Color(0xFFE65100)),
+    _FabItem(icon: Icons.visibility_off_outlined, label: '专注模式', color: Color(0xFF1B5E20)),
   ];
 
   @override
@@ -209,6 +211,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         showFeedbackDialog(context);
       case '语音导航':
         showVoiceDialog(context);
+      case '专注模式':
+        showFocusMode(context);
     }
   }
 }

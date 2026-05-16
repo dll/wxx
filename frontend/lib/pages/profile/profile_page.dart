@@ -150,6 +150,13 @@ class _ProfilePageState extends State<ProfilePage> {
           // AI 模型配置（所有角色可访问）
           _buildMenuCard(context, Icons.tune, 'AI 模型配置', '配置 DeepSeek / 智谱 / 讯飞星火模型参数', '/profile/model-config'),
 
+          // ── 校园文化智能体（全员可见）──
+          _buildMenuCard(context, Icons.music_note, '校歌曲库', '校歌、院歌与经典曲目', '/culture/anthems'),
+          _buildMenuCard(context, Icons.podcasts, '校园广播', '直播节目单与往期回放', '/culture/radio'),
+          _buildMenuCard(context, Icons.school_outlined, '学术讲座', '即将开始的讲座与回放', '/culture/lectures'),
+          _buildMenuCard(context, Icons.celebration_outlined, '校园活动', '活动报名与个性推送', '/culture/events'),
+          _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐', '/culture/volunteer'),
+
           // 反馈管理（student_union 及以上）
           if (_canSubmitKB(profile?.role))
             _buildMenuCard(context, Icons.feedback_outlined, '反馈管理', '查看和处理用户反馈', '/feedback'),

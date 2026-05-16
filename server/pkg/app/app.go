@@ -180,12 +180,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	assistantHandler := handler.NewAssistantHandler()
 	unionHandler := handler.NewUnionHandler()
 	collegeHandler := handler.NewCollegeHandler()
+	cultureHandler := handler.NewCultureHandler()
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler,
-		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler)
+		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
+		cultureHandler)
 
 	return router, nil
 }
@@ -350,6 +352,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	assistantH *handler.AssistantHandler,
 	unionH *handler.UnionHandler,
 	collegeH *handler.CollegeHandler,
+	cultureH *handler.CultureHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -614,6 +617,16 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			{
 				collegeGroup.GET("/twin-screen", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.TwinScreen)
 				collegeGroup.GET("/data-analysis", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.DataAnalysis)
+			}
+
+			// ── 校园文化智能体（全员可见）──
+			cultureGroup := secured.Group("/culture")
+			{
+				cultureGroup.GET("/anthems", auth.RequireCapability(auth.SelfCultureAnthem), cultureH.Anthems)
+				cultureGroup.GET("/radio", auth.RequireCapability(auth.SelfCultureRadio), cultureH.Radio)
+				cultureGroup.GET("/lectures", auth.RequireCapability(auth.SelfCultureLectures), cultureH.Lectures)
+				cultureGroup.GET("/events", auth.RequireCapability(auth.SelfCultureEvents), cultureH.Events)
+				cultureGroup.GET("/volunteer", auth.RequireCapability(auth.SelfCultureVolunteer), cultureH.Volunteer)
 			}
 		}
 	}

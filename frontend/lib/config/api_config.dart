@@ -149,4 +149,11 @@ class ApiConfig {
   // ── 学院管理员 AI 功能 ──
   static const String collegeTwinScreen = '$apiPrefix/college/twin-screen';
   static const String collegeDataAnalysis = '$apiPrefix/college/data-analysis';
+
+  // ── 校园文化智能体（全员可见）──
+  static const String cultureAnthems = '$apiPrefix/culture/anthems';
+  static const String cultureRadio = '$apiPrefix/culture/radio';
+  static const String cultureLectures = '$apiPrefix/culture/lectures';
+  static const String cultureEvents = '$apiPrefix/culture/events';
+  static const String cultureVolunteer = '$apiPrefix/culture/volunteer';
 }
