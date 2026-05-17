@@ -56,6 +56,8 @@
 | 内部 LLM Wiki | `knowledge/README.md` | raw/ / wiki/ 脚手架（非产品知识库） |
 | 第二阶段开发计划 | `docs/phase2-plan.md` | 9 专项 / 20 任务 / 3 周 / 角色闭环 |
 | 角色功能聚合表 | `docs/role-features.md` | 八角色 × 全部能力速查（含校园文化） |
+| 角色功能详细规划 | `docs/蔚小芯角色功能.md` | 全部角色功能梳理、分期规划、AI 原生特色功能详解 |
+| 待完成功能清单 | `docs/蔚小芯待完成.md` | 按分期分角色列出 98 项未实现功能 |
 | 第三方应用接入协议 | `docs/external-apps.md` | manifest 协议 + 三种适配模式 |
 | 计划模板 | `templates/plan.template.md` | 任务方案模板 |
 | 变更日志模板 | `templates/CHANGELOG.template.md` | Keep a Changelog 格式 |
