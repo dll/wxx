@@ -26,9 +26,24 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   double _dy = 80;
 
   static const _items = <_FabItem>[
-    _FabItem(icon: Icons.feedback_outlined, label: '问题反馈', color: Color(0xFF6750A4)),
-    _FabItem(icon: Icons.mic, label: '语音导航', color: Color(0xFFE65100)),
-    _FabItem(icon: Icons.visibility_off_outlined, label: '专注模式', color: Color(0xFF1B5E20)),
+    _FabItem(
+      icon: Icons.feedback_outlined,
+      label: '问题反馈',
+      color: Color(0xFF6750A4),
+      action: _FabAction.feedback,
+    ),
+    _FabItem(
+      icon: Icons.mic,
+      label: '语音导航',
+      color: Color(0xFFE65100),
+      action: _FabAction.voice,
+    ),
+    _FabItem(
+      icon: Icons.visibility_off_outlined,
+      label: '专注模式',
+      color: Color(0xFF1B5E20),
+      action: _FabAction.focus,
+    ),
   ];
 
   @override
@@ -120,7 +135,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     );
   }
 
-  /// 子菜单项：磨砂玻璃标签 + 圆形图标按钮（紧凑型）
+  /// 子菜单项：磨砂玻璃标签 + 圆形图标按钮
   Widget _buildSubItem(_FabItem item, int index, ThemeData theme) {
     return SlideTransition(
       position: Tween<Offset>(
@@ -139,7 +154,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _FrostedLabel(text: item.label, theme: theme),
+                _FrostedLabel(text: item.label),
                 const SizedBox(width: 6),
                 _IconCircle(icon: item.icon, color: item.color),
               ],
@@ -159,7 +174,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     return AnimatedBuilder(
       animation: _rotateAnim,
       builder: (_, child) => Transform.rotate(
-        angle: _rotateAnim.value * 0.75, // 135°
+        angle: _rotateAnim.value * 0.75,
         child: child,
       ),
       child: GestureDetector(
@@ -204,12 +219,12 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   }
 
   void _onTap(_FabItem item) {
-    switch (item.label) {
-      case '问题反馈':
+    switch (item.action) {
+      case _FabAction.feedback:
         showFeedbackDialog(context);
-      case '语音导航':
+      case _FabAction.voice:
         showVoiceDialog(context);
-      case '专注模式':
+      case _FabAction.focus:
         showFocusMode(context);
     }
   }
@@ -217,21 +232,29 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
 // ── 内部组件 ──
 
+enum _FabAction { feedback, voice, focus }
+
 class _FabItem {
   final IconData icon;
   final String label;
   final Color color;
-  const _FabItem({required this.icon, required this.label, required this.color});
+  final _FabAction action;
+  const _FabItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.action,
+  });
 }
 
-/// 磨砂玻璃标签（紧凑型）
+/// 磨砂玻璃标签
 class _FrostedLabel extends StatelessWidget {
   final String text;
-  final ThemeData theme;
-  const _FrostedLabel({required this.text, required this.theme});
+  const _FrostedLabel({required this.text});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: BackdropFilter(
@@ -265,7 +288,7 @@ class _FrostedLabel extends StatelessWidget {
   }
 }
 
-/// 彩色圆形图标按钮（紧凑型）
+/// 彩色圆形图标按钮
 class _IconCircle extends StatelessWidget {
   final IconData icon;
   final Color color;

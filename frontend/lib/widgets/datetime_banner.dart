@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/date_utils.dart';
 
 /// 首页日期时间横幅 — 点击展开「校历」周任务
 class DateTimeBanner extends StatefulWidget {
@@ -18,7 +19,17 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
     super.initState();
     _now = DateTime.now();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (!mounted) return;
+      final next = DateTime.now();
+      // 显示精度只到分钟，跳过同分钟内的 setState 以避免无意义重建
+      if (next.year == _now.year &&
+          next.month == _now.month &&
+          next.day == _now.day &&
+          next.hour == _now.hour &&
+          next.minute == _now.minute) {
+        return;
+      }
+      setState(() => _now = next);
     });
   }
 
@@ -31,11 +42,8 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final weekDay = _weekDayName(_now.weekday);
     final dateStr =
         '${_now.year}年${_now.month.toString().padLeft(2, '0')}月${_now.day.toString().padLeft(2, '0')}日';
-    final timeStr =
-        '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
 
     return Material(
       color: Colors.transparent,
@@ -85,7 +93,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
                           color: theme.colorScheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(weekDay,
+                        child: Text(TimeFormatter.weekdayFull(_now.weekday),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -94,7 +102,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
                       ),
                     ]),
                     const SizedBox(height: 2),
-                    Text(timeStr,
+                    Text(TimeFormatter.hhmm(_now),
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -112,9 +120,6 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
       ),
     );
   }
-
-  static String _weekDayName(int w) =>
-      const ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][w - 1];
 
   void _showCalendar(BuildContext context) {
     showModalBottomSheet<void>(
@@ -136,10 +141,11 @@ class _CalendarSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final now = DateTime.now();
-    // 本周一
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final tasks = _weekTasks(monday);
+    final today = DateTime.now();
+    // 归零到当日 0 点，避免 DST / 跨午夜带来的时间分量误差
+    final midnight = DateTime(today.year, today.month, today.day);
+    final monday = midnight.subtract(Duration(days: midnight.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -148,7 +154,6 @@ class _CalendarSheet extends StatelessWidget {
       expand: false,
       builder: (_, controller) => Column(
         children: [
-          // 顶部抓手
           Container(
             margin: const EdgeInsets.only(top: 8, bottom: 12),
             width: 40, height: 4,
@@ -157,7 +162,6 @@ class _CalendarSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // 标题
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -168,7 +172,7 @@ class _CalendarSheet extends StatelessWidget {
                     style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Text(
-                  '${monday.month}/${monday.day} – ${monday.add(const Duration(days: 6)).month}/${monday.add(const Duration(days: 6)).day}',
+                  '${monday.month}/${monday.day} - ${sunday.month}/${sunday.day}',
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -184,12 +188,10 @@ class _CalendarSheet extends StatelessWidget {
               itemCount: 7,
               itemBuilder: (_, i) {
                 final day = monday.add(Duration(days: i));
-                final isToday = _sameDay(day, now);
                 return _DayCard(
                   day: day,
-                  isToday: isToday,
-                  tasks: tasks[i],
-                  theme: theme,
+                  isToday: TimeFormatter.isSameDay(day, today),
+                  tasks: _weekTasksSeed[i],
                 );
               },
             ),
@@ -198,59 +200,47 @@ class _CalendarSheet extends StatelessWidget {
       ),
     );
   }
-
-  static bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-
-  /// 占位周任务种子（后续可对接 /api/v1/student/schedule 与 /culture/events）
-  List<List<_TaskItem>> _weekTasks(DateTime monday) {
-    return [
-      [
-        _TaskItem('08:00', '高等数学', '理工楼 A201', _TaskKind.course),
-        _TaskItem('14:00', '党史学习', '智慧教室', _TaskKind.study),
-        _TaskItem('19:00', '院辩论队选拔', '第二会议室', _TaskKind.activity),
-      ],
-      [
-        _TaskItem('10:00', '英语听力测试', '语音室', _TaskKind.exam),
-        _TaskItem('15:30', '专业实训', '计算机房', _TaskKind.course),
-      ],
-      [
-        _TaskItem('09:00', '操作系统', '理工楼 B305', _TaskKind.course),
-        _TaskItem('14:00', '志愿者岗前培训', '青协办公室', _TaskKind.activity),
-      ],
-      [
-        _TaskItem('全天', '心理健康讲座', '大礼堂', _TaskKind.study),
-      ],
-      [
-        _TaskItem('10:00', '数据库原理', '理工楼 A310', _TaskKind.course),
-        _TaskItem('19:00', '校园广播·音乐之声', '广播台直播', _TaskKind.activity),
-      ],
-      [
-        _TaskItem('全天', '校园文化节', '中心广场', _TaskKind.activity),
-      ],
-      [
-        _TaskItem('19:00', '本周学习周报', '系统自动生成', _TaskKind.study),
-      ],
-    ];
-  }
 }
+
+/// 占位周任务种子（后续可对接 /api/v1/student/schedule 与 /culture/events）
+const List<List<_TaskItem>> _weekTasksSeed = [
+  [
+    _TaskItem('08:00', '高等数学', '理工楼 A201', _TaskKind.course),
+    _TaskItem('14:00', '党史学习', '智慧教室', _TaskKind.study),
+    _TaskItem('19:00', '院辩论队选拔', '第二会议室', _TaskKind.activity),
+  ],
+  [
+    _TaskItem('10:00', '英语听力测试', '语音室', _TaskKind.exam),
+    _TaskItem('15:30', '专业实训', '计算机房', _TaskKind.course),
+  ],
+  [
+    _TaskItem('09:00', '操作系统', '理工楼 B305', _TaskKind.course),
+    _TaskItem('14:00', '志愿者岗前培训', '青协办公室', _TaskKind.activity),
+  ],
+  [
+    _TaskItem('全天', '心理健康讲座', '大礼堂', _TaskKind.study),
+  ],
+  [
+    _TaskItem('10:00', '数据库原理', '理工楼 A310', _TaskKind.course),
+    _TaskItem('19:00', '校园广播·音乐之声', '广播台直播', _TaskKind.activity),
+  ],
+  [
+    _TaskItem('全天', '校园文化节', '中心广场', _TaskKind.activity),
+  ],
+  [
+    _TaskItem('19:00', '本周学习周报', '系统自动生成', _TaskKind.study),
+  ],
+];
 
 class _DayCard extends StatelessWidget {
   final DateTime day;
   final bool isToday;
   final List<_TaskItem> tasks;
-  final ThemeData theme;
-  const _DayCard({
-    required this.day,
-    required this.isToday,
-    required this.tasks,
-    required this.theme,
-  });
-
-  static const _weekDays = ['一', '二', '三', '四', '五', '六', '日'];
+  const _DayCard({required this.day, required this.isToday, required this.tasks});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -266,7 +256,6 @@ class _DayCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 日期圆环
           Container(
             width: 52, height: 52,
             decoration: BoxDecoration(
@@ -281,7 +270,7 @@ class _DayCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _weekDays[day.weekday - 1],
+                  TimeFormatter.weekdayShort(day.weekday),
                   style: TextStyle(
                     fontSize: 11,
                     color: isToday ? Colors.white70 : theme.colorScheme.onSurfaceVariant,
@@ -313,7 +302,7 @@ class _DayCard extends StatelessWidget {
                     children: [
                       for (int i = 0; i < tasks.length; i++) ...[
                         if (i > 0) const SizedBox(height: 8),
-                        _TaskRow(task: tasks[i], theme: theme),
+                        _TaskRow(task: tasks[i]),
                       ],
                     ],
                   ),
@@ -326,11 +315,11 @@ class _DayCard extends StatelessWidget {
 
 class _TaskRow extends StatelessWidget {
   final _TaskItem task;
-  final ThemeData theme;
-  const _TaskRow({required this.task, required this.theme});
+  const _TaskRow({required this.task});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final color = task.kind.color;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
