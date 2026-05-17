@@ -1,4 +1,3 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
@@ -135,7 +134,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     );
   }
 
-  /// 子菜单项：磨砂玻璃标签 + 圆形图标按钮
+  /// 子菜单项：圆形图标按钮（极简 — 文字通过 Tooltip 长按显示）
   Widget _buildSubItem(_FabItem item, int index, ThemeData theme) {
     return SlideTransition(
       position: Tween<Offset>(
@@ -146,18 +145,16 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         opacity: _fadeAnims[index],
         child: Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () {
-              _close();
-              _onTap(item);
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FrostedLabel(text: item.label),
-                const SizedBox(width: 6),
-                _IconCircle(icon: item.icon, color: item.color),
-              ],
+          child: Tooltip(
+            message: item.label,
+            preferBelow: false,
+            verticalOffset: 24,
+            child: GestureDetector(
+              onTap: () {
+                _close();
+                _onTap(item);
+              },
+              child: _IconCircle(icon: item.icon, color: item.color),
             ),
           ),
         ),
@@ -245,47 +242,6 @@ class _FabItem {
     required this.color,
     required this.action,
   });
-}
-
-/// 磨砂玻璃标签
-class _FrostedLabel extends StatelessWidget {
-  final String text;
-  const _FrostedLabel({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Text(
-            text,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// 彩色圆形图标按钮
