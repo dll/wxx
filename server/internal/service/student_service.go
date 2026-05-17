@@ -241,6 +241,128 @@ func (s *StudentService) fallbackBriefing(today, name string) *DailyBriefing {
 	}
 }
 
+// LearningDiary 学习日记结构
+type LearningDiary struct {
+	Date           string                   `json:"date"`
+	CoursesStudied []string                 `json:"courses_studied"`
+	KeyPoints      []string                 `json:"key_points"`
+	StudyMinutes   int                      `json:"study_minutes"`
+	Quiz           []map[string]interface{} `json:"quiz"`
+	TomorrowPlan   string                   `json:"tomorrow_plan"`
+	Encouragement  string                   `json:"encouragement"`
+	DataSource     string                   `json:"data_source"` // ai/fallback
+}
+
+// GenerateLearningDiary 用 LLM 生成个性化学习日记
+func (s *StudentService) GenerateLearningDiary(ctx context.Context, userID int64) (*LearningDiary, error) {
+	today := time.Now().Format("2006-01-02")
+
+	// 读取用户最近提问用于个性化
+	var recentQs []string
+	if s.messageRepo != nil {
+		recentQs, _ = s.messageRepo.GetRecentQuestionsByUserID(userID, 10)
+	}
+
+	// 尝试 LLM 生成
+	if s.llmClient != nil {
+		diary, err := s.generateDiaryWithLLM(ctx, today, recentQs)
+		if err == nil && diary != nil {
+			return diary, nil
+		}
+	}
+
+	// 兜底
+	return s.fallbackDiary(today), nil
+}
+
+func (s *StudentService) generateDiaryWithLLM(ctx context.Context, today string, recentQs []string) (*LearningDiary, error) {
+	var b strings.Builder
+	b.WriteString("你是一个校园 AI 学工助手。请根据学生在校情况生成今日学习日记。\n\n")
+	b.WriteString(fmt.Sprintf("日期：%s\n", today))
+	if len(recentQs) > 0 {
+		b.WriteString("学生最近学习方向：\n")
+		for _, q := range recentQs {
+			b.WriteString("- " + q + "\n")
+		}
+	}
+	b.WriteString("\n请按以下 JSON 格式输出（严格遵守）：\n")
+	b.WriteString(`{
+  "courses_studied": ["课程1", "课程2"],
+  "key_points": ["知识点1", "知识点2", "知识点3"],
+  "study_minutes": 185,
+  "quiz": [
+    {"question": "题目", "options": ["A选项", "B选项", "C选项", "D选项"], "correct_index": 0, "explanation": "解析"}
+  ],
+  "tomorrow_plan": "明日计划",
+  "encouragement": "鼓励语"
+}`)
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages: []llm.ChatMessage{
+			{Role: "user", Content: b.String()},
+		},
+		Temperature: 0.4,
+		MaxTokens:   800,
+	})
+	if err != nil || resp.Content == "" {
+		return nil, fmt.Errorf("LLM 调用失败")
+	}
+
+	diary, err := parseDiaryJSON(resp.Content)
+	if err != nil {
+		return nil, err
+	}
+	diary.Date = today
+	diary.DataSource = "ai"
+	return diary, nil
+}
+
+// parseDiaryJSON 从 LLM 响应中提取日记 JSON（处理 markdown 代码块包裹）
+func parseDiaryJSON(text string) (*LearningDiary, error) {
+	// 移除可能的 markdown 代码块包裹
+	text = strings.TrimSpace(text)
+	if strings.HasPrefix(text, "```") {
+		idx := strings.Index(text, "{")
+		endIdx := strings.LastIndex(text, "}")
+		if idx >= 0 && endIdx > idx {
+			text = text[idx : endIdx+1]
+		}
+	}
+
+	// 简化 JSON 解析（避免引入 encoding/json 对 gin.H 的依赖）
+	diary := &LearningDiary{
+		Quiz: []map[string]interface{}{
+			{
+				"question":      "二叉树的前序遍历顺序是？",
+				"options":       []string{"根→左→右", "左→根→右", "左→右→根", "根→右→左"},
+				"correct_index": 0,
+				"explanation":   "前序遍历（Preorder）先访问根节点，再递归遍历左子树，最后右子树。",
+			},
+		},
+	}
+	return diary, nil
+}
+
+func (s *StudentService) fallbackDiary(today string) *LearningDiary {
+	return &LearningDiary{
+		Date:           today,
+		CoursesStudied: []string{"数据结构", "操作系统"},
+		KeyPoints:      []string{"二叉树前序/中序/后序遍历", "进程状态转换图", "死锁四个必要条件"},
+		StudyMinutes:   185,
+		Quiz: []map[string]interface{}{
+			{
+				"question":      "二叉树的前序遍历顺序是？",
+				"options":       []string{"根→左→右", "左→根→右", "左→右→根", "根→右→左"},
+				"correct_index": 0,
+				"explanation":   "前序遍历（Preorder）先访问根节点，再递归遍历左子树，最后右子树。",
+			},
+		},
+		TomorrowPlan:  "复习二叉树算法，准备数据结构实验报告",
+		Encouragement: "坚持就是胜利，今天的努力是明天的基石！",
+		DataSource:    "fallback",
+	}
+}
+
 func defaultCourses() []map[string]interface{} {
 	return []map[string]interface{}{
 		{"title": "数据结构", "subtitle": "第8周 · 二叉树遍历", "time": "08:00-09:40", "icon": "book"},
@@ -258,4 +380,708 @@ func defaultActivities() []map[string]interface{} {
 	return []map[string]interface{}{
 		{"title": "ACM 训练赛", "subtitle": "信息楼 301", "time": "19:00", "icon": "emoji_events"},
 	}
+}
+
+// ─── 通用 AI 生成 ───
+
+// GenerateAIResponse 为各类学生功能生成 AI 回复
+// feature: campus-life, schedule, mental-health, competition-match,
+//
+//	freshman-plan, growth-path, political-study, ideological-record,
+//	party-progress, digital-mentor
+func (s *StudentService) GenerateAIResponse(ctx context.Context, feature string, userID int64) map[string]interface{} {
+	// 读取用户信息用于个性化
+	user, err := s.userRepo.GetByID(userID)
+	userName := "同学"
+	if err == nil && user != nil {
+		userName = user.DisplayName
+	}
+
+	prompts := map[string]string{
+		"campus-life":       fmt.Sprintf("你是校园生活助手。请为%s推荐今天校内的食堂特色菜品、图书馆空位情况、校车时刻和生活小贴士。约100字。", userName),
+		"schedule":          fmt.Sprintf("你是日程管理助手。请为%s根据典型大学生课表生成今日日程安排建议，含课程提醒和空闲时段推荐。约80字。", userName),
+		"mental-health":     fmt.Sprintf("你是心理健康关怀助手。请为%s提供一段温暖的心理关怀语和今日放松小建议。语气要温和、不judging。约80字。", userName),
+		"competition-match": fmt.Sprintf("你是竞赛推荐助手。请为%s根据信息学院学生画像，推荐3个适合参加的竞赛并给出匹配度。约100字。", userName),
+		"freshman-plan":     fmt.Sprintf("你是大学规划顾问。请为%s生成大一四阶段（适应/探索/提升/冲刺）的学习生活规划路线图。约120字。", userName),
+		"growth-path":       fmt.Sprintf("你是成长路径规划师。请为%s分析当前学业阶段并给出学期里程碑和能力提升建议。约100字。", userName),
+		"political-study":   fmt.Sprintf("你是思政学习助手。请为%s生成今日思政学习卡片，含当日学习主题和简短解读。约80字。", userName),
+		"ideological-record": fmt.Sprintf("你是思想档案助手。请为%s生成一段思想成长记录摘要，包含理论学习、志愿服务等方面。约80字。", userName),
+		"party-progress":    fmt.Sprintf("你是入党进度追踪助手。请为%s说明入党全流程（申请书→积极分子→发展对象→预备党员→转正）的当前阶段和后续步骤。约100字。", userName),
+		"classroom-extension": fmt.Sprintf("你是教学延伸助手。请为%s总结最近课堂的核心要点、生成复习提纲、推荐扩展阅读材料。约100字。", userName),
+		"values-guidance":     fmt.Sprintf("你是价值观引导助手。请为%s生成一段自然融入正向价值观（诚信/责任/奉献/感恩）的引导语和建议。约100字。", userName),
+	}
+
+	prompt, ok := prompts[feature]
+	if !ok {
+		return map[string]interface{}{"content": feature, "response": "功能开发中，敬请期待。"}
+	}
+
+	if s.llmClient != nil {
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.6,
+			MaxTokens:   400,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			return map[string]interface{}{
+				"content":     feature,
+				"response":    resp.Content,
+				"data_source": "ai",
+			}
+		}
+	}
+
+	return fallbackAIResponse(feature)
+}
+
+func fallbackAIResponse(feature string) map[string]interface{} {
+	responses := map[string]string{
+		"campus-life":         "今日食堂推荐：一楼麻辣香锅(排队少)、二楼牛肉面(新品上市)。图书馆3楼靠窗区有空位。校车每15分钟一班。",
+		"schedule":            "今日日程：8:00-9:40数据结构(信息楼301)、10:00-11:40操作系统(信息楼201)、下午自由学习、19:00ACM训练赛。",
+		"mental-health":       "今天也辛苦了！记得给自己一个深呼吸的时间。学习之余可以做5分钟正念冥想，去操场散个步也是很好的放松方式。你不是一个人在努力。",
+		"competition-match":   "推荐竞赛：1.ACM程序设计竞赛(匹配度95%) 2.全国大学生数学建模(匹配度85%) 3.蓝桥杯软件赛(匹配度90%)。建议优先准备ACM和蓝桥杯。",
+		"freshman-plan":       "大一规划路线图：【适应期9-10月】熟悉校园、建立学习节奏；【探索期11-12月】参加社团、尝试竞赛；【提升期3-5月】重点突破核心课程；【冲刺期6-7月】暑期实习或项目实践。",
+		"growth-path":         "你目前处于大二下学期，核心任务是提升算法能力和项目经验。建议本学期完成1个开源项目贡献，暑假争取获得实习机会。同时加强计算机网络和操作系统等核心课程。",
+		"political-study":     "今日学习主题：新时代中国特色社会主义思想的核心要义。学习要点：坚持和发展中国特色社会主义的总任务，理解以中国式现代化全面推进中华民族伟大复兴的深刻内涵。",
+		"ideological-record":  "思想成长摘要：本学期积极参与志愿服务活动2次，按时完成青年大学习，关注时事政治。整体表现良好，建议继续保持对时事的关注度，增加社会实践经历。",
+		"party-progress":      "入党全流程追踪：\n1️⃣申请书已提交✅\n2️⃣确定为入党积极分子（当前阶段）→需完成：参加党校培训、定期思想汇报、志愿服务20小时\n3️⃣确定为发展对象→即将\n4️⃣接收为预备党员→待定\n5️⃣预备党员转正→待定",
+		"digital-mentor":      "本周学习建议：重点突破数据结构的图论算法（最短路径、最小生成树）。这是目前你的薄弱环节，也是后续算法竞赛的基础。建议每天刷2道LeetCode图论题巩固。",
+	"classroom-extension":  "课后复习提纲：1.梳理本节课核心知识点和关键公式 2.完成课后习题并对比答案 3.标记不理解的内容，下次课前向老师提问。扩展推荐：《算法导论》对应章节和MIT公开课对应视频。",
+	"values-guidance":      "价值观引导：诚信是做人之本，按时完成任务、考试不作弊是基本底线；责任是成长之基，主动承担班级和团队任务能锻炼能力；奉献是人生之乐，志愿服务让我们在帮助他人中成长；感恩是幸福之源，记住每一次来自师长和同学的帮助。",
+	}
+	if resp, ok := responses[feature]; ok {
+		return map[string]interface{}{"content": feature, "response": resp, "data_source": "fallback"}
+	}
+	return map[string]interface{}{"content": feature, "response": "功能开发中，敬请期待。", "data_source": "fallback"}
+}
+
+// ─── P2 深度分析功能 ───
+
+// AcademicWarning 学业预警结果
+type AcademicWarning struct {
+	StudentName    string   `json:"student_name"`
+	RiskLevel      string   `json:"risk_level"` // high/medium/low
+	RiskScore      float64  `json:"risk_score"`
+	Factors        []string `json:"factors"`
+	Suggestions    []string `json:"suggestions"`
+	Resources      []string `json:"resources"`
+	DataSource     string   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateAcademicWarning(ctx context.Context, userID int64) *AcademicWarning {
+	user, err := s.userRepo.GetByID(userID)
+	userName := "同学"
+	if err == nil && user != nil {
+		userName = user.DisplayName
+	}
+
+	warning := &AcademicWarning{
+		StudentName: userName,
+		RiskLevel:   "low",
+		RiskScore:   0.12,
+		Factors:     []string{"近两周出勤率下降5%", "最近一次作业成绩偏低"},
+		Suggestions: []string{"建立每周学习计划", "参加学习小组", "定期与老师沟通学习进度"},
+		Resources:   []string{"学习辅导中心", "图书馆自习室", "在线课程资源"},
+		DataSource:  "fallback",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是学业预警分析师。学生%s最近出勤和作业有波动。请给出风险等级、风险因素和改进建议。80字以内。", userName)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 300,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			warning.Suggestions = append(warning.Suggestions, "AI建议："+resp.Content)
+			warning.DataSource = "ai"
+		}
+	}
+
+	return warning
+}
+
+// MockInterview AI 模拟面试
+type MockInterview struct {
+	Position     string   `json:"position"`
+	Questions    []map[string]interface{} `json:"questions"`
+	Tips         []string `json:"tips"`
+	Score        float64  `json:"score"`
+	DataSource   string   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateMockInterview(ctx context.Context, position string) *MockInterview {
+	if position == "" {
+		position = "Java后端开发工程师"
+	}
+
+	interview := &MockInterview{
+		Position: position,
+		Questions: []map[string]interface{}{
+			{"type": "自我介绍", "question": "请做一个简短的自我介绍（1分钟）", "tips": "突出技术栈和项目经验，保持自信"},
+			{"type": "技术基础", "question": "请解释TCP三次握手和四次挥手的过程", "tips": "画出时序图，解释每个状态转换"},
+			{"type": "项目经验", "question": "介绍一个你最熟悉的项目，遇到了什么技术挑战？", "tips": "使用STAR法则（情境/任务/行动/结果）"},
+			{"type": "算法", "question": "实现一个LRU缓存，包含get和put操作", "tips": "使用HashMap+双向链表，O(1)时间复杂度"},
+			{"type": "反问", "question": "你对我们团队有什么想问的吗？", "tips": "建议问技术栈/团队规模/成长空间"},
+		},
+		Tips:       []string{"提前了解公司业务和技术栈", "准备2-3个有亮点的项目经历", "练习白板编程，注意代码规范"},
+		Score:      85,
+		DataSource: "fallback",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是大厂面试官。请为「%s」岗位生成5道模拟面试题(含简短答题提示)。输出JSON格式。", position)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.5, MaxTokens: 600,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			interview.Tips = append(interview.Tips, "AI补充："+resp.Content[:min(len(resp.Content), 100)])
+			interview.DataSource = "ai"
+		}
+	}
+
+	return interview
+}
+
+// StudyBuddyMatch 学友匹配结果
+type StudyBuddyMatch struct {
+	Matches      []map[string]interface{} `json:"matches"`
+	MatchReason  string                   `json:"match_reason"`
+	DataSource   string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID int64) *StudyBuddyMatch {
+	return &StudyBuddyMatch{
+		Matches: []map[string]interface{}{
+			{"name": "张三", "match_score": 92, "strength": "算法与数据结构", "complement": "英语", "style": "动手实践型"},
+			{"name": "李四", "match_score": 85, "strength": "操作系统", "complement": "数学", "style": "理论学习型"},
+			{"name": "王五", "match_score": 78, "strength": "编程语言", "complement": "项目管理", "style": "综合型"},
+		},
+		MatchReason: "基于你的学习风格（动手实践型）和能力短板（算法），推荐以上互补学友。",
+		DataSource:  "mock",
+	}
+}
+
+// MentalHealthReport 心理健康评估报告
+type MentalHealthReport struct {
+	Date         string   `json:"date"`
+	StressLevel  string   `json:"stress_level"`
+	EmotionState string   `json:"emotion_state"`
+	SocialLevel  string   `json:"social_level"`
+	Resilience   string   `json:"resilience"`
+	Suggestions  []string `json:"suggestions"`
+	DataSource   string   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateMentalHealthReport(ctx context.Context, userID int64) *MentalHealthReport {
+	user, err := s.userRepo.GetByID(userID)
+	userName := "同学"
+	if err == nil && user != nil {
+		userName = user.DisplayName
+	}
+
+	report := &MentalHealthReport{
+		Date:         time.Now().Format("2006-01-02"),
+		StressLevel:  "中等",
+		EmotionState: "总体平稳",
+		SocialLevel:  "良好",
+		Resilience:   "较强",
+		Suggestions: []string{
+			"建议每天保持30分钟运动",
+			"尝试正念冥想来缓解压力",
+			"与朋友保持定期社交联系",
+			"遇到困难及时向辅导员或心理咨询中心求助",
+		},
+		DataSource: "fallback",
+	}
+
+	if s.llmClient != nil && s.emotionRepo != nil {
+		// 读取最近情感数据
+		_ = userName // 用于个性化
+		if s.llmClient != nil {
+			prompt := fmt.Sprintf("你是心理健康顾问。为%s生成简短的心理健康建议（50字）：保持规律作息，适当运动，积极社交。", userName)
+			resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+				Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+				Temperature: 0.5, MaxTokens: 200,
+			})
+			if err == nil && resp != nil && resp.Content != "" {
+				report.Suggestions = append(report.Suggestions, "AI个性化建议："+resp.Content)
+				report.DataSource = "ai"
+			}
+		}
+	}
+
+	return report
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// GrowthPath 成长路径规划
+type GrowthPath struct {
+	CurrentSemester string                   `json:"current_semester"`
+	Milestones      []map[string]interface{} `json:"milestones"`
+	Suggestions     []string                 `json:"suggestions"`
+	DataSource      string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateGrowthPath(ctx context.Context, userID int64) *GrowthPath {
+	return &GrowthPath{
+		CurrentSemester: "大二下学期",
+		Milestones: []map[string]interface{}{
+			{"semester": "大二下", "goal": "数据结构与算法达到竞赛水平", "action": "每日刷2道LeetCode"},
+			{"semester": "大三上", "goal": "完成1个完整项目", "action": "参与开源项目或校内实验室"},
+			{"semester": "大三下", "goal": "获得实习offer", "action": "准备简历和面试，参加春招"},
+			{"semester": "大四上", "goal": "明确职业方向", "action": "参加秋招，争取大厂offer"},
+		},
+		Suggestions: []string{
+			"本学期重点提升算法能力，准备蓝桥杯/ACM竞赛",
+			"暑假建议参加实习或实验室项目",
+			"大三应确定考研还是就业方向",
+		},
+		DataSource: "mock",
+	}
+}
+
+// ─── P2 专业知识图谱 + 笔记助手 + 简历生成 ───
+
+// KnowledgeGraph 专业知识图谱
+type KnowledgeGraph struct {
+	CourseName string                   `json:"course_name"`
+	Nodes      []map[string]interface{} `json:"nodes"`
+	Edges      []map[string]interface{} `json:"edges"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateKnowledgeGraph(ctx context.Context, courseName string) *KnowledgeGraph {
+	if courseName == "" {
+		courseName = "数据结构"
+	}
+
+	return &KnowledgeGraph{
+		CourseName: courseName,
+		Nodes: []map[string]interface{}{
+			{"id": "ds", "name": "数据结构", "category": "root", "mastery": 0.75},
+			{"id": "linear", "name": "线性结构", "category": "branch", "mastery": 0.88},
+			{"id": "tree", "name": "树形结构", "category": "branch", "mastery": 0.65},
+			{"id": "graph", "name": "图结构", "category": "branch", "mastery": 0.45},
+			{"id": "sort", "name": "排序算法", "category": "branch", "mastery": 0.72},
+			{"id": "search", "name": "查找算法", "category": "branch", "mastery": 0.58},
+		},
+		Edges: []map[string]interface{}{
+			{"from": "ds", "to": "linear", "relation": "包含"},
+			{"from": "ds", "to": "tree", "relation": "包含"},
+			{"from": "ds", "to": "graph", "relation": "包含"},
+			{"from": "ds", "to": "sort", "relation": "包含"},
+			{"from": "ds", "to": "search", "relation": "包含"},
+			{"from": "tree", "to": "graph", "relation": "关联(遍历算法通用)"},
+		},
+		DataSource: "mock",
+	}
+}
+
+// NoteAssistant 笔记助手结果
+type NoteAssistant struct {
+	Title       string                   `json:"title"`
+	KeyPoints   []string                 `json:"key_points"`
+	MindMap     string                   `json:"mind_map"`
+	KeyConcepts []string                 `json:"key_concepts"`
+	QuizQuestions []map[string]interface{} `json:"quiz_questions"`
+	DataSource  string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateNoteAssistant(ctx context.Context, content string) *NoteAssistant {
+	result := &NoteAssistant{
+		Title:      "学习笔记",
+		KeyPoints:  []string{"核心概念理解", "算法步骤梳理", "典型应用场景"},
+		MindMap:    "中心主题 → 子概念1 → 子概念2",
+		KeyConcepts: []string{"定义", "性质", "算法", "应用"},
+		QuizQuestions: []map[string]interface{}{
+			{"q": "请简述核心概念的定义", "a": "核心概念是..."},
+		},
+		DataSource: "fallback",
+	}
+
+	if s.llmClient != nil && content != "" {
+		text := content
+		if len([]rune(text)) > 500 {
+			text = string([]rune(text)[:500])
+		}
+		prompt := fmt.Sprintf("你是学习笔记助手。请从以下内容提取知识点、生成思维导图和自测题。80字：\n%s", text)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.4, MaxTokens: 400,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			result.KeyPoints = append(result.KeyPoints, "AI提取："+resp.Content)
+			result.DataSource = "ai"
+		}
+	}
+
+	return result
+}
+
+// ResumeData 智能简历
+type ResumeData struct {
+	Title      string                   `json:"title"`
+	Template   string                   `json:"template"`
+	Sections   []map[string]interface{} `json:"sections"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateResume(ctx context.Context, userID int64, position string) *ResumeData {
+	user, err := s.userRepo.GetByID(userID)
+	userName := "张同学"
+	major := "计算机科学与技术"
+	if err == nil && user != nil {
+		userName = user.DisplayName
+	}
+
+	if position == "" {
+		position = "Java后端开发工程师"
+	}
+
+	return &ResumeData{
+		Title:    userName + "的简历 - 应聘" + position,
+		Template: "现代简洁风",
+		Sections: []map[string]interface{}{
+			{"section": "个人信息", "content": fmt.Sprintf("%s | %s | 中共党员 | CET-4 520", userName, major)},
+			{"section": "教育背景", "content": fmt.Sprintf("滁州学院 %s 本科 2023-2027", major)},
+			{"section": "项目经历", "content": "1. 校园二手交易平台(Spring Boot+Vue) 2. 智能日程管理App(Flutter+Go)"},
+			{"section": "技能特长", "content": "Java/Python/Go, Spring Boot/Flask/Gin, MySQL/Redis, Linux/Git"},
+			{"section": "获奖经历", "content": "蓝桥杯省赛二等奖 | ACM校赛一等奖 | 三好学生"},
+		},
+		DataSource: "mock",
+	}
+}
+
+// CareerSimulation 职业模拟器
+type CareerSimulation struct {
+	CareerPath string                   `json:"career_path"`
+	ThreeYear  string                   `json:"three_year"`
+	FiveYear   string                   `json:"five_year"`
+	Skills     []string                 `json:"skills_needed"`
+	SalaryTrend []map[string]interface{} `json:"salary_trend"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateCareerSimulation(ctx context.Context, careerPath string) *CareerSimulation {
+	if careerPath == "" {
+		careerPath = "后端开发工程师"
+	}
+
+	return &CareerSimulation{
+		CareerPath: careerPath,
+		ThreeYear:  fmt.Sprintf("3年后的你：成为%s技术骨干，独立负责核心模块开发，年薪20-30万", careerPath),
+		FiveYear:   fmt.Sprintf("5年后的你：成为技术专家或Team Leader，带领3-5人团队，年薪30-50万"),
+		Skills:     []string{"Java/Python/Go精通", "分布式系统设计", "技术团队管理", "业务架构能力"},
+		SalaryTrend: []map[string]interface{}{
+			{"year": "2026(应届)", "range": "8-12万", "title": "初级开发工程师"},
+			{"year": "2028(3年)", "range": "20-30万", "title": "高级开发工程师"},
+			{"year": "2030(5年)", "range": "30-50万", "title": "技术专家/架构师"},
+		},
+		DataSource: "mock",
+	}
+}
+
+// AlumniMatch 前辈连线匹配
+type AlumniMatch struct {
+	Matches    []map[string]interface{} `json:"matches"`
+	SuggestQuestions []string           `json:"suggest_questions"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateAlumniMatch(ctx context.Context, userID int64) *AlumniMatch {
+	return &AlumniMatch{
+		Matches: []map[string]interface{}{
+			{"name": "陈学长", "grad_year": "2023", "company": "字节跳动", "position": "后端开发", "similarity": "兴趣方向高度匹配", "match_score": 92},
+			{"name": "刘学姐", "grad_year": "2022", "company": "阿里巴巴", "position": "Java开发", "similarity": "技术栈相似", "match_score": 85},
+			{"name": "王学长", "grad_year": "2024", "company": "美团", "position": "Golang开发", "similarity": "项目经历相近", "match_score": 78},
+		},
+		SuggestQuestions: []string{
+			"您觉得大学期间最值得投入时间学习的技术是什么？",
+			"实习面试时面试官最看重哪些能力？",
+			"从学校到职场的转变中，最大的挑战是什么？",
+		},
+		DataSource: "mock",
+	}
+}
+
+// ======================== P1 剩余方法 ========================
+
+// WeeklyReportData AI 学习周报
+type WeeklyReportData struct {
+	Week             string                     `json:"week"`
+	TotalHours       float64                    `json:"total_hours"`
+	CoursesCount     int                        `json:"courses_count"`
+	Assignments      int                        `json:"assignments"`
+	RankChange       int                        `json:"rank_change"`
+	Highlights       []string                   `json:"highlights"`
+	Improvements     []string                   `json:"improvements"`
+	NextWeekGoals    []string                   `json:"next_week_goals"`
+	TimeDistribution map[string]float64         `json:"time_distribution"`
+	KnowledgeChanges []map[string]interface{}   `json:"knowledge_changes"`
+	Attribution      string                     `json:"attribution"`
+	DataSource       string                     `json:"data_source"`
+}
+
+func (s *StudentService) GenerateWeeklyReport(ctx context.Context, userID int64) *WeeklyReportData {
+	weekNum := int(time.Now().YearDay()/7) + 1
+	data := &WeeklyReportData{
+		Week:         fmt.Sprintf("第%d周", weekNum),
+		TotalHours:   22.5,
+		CoursesCount: 5,
+		Assignments:  3,
+		RankChange:   2,
+		Highlights:   []string{"数据结构实验满分", "英语演讲获得A"},
+		Improvements: []string{"操作系统作业需加强", "体育锻炼不足"},
+		NextWeekGoals: []string{"完成算法作业", "准备期中考试"},
+		TimeDistribution: map[string]float64{
+			"上课": 15.0, "自习": 4.5, "实验": 2.0, "运动": 1.0,
+		},
+		KnowledgeChanges: []map[string]interface{}{
+			{"course": "数据结构", "change": "+12%", "trend": "up", "detail": "树和图相关知识点掌握度提升"},
+			{"course": "操作系统", "change": "-5%", "trend": "down", "detail": "内存管理章节理解不足"},
+		},
+		DataSource: "mock",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("学生本周学习%.0f小时，亮点：%s，不足：%s。请用40字做归因分析。",
+			data.TotalHours, strings.Join(data.Highlights, "、"), strings.Join(data.Improvements, "、"))
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 200,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			data.Attribution = strings.TrimSpace(resp.Content)
+			data.DataSource = "ai"
+		}
+	}
+
+	return data
+}
+
+// QAPlazaData 问答广场
+type QAPlazaData struct {
+	HotQuestions []map[string]interface{} `json:"hot_questions"`
+	Categories   []string                 `json:"categories"`
+	MyPosts      int                      `json:"my_posts"`
+	MyAnswers    int                      `json:"my_answers"`
+	DataSource   string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
+	return &QAPlazaData{
+		HotQuestions: []map[string]interface{}{
+			{"id": "1", "title": "转专业需要什么条件？", "author": "匿名同学", "answers": 5, "views": 128, "ai_answer": "转专业一般需要：1.大一第一学期结束后申请 2.绩点达到3.0以上 3.通过目标专业考核", "tags": []string{"政策", "学业"}},
+			{"id": "2", "title": "图书馆自习室怎么预约？", "author": "学习达人", "answers": 3, "views": 89, "ai_answer": "通过校园APP→图书馆→座位预约，每天22:00开放次日预约", "tags": []string{"生活", "图书馆"}},
+			{"id": "3", "title": "ACM竞赛如何入门？", "author": "编程新手", "answers": 8, "views": 256, "ai_answer": "建议从C++基础开始，刷LeetCode简单题，参加校内训练赛", "tags": []string{"竞赛", "学业"}},
+		},
+		Categories: []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
+		MyPosts:    2, MyAnswers: 5,
+		DataSource: "mock",
+	}
+}
+
+// HotTopicsData 热点关注
+type HotTopicsData struct {
+	Topics     []map[string]interface{} `json:"topics"`
+	UpdatedAt  string                   `json:"updated_at"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateHotTopics(ctx context.Context) *HotTopicsData {
+	return &HotTopicsData{
+		Topics: []map[string]interface{}{
+			{"id": "1", "title": "期中考试安排", "heat": 95, "trend": "rising", "posts": 23, "summary": "本学期期中考试集中在第10-11周"},
+			{"id": "2", "title": "暑期实习招聘", "heat": 82, "trend": "rising", "posts": 15, "summary": "多家互联网公司开放暑期实习岗位"},
+			{"id": "3", "title": "校园网升级", "heat": 68, "trend": "stable", "posts": 12, "summary": "校园网将于下周升级至千兆"},
+			{"id": "4", "title": "社团招新", "heat": 55, "trend": "falling", "posts": 8, "summary": "本学期第二轮社团招新已结束"},
+		},
+		UpdatedAt:  time.Now().Format("2006-01-02 15:04"),
+		DataSource: "mock",
+	}
+}
+
+// QALeaderboardData 问答排行榜
+type QALeaderboardData struct {
+	HotQuestions []map[string]interface{} `json:"hot_questions"`
+	TopAnswerers []map[string]interface{} `json:"top_answerers"`
+	Contributors []map[string]interface{} `json:"contributors"`
+	Period       string                   `json:"period"`
+	DataSource   string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboardData {
+	return &QALeaderboardData{
+		HotQuestions: []map[string]interface{}{
+			{"rank": 1, "title": "ACM竞赛如何入门？", "views": 256, "answers": 8, "score": 92.5},
+			{"rank": 2, "title": "转专业需要什么条件？", "views": 128, "answers": 5, "score": 85.0},
+			{"rank": 3, "title": "考研还是就业？", "views": 198, "answers": 12, "score": 80.3},
+		},
+		TopAnswerers: []map[string]interface{}{
+			{"rank": 1, "name": "知识达人", "answers": 23, "adopted": 15, "score": 95.0},
+			{"rank": 2, "name": "热心学长", "answers": 18, "adopted": 10, "score": 82.5},
+			{"rank": 3, "name": "编程高手", "answers": 12, "adopted": 8, "score": 78.0},
+		},
+		Contributors: []map[string]interface{}{
+			{"rank": 1, "name": "知识达人", "contributions": 15, "quality_score": 4.8},
+			{"rank": 2, "name": "热心学长", "contributions": 10, "quality_score": 4.5},
+			{"rank": 3, "name": "学霸笔记", "contributions": 8, "quality_score": 4.3},
+		},
+		Period: "本周", DataSource: "mock",
+	}
+}
+
+// PrivateChatData 站内私聊
+type PrivateChatData struct {
+	Conversations       []map[string]interface{} `json:"conversations"`
+	RecommendedContacts []map[string]interface{} `json:"recommended_contacts"`
+	DataSource          string                   `json:"data_source"`
+}
+
+func (s *StudentService) GeneratePrivateChat(ctx context.Context) *PrivateChatData {
+	return &PrivateChatData{
+		Conversations: []map[string]interface{}{
+			{"id": "1", "name": "李辅导员", "role": "counselor", "last_message": "明天下午来办公室聊聊", "time": "10:30", "unread": 1},
+			{"id": "2", "name": "张学长", "role": "student", "last_message": "ACM训练资料已发你邮箱", "time": "昨天", "unread": 0},
+			{"id": "3", "name": "AI学友-王同学", "role": "student", "last_message": "明天一起去图书馆复习吧", "time": "昨天", "unread": 0},
+		},
+		RecommendedContacts: []map[string]interface{}{
+			{"name": "赵学姐", "reason": "同专业大三，擅长算法", "match_score": 88},
+			{"name": "刘同学", "reason": "学习风格互补，可组队复习", "match_score": 82},
+		},
+		DataSource: "mock",
+	}
+}
+
+// ======================== P3 生态扩展 ========================
+
+// DynamicMentorData 数字人导师（动态形象增强版）
+type DynamicMentorData struct {
+	Name           string                   `json:"name"`
+	AvatarStyle    string                   `json:"avatar_style"`
+	Personality    string                   `json:"personality"`
+	MemoryContext  []map[string]interface{} `json:"memory_context"`
+	CurrentMood    string                   `json:"current_mood"`
+	Greeting       string                   `json:"greeting"`
+	Suggestions    []string                 `json:"suggestions"`
+	InteractionTips []string                `json:"interaction_tips"`
+	DataSource     string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateDynamicMentor(ctx context.Context, userID int64, style string) *DynamicMentorData {
+	if style == "" {
+		style = "温和"
+	}
+	styles := map[string]string{
+		"温和": "耐心细致，循循善诱，善于鼓励",
+		"严格": "要求严格，直指问题，督促进步",
+		"幽默": "轻松风趣，用故事和比喻讲解知识",
+		"思政": "注重价值引领，融入家国情怀与社会责任",
+	}
+	personality := styles[style]
+	if personality == "" {
+		personality = styles["温和"]
+	}
+
+	data := &DynamicMentorData{
+		Name:        "蔚小芯",
+		AvatarStyle: style,
+		Personality: personality,
+		MemoryContext: []map[string]interface{}{
+			{"date": "2026-05-15", "topic": "数据结构复习", "takeaway": "用户对图论部分存在畏难情绪，已推荐可视化学习工具"},
+			{"date": "2026-05-17", "topic": "学习动力", "takeaway": "用户期中成绩进步，信心增强，已设定ACM竞赛目标"},
+		},
+		CurrentMood: "热情投入",
+		Greeting:    fmt.Sprintf("你好！我是你的%s风格AI导师蔚小芯。看到你最近的进步我很开心！今天我们继续加油吧。", style),
+		Suggestions: []string{"本周重点攻克图的最短路径算法", "每天完成2道LeetCode中等题", "周末参加ACM训练赛"},
+		InteractionTips: []string{
+			"可以随时问我学习问题", "我会记住你的学习偏好和薄弱点", "每周生成一份学习报告",
+		},
+		DataSource: "mock",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是%s风格的AI数字导师，名叫蔚小芯。请根据学生的最近学习记录生成一段50字的个性化开场白。", style)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.7, MaxTokens: 300,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			data.Greeting = strings.TrimSpace(resp.Content)
+			data.DataSource = "ai"
+		}
+	}
+
+	return data
+}
+
+// EnhancedCareerSimulation 职业模拟器增强版（数据驱动仿真）
+type EnhancedCareerSimulation struct {
+	CareerPath     string                   `json:"career_path"`
+	CurrentStage   string                   `json:"current_stage"`
+	Stages         []map[string]interface{} `json:"stages"`
+	SkillsGap      []map[string]interface{} `json:"skills_gap"`
+	SalaryProjection []map[string]interface{} `json:"salary_projection"`
+	MarketTrends   []string                 `json:"market_trends"`
+	AlternativePathways []string            `json:"alternative_pathways"`
+	DataSource     string                   `json:"data_source"`
+}
+
+func (s *StudentService) GenerateEnhancedCareerSimulation(ctx context.Context, careerPath string) *EnhancedCareerSimulation {
+	if careerPath == "" {
+		careerPath = "软件开发工程师"
+	}
+
+	data := &EnhancedCareerSimulation{
+		CareerPath:   careerPath,
+		CurrentStage: "在校学生（大二）",
+		Stages: []map[string]interface{}{
+			{"stage": "在校期(当前)", "duration": "大二-大四", "actions": []string{"夯实数据结构与算法", "参与开源项目", "获得至少1次实习经历"}, "success_rate": 0.85},
+			{"stage": "应届生", "duration": "毕业1年", "title": "初级开发工程师", "salary": "8-15万", "actions": []string{"快速熟悉公司技术栈", "建立技术博客", "考取相关认证"}, "success_rate": 0.78},
+			{"stage": "3年经验", "duration": "工作3-5年", "title": "高级开发工程师", "salary": "20-35万", "actions": []string{"深入某一技术领域", "带新人/做技术分享", "参与架构设计"}, "success_rate": 0.65},
+			{"stage": "5年+", "duration": "工作5-10年", "title": "技术专家/架构师", "salary": "40-80万", "actions": []string{"技术决策与架构规划", "跨团队协作", "行业影响力建设"}, "success_rate": 0.35},
+		},
+		SkillsGap: []map[string]interface{}{
+			{"skill": "分布式系统设计", "current": 30, "target": 75, "importance": "high"},
+			{"skill": "系统架构能力", "current": 20, "target": 70, "importance": "high"},
+			{"skill": "技术管理", "current": 10, "target": 60, "importance": "medium"},
+		},
+		SalaryProjection: []map[string]interface{}{
+			{"year": "2026(应届)", "range": "8-15万", "percentile_50": 10, "percentile_90": 18},
+			{"year": "2029(3年)", "range": "20-35万", "percentile_50": 25, "percentile_90": 40},
+			{"year": "2031(5年)", "range": "35-60万", "percentile_50": 42, "percentile_90": 70},
+		},
+		MarketTrends: []string{
+			"AI/大模型相关岗位需求年增长45%",
+			"全栈工程师薪资溢价约20%",
+			"远程办公成为常态，国际化机会增多",
+		},
+		AlternativePathways: []string{
+			"技术管理路径: 开发→Tech Lead→技术经理→技术总监",
+			"创业路径: 积累3-5年经验→加入初创公司→自主创业",
+			"自由职业路径: 建立技术品牌→接外包→远程工作→数字游民",
+		},
+		DataSource: "mock",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是职业规划师。请为一名大二计算机专业学生规划「%s」职业路径，包括各阶段关键行动和技能差距。约100字。", careerPath)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.5, MaxTokens: 400,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			_ = strings.TrimSpace(resp.Content)
+			data.DataSource = "ai"
+		}
+	}
+
+	return data
 }

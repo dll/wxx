@@ -329,9 +329,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   Widget _buildStepCard(EnrollmentProvider prov, ThemeData theme, int index) {
-    final step = prov.steps[index];
     final isCompleted = prov.completedSteps.contains(index);
-    final isLast = index == prov.steps.length - 1;
+    final isLast = index == prov.totalSteps - 1;
+    final hasRichSteps = prov.stepDetails.isNotEmpty && index < prov.stepDetails.length;
+
+    // 富文本步骤详情
+    final detail = hasRichSteps ? prov.stepDetails[index] : null;
+    final stepText = index < prov.steps.length ? prov.steps[index] : (detail?.title ?? '');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,7 +376,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               if (!isLast)
                 Container(
                   width: 2,
-                  height: 48,
+                  height: detail != null ? 100 : 48,
                   color: isCompleted
                       ? Colors.green.withValues(alpha: 0.5)
                       : theme.colorScheme.outlineVariant,
@@ -386,7 +390,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
           child: GestureDetector(
             onTap: () => prov.toggleStep(index),
             child: Container(
-              margin: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isCompleted
@@ -399,26 +403,140 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       : Colors.transparent,
                 ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      step,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isCompleted ? theme.colorScheme.outline : null,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  // 步骤标题
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          stepText,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isCompleted ? theme.colorScheme.outline : null,
+                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
                       ),
-                    ),
+                      Icon(
+                        isCompleted ? Icons.check_circle : Icons.circle_outlined,
+                        size: 20,
+                        color: isCompleted ? Colors.green : theme.colorScheme.outlineVariant,
+                      ),
+                    ],
                   ),
-                  Icon(
-                    isCompleted ? Icons.check_circle : Icons.circle_outlined,
-                    size: 20,
-                    color: isCompleted ? Colors.green : theme.colorScheme.outlineVariant,
-                  ),
+
+                  // 富文本详情（联系人/地点/电话/FAQ等）
+                  if (detail != null) ...[
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+
+                    // 联系人 + 电话
+                    if (detail.contact.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme, Icons.person_outline, detail.contact, detail.phone,
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // 办理地点
+                    if (detail.location.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme, Icons.location_on_outlined, detail.location, detail.officeHours,
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // 所需材料
+                    if (detail.materials.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme, Icons.description_outlined, detail.materials, '',
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // 办理入口
+                    if (detail.entryUrl.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme, Icons.open_in_new, detail.entryUrl, '',
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // 截止时间
+                    if (detail.deadline.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme, Icons.schedule, '截止时间：${detail.deadline}', '',
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // FAQ
+                    if (detail.faq.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ...detail.faq.map((f) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            f.q,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
+                          children: [
+                            Text(
+                              f.a,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+                  ],
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建详情行（图标 + 文本1 + 文本2）
+  Widget _buildDetailRow(ThemeData theme, IconData icon, String text1, String text2) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                text1,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (text2.isNotEmpty)
+                Text(
+                  text2,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                    fontSize: 11,
+                  ),
+                ),
+            ],
           ),
         ),
       ],

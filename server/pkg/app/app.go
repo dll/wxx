@@ -176,18 +176,51 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
-	teacherHandler := handler.NewTeacherHandler()
-	assistantHandler := handler.NewAssistantHandler()
-	unionHandler := handler.NewUnionHandler()
-	collegeHandler := handler.NewCollegeHandler()
+
+	var teacherSvc *service.TeacherService
+	if llmClient != nil {
+		teacherSvc = service.NewTeacherService(llmClient)
+		log.Println("教师 AI 服务已启用")
+	}
+	teacherHandler := handler.NewTeacherHandler(teacherSvc)
+
+	var assistantSvc *service.AssistantService
+	if llmClient != nil {
+		assistantSvc = service.NewAssistantService(llmClient)
+	}
+	assistantHandler := handler.NewAssistantHandler(assistantSvc)
+
+	var unionSvc *service.UnionService
+	if llmClient != nil {
+		unionSvc = service.NewUnionService(llmClient)
+	}
+	unionHandler := handler.NewUnionHandler(unionSvc)
+
+	var collegeSvc *service.CollegeService
+	if llmClient != nil {
+		collegeSvc = service.NewCollegeService(llmClient)
+	}
+	collegeHandler := handler.NewCollegeHandler(collegeSvc)
 	cultureHandler := handler.NewCultureHandler()
+
+	var schoolAdminSvc *service.SchoolAdminService
+	if llmClient != nil {
+		schoolAdminSvc = service.NewSchoolAdminService(llmClient)
+	}
+	schoolAdminHandler := handler.NewSchoolAdminHandler(schoolAdminSvc)
+
+	var sysAdminSvc *service.SysAdminService
+	if llmClient != nil {
+		sysAdminSvc = service.NewSysAdminService(llmClient)
+	}
+	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler)
 
 	return router, nil
 }
@@ -353,6 +386,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	unionH *handler.UnionHandler,
 	collegeH *handler.CollegeHandler,
 	cultureH *handler.CultureHandler,
+	schoolAdminH *handler.SchoolAdminHandler,
+	sysAdminH *handler.SysAdminHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -360,6 +395,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(gin.Recovery())
 	router.Use(middleware.CORS())
 	router.Use(middleware.TraceID())
+	router.Use(middleware.PIIMask()) // PII 检测与脱敏（在请求进入 handler 前检测并脱敏）
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
 
@@ -548,6 +584,19 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/qa-leaderboard", auth.RequireCapability(auth.SelfCommunityRead), studentH.QALeaderboard)
 				student.GET("/private-chat", auth.RequireCapability(auth.SelfPrivateChat), studentH.PrivateChat)
 				student.GET("/process-enhanced", auth.RequireCapability(auth.SelfProcessRead), studentH.ProcessEnhanced)
+				// ── P2 学生深度分析 ──
+				student.GET("/values-guidance", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("values-guidance"))
+				student.GET("/classroom-extension", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("classroom-extension"))
+				student.GET("/mock-interview", auth.RequireCapability(auth.SelfGenericAI), studentH.MockInterview)
+				student.GET("/resume", auth.RequireCapability(auth.SelfGenericAI), studentH.Resume)
+				student.GET("/career-simulation", auth.RequireCapability(auth.SelfGenericAI), studentH.CareerSimulation)
+				student.GET("/study-buddy-match", auth.RequireCapability(auth.SelfGenericAI), studentH.StudyBuddyMatch)
+				student.GET("/mental-health-report", auth.RequireCapability(auth.SelfGenericAI), studentH.MentalHealthReport)
+				student.GET("/note-assistant", auth.RequireCapability(auth.SelfGenericAI), studentH.NoteAssistant)
+				student.GET("/alumni-match", auth.RequireCapability(auth.SelfGenericAI), studentH.AlumniMatch)
+			// ── P3 生态扩展 ──
+				student.GET("/dynamic-mentor", auth.RequireCapability(auth.SelfGenericAI), studentH.DynamicMentor)
+				student.GET("/career-sim-enhanced", auth.RequireCapability(auth.SelfGenericAI), studentH.EnhancedCareerSim)
 			}
 
 			// ── 个人通用入口 /me/* —— 与 /student/* 个人能力等价的语义化别名 ──
@@ -581,6 +630,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				counselor.GET("/hot-topic-sense", auth.RequireCapability(auth.CounselorHotTopicSense), counselorH.HotTopicSense)
 				counselor.GET("/process-edit", auth.RequireCapability(auth.CounselorProcessEdit), counselorH.ProcessEdit)
 				counselor.GET("/student-list", auth.RequireCapability(auth.CounselorStudentList), counselorH.StudentList)
+				// ── P2 辅导员深度分析 ──
+				counselor.GET("/follow-up-reminders", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.FollowUpReminders)
+				counselor.GET("/checkin-stats", auth.RequireCapability(auth.CounselorClassReport), counselorH.CheckinStats)
+				counselor.POST("/smart-notify", auth.RequireCapability(auth.CounselorInterventionWrite), counselorH.SmartNotify)
+				counselor.GET("/monthly-brief", auth.RequireCapability(auth.CounselorClassReport), counselorH.MonthlyBrief)
+				counselor.POST("/session-insight", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.SessionInsight)
 			}
 
 			// ── 教师 AI 功能 ──
@@ -595,6 +650,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				teacher.GET("/reflection", auth.RequireCapability(auth.TeacherReflection), teacherH.Reflection)
 				teacher.GET("/style-distribution", auth.RequireCapability(auth.TeacherStyleDist), teacherH.StyleDist)
 				teacher.GET("/community-qa", auth.RequireCapability(auth.TeacherCommunityQA), teacherH.CommunityQA)
+				// ── P2 教师深度分析 ──
+				teacher.GET("/faq-knowledge", auth.RequireCapability(auth.TeacherCommunityQA), teacherH.FAQKnowledge)
+				teacher.GET("/student-twin", auth.RequireCapability(auth.TeacherHeatmapRead), teacherH.StudentTwin)
+				teacher.GET("/knowledge-coverage", auth.RequireCapability(auth.TeacherLessonPrep), teacherH.KnowledgeCoverage)
+				teacher.GET("/ideological-suggestions", auth.RequireCapability(auth.TeacherReflection), teacherH.IdeologicalSuggestions)
+				teacher.GET("/personalized-teaching", auth.RequireCapability(auth.TeacherStyleDist), teacherH.PersonalizedTeaching)
 			}
 
 			// ── 教辅 AI 功能 ──
@@ -603,6 +664,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				assistantGroup.GET("/schedule-check", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.ScheduleCheck)
 				assistantGroup.GET("/graduation-audit", auth.RequireCapability(auth.AssistantGradAudit), assistantH.GradAudit)
 				assistantGroup.GET("/exam-arrange", auth.RequireCapability(auth.AssistantExamArrange), assistantH.ExamArrange)
+				// ── P2 教辅深度分析 ──
+				assistantGroup.POST("/notification", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.Notification)
+				assistantGroup.GET("/teaching-calendar", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.TeachingCalendar)
+				assistantGroup.GET("/student-info", auth.RequireCapability(auth.AssistantGradAudit), assistantH.StudentInfoQuery)
 			}
 
 			// ── 学生会 AI 功能 ──
@@ -610,6 +675,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			{
 				unionGroup.GET("/event-plan", auth.RequireCapability(auth.UnionEventPlan), unionH.EventPlan)
 				unionGroup.GET("/poster-gen", auth.RequireCapability(auth.UnionPosterGen), unionH.PosterGen)
+				// ── P2 学生会深度分析 ──
+				unionGroup.GET("/recruitment", auth.RequireCapability(auth.UnionEventPlan), unionH.Recruitment)
+				unionGroup.GET("/member-manage", auth.RequireCapability(auth.UnionEventPlan), unionH.MemberManage)
+				unionGroup.GET("/questionnaire", auth.RequireCapability(auth.UnionPosterGen), unionH.Questionnaire)
+				unionGroup.GET("/hot-topic-track", auth.RequireCapability(auth.UnionEventPlan), unionH.HotTopicTrack)
+				unionGroup.GET("/activity-analysis", auth.RequireCapability(auth.UnionEventPlan), unionH.ActivityAnalysis)
 			}
 
 			// ── 学院管理员 AI 功能 ──
@@ -617,6 +688,28 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			{
 				collegeGroup.GET("/twin-screen", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.TwinScreen)
 				collegeGroup.GET("/data-analysis", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.DataAnalysis)
+				// ── P2 学院管理员深度分析 ──
+				collegeGroup.GET("/decision-advice", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.DecisionAdvice)
+				collegeGroup.GET("/teacher-efficiency", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.TeacherEfficiency)
+				collegeGroup.GET("/course-quality", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.CourseQuality)
+				collegeGroup.GET("/college-report", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.CollegeReport)
+			}
+
+			// ── 学校管理员 AI 功能（P2）──
+			schoolAdminGroup := secured.Group("/school-admin")
+			{
+				schoolAdminGroup.GET("/panorama", auth.RequireCapability(auth.CollegeTwinScreen), schoolAdminH.Panorama)
+				schoolAdminGroup.POST("/policy-simulation", auth.RequireCapability(auth.CollegeDataAnalysis), schoolAdminH.PolicySimulation)
+				schoolAdminGroup.GET("/college-comparison", auth.RequireCapability(auth.CollegeTwinScreen), schoolAdminH.CollegeComparison)
+				schoolAdminGroup.GET("/academic-overview", auth.RequireCapability(auth.CollegeTwinScreen), schoolAdminH.AcademicOverview)
+			}
+
+			// ── 系统管理员 AI 功能（P2）──
+			sysAdminGroup := secured.Group("/sys-admin")
+			{
+				sysAdminGroup.GET("/system-health", auth.RequireCapability(auth.CollegeTwinScreen), sysAdminH.SystemHealth)
+				sysAdminGroup.GET("/knowledge-quality", auth.RequireCapability(auth.CollegeDataAnalysis), sysAdminH.KnowledgeQuality)
+				sysAdminGroup.GET("/user-behavior", auth.RequireCapability(auth.CollegeTwinScreen), sysAdminH.UserBehavior)
 			}
 
 			// ── 校园文化智能体（全员可见）──
@@ -627,6 +720,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				cultureGroup.GET("/lectures", auth.RequireCapability(auth.SelfCultureLectures), cultureH.Lectures)
 				cultureGroup.GET("/events", auth.RequireCapability(auth.SelfCultureEvents), cultureH.Events)
 				cultureGroup.GET("/volunteer", auth.RequireCapability(auth.SelfCultureVolunteer), cultureH.Volunteer)
+				// ── 第三方应用接入（全员可见）──
+				appsGroup := secured.Group("/apps")
+				{
+					appsGroup.GET("", handler.NewExternalAppHandler().ListApps)
+					appsGroup.GET("/:key", handler.NewExternalAppHandler().GetApp)
+				}
 			}
 		}
 	}

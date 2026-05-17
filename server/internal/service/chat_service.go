@@ -149,6 +149,12 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
 	}
 
+	// │ 内容安全过滤 —— 用户输入检查
+	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
+		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
+		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	}
+
 	// ── 3. FTS5/BM25 知识检索 ──
 	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
@@ -173,14 +179,17 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
 	}
 
+	// │ LLM 返回内容 PII 脱敏 —— 防止模型幻觉输出真实 PII
+	llmContent := util.SanitizeLLMResponse(llmResp.Content)
+
 	// │ 内容安全过滤 ── LLM 返回内容检查
-	if fr := util.CheckContent(llmResp.Content); fr.Action == util.FilterBlock {
+	if fr := util.CheckLLMOutput(llmContent); fr.Action == util.FilterBlock {
 		log.Printf("内容过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
 		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
 	}
 
 	// ── 6. 构造 AnswerCard ──
-	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID, multiAgentResult)
+	card := s.buildAnswerCard(llmContent, searchResults, traceID, multiAgentResult)
 
 	// 保存助手回复
 	_ = s.messageRepo.Create(&model.Message{
@@ -322,7 +331,7 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 // buildBlockedAnswer 内容过滤拦截时返回的兜底回答
 func (s *ChatService) buildBlockedAnswer(traceID string, category string) *model.AnswerCard {
 	return &model.AnswerCard{
-		Conclusion: util.FilterBlockResponse,
+		Conclusion: util.GetFallbackResponse(category),
 		TraceID:    traceID,
 		Confidence: 0.0,
 		Fallback:   true,
@@ -554,14 +563,16 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil
 	}
 
-	// 内容安全过滤
-	if fr := util.CheckContent(llmResp.Content); fr.Action == util.FilterBlock {
+	// │ LLM 返回内容 PII 脱敏 + 内容安全过滤
+	llmContent := util.SanitizeLLMResponse(llmResp.Content)
+
+	if fr := util.CheckLLMOutput(llmContent); fr.Action == util.FilterBlock {
 		log.Printf("内容过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
 		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
 	}
 
 	// ── 5. 构造 AnswerCard ──
-	card := s.buildAnswerCard(llmResp.Content, searchResults, traceID, nil)
+	card := s.buildAnswerCard(llmContent, searchResults, traceID, nil)
 
 	_ = s.messageRepo.Create(&model.Message{
 		SessionID: sessionID,

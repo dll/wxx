@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
+import '../pages/consent/consent_page.dart';
 import '../pages/login/login_page.dart';
 import '../pages/home/home_page.dart';
 import '../pages/chat/chat_page.dart';
@@ -99,15 +100,25 @@ final GoRouter appRouter = GoRouter(
   refreshListenable: authRefreshNotifier,
   initialLocation: '/home',
   redirect: (context, state) {
+    final firstLaunchDone = Storage.firstLaunchDone;
     final loggedIn = Storage.isLoggedIn;
+    final isConsentPage = state.matchedLocation == '/consent';
     final isLoginPage = state.matchedLocation == '/login';
 
-    if (!loggedIn && !isLoginPage) return '/login';
-    if (loggedIn && isLoginPage) return '/home';
+    // 首次启动 → 必须先同意隐私政策
+    if (!firstLaunchDone && !isConsentPage) return '/consent';
+    // 已完成首次启动但未登录 → 去登录
+    if (firstLaunchDone && !loggedIn && !isLoginPage) return '/login';
+    // 已登录 → 不需要看登录或同意页
+    if (loggedIn && (isLoginPage || isConsentPage)) return '/home';
 
     return null;
   },
   routes: [
+    GoRoute(
+      path: '/consent',
+      builder: (context, state) => const ConsentPage(),
+    ),
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginPage(),

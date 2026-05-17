@@ -61,6 +61,21 @@ func (h *StudentHandler) mockDailyBriefing(c *gin.Context) {
 
 // LearningDiary 学习日记
 func (h *StudentHandler) LearningDiary(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			diary, err := h.svc.GenerateLearningDiary(c.Request.Context(), userCtx.UserID)
+			if err == nil && diary != nil {
+				c.JSON(http.StatusOK, diary)
+				return
+			}
+		}
+	}
+	// 兜底
+	h.mockLearningDiary(c)
+}
+
+func (h *StudentHandler) mockLearningDiary(c *gin.Context) {
 	today := time.Now().Format("2006-01-02")
 	c.JSON(http.StatusOK, gin.H{
 		"date":            today,
@@ -150,6 +165,13 @@ func (h *StudentHandler) Achievements(c *gin.Context) {
 
 // CourseMap 课程地图
 func (h *StudentHandler) CourseMap(c *gin.Context) {
+	if h.svc != nil {
+		kg := h.svc.GenerateKnowledgeGraph(c.Request.Context(), c.Query("course"))
+		if kg != nil {
+			c.JSON(http.StatusOK, kg)
+			return
+		}
+	}
 	c.JSON(http.StatusOK, []gin.H{
 		{"id": "cs101", "name": "程序设计基础", "credits": 4, "semester": 1, "status": "completed", "prerequisites": []string{}, "category": "专业核心"},
 		{"id": "cs201", "name": "数据结构", "credits": 4, "semester": 3, "status": "current", "prerequisites": []string{"cs101"}, "category": "专业核心"},
@@ -161,6 +183,16 @@ func (h *StudentHandler) CourseMap(c *gin.Context) {
 
 // CourseAnalytics 课程学情
 func (h *StudentHandler) CourseAnalytics(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			warning := h.svc.GenerateAcademicWarning(c.Request.Context(), userCtx.UserID)
+			if warning != nil {
+				c.JSON(http.StatusOK, warning)
+				return
+			}
+		}
+	}
 	c.JSON(http.StatusOK, []gin.H{
 		{"course_name": "数据结构", "progress": 0.65, "rank_percentile": 25, "knowledge_points": []gin.H{{"name": "链表", "mastery": 0.9}, {"name": "二叉树", "mastery": 0.6}, {"name": "图", "mastery": 0.3}}, "weak_points": []string{"图的遍历", "最短路径算法"}},
 		{"course_name": "操作系统", "progress": 0.55, "rank_percentile": 40, "knowledge_points": []gin.H{{"name": "进程管理", "mastery": 0.8}, {"name": "内存管理", "mastery": 0.5}}, "weak_points": []string{"页面置换算法"}},
@@ -169,6 +201,16 @@ func (h *StudentHandler) CourseAnalytics(c *gin.Context) {
 
 // WeeklyReport 学习周报
 func (h *StudentHandler) WeeklyReport(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			report := h.svc.GenerateWeeklyReport(c.Request.Context(), userCtx.UserID)
+			if report != nil {
+				c.JSON(http.StatusOK, report)
+				return
+			}
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"week":            fmt.Sprintf("第%d周", int(time.Now().YearDay()/7)+1),
 		"total_hours":     22.5,
@@ -178,11 +220,19 @@ func (h *StudentHandler) WeeklyReport(c *gin.Context) {
 		"highlights":      []string{"数据结构实验满分", "英语演讲获得A"},
 		"improvements":    []string{"操作系统作业需加强", "体育锻炼不足"},
 		"next_week_goals": []string{"完成算法作业", "准备期中考试"},
+		"data_source":     "fallback",
 	})
 }
 
 // QAPlaza 问答广场
 func (h *StudentHandler) QAPlaza(c *gin.Context) {
+	if h.svc != nil {
+		plaza := h.svc.GenerateQAPlaza(c.Request.Context())
+		if plaza != nil {
+			c.JSON(http.StatusOK, plaza)
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"hot_questions": []gin.H{
 			{"id": "1", "title": "转专业需要什么条件？", "author": "匿名同学", "answers": 5, "views": 128, "ai_answer": "转专业一般需要：1.大一第一学期结束后申请 2.绩点达到3.0以上 3.通过目标专业考核", "tags": []string{"政策", "学业"}},
@@ -190,13 +240,20 @@ func (h *StudentHandler) QAPlaza(c *gin.Context) {
 			{"id": "3", "title": "ACM竞赛如何入门？", "author": "编程新手", "answers": 8, "views": 256, "ai_answer": "建议从C++基础开始，刷LeetCode简单题，参加校内训练赛", "tags": []string{"竞赛", "学业"}},
 		},
 		"categories": []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
-		"my_posts":   2,
-		"my_answers": 5,
+		"my_posts":   2, "my_answers": 5,
+		"data_source": "fallback",
 	})
 }
 
 // HotTopics 热点关注
 func (h *StudentHandler) HotTopics(c *gin.Context) {
+	if h.svc != nil {
+		topics := h.svc.GenerateHotTopics(c.Request.Context())
+		if topics != nil {
+			c.JSON(http.StatusOK, topics)
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"topics": []gin.H{
 			{"id": "1", "title": "期中考试安排", "heat": 95, "trend": "rising", "posts": 23, "summary": "本学期期中考试集中在第10-11周，数据结构和高数为重点关注科目"},
@@ -204,12 +261,20 @@ func (h *StudentHandler) HotTopics(c *gin.Context) {
 			{"id": "3", "title": "校园网升级", "heat": 68, "trend": "stable", "posts": 12, "summary": "校园网将于下周升级至千兆，届时可能短暂断网"},
 			{"id": "4", "title": "社团招新", "heat": 55, "trend": "falling", "posts": 8, "summary": "本学期第二轮社团招新已结束，共12个社团完成纳新"},
 		},
-		"updated_at": time.Now().Format("2006-01-02 15:04"),
+		"updated_at":  time.Now().Format("2006-01-02 15:04"),
+		"data_source": "fallback",
 	})
 }
 
 // QALeaderboard 问答排行榜
 func (h *StudentHandler) QALeaderboard(c *gin.Context) {
+	if h.svc != nil {
+		lb := h.svc.GenerateQALeaderboard(c.Request.Context())
+		if lb != nil {
+			c.JSON(http.StatusOK, lb)
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"hot_questions": []gin.H{
 			{"rank": 1, "title": "ACM竞赛如何入门？", "views": 256, "answers": 8, "score": 92.5},
@@ -226,12 +291,20 @@ func (h *StudentHandler) QALeaderboard(c *gin.Context) {
 			{"rank": 2, "name": "热心学长", "contributions": 10, "quality_score": 4.5},
 			{"rank": 3, "name": "学霸笔记", "contributions": 8, "quality_score": 4.3},
 		},
-		"period": "本周",
+		"period":      "本周",
+		"data_source": "fallback",
 	})
 }
 
 // PrivateChat 站内私聊
 func (h *StudentHandler) PrivateChat(c *gin.Context) {
+	if h.svc != nil {
+		chat := h.svc.GeneratePrivateChat(c.Request.Context())
+		if chat != nil {
+			c.JSON(http.StatusOK, chat)
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"conversations": []gin.H{
 			{"id": "1", "name": "李辅导员", "role": "counselor", "last_message": "明天下午来办公室聊聊", "time": "10:30", "unread": 1},
@@ -242,6 +315,7 @@ func (h *StudentHandler) PrivateChat(c *gin.Context) {
 			{"name": "赵学姐", "reason": "同专业大三，擅长算法", "match_score": 88},
 			{"name": "刘同学", "reason": "学习风格互补，可组队复习", "match_score": 82},
 		},
+		"data_source": "fallback",
 	})
 }
 
@@ -266,24 +340,210 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 
 // GenericAI 通用 AI 响应（用于多个简单功能）
 func (h *StudentHandler) GenericAI(feature string) gin.HandlerFunc {
-	responses := map[string]gin.H{
-		"freshman-plan":      {"content": "大一规划建议", "response": "建议重点关注数学和编程基础课程，积极参加社团活动拓展视野。"},
-		"growth-path":        {"content": "成长路径分析", "response": "你目前处于大二下学期，建议本学期提升算法能力，暑假寻找实习机会。"},
-		"political-study":    {"content": "政治学习", "response": "本周学习主题：习近平新时代中国特色社会主义思想。已整理学习要点。"},
-		"ideological-record": {"content": "思想档案", "response": "思想政治表现良好，建议继续保持对时事的关注，多参与志愿服务。"},
-		"party-progress":     {"content": "入党进度", "response": "当前阶段：入党积极分子。下一步参加组织考察，建议积极参与志愿服务。"},
-		"campus-life":        {"content": "校园生活", "response": "本周推荐：周三技术沙龙、周五篮球赛、周末志愿者活动。"},
-		"schedule":           {"content": "日程管理", "response": "今日：上午2节课，下午1节课，晚上建议复习数据结构。"},
-		"competition-match":  {"content": "竞赛推荐", "response": "推荐：ACM程序设计竞赛(95%)、数学建模(80%)、创新创业大赛(70%)。"},
-		"study-buddy":        {"content": "学伴匹配", "response": "推荐3位学伴：张三(数据结构)、李四(算法练习)、王五(英语口语)。"},
-		"mental-health":      {"content": "心理健康", "response": "整体心理状态良好。建议保持规律作息，适当运动放松。"},
-		"digital-mentor":     {"content": "AI导师", "response": "本周建议重点关注数据结构中图的相关算法，这是目前的薄弱环节。"},
-	}
 	return func(c *gin.Context) {
+		// 尝试用 LLM 生成
+		if h.svc != nil {
+			userCtx := middleware.GetUserContext(c)
+			if userCtx != nil {
+				result := h.svc.GenerateAIResponse(c.Request.Context(), feature, userCtx.UserID)
+				if result != nil {
+					c.JSON(http.StatusOK, result)
+					return
+				}
+			}
+		}
+
+		// 兜底 mock
+		responses := map[string]gin.H{
+			"freshman-plan":      {"content": "大一规划建议", "response": "建议重点关注数学和编程基础课程，积极参加社团活动拓展视野。", "data_source": "fallback"},
+			"growth-path":        {"content": "成长路径分析", "response": "你目前处于大二下学期，建议本学期提升算法能力，暑假寻找实习机会。", "data_source": "fallback"},
+			"political-study":    {"content": "政治学习", "response": "本周学习主题：习近平新时代中国特色社会主义思想。已整理学习要点。", "data_source": "fallback"},
+			"ideological-record": {"content": "思想档案", "response": "思想政治表现良好，建议继续保持对时事的关注，多参与志愿服务。", "data_source": "fallback"},
+			"party-progress":     {"content": "入党进度", "response": "当前阶段：入党积极分子。下一步参加组织考察，建议积极参与志愿服务。", "data_source": "fallback"},
+			"campus-life":        {"content": "校园生活", "response": "本周推荐：周三技术沙龙、周五篮球赛、周末志愿者活动。", "data_source": "fallback"},
+			"schedule":           {"content": "日程管理", "response": "今日：上午2节课，下午1节课，晚上建议复习数据结构。", "data_source": "fallback"},
+			"competition-match":  {"content": "竞赛推荐", "response": "推荐：ACM程序设计竞赛(95%)、数学建模(80%)、创新创业大赛(70%)。", "data_source": "fallback"},
+			"study-buddy":        {"content": "学伴匹配", "response": "推荐3位学伴：张三(数据结构)、李四(算法练习)、王五(英语口语)。", "data_source": "fallback"},
+			"mental-health":      {"content": "心理健康", "response": "整体心理状态良好。建议保持规律作息，适当运动放松。", "data_source": "fallback"},
+			"digital-mentor":     {"content": "AI导师", "response": "本周建议重点关注数据结构中图的相关算法，这是目前的薄弱环节。", "data_source": "fallback"},
+		"classroom-extension": {"content": "课堂延伸", "response": "课后要点：1.理解核心概念 2.掌握典型例题 3.思考实际应用。建议用思维导图整理知识结构。", "data_source": "fallback"},
+		"values-guidance":     {"content": "价值观引导", "response": "诚信、责任、奉献、感恩是大学生应具备的核心价值观。建议从日常生活小事做起。", "data_source": "fallback"},
+		}
 		if resp, ok := responses[feature]; ok {
 			c.JSON(http.StatusOK, resp)
 		} else {
-			c.JSON(http.StatusOK, gin.H{"content": feature, "response": "功能开发中"})
+			c.JSON(http.StatusOK, gin.H{"content": feature, "response": "功能开发中", "data_source": "fallback"})
 		}
 	}
+}
+
+// ======================== P2 深度分析功能 ========================
+
+// MockInterview AI 模拟面试
+func (h *StudentHandler) MockInterview(c *gin.Context) {
+	position := c.Query("position")
+	if h.svc != nil {
+		result := h.svc.GenerateMockInterview(c.Request.Context(), position)
+		if result != nil {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"position":    position,
+		"questions":   []gin.H{{"q": "请做一下自我介绍", "tip": "突出技术栈和项目经验"}, {"q": "你如何看待失败？", "tip": "展示成长心态"}},
+		"score":       78,
+		"suggestions": []string{"技术表达可以更结构化", "建议多准备行为面试问题"},
+		"data_source": "fallback",
+	})
+}
+
+// Resume AI 智能简历生成
+func (h *StudentHandler) Resume(c *gin.Context) {
+	position := c.Query("position")
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			result := h.svc.GenerateResume(c.Request.Context(), userCtx.UserID, position)
+			if result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"template":     "modern",
+		"sections":     []string{"个人信息", "教育背景", "项目经历", "技能特长", "荣誉奖项"},
+		"data_source":  "fallback",
+	})
+}
+
+// CareerSimulation 职业模拟器
+func (h *StudentHandler) CareerSimulation(c *gin.Context) {
+	careerPath := c.Query("career")
+	if h.svc != nil {
+		result := h.svc.GenerateCareerSimulation(c.Request.Context(), careerPath)
+		if result != nil {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"career":      careerPath,
+		"stages":      []string{"应届生", "3年经验", "5年+", "资深/管理"},
+		"data_source": "fallback",
+	})
+}
+
+// StudyBuddyMatch AI 学友匹配
+func (h *StudentHandler) StudyBuddyMatch(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			result := h.svc.GenerateStudyBuddyMatches(c.Request.Context(), userCtx.UserID)
+			if result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"matches":     []gin.H{{"name": "张同学", "reason": "数据结构互补", "match_score": 88}},
+		"data_source": "fallback",
+	})
+}
+
+// MentalHealthReport AI 心理健康评估报告
+func (h *StudentHandler) MentalHealthReport(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			result := h.svc.GenerateMentalHealthReport(c.Request.Context(), userCtx.UserID)
+			if result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"dimensions":  gin.H{"压力": "中等", "情绪": "良好", "社交": "活跃", "韧性": "较强"},
+		"suggestions": []string{"保持规律作息", "适当运动放松"},
+		"data_source": "fallback",
+	})
+}
+
+// NoteAssistant AI 笔记助手
+func (h *StudentHandler) NoteAssistant(c *gin.Context) {
+	content := c.Query("content")
+	if h.svc != nil && content != "" {
+		result := h.svc.GenerateNoteAssistant(c.Request.Context(), content)
+		if result != nil {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"key_points":  []string{"知识点1", "知识点2"},
+		"mind_map":    "中心主题 → 分支1 → 细节",
+		"quiz":        []string{"自测题1", "自测题2"},
+		"data_source": "fallback",
+	})
+}
+
+// AlumniMatch AI 前辈连线
+func (h *StudentHandler) AlumniMatch(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			result := h.svc.GenerateAlumniMatch(c.Request.Context(), userCtx.UserID)
+			if result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"matches":     []gin.H{{"name": "陈学长", "company": "字节跳动", "match_score": 92}},
+		"data_source": "fallback",
+	})
+}
+
+// ======================== P3 生态扩展 ========================
+
+// DynamicMentor 数字人导师（动态形象版）
+func (h *StudentHandler) DynamicMentor(c *gin.Context) {
+	style := c.Query("style")
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			result := h.svc.GenerateDynamicMentor(c.Request.Context(), userCtx.UserID, style)
+			if result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"name":         "蔚小芯",
+		"avatar_style": style,
+		"greeting":     fmt.Sprintf("你好！我是你的%s风格AI导师。今天我们一起努力吧！", style),
+		"data_source":  "fallback",
+	})
+}
+
+// EnhancedCareerSim 职业模拟器增强版
+func (h *StudentHandler) EnhancedCareerSim(c *gin.Context) {
+	careerPath := c.Query("career")
+	if h.svc != nil {
+		result := h.svc.GenerateEnhancedCareerSimulation(c.Request.Context(), careerPath)
+		if result != nil {
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"career_path":  careerPath,
+		"stages":       []string{"在校期", "应届生", "3年经验", "5年+"},
+		"data_source":  "fallback",
+	})
 }

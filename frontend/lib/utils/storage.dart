@@ -8,6 +8,7 @@ class Storage {
   static const String _keyRole = 'role';
   static const String _keyDisplayName = 'display_name';
   static const String _keyConsented = 'consented';
+  static const String _keyFirstLaunch = 'first_launch_done';
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyCapabilities = 'capabilities';
 
@@ -38,6 +39,12 @@ class Storage {
     await _prefs.setString(_keyRole, role);
     await _prefs.setString(_keyDisplayName, displayName);
   }
+
+  // ── 首次启动 ──
+  /// 是否已完成首次启动的隐私同意流程
+  static bool get firstLaunchDone => _prefs.getBool(_keyFirstLaunch) ?? false;
+  static Future<void> setFirstLaunchDone() =>
+      _prefs.setBool(_keyFirstLaunch, true);
 
   // ── 同意授权状态 ──
   static bool get consented => _prefs.getBool(_keyConsented) ?? false;

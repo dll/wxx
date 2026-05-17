@@ -4,6 +4,7 @@ import 'dart:convert';
 class AnswerCard {
   final String conclusion;
   final List<String> steps;
+  final List<ProcessStepDetail> stepDetails; // 富文本步骤详情（联系方式/地点/FAQ等）
   final List<Source> sources;
   final List<String> risks;
   final List<String> followUps;
@@ -15,6 +16,7 @@ class AnswerCard {
   AnswerCard({
     required this.conclusion,
     this.steps = const [],
+    this.stepDetails = const [],
     this.sources = const [],
     this.risks = const [],
     this.followUps = const [],
@@ -28,6 +30,10 @@ class AnswerCard {
     return AnswerCard(
       conclusion: json['conclusion'] ?? '',
       steps: List<String>.from(json['steps'] ?? []),
+      stepDetails: (json['step_details'] as List?)
+              ?.map((s) => ProcessStepDetail.fromJson(s))
+              .toList() ??
+          [],
       sources: (json['sources'] as List?)
               ?.map((s) => Source.fromJson(s))
               .toList() ??
@@ -41,6 +47,69 @@ class AnswerCard {
       traceId: json['trace_id'] ?? '',
       confidence: (json['confidence'] ?? 0).toDouble(),
       fallback: json['fallback'] ?? false,
+    );
+  }
+}
+
+/// 流程步骤详细信息（含联系人/地点/FAQ 等 6 类信息）
+class ProcessStepDetail {
+  final int step;
+  final String title;
+  final String status;
+  final String contact;
+  final String phone;
+  final String location;
+  final String officeHours;
+  final String materials;
+  final String entryUrl;
+  final String deadline;
+  final List<ProcessFAQ> faq;
+
+  ProcessStepDetail({
+    required this.step,
+    required this.title,
+    this.status = 'pending',
+    this.contact = '',
+    this.phone = '',
+    this.location = '',
+    this.officeHours = '',
+    this.materials = '',
+    this.entryUrl = '',
+    this.deadline = '',
+    this.faq = const [],
+  });
+
+  factory ProcessStepDetail.fromJson(Map<String, dynamic> json) {
+    return ProcessStepDetail(
+      step: json['step'] ?? 0,
+      title: json['title'] ?? '',
+      status: json['status'] ?? 'pending',
+      contact: json['contact'] ?? '',
+      phone: json['phone'] ?? '',
+      location: json['location'] ?? '',
+      officeHours: json['office_hours'] ?? '',
+      materials: json['materials'] ?? '',
+      entryUrl: json['entry_url'] ?? '',
+      deadline: json['deadline'] ?? '',
+      faq: (json['faq'] as List?)
+              ?.map((f) => ProcessFAQ.fromJson(f))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+/// 流程步骤的常见问题
+class ProcessFAQ {
+  final String q;
+  final String a;
+
+  ProcessFAQ({required this.q, required this.a});
+
+  factory ProcessFAQ.fromJson(Map<String, dynamic> json) {
+    return ProcessFAQ(
+      q: json['q'] ?? '',
+      a: json['a'] ?? '',
     );
   }
 }
@@ -1047,15 +1116,29 @@ class DailyFocusData {
   final double classHealthScore;
   final List<FocusStudent> topStudents;
   final Map<String, int> overview;
+  final String aiNarrative;
+  final String dataSource;
 
-  DailyFocusData({this.date = '', this.classHealthScore = 0, this.topStudents = const [], this.overview = const {}});
+  DailyFocusData({
+    this.date = '',
+    this.classHealthScore = 0,
+    this.topStudents = const [],
+    this.overview = const {},
+    this.aiNarrative = '',
+    this.dataSource = '',
+  });
 
   factory DailyFocusData.fromJson(Map<String, dynamic> json) {
     return DailyFocusData(
       date: json['date'] ?? '',
       classHealthScore: (json['class_health_score'] ?? 0).toDouble(),
-      topStudents: (json['top_students'] as List?)?.map((e) => FocusStudent.fromJson(e)).toList() ?? [],
+      topStudents: (json['top_students'] as List?)
+              ?.map((e) => FocusStudent.fromJson(e))
+              .toList() ??
+          [],
       overview: Map<String, int>.from(json['overview'] ?? {}),
+      aiNarrative: json['ai_narrative'] ?? '',
+      dataSource: json['data_source'] ?? '',
     );
   }
 }

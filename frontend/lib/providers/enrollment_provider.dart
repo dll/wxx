@@ -7,11 +7,11 @@ import '../services/api_service.dart';
 class EnrollmentProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
 
-  // 当前选中的流程类型
   String _flowType = 'enrollment'; // enrollment | graduation
   bool _loading = false;
   String? _error;
   AnswerCard? _answerCard;
+  List<ProcessStepDetail> _stepDetails = [];
 
   // 已完成步骤索引集合（本地追踪）
   final Set<int> _completedSteps = {};
@@ -21,9 +21,14 @@ class EnrollmentProvider extends ChangeNotifier {
   String? get error => _error;
   AnswerCard? get answerCard => _answerCard;
   List<String> get steps => _answerCard?.steps ?? [];
+  List<ProcessStepDetail> get stepDetails => _stepDetails;
   Set<int> get completedSteps => Set.unmodifiable(_completedSteps);
 
-  int get totalSteps => steps.length;
+  int get totalSteps {
+    if (_stepDetails.isNotEmpty) return _stepDetails.length;
+    return steps.length;
+  }
+
   int get completedCount => _completedSteps.length;
   double get progress => totalSteps > 0 ? completedCount / totalSteps : 0;
 
@@ -32,34 +37,72 @@ class EnrollmentProvider extends ChangeNotifier {
     if (type == _flowType) return;
     _flowType = type;
     _answerCard = null;
+    _stepDetails = [];
     _completedSteps.clear();
     _error = null;
     notifyListeners();
   }
 
-  /// 加载流程指引
+  /// 加载流程指引（优先使用流程增强端点获取富文本步骤）
   Future<void> loadFlow() async {
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final question = _flowType == 'enrollment'
-          ? '新生入学流程及所需材料'
-          : '毕业生离校手续办理流程及步骤';
+      // 先尝试流程增强端点（返回富文本步骤详情）
+      final processType = _flowType == 'enrollment' ? 'enrollment' : 'graduation';
+      final resp = await _api.get(
+        ApiConfig.processEnhanced,
+        params: {'type': processType},
+      );
+      final data = resp.data;
 
-      final req = ChatRequest(question: question);
-      final resp = await _api.post(ApiConfig.chat, data: req.toJson());
-      final chatResp = ChatResponse.fromJson(resp.data);
+      if (data['code'] == 0 && data['data'] != null) {
+        final respData = data['data'] as Map<String, dynamic>;
 
-      if (chatResp.code != 0) {
-        _error = chatResp.message;
+        // 解析 AnswerCard
+        if (respData['answer_card'] != null) {
+          _answerCard = AnswerCard.fromJson(respData['answer_card']);
+        }
+
+        // 解析富文本步骤列表
+        if (respData['processes'] is List) {
+          final processes = respData['processes'] as List;
+          if (processes.isNotEmpty) {
+            final firstProcess = processes[0] as Map<String, dynamic>;
+            if (firstProcess['steps'] is List) {
+              _stepDetails = (firstProcess['steps'] as List)
+                  .map((s) => ProcessStepDetail.fromJson(s))
+                  .toList();
+            }
+          }
+        }
+
+        _completedSteps.clear();
         _loading = false;
         notifyListeners();
         return;
       }
 
-      _answerCard = chatResp.data;
+      // 降级：使用通用对话接口
+      final question = _flowType == 'enrollment'
+          ? '新生入学流程及所需材料'
+          : '毕业生离校手续办理流程及步骤';
+
+      final req = ChatRequest(question: question);
+      final chatResp = await _api.post(ApiConfig.chat, data: req.toJson());
+      final chatData = ChatResponse.fromJson(chatResp.data);
+
+      if (chatData.code != 0) {
+        _error = chatData.message;
+        _loading = false;
+        notifyListeners();
+        return;
+      }
+
+      _answerCard = chatData.data;
+      _stepDetails = chatData.data?.stepDetails ?? [];
       _completedSteps.clear();
       _loading = false;
       notifyListeners();

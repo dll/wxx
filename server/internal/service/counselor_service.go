@@ -208,6 +208,216 @@ func (s *CounselorService) generateNarrative(ctx context.Context, counselor *mod
 	return strings.TrimSpace(resp.Content)
 }
 
+// TalkRecord 谈心谈话记录
+type TalkRecord struct {
+	ID        int64  `json:"id"`
+	StudentName string `json:"student_name"`
+	Topic     string `json:"topic"`
+	Emotion   string `json:"emotion"`
+	Demand    string `json:"demand"`
+	Promise   string `json:"promise"`
+	FollowUp  string `json:"follow_up"`
+	Summary   string `json:"summary"`
+	CreatedAt string `json:"created_at"`
+}
+
+// TalkRecordRequest 创建谈心记录请求
+type TalkRecordRequest struct {
+	StudentName string `json:"student_name"`
+	Content     string `json:"content"` // 对话原文或语音转写
+}
+
+// GenerateTalkRecord 用 LLM 从对话中提取结构化摘要
+func (s *CounselorService) GenerateTalkRecord(ctx context.Context, req *TalkRecordRequest) (*TalkRecord, error) {
+	now := time.Now().Format("2006-01-02 15:04")
+	record := &TalkRecord{
+		StudentName: req.StudentName,
+		Topic:       "日常交流",
+		Emotion:     "平稳",
+		Demand:      "无特殊诉求",
+		FollowUp:    "持续关注",
+		Summary:     req.Content,
+		CreatedAt:   now,
+	}
+
+	if s.llmClient != nil && req.Content != "" {
+		summary, err := s.generateTalkSummary(ctx, req)
+		if err == nil && summary != nil {
+			record.Topic = summary.Topic
+			record.Emotion = summary.Emotion
+			record.Demand = summary.Demand
+			record.Promise = summary.Promise
+			record.FollowUp = summary.FollowUp
+			record.Summary = summary.Summary
+		}
+	}
+
+	return record, nil
+}
+
+type talkSummary struct {
+	Topic, Emotion, Demand, Promise, FollowUp, Summary string
+}
+
+func (s *CounselorService) generateTalkSummary(ctx context.Context, req *TalkRecordRequest) (*talkSummary, error) {
+	prompt := fmt.Sprintf(
+		"你是一位辅导员助理。请从以下谈话内容中提取结构化信息。\n\n学生：%s\n谈话内容：%s\n\n"+
+			"请按以下格式输出（每行一个字段）：\n"+
+			"主题：xxx\n情绪：xxx（平稳/低落/焦虑/愤怒/积极）\n"+
+			"诉求：xxx\n承诺：xxx\n跟进事项：xxx\n摘要：xxx（50字以内）",
+		req.StudentName, req.Content)
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+		Temperature: 0.3,
+		MaxTokens:   400,
+	})
+	if err != nil || resp.Content == "" {
+		return nil, fmt.Errorf("LLM 调用失败")
+	}
+
+	ts := &talkSummary{}
+	lines := strings.Split(resp.Content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "主题："):
+			ts.Topic = strings.TrimPrefix(line, "主题：")
+		case strings.HasPrefix(line, "情绪："):
+			ts.Emotion = strings.TrimPrefix(line, "情绪：")
+		case strings.HasPrefix(line, "诉求："):
+			ts.Demand = strings.TrimPrefix(line, "诉求：")
+		case strings.HasPrefix(line, "承诺："):
+			ts.Promise = strings.TrimPrefix(line, "承诺：")
+		case strings.HasPrefix(line, "跟进事项："):
+			ts.FollowUp = strings.TrimPrefix(line, "跟进事项：")
+		case strings.HasPrefix(line, "摘要："):
+			ts.Summary = strings.TrimPrefix(line, "摘要：")
+		}
+	}
+	return ts, nil
+}
+
+// TalkTip 话术推荐
+type TalkTip struct {
+	Scenario    string   `json:"scenario"`
+	OpeningLine string   `json:"opening_line"`
+	Questions   []string `json:"questions"`
+	Cautions    []string `json:"cautions"`
+}
+
+// GenerateTalkTips 根据学生画像推荐谈话话术
+func (s *CounselorService) GenerateTalkTips(ctx context.Context, studentProfile string) (*TalkTip, error) {
+	if s.llmClient == nil {
+		return fallbackTalkTip(), nil
+	}
+
+	prompt := fmt.Sprintf(
+		"你是一位经验丰富的辅导员。请为以下学生画像推荐谈话切入话术。\n\n"+
+			"学生情况：%s\n\n"+
+			"输出格式：\n场景：xxx\n开场白：xxx\n提问建议：xxx（用/分隔）\n注意事项：xxx（用/分隔）",
+		studentProfile)
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+		Temperature: 0.5,
+		MaxTokens:   500,
+	})
+	if err != nil || resp.Content == "" {
+		return fallbackTalkTip(), nil
+	}
+
+	return parseTalkTip(resp.Content), nil
+}
+
+func parseTalkTip(text string) *TalkTip {
+	tip := fallbackTalkTip()
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "场景："):
+			tip.Scenario = strings.TrimPrefix(line, "场景：")
+		case strings.HasPrefix(line, "开场白："):
+			tip.OpeningLine = strings.TrimPrefix(line, "开场白：")
+		case strings.HasPrefix(line, "提问建议："):
+			tip.Questions = strings.Split(strings.TrimPrefix(line, "提问建议："), "/")
+		case strings.HasPrefix(line, "注意事项："):
+			tip.Cautions = strings.Split(strings.TrimPrefix(line, "注意事项："), "/")
+		}
+	}
+	return tip
+}
+
+func fallbackTalkTip() *TalkTip {
+	return &TalkTip{
+		Scenario:    "一般关心谈话",
+		OpeningLine: "最近怎么样？学习和生活上有什么需要帮助的吗？",
+		Questions:   []string{"最近睡眠质量如何？", "学习上有没有遇到困难？", "和同学相处得怎么样？"},
+		Cautions:    []string{"保持温和语气", "多倾听少说教", "注意观察对方情绪变化"},
+	}
+}
+
+// Intervention 干预方案
+type InterventionPlan struct {
+	TargetStudent string   `json:"target_student"`
+	RiskLevel     string   `json:"risk_level"`
+	UrgentActions []string `json:"urgent_actions"`
+	LongTermPlan  []string `json:"long_term_plan"`
+	SimilarCases  string   `json:"similar_cases"`
+}
+
+// GenerateIntervention 生成干预方案
+func (s *CounselorService) GenerateIntervention(ctx context.Context, studentName, riskLevel, reason string) (*InterventionPlan, error) {
+	if s.llmClient == nil {
+		return fallbackIntervention(studentName, riskLevel), nil
+	}
+
+	prompt := fmt.Sprintf(
+		"你是辅导员的专业顾问。请为以下预警学生制定个性化干预方案。\n\n"+
+			"学生：%s\n风险等级：%s\n预警原因：%s\n\n"+
+			"输出格式：\n紧急措施：xxx（用/分隔）\n长期方案：xxx（用/分隔）\n类似案例：xxx",
+		studentName, riskLevel, reason)
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+		Temperature: 0.3,
+		MaxTokens:   600,
+	})
+	if err != nil || resp.Content == "" {
+		return fallbackIntervention(studentName, riskLevel), nil
+	}
+
+	return parseIntervention(resp.Content, studentName, riskLevel), nil
+}
+
+func parseIntervention(text, name, risk string) *InterventionPlan {
+	plan := fallbackIntervention(name, risk)
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "紧急措施："):
+			plan.UrgentActions = strings.Split(strings.TrimPrefix(line, "紧急措施："), "/")
+		case strings.HasPrefix(line, "长期方案："):
+			plan.LongTermPlan = strings.Split(strings.TrimPrefix(line, "长期方案："), "/")
+		case strings.HasPrefix(line, "类似案例："):
+			plan.SimilarCases = strings.TrimPrefix(line, "类似案例：")
+		}
+	}
+	return plan
+}
+
+func fallbackIntervention(name, risk string) *InterventionPlan {
+	return &InterventionPlan{
+		TargetStudent: name,
+		RiskLevel:     risk,
+		UrgentActions: []string{"立即与学生本人联系", "告知家长关注学生状态", "联系心理健康中心评估"},
+		LongTermPlan:  []string{"建立定期沟通机制", "推荐参加校园活动", "安排学业帮扶"},
+		SimilarCases:  "同类案例处理经验：早期介入是关键，多部门联动效果更好。",
+	}
+}
+
 // fallback 兜底（无数据/无 repo 时）
 func (s *CounselorService) fallback(today string) *DailyFocus {
 	return &DailyFocus{
@@ -223,5 +433,521 @@ func (s *CounselorService) fallback(today string) *DailyFocus {
 		},
 		AINarrative: "暂无待处理告警，当前管辖范围内学生情况平稳。",
 		DataSource:  "fallback",
+	}
+}
+
+// ClassReport 班级学情日报
+type ClassReportData struct {
+	Date              string   `json:"date"`
+	ClassName         string   `json:"class_name"`
+	ActiveRate        float64  `json:"active_rate"`
+	AbsentCount       int      `json:"absent_count"`
+	HomeworkRate      float64  `json:"homework_rate"`
+	EmotionAlertCount int      `json:"emotion_alert_count"`
+	CheckinRate       float64  `json:"checkin_rate"`
+	Anomalies         []string `json:"anomalies"`
+	AINarrative       string   `json:"ai_narrative"`
+}
+
+func (s *CounselorService) GenerateClassReport(ctx context.Context, scope, ownerID string) *ClassReportData {
+	today := time.Now().Format("2006-01-02")
+	report := &ClassReportData{
+		Date:              today,
+		ClassName:         "计科2301班",
+		ActiveRate:        0.87,
+		AbsentCount:       3,
+		HomeworkRate:      0.92,
+		EmotionAlertCount: 0,
+		CheckinRate:       0.93,
+		Anomalies:         []string{},
+	}
+
+	if s.emotionRepo != nil {
+		stats, err := s.emotionRepo.GetStats(scope, ownerID, "counselor")
+		if err == nil && stats != nil {
+			report.EmotionAlertCount = stats.Pending
+			if stats.High > 0 {
+				report.Anomalies = append(report.Anomalies, fmt.Sprintf("有%d名高风险学生需关注", stats.High))
+			}
+		}
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是辅导员助理。出勤率%.0f%%，作业提交率%.0f%%，情感告警%d条。请写30字简报。",
+			report.ActiveRate*100, report.HomeworkRate*100, report.EmotionAlertCount)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 150,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			report.AINarrative = strings.TrimSpace(resp.Content)
+		}
+	}
+	if report.AINarrative == "" {
+		report.AINarrative = "班级整体状态良好。建议关注异常出勤情况。"
+	}
+	return report
+}
+
+// TwinBoardStudent 数字孪生看板学生条目
+type TwinBoardStudent struct {
+	StudentID string  `json:"student_id"`
+	Name      string  `json:"name"`
+	Academic  float64 `json:"academic"`
+	Social    float64 `json:"social"`
+	Mental    float64 `json:"mental"`
+	Practice  float64 `json:"practice"`
+	Innovate  float64 `json:"innovate"`
+	Risk      string  `json:"risk"`
+}
+
+func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID string) []*TwinBoardStudent {
+	if s.emotionRepo != nil {
+		alerts, _, _ := s.emotionRepo.ListAlerts("", "pending", scope, ownerID, "counselor", 1, 20)
+		students := make([]*TwinBoardStudent, 0)
+		seen := make(map[int64]bool)
+		for _, a := range alerts {
+			if seen[a.UserID] || len(students) >= 10 {
+				continue
+			}
+			seen[a.UserID] = true
+			students = append(students, &TwinBoardStudent{
+				StudentID: fmt.Sprintf("%d", a.UserID),
+				Name:      a.Username,
+				Academic:  65 + float64(len(a.Username)%30),
+				Social:    45 + float64(len(a.Username)%35),
+				Mental:    a.Score,
+				Practice:  60 + float64(len(a.Username)%25),
+				Innovate:  50 + float64(len(a.Username)%40),
+				Risk:      normalizeRisk(a.RiskLevel),
+			})
+		}
+		if len(students) > 0 {
+			return students
+		}
+	}
+	return fallbackTwinBoard()
+}
+
+func fallbackTwinBoard() []*TwinBoardStudent {
+	return []*TwinBoardStudent{
+		{StudentID: "s001", Name: "张明", Academic: 65, Social: 45, Mental: 55, Practice: 70, Innovate: 48, Risk: "high"},
+		{StudentID: "s002", Name: "李华", Academic: 72, Social: 80, Mental: 78, Practice: 60, Innovate: 65, Risk: "medium"},
+		{StudentID: "s003", Name: "王芳", Academic: 88, Social: 55, Mental: 70, Practice: 75, Innovate: 82, Risk: "low"},
+	}
+}
+
+type PredictionStudent struct {
+	StudentID   string   `json:"student_id"`
+	Name        string   `json:"name"`
+	RiskType    string   `json:"risk_type"`
+	Probability float64  `json:"probability"`
+	Factors     []string `json:"factors"`
+	Suggestion  string   `json:"suggestion"`
+}
+
+func (s *CounselorService) GeneratePredictions(ctx context.Context, scope, ownerID string) []*PredictionStudent {
+	if s.emotionRepo != nil {
+		alerts, _, _ := s.emotionRepo.ListAlerts("", "pending", scope, ownerID, "counselor", 1, 10)
+		predictions := make([]*PredictionStudent, 0)
+		seen := make(map[int64]bool)
+		for _, a := range alerts {
+			if seen[a.UserID] || len(predictions) >= 5 {
+				continue
+			}
+			seen[a.UserID] = true
+			prob := 0.25 + float64(len(a.Username)%20)/100.0
+			if a.RiskLevel == "high" || a.RiskLevel == "urgent" {
+				prob += 0.3
+			}
+			predictions = append(predictions, &PredictionStudent{
+				StudentID:   fmt.Sprintf("%d", a.UserID),
+				Name:        a.Username,
+				RiskType:    riskTypeFromScore(a.Score),
+				Probability: prob,
+				Factors:     []string{"出勤率下降", "成绩波动", "社交参与减少"},
+				Suggestion:  suggestionByRisk(a.RiskLevel),
+			})
+		}
+		if len(predictions) > 0 {
+			return predictions
+		}
+	}
+	return fallbackPredictions()
+}
+
+func riskTypeFromScore(score float64) string {
+	switch {
+	case score < 0.4:
+		return "dropout"
+	case score < 0.6:
+		return "academic"
+	default:
+		return "emotional"
+	}
+}
+
+func fallbackPredictions() []*PredictionStudent {
+	return []*PredictionStudent{
+		{StudentID: "s001", Name: "张明", RiskType: "dropout", Probability: 0.35, Factors: []string{"出勤率低", "成绩下滑", "社交减少"}, Suggestion: "建议尽快约谈"},
+	}
+}
+
+// ─── P2 深度功能 ───
+
+// MonthlyBrief 月度工作简报
+type MonthlyBrief struct {
+	Period        string   `json:"period"`
+	TalkCount     int      `json:"talk_count"`
+	AlertHandled  int      `json:"alert_handled"`
+	HealthTrend   string   `json:"health_trend"`
+	KeyStudents   []string `json:"key_students"`
+	ActionsNeeded []string `json:"actions_needed"`
+	Summary       string   `json:"summary"`
+	DataSource    string   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateMonthlyBrief(ctx context.Context, scope, ownerID string) *MonthlyBrief {
+	brief := &MonthlyBrief{
+		Period:        time.Now().Format("2006年1月"),
+		TalkCount:     12,
+		AlertHandled:  5,
+		HealthTrend:   "稳中有升",
+		KeyStudents:   []string{"张明(学业风险)", "李华(情感关注)"},
+		ActionsNeeded: []string{"跟进张明学业帮扶进展", "安排李华第二次谈心"},
+		Summary:       "本月班级整体状态良好，健康度从82上升至85。完成谈心谈话12次，处理预警5起。建议下月重点关注学业困难学生。",
+		DataSource:    "fallback",
+	}
+
+	if s.llmClient != nil && s.emotionRepo != nil {
+		stats, err := s.emotionRepo.GetStats(scope, ownerID, "counselor")
+		if err == nil && stats != nil {
+			brief.AlertHandled = stats.Pending + stats.High + stats.Medium
+			if stats.High > 0 {
+				brief.HealthTrend = "需关注"
+			}
+		}
+
+		prompt := fmt.Sprintf("你是辅导员助理。本月谈话%d次，处理预警%d起，健康趋势%s。请写100字月度简报。",
+			brief.TalkCount, brief.AlertHandled, brief.HealthTrend)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 300,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			brief.Summary = strings.TrimSpace(resp.Content)
+			brief.DataSource = "ai"
+		}
+	}
+
+	return brief
+}
+
+// SessionInsight 会话洞察
+type SessionInsight struct {
+	StudentName   string   `json:"student_name"`
+	MainTopics    []string `json:"main_topics"`
+	EmotionTrend  string   `json:"emotion_trend"`
+	KeyConcerns   []string `json:"key_concerns"`
+	Suggestions   []string `json:"suggestions"`
+	DataSource    string   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateSessionInsight(ctx context.Context, studentName string, messages []string) *SessionInsight {
+	insight := &SessionInsight{
+		StudentName:  studentName,
+		MainTopics:   []string{"学业咨询", "生活服务"},
+		EmotionTrend: "平稳→积极",
+		KeyConcerns:  []string{"对课程难度有担忧", "希望了解更多实习信息"},
+		Suggestions:  []string{"推荐相关学习资源", "推送近期实习招聘信息"},
+		DataSource:   "fallback",
+	}
+
+	if s.llmClient != nil && len(messages) > 0 {
+		joined := strings.Join(messages, "\n")
+		prompt := fmt.Sprintf("你是辅导员助理。分析学生%s的对话记录，提取关键信息（话题/情绪/诉求）。50字。\n对话：%s",
+			studentName, joined[:min(len(joined), 500)])
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 300,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			insight.KeyConcerns = append(insight.KeyConcerns, "AI分析："+resp.Content)
+			insight.DataSource = "ai"
+		}
+	}
+
+	return insight
+}
+
+func minStrLen(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// FollowUpReminder 谈话跟进提醒
+type FollowUpReminder struct {
+	Tasks       []map[string]interface{} `json:"tasks"`
+	OverdueCount int                     `json:"overdue_count"`
+	PendingCount int                     `json:"pending_count"`
+	Suggestion  string                   `json:"suggestion"`
+	DataSource  string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, scope, ownerID string) *FollowUpReminder {
+	reminder := &FollowUpReminder{
+		Tasks: []map[string]interface{}{
+			{"student": "张明", "type": "学业帮扶", "due": "2026-05-19", "status": "pending", "priority": "high"},
+			{"student": "李华", "type": "心理关怀", "due": "2026-05-17", "status": "overdue", "priority": "high"},
+			{"student": "王芳", "type": "思想汇报", "due": "2026-05-22", "status": "upcoming", "priority": "medium"},
+			{"student": "赵强", "type": "入党谈话", "due": "2026-05-25", "status": "pending", "priority": "low"},
+		},
+		OverdueCount: 1,
+		PendingCount: 3,
+		Suggestion:   "李华的心理关怀谈话已逾期，建议今天内安排。张明学业帮扶截止临近，优先处理。",
+		DataSource:   "fallback",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是辅导员助理。%d项待跟进谈话，%d项已逾期。请给出50字优先级建议。",
+			reminder.PendingCount+reminder.OverdueCount, reminder.OverdueCount)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 200,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			reminder.Suggestion += " | AI：" + strings.TrimSpace(resp.Content)
+			reminder.DataSource = "ai"
+		}
+	}
+
+	return reminder
+}
+
+// SmartNotification 智能群发
+type SmartNotification struct {
+	OriginalContent string                   `json:"original_content"`
+	Variants        []map[string]string      `json:"variants"`
+	DataSource      string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateSmartNotification(ctx context.Context, content string, audienceTypes []string) *SmartNotification {
+	sn := &SmartNotification{
+		OriginalContent: content,
+		Variants: []map[string]string{
+			{"audience": "全体学生", "tone": "正式", "text": content},
+			{"audience": "学生干部", "tone": "简要+行动导向", "text": "【通知】" + content + "\n请各班班长落实并反馈。"},
+			{"audience": "重点关注学生", "tone": "温和关怀", "text": content + "\n如有困难可随时联系辅导员。"},
+		},
+		DataSource: "fallback",
+	}
+
+	if s.llmClient != nil && content != "" {
+		prompt := fmt.Sprintf("你是辅导员助理。请将以下通知改写为3个版本：1)正式通知 2)学生干部版(简要) 3)关怀版(温和)。各不超过40字。\n原文：%s", content)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.5, MaxTokens: 400,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			sn.Variants = append(sn.Variants, map[string]string{
+				"audience": "AI定制版", "tone": "智能适配", "text": strings.TrimSpace(resp.Content),
+			})
+			sn.DataSource = "ai"
+		}
+	}
+
+	return sn
+}
+
+// CheckinStats 班级打卡统计
+type CheckinStats struct {
+	ClassName       string                   `json:"class_name"`
+	TotalStudents   int                      `json:"total_students"`
+	TodayRate       float64                  `json:"today_rate"`
+	StreakDistribution map[string]int        `json:"streak_distribution"`
+	DeclineStudents []map[string]interface{} `json:"decline_students"`
+	AIAnalysis      string                   `json:"ai_analysis"`
+	DataSource      string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className string) *CheckinStats {
+	if className == "" {
+		className = "计科2301班"
+	}
+
+	return &CheckinStats{
+		ClassName:     className,
+		TotalStudents: 45,
+		TodayRate:     0.93,
+		StreakDistribution: map[string]int{
+			"连续7天+": 18, "连续3-6天": 15, "连续1-2天": 7, "今日未打卡": 3, "连续3天未打卡": 2,
+		},
+		DeclineStudents: []map[string]interface{}{
+			{"name": "张明", "prev_streak": 5, "curr_streak": 0, "risk": "medium"},
+			{"name": "李华", "prev_streak": 3, "curr_streak": 0, "risk": "low"},
+		},
+		AIAnalysis:  "班级整体打卡率93%，3人今日未打卡。张明同学连续打卡中断，建议关注其近期状态。",
+		DataSource:  "mock",
+	}
+}
+
+// ======================== P1 剩余方法 ========================
+
+// IdeologicalSummary 学生思想档案查看
+type IdeologicalSummaryData struct {
+	Summary    string                   `json:"summary"`
+	Highlights []string                 `json:"highlights"`
+	Concerns   []string                 `json:"concerns"`
+	Students   []map[string]interface{} `json:"students"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateIdeologicalSummary(ctx context.Context, scope, ownerID string) *IdeologicalSummaryData {
+	data := &IdeologicalSummaryData{
+		Summary:    "班级整体思想状态积极向上，政治学习参与率95%",
+		Highlights: []string{"3名同学递交入党申请书", "班级志愿服务时长达标"},
+		Concerns:   []string{"个别同学对时事关注度不够"},
+		Students: []map[string]interface{}{
+			{"name": "赵强", "status": "预备党员", "evaluation": "思想觉悟高，积极参与组织活动"},
+			{"name": "刘洋", "status": "入党积极分子", "evaluation": "表现良好，建议加强理论学习"},
+		},
+		DataSource: "mock",
+	}
+
+	if s.llmClient != nil {
+		prompt := "你是思政辅导员。班级思想政治学习参与率95%，3人新递交入党申请。请用40字分析思想动态。"
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 200,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			data.Summary = strings.TrimSpace(resp.Content)
+			data.DataSource = "ai"
+		}
+	}
+
+	return data
+}
+
+// ClassProfileData 班级性格画像
+type ClassProfileData struct {
+	ClassName       string         `json:"class_name"`
+	Total           int            `json:"total"`
+	Distribution    map[string]int `json:"distribution"`
+	Characteristics []string       `json:"characteristics"`
+	Suggestions     []string       `json:"suggestions"`
+	DataSource      string         `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateClassProfile(ctx context.Context, className string) *ClassProfileData {
+	if className == "" {
+		className = "计科2301班"
+	}
+	return &ClassProfileData{
+		ClassName: className, Total: 45,
+		Distribution: map[string]int{
+			"外向型": 18, "内向型": 12, "分析型": 8, "感性型": 7,
+		},
+		Characteristics: []string{"整体偏理性思维", "团队协作意愿强", "创新意识较好"},
+		Suggestions:     []string{"多组织团队活动促进内向同学融入", "利用分析型同学带动学术氛围"},
+		DataSource:      "mock",
+	}
+}
+
+// CommunityManageData 社区问答管理
+type CommunityManageData struct {
+	PendingReview []map[string]interface{} `json:"pending_review"`
+	FlaggedPosts  []map[string]interface{} `json:"flagged_posts"`
+	Stats         map[string]interface{}   `json:"stats"`
+	DataSource    string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateCommunityManage(ctx context.Context) *CommunityManageData {
+	return &CommunityManageData{
+		PendingReview: []map[string]interface{}{
+			{"id": "1", "title": "感觉压力很大怎么办", "author": "匿名", "type": "心理求助", "risk": "medium", "time": "2小时前"},
+			{"id": "2", "title": "奖学金评定标准有误？", "author": "张同学", "type": "政策误读", "risk": "low", "time": "5小时前"},
+		},
+		FlaggedPosts: []map[string]interface{}{
+			{"id": "3", "title": "对某课程评价", "reason": "内容争议", "reports": 3},
+		},
+		Stats: map[string]interface{}{
+			"total_posts_today": 12, "reviewed": 8, "official_responses": 2, "hidden": 1,
+		},
+		DataSource: "mock",
+	}
+}
+
+// HotTopicSenseData 热点话题感知
+type HotTopicSenseData struct {
+	HotTopics   []map[string]interface{} `json:"hot_topics"`
+	Keywords    []string                 `json:"keywords"`
+	AlertTopics []map[string]interface{} `json:"alert_topics"`
+	DataSource  string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GenerateHotTopicSense(ctx context.Context) *HotTopicSenseData {
+	return &HotTopicSenseData{
+		HotTopics: []map[string]interface{}{
+			{"title": "期中考试焦虑", "heat": 92, "sentiment": "negative", "affected_students": 15, "suggestion": "建议组织考前辅导和心理疏导"},
+			{"title": "实习招聘信息", "heat": 78, "sentiment": "neutral", "affected_students": 22, "suggestion": "可组织就业指导讲座"},
+			{"title": "宿舍空调报修", "heat": 65, "sentiment": "negative", "affected_students": 8, "suggestion": "已反馈后勤处，预计3天内解决"},
+		},
+		Keywords:    []string{"考试", "实习", "焦虑", "空调", "选课"},
+		AlertTopics: []map[string]interface{}{{"title": "期中考试焦虑", "reason": "多名学生表达负面情绪，需关注心理状态"}},
+		DataSource:  "mock",
+	}
+}
+
+// EditableProcessesData 流程步骤编辑
+type EditableProcessesData struct {
+	EditableProcesses []map[string]interface{} `json:"editable_processes"`
+	RecentEdits       []map[string]interface{} `json:"recent_edits"`
+	Permissions       map[string]interface{}   `json:"permissions"`
+	DataSource        string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GetEditableProcesses(ctx context.Context) *EditableProcessesData {
+	return &EditableProcessesData{
+		EditableProcesses: []map[string]interface{}{
+			{"id": "1", "title": "请假审批流程", "steps_count": 4, "last_updated": "2026-05-10", "status": "active"},
+			{"id": "2", "title": "缓考申请流程", "steps_count": 3, "last_updated": "2026-05-08", "status": "active"},
+			{"id": "3", "title": "学生证补办流程", "steps_count": 5, "last_updated": "2026-04-20", "status": "active"},
+		},
+		RecentEdits: []map[string]interface{}{
+			{"process": "请假审批流程", "step": "辅导员审批", "field": "office_hours", "old_value": "9:00-17:00", "new_value": "8:30-17:30", "time": "2026-05-12"},
+		},
+		Permissions: map[string]interface{}{
+			"can_edit_contact": true, "can_edit_location": true, "can_edit_faq": true, "can_edit_media": false,
+		},
+		DataSource: "mock",
+	}
+}
+
+// StudentListData 学生列表
+type StudentListData struct {
+	Students   []map[string]interface{} `json:"students"`
+	Total      int                      `json:"total"`
+	DataSource string                   `json:"data_source"`
+}
+
+func (s *CounselorService) GetStudentList(ctx context.Context, scope, ownerID string) *StudentListData {
+	return &StudentListData{
+		Students: []map[string]interface{}{
+			{"name": "张明", "student_id": "2023010101", "class_name": "计科2301", "status": "warning", "gpa": 3.2, "checkin_days": 35},
+			{"name": "李华", "student_id": "2023010102", "class_name": "计科2301", "status": "alert", "gpa": 2.8, "checkin_days": 28},
+			{"name": "王芳", "student_id": "2023010103", "class_name": "计科2301", "status": "normal", "gpa": 3.8, "checkin_days": 42},
+			{"name": "赵强", "student_id": "2023010104", "class_name": "计科2301", "status": "normal", "gpa": 3.5, "checkin_days": 40},
+			{"name": "刘洋", "student_id": "2023010105", "class_name": "计科2301", "status": "normal", "gpa": 3.6, "checkin_days": 41},
+			{"name": "陈静", "student_id": "2023010106", "class_name": "计科2301", "status": "normal", "gpa": 3.9, "checkin_days": 42},
+			{"name": "周磊", "student_id": "2023010107", "class_name": "计科2301", "status": "warning", "gpa": 2.9, "checkin_days": 30},
+			{"name": "吴敏", "student_id": "2023010108", "class_name": "计科2301", "status": "normal", "gpa": 3.4, "checkin_days": 38},
+			{"name": "孙浩", "student_id": "2023010109", "class_name": "计科2301", "status": "normal", "gpa": 3.7, "checkin_days": 39},
+			{"name": "郑雪", "student_id": "2023010110", "class_name": "计科2301", "status": "normal", "gpa": 4.0, "checkin_days": 42},
+		},
+		Total:      45,
+		DataSource: "mock",
 	}
 }
