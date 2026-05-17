@@ -15,7 +15,6 @@ class FabMenu extends StatefulWidget {
 class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   bool _isOpen = false;
   late final AnimationController _expandCtrl;
-  late final Animation<double> _overlayAnim;
   late final Animation<double> _rotateAnim;
   late final List<Animation<double>> _slideAnims;
   late final List<Animation<double>> _fadeAnims;
@@ -27,19 +26,19 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   static const _items = <_FabItem>[
     _FabItem(
       icon: Icons.feedback_outlined,
-      label: '问题反馈',
+      label: '反馈',
       color: Color(0xFF6750A4),
       action: _FabAction.feedback,
     ),
     _FabItem(
       icon: Icons.mic,
-      label: '语音导航',
+      label: '语音',
       color: Color(0xFFE65100),
       action: _FabAction.voice,
     ),
     _FabItem(
       icon: Icons.visibility_off_outlined,
-      label: '专注模式',
+      label: '专注',
       color: Color(0xFF1B5E20),
       action: _FabAction.focus,
     ),
@@ -51,10 +50,6 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     _expandCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
-    );
-    _overlayAnim = CurvedAnimation(
-      parent: _expandCtrl,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     );
     _rotateAnim = CurvedAnimation(
       parent: _expandCtrl,
@@ -99,21 +94,16 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Stack(
       children: [
-        // ── 半透明遮罩层 ──
+        // 透明触控层：点击空白处关闭，但不再压暗主内容
         if (_isOpen)
           Positioned.fill(
             child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
               onTap: _close,
-              child: FadeTransition(
-                opacity: _overlayAnim,
-                child: Container(color: Colors.black38),
-              ),
             ),
           ),
-        // ── FAB 及子菜单 ──
         Positioned(
           right: _dx,
           bottom: _dy,
@@ -121,12 +111,10 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // 子菜单（倒序遍历，从下往上排列）
               for (int i = _items.length - 1; i >= 0; i--)
-                _buildSubItem(_items[i], i, theme),
+                _buildSubItem(_items[i], i),
               const SizedBox(height: 8),
-              // 主按钮
-              _buildMainFab(theme),
+              _buildMainFab(),
             ],
           ),
         ),
@@ -134,8 +122,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     );
   }
 
-  /// 子菜单项：圆形图标按钮（极简 — 文字通过 Tooltip 长按显示）
-  Widget _buildSubItem(_FabItem item, int index, ThemeData theme) {
+  /// 子菜单项：白底圆角 pill 标签（彩色文字）+ 圆形图标
+  Widget _buildSubItem(_FabItem item, int index) {
     return SlideTransition(
       position: Tween<Offset>(
         begin: const Offset(0.0, 0.35),
@@ -145,16 +133,18 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         opacity: _fadeAnims[index],
         child: Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Tooltip(
-            message: item.label,
-            preferBelow: false,
-            verticalOffset: 24,
-            child: GestureDetector(
-              onTap: () {
-                _close();
-                _onTap(item);
-              },
-              child: _IconCircle(icon: item.icon, color: item.color),
+          child: GestureDetector(
+            onTap: () {
+              _close();
+              _onTap(item);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _PillLabel(text: item.label, color: item.color),
+                const SizedBox(width: 6),
+                _IconCircle(icon: item.icon, color: item.color),
+              ],
             ),
           ),
         ),
@@ -163,7 +153,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   }
 
   /// 主 FAB — 旋转 + 渐变色 + 拖拽
-  Widget _buildMainFab(ThemeData theme) {
+  Widget _buildMainFab() {
+    final theme = Theme.of(context);
     final openColor = theme.colorScheme.error;
     final closedColor = theme.colorScheme.primary;
     final activeColor = _isOpen ? openColor : closedColor;
@@ -242,6 +233,39 @@ class _FabItem {
     required this.color,
     required this.action,
   });
+}
+
+/// 白底圆角 pill 标签（彩色文字）
+class _PillLabel extends StatelessWidget {
+  final String text;
+  final Color color;
+  const _PillLabel({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
 
 /// 彩色圆形图标按钮
