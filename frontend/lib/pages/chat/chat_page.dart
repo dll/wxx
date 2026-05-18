@@ -11,6 +11,7 @@ import '../../providers/bookmark_provider.dart';
 import '../../providers/feedback_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
+import '../../utils/screenshot_capture.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
 
@@ -699,41 +700,107 @@ $printScript
     }
   }
 
-  /// 纠错反馈对话框
-  void _showFeedbackDialog(Message msg) {
+  /// 纠错反馈对话框 — 自动截屏 + 上传 + 提交
+  void _showFeedbackDialog(Message msg) async {
+    // 先自动截屏（dialog 未弹出，截取用户真实看到的画面）
+    final shot = await captureScreenshot();
+
+    if (!mounted) return;
+
     final contentCtrl = TextEditingController();
     String category = 'answer_error';
+    Uint8List? screenshotBytes = shot.bytes;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: const Text('反馈纠错'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('反馈类型', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'answer_error', label: Text('回答有误')),
-                  ButtonSegment(value: 'suggestion', label: Text('建议改进')),
-                  ButtonSegment(value: 'other', label: Text('其他')),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 截屏预览
+                  if (screenshotBytes != null)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.memory(screenshotBytes!, fit: BoxFit.cover),
+                              Positioned(
+                                top: 8, right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check, color: Colors.white, size: 14),
+                                      SizedBox(width: 4),
+                                      Text('已截屏', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.screenshot_outlined, size: 20, color: Theme.of(context).colorScheme.error),
+                          const SizedBox(width: 8),
+                          Text(shot.error ?? '截图不可用', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.error)),
+                        ],
+                      ),
+                    ),
+                  if (screenshotBytes != null) const SizedBox(height: 16),
+
+                  const Text('反馈类型', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'answer_error', label: Text('回答有误')),
+                      ButtonSegment(value: 'suggestion', label: Text('建议改进')),
+                      ButtonSegment(value: 'other', label: Text('其他')),
+                    ],
+                    selected: {category},
+                    onSelectionChanged: (v) => setState(() => category = v.first),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: contentCtrl,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: '请描述问题或建议...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                 ],
-                selected: {category},
-                onSelectionChanged: (v) => setState(() => category = v.first),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: contentCtrl,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: '请描述问题或建议...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -749,10 +816,24 @@ $printScript
                 final text = contentCtrl.text.trim();
                 contentCtrl.dispose();
                 Navigator.of(ctx).pop();
+
+                // 上传截图
+                String screenshotUrl = '';
+                if (screenshotBytes != null && screenshotBytes!.isNotEmpty) {
+                  final url = await context.read<FeedbackProvider>().uploadScreenshotBytes(
+                    screenshotBytes!,
+                    'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
+                  );
+                  if (url != null) screenshotUrl = url;
+                }
+
+                if (!mounted) return;
+
                 final ok = await context.read<FeedbackProvider>().submitFeedback(
                   category: category,
                   content: text,
                   messageId: msg.id ?? '',
+                  screenshotUrl: screenshotUrl,
                 );
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
