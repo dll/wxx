@@ -31,6 +31,7 @@ class Capability {
   static const selfPrivateChat = 'self.private_chat';
   static const selfProcessRead = 'self.process.read';
   static const selfEmotionStats = 'self.emotion.stats';
+  static const selfTokenStats = 'self.token.stats';
 
   // ── 学生会能力 ──
   static const unionKbSubmit = 'union.kb.submit';
@@ -61,6 +62,7 @@ class Capability {
   static const counselorHotTopicSense = 'counselor.hot_topic.sense';
   static const counselorProcessEdit = 'counselor.process.edit';
   static const counselorStudentList = 'counselor.student.list';
+  static const counselorTokenSubordinates = 'counselor.token.subordinates';
 
   // ── 教师能力 ──
   static const teacherLessonPrep = 'teacher.lesson.prep';

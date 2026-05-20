@@ -85,6 +85,7 @@ import '../pages/culture/radio_page.dart';
 import '../pages/culture/lectures_page.dart';
 import '../pages/culture/events_page.dart';
 import '../pages/culture/volunteer_page.dart';
+import '../pages/token_stats/token_stats_page.dart';
 import '../utils/screenshot_capture.dart';
 import '../widgets/fab_menu.dart';
 
@@ -171,6 +172,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/culture/lectures', builder: (_, __) => const LecturesPage()),
         GoRoute(path: '/culture/events', builder: (_, __) => const EventsPage()),
         GoRoute(path: '/culture/volunteer', builder: (_, __) => const VolunteerPage()),
+        GoRoute(
+          path: '/token-stats',
+          builder: (context, state) => const TokenStatsPage(),
+        ),
         GoRoute(
           path: '/admin/metrics',
           builder: (context, state) => const AdminMetricsPage(),

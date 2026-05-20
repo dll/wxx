@@ -5,6 +5,7 @@ import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/role_utils.dart';
+import '../../utils/capability_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 
@@ -143,6 +144,9 @@ class _ProfilePageState extends State<ProfilePage> {
           // 我的提交（student_union 及以上）
           if (_canSubmitKB(profile?.role))
             _buildMenuCard(context, Icons.note_add_outlined, '知识提交', '创建和管理知识资源', '/my-submissions'),
+
+          // 词元统计（所有角色可访问自己的统计）
+          _buildMenuCard(context, Icons.bar_chart, '词元统计', '查看 AI 词元消耗统计', '/token-stats'),
 
           // 我的收藏（所有角色可访问）
           _buildMenuCard(context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),

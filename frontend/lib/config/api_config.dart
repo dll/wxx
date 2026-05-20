@@ -46,6 +46,10 @@ class ApiConfig {
   static const String changePassword = '$apiPrefix/user/password';
   static String resetPassword(int id) => '$apiPrefix/admin/users/$id/password';
 
+  // ── 词元统计 ──
+  static const String tokenStatsMy = '$apiPrefix/token-stats/my';
+  static const String tokenStatsSubordinates = '$apiPrefix/token-stats/subordinates';
+
   // ── 管理端 ──
   static const String adminMetrics = '$apiPrefix/admin/metrics';
   static const String adminUsers = '$apiPrefix/admin/users';

@@ -57,6 +57,9 @@ dependencies:
   # 音频播放（Android/iOS）
   audioplayers: ^6.1.0
 
+  # 图表可视化（词元统计折线图/柱状图）
+  fl_chart: ^0.69.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

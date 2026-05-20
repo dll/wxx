@@ -1367,3 +1367,79 @@ class ModelConfig {
         'default_provider': defaultProvider,
       };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 词元统计模型
+// ═══════════════════════════════════════════════════════════════
+
+class TokenDailyPoint {
+  final String date;
+  final int promptTokens;
+  final int outputTokens;
+  final int totalTokens;
+
+  TokenDailyPoint({this.date = '', this.promptTokens = 0, this.outputTokens = 0, this.totalTokens = 0});
+
+  factory TokenDailyPoint.fromJson(Map<String, dynamic> json) {
+    return TokenDailyPoint(
+      date: json['date'] ?? '',
+      promptTokens: json['prompt_tokens'] ?? 0,
+      outputTokens: json['output_tokens'] ?? 0,
+      totalTokens: json['total_tokens'] ?? 0,
+    );
+  }
+}
+
+class TokenStatsSummary {
+  final int totalPromptTokens;
+  final int totalOutputTokens;
+  final int totalTokens;
+  final int todayTokens;
+
+  TokenStatsSummary({this.totalPromptTokens = 0, this.totalOutputTokens = 0, this.totalTokens = 0, this.todayTokens = 0});
+
+  factory TokenStatsSummary.fromJson(Map<String, dynamic> json) {
+    return TokenStatsSummary(
+      totalPromptTokens: json['total_prompt_tokens'] ?? 0,
+      totalOutputTokens: json['total_output_tokens'] ?? 0,
+      totalTokens: json['total_tokens'] ?? 0,
+      todayTokens: json['today_tokens'] ?? 0,
+    );
+  }
+}
+
+class TokenStatsData {
+  final TokenStatsSummary summary;
+  final List<TokenDailyPoint> daily;
+
+  TokenStatsData({this.summary = const TokenStatsSummary(), this.daily = const []});
+
+  factory TokenStatsData.fromJson(Map<String, dynamic> json) {
+    return TokenStatsData(
+      summary: json['summary'] != null ? TokenStatsSummary.fromJson(json['summary']) : const TokenStatsSummary(),
+      daily: (json['daily'] as List?)?.map((e) => TokenDailyPoint.fromJson(e)).toList() ?? [],
+    );
+  }
+}
+
+class SubordinateTokenStats {
+  final int userId;
+  final String username;
+  final String displayName;
+  final int totalTokens;
+  final int promptTokens;
+  final int outputTokens;
+
+  SubordinateTokenStats({this.userId = 0, this.username = '', this.displayName = '', this.totalTokens = 0, this.promptTokens = 0, this.outputTokens = 0});
+
+  factory SubordinateTokenStats.fromJson(Map<String, dynamic> json) {
+    return SubordinateTokenStats(
+      userId: json['user_id'] ?? 0,
+      username: json['username'] ?? '',
+      displayName: json['display_name'] ?? '',
+      totalTokens: json['total_tokens'] ?? 0,
+      promptTokens: json['prompt_tokens'] ?? 0,
+      outputTokens: json['output_tokens'] ?? 0,
+    );
+  }
+}
