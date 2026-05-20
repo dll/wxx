@@ -63,6 +63,7 @@ type ChatService struct {
 	llmClient      llm.ChatClient
 	temporalClient *temporal.Client           // 可选：Temporal 工作流客户端
 	orchestrator   ports.AgentOrchestrator    // 多智能体编排器（agentID 为空时启用，可选注入）
+	tokenStatsSvc  *TokenStatsService         // 可选：词元统计服务
 }
 
 // NewChatService 创建问答服务（依赖通过 Outbound Port 接口注入）
@@ -90,6 +91,11 @@ func (s *ChatService) SetOrchestrator(o ports.AgentOrchestrator) {
 // SetTemporalClient 设置 Temporal 客户端（nil = 走直接调用路径）
 func (s *ChatService) SetTemporalClient(tc *temporal.Client) {
 	s.temporalClient = tc
+}
+
+// SetTokenStatsService 设置词元统计服务（可选）
+func (s *ChatService) SetTokenStatsService(svc *TokenStatsService) {
+	s.tokenStatsSvc = svc
 }
 
 // Ask 问答主链路
@@ -198,6 +204,11 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		Content:   llmResp.Content,
 		TraceID:   traceID,
 	})
+
+	// 记录词元使用
+	if s.tokenStatsSvc != nil {
+		s.tokenStatsSvc.RecordUsage(userCtx.UserID, sessionID, s.llmClient.Name(), llmResp.PromptTokens, llmResp.OutputTokens)
+	}
 
 	// │ 缓存写入 ── 入学/离校等固定流程问题缓存 24 小时
 	s.cacheSet(question, sessionID, card)
@@ -580,6 +591,11 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		Content:   llmResp.Content,
 		TraceID:   traceID,
 	})
+
+	// 记录词元使用
+	if s.tokenStatsSvc != nil {
+		s.tokenStatsSvc.RecordUsage(userCtx.UserID, sessionID, s.llmClient.Name(), llmResp.PromptTokens, llmResp.OutputTokens)
+	}
 
 	// │ 缓存写入 ── 入学/离校等固定流程问题缓存
 	s.cacheSet(question, sessionID, card)

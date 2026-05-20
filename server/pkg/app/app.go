@@ -90,6 +90,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackRepo := repository.NewFeedbackRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db)
 	modelConfigRepo := repository.NewModelConfigRepo(db)
+	tokenUsageRepo := repository.NewTokenUsageRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -141,6 +142,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
+	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
+	if chatSvc != nil {
+		chatSvc.SetTokenStatsService(tokenStatsSvc)
+	}
 
 	// Handler 层
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -174,6 +179,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
+	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
@@ -218,7 +224,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
-		adminHandler, feedbackHandler, modelConfigHandler,
+		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
 		cultureHandler, schoolAdminHandler, sysAdminHandler)
 
@@ -379,6 +385,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	adminH *handler.AdminHandler,
 	feedbackH *handler.FeedbackHandler,
 	modelConfigH *handler.ModelConfigHandler,
+	tokenStatsH *handler.TokenStatsHandler,
 	studentH *handler.StudentHandler,
 	counselorH *handler.CounselorHandler,
 	teacherH *handler.TeacherHandler,
@@ -525,6 +532,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// AI 模型配置
 			secured.GET("/user/model-config", modelConfigH.Get)
 			secured.PUT("/user/model-config", modelConfigH.Save)
+
+			// ── 词元统计 ──
+			secured.GET("/token-stats/my", auth.RequireCapability(auth.SelfTokenStats), tokenStatsH.GetMyStats)
+			secured.GET("/token-stats/subordinates", auth.RequireCapability(auth.CounselorTokenSubordinates), tokenStatsH.GetSubordinateStats)
 
 			// ── 管理端 ──
 			admin := secured.Group("/admin")

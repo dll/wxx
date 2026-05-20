@@ -426,3 +426,51 @@ type ModelConfigSaveRequest struct {
 	XunfeiMaxTok    int     `json:"xunfei_max_tokens"`
 	DefaultProvider string  `json:"default_provider" binding:"required,oneof=deepseek zhipu xunfei"`
 }
+
+// ── 词元统计 DTO ──
+
+// TokenDailyPoint 每日词元数据点
+type TokenDailyPoint struct {
+	Date         string `json:"date"`
+	PromptTokens int64  `json:"prompt_tokens"`
+	OutputTokens int64  `json:"output_tokens"`
+	TotalTokens  int64  `json:"total_tokens"`
+}
+
+// TokenStatsSummary 词元统计摘要
+type TokenStatsSummary struct {
+	TotalPromptTokens int64 `json:"total_prompt_tokens"`
+	TotalOutputTokens int64 `json:"total_output_tokens"`
+	TotalTokens       int64 `json:"total_tokens"`
+	TodayTokens       int64 `json:"today_tokens"`
+}
+
+// TokenStatsResponse 词元统计响应（个人）
+type TokenStatsResponse struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    *TokenStatsData `json:"data"`
+}
+
+// TokenStatsData 词元统计数据
+type TokenStatsData struct {
+	Summary TokenStatsSummary `json:"summary"`
+	Daily   []TokenDailyPoint `json:"daily"`
+}
+
+// SubordinateTokenStats 下级用户词元统计条目
+type SubordinateTokenStats struct {
+	UserID        int64  `json:"user_id"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"display_name"`
+	TotalTokens   int64  `json:"total_tokens"`
+	PromptTokens  int64  `json:"prompt_tokens"`
+	OutputTokens  int64  `json:"output_tokens"`
+}
+
+// SubordinateTokenStatsResponse 下级用户词元统计响应
+type SubordinateTokenStatsResponse struct {
+	Code    int                     `json:"code"`
+	Message string                  `json:"message"`
+	Data    []SubordinateTokenStats `json:"data"`
+}

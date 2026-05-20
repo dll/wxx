@@ -35,6 +35,7 @@ const (
 	SelfPrivateChat     Capability = "self.private_chat"     // 站内私聊
 	SelfProcessRead     Capability = "self.process.read"     // 流程办理增强查看
 	SelfEmotionStats    Capability = "self.emotion.stats"    // 自身情感统计
+	SelfTokenStats      Capability = "self.token.stats"      // 词元统计
 
 	// 校园文化（全员可见，骨架阶段直接归到 self.* 基线）
 	SelfCultureAnthem    Capability = "self.culture.anthem"    // 校歌曲库
@@ -76,6 +77,7 @@ const (
 	CounselorHotTopicSense     Capability = "counselor.hot_topic.sense"    // 热点话题感知
 	CounselorProcessEdit       Capability = "counselor.process.edit"       // 流程步骤编辑
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
+	CounselorTokenSubordinates Capability = "counselor.token.subordinates" // 下级词元统计
 )
 
 // 教师能力
@@ -150,6 +152,7 @@ var roles = map[string]*roleNode{
 			SelfCourseAnalytics, SelfWeeklyReport, SelfGenericAI,
 			SelfCommunityRead, SelfPrivateChat, SelfProcessRead,
 			SelfEmotionStats,
+			SelfTokenStats,
 			// 校园文化（全员）
 			SelfCultureAnthem, SelfCultureRadio, SelfCultureLectures,
 			SelfCultureEvents, SelfCultureVolunteer,
@@ -177,6 +180,7 @@ var roles = map[string]*roleNode{
 			CounselorIdeological, CounselorClassProfile,
 			CounselorCommunityManage, CounselorHotTopicSense,
 			CounselorProcessEdit, CounselorStudentList,
+			CounselorTokenSubordinates,
 		},
 	},
 	"teacher": {
@@ -187,6 +191,7 @@ var roles = map[string]*roleNode{
 			TeacherHeatmapRead, TeacherClassInteract,
 			TeacherDailyOverview, TeacherGrading,
 			TeacherReflection, TeacherStyleDist, TeacherCommunityQA,
+			CounselorTokenSubordinates,
 		},
 	},
 	"assistant": {

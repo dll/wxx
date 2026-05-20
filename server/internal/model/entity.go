@@ -142,6 +142,17 @@ type Feedback struct {
 	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
 }
 
+// TokenUsage 词元使用记录，对应 token_usage 表
+type TokenUsage struct {
+	ID            int64  `json:"id" db:"id"`
+	UserID        int64  `json:"user_id" db:"user_id"`
+	SessionID     string `json:"session_id" db:"session_id"`
+	PromptTokens  int    `json:"prompt_tokens" db:"prompt_tokens"`
+	OutputTokens  int    `json:"output_tokens" db:"output_tokens"`
+	ModelProvider string `json:"model_provider" db:"model_provider"`
+	CreatedAt     string `json:"created_at" db:"created_at"`
+}
+
 // UserModelConfig 用户 AI 模型配置，对应 user_model_configs 表
 type UserModelConfig struct {
 	ID              int64   `json:"id" db:"id"`
