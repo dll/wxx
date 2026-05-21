@@ -5,7 +5,6 @@ import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/role_utils.dart';
-import '../../utils/capability_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 

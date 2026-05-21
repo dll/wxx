@@ -94,10 +94,6 @@ Future<ScreenshotResult> _captureViaToBlob(html.CanvasElement canvas) async {
   final completer = Completer<ScreenshotResult>();
   try {
     canvas.toBlob().then((blob) {
-      if (blob == null) {
-        completer.complete(const ScreenshotResult(error: '画布 blob 为空'));
-        return;
-      }
       final reader = html.FileReader();
       reader.onLoadEnd.listen((_) {
         try {

@@ -1396,7 +1396,7 @@ class TokenStatsSummary {
   final int totalTokens;
   final int todayTokens;
 
-  TokenStatsSummary({this.totalPromptTokens = 0, this.totalOutputTokens = 0, this.totalTokens = 0, this.todayTokens = 0});
+  const TokenStatsSummary({this.totalPromptTokens = 0, this.totalOutputTokens = 0, this.totalTokens = 0, this.todayTokens = 0});
 
   factory TokenStatsSummary.fromJson(Map<String, dynamic> json) {
     return TokenStatsSummary(
@@ -1412,12 +1412,14 @@ class TokenStatsData {
   final TokenStatsSummary summary;
   final List<TokenDailyPoint> daily;
 
-  TokenStatsData({this.summary = const TokenStatsSummary(), this.daily = const []});
+  TokenStatsData({TokenStatsSummary? summary, List<TokenDailyPoint>? daily})
+      : summary = summary ?? const TokenStatsSummary(),
+        daily = daily ?? const [];
 
   factory TokenStatsData.fromJson(Map<String, dynamic> json) {
     return TokenStatsData(
-      summary: json['summary'] != null ? TokenStatsSummary.fromJson(json['summary']) : const TokenStatsSummary(),
-      daily: (json['daily'] as List?)?.map((e) => TokenDailyPoint.fromJson(e)).toList() ?? [],
+      summary: json['summary'] != null ? TokenStatsSummary.fromJson(json['summary']) : null,
+      daily: (json['daily'] as List?)?.map((e) => TokenDailyPoint.fromJson(e)).toList(),
     );
   }
 }
