@@ -110,8 +110,9 @@ final GoRouter appRouter = GoRouter(
     if (!firstLaunchDone && !isConsentPage) return '/consent';
     // 已完成首次启动但未登录 → 去登录
     if (firstLaunchDone && !loggedIn && !isLoginPage) return '/login';
-    // 已登录 → 不需要看登录或同意页
-    if (loggedIn && (isLoginPage || isConsentPage)) return '/home';
+    // 已登录 → 不需要看登录页；同意页仅在已完成首次启动后才跳过
+    if (loggedIn && isLoginPage) return '/home';
+    if (loggedIn && isConsentPage && firstLaunchDone) return '/home';
 
     return null;
   },
