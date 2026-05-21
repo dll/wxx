@@ -421,8 +421,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
 
-	// 静态文件服务：上传文件（截图等）
-	router.Static("/uploads", "data/uploads")
+	// 静态文件服务：上传文件（截图等），Vercel 使用 /tmp 路径
+	uploadsPath := "data/uploads"
+	if os.Getenv("VERCEL") != "" {
+		uploadsPath = "/tmp/data/uploads"
+	}
+	router.Static("/uploads", uploadsPath)
 
 	// 根路由
 	router.GET("/", func(c *gin.Context) {

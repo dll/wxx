@@ -152,8 +152,11 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	}
 	filename := "fb-screenshot-" + uuid.New().String()[:8] + ext
 
-	// 确保上传目录存在
+	// 确保上传目录存在（Vercel serverless 只有 /tmp 可写）
 	uploadDir := "data/uploads/feedback"
+	if os.Getenv("VERCEL") != "" {
+		uploadDir = "/tmp/data/uploads/feedback"
+	}
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
