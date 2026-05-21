@@ -819,12 +819,17 @@ $printScript
 
                 // 上传截图
                 String screenshotUrl = '';
+                bool uploadFailed = false;
                 if (screenshotBytes != null && screenshotBytes!.isNotEmpty) {
                   final url = await context.read<FeedbackProvider>().uploadScreenshotBytes(
                     screenshotBytes!,
                     'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
                   );
-                  if (url != null) screenshotUrl = url;
+                  if (url != null) {
+                    screenshotUrl = url;
+                  } else {
+                    uploadFailed = true;
+                  }
                 }
 
                 if (!mounted) return;
@@ -836,9 +841,21 @@ $printScript
                   screenshotUrl: screenshotUrl,
                 );
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(ok ? '反馈已提交，感谢！' : '提交失败，请重试')),
-                  );
+                  if (ok && uploadFailed) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('反馈已提交，但截图上传失败'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(ok ? '反馈已提交，感谢！' : '提交失败，请重试'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('提交'),

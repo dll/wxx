@@ -26,7 +26,7 @@ class ScreenshotResult {
 /// 2. 优先 toImageSync（Flutter 3.7+），同步路径在 Web 上更稳定
 /// 3. 失败时兜底走 await toImage
 /// 4. 用完立即 dispose 释放显存
-Future<ScreenshotResult> captureScreenshot({double pixelRatio = 2.0}) async {
+Future<ScreenshotResult> captureScreenshot({double pixelRatio = 1.0}) async {
   try {
     final ctx = screenshotKey.currentContext;
     if (ctx == null) {
