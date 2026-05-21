@@ -49,7 +49,7 @@ func (h *FeedbackHandler) Submit(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "提交反馈失败",
+			Message: "提交反馈失败: " + err.Error(),
 		})
 		return
 	}
@@ -71,7 +71,7 @@ func (h *FeedbackHandler) List(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询反馈列表失败",
+			Message: "查询反馈列表失败: " + err.Error(),
 		})
 		return
 	}

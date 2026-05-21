@@ -11,9 +11,11 @@ CREATE TABLE IF NOT EXISTS feedback (
     resource_id     TEXT    NOT NULL DEFAULT '',
     category        TEXT    NOT NULL DEFAULT 'answer_error',
     content         TEXT    NOT NULL,
+    screenshot_url  TEXT    NOT NULL DEFAULT '',
     status          TEXT    NOT NULL DEFAULT 'pending',
     resolved_by     TEXT    NOT NULL DEFAULT '',
     resolved_at     TEXT    DEFAULT NULL,
+    reply           TEXT    NOT NULL DEFAULT '',
     created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
 );

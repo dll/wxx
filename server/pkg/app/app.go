@@ -323,11 +323,26 @@ func execSQL(db *sql.DB, content, filename string) error {
 			continue
 		}
 		if _, err := db.Exec(stmt); err != nil {
+			// ALTER TABLE ADD COLUMN 重复列名视为非致命错误（列已存在 = 目标状态）
+			if isDuplicateColumnError(err) && strings.Contains(strings.ToUpper(stmt), "ALTER TABLE") {
+				log.Printf("迁移 %s 第 %d 条语句跳过（列已存在）: %v", filename, i+1, err)
+				continue
+			}
 			log.Printf("迁移 %s 第 %d 条语句失败: %v", filename, i+1, err)
 			return err
 		}
 	}
 	return nil
+}
+
+// isDuplicateColumnError 检测 SQLite "duplicate column name" 错误
+func isDuplicateColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate column name") ||
+		strings.Contains(msg, "duplicate column")
 }
 
 // splitSQL 按分号分割 SQL 语句，正确处理触发器复合语句
