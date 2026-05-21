@@ -841,6 +841,7 @@ $printScript
                   screenshotUrl: screenshotUrl,
                 );
                 if (mounted) {
+                  final fbError = context.read<FeedbackProvider>().error;
                   if (ok && uploadFailed) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -848,11 +849,18 @@ $printScript
                         duration: Duration(seconds: 3),
                       ),
                     );
+                  } else if (ok) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('反馈已提交，感谢！'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(ok ? '反馈已提交，感谢！' : '提交失败，请重试'),
-                        duration: const Duration(seconds: 2),
+                        content: Text(fbError.isNotEmpty ? '提交失败：$fbError' : '提交失败，请重试'),
+                        duration: const Duration(seconds: 4),
                       ),
                     );
                   }
