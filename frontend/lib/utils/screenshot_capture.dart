@@ -5,6 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'screenshot_capture_web.dart' if (dart.library.io) 'screenshot_capture_io.dart' as platform;
+
 /// 全局 GlobalKey — 挂在 MainShell 顶层 RepaintBoundary 上
 /// 通过它可以在任意位置抓取「当前主页面」的画面帧（不含弹窗）
 final GlobalKey screenshotKey = GlobalKey(debugLabel: 'screenshot');
@@ -21,14 +23,21 @@ class ScreenshotResult {
 
 /// 抓取主页面当前帧（跨 Web/Android/iOS 通用）
 ///
-/// Web 上优先使用异步 toImage（更稳定），移动端使用同步 toImageSync。
-/// 最多重试 3 次，每次等待一帧渲染完成。
+/// - Web：直接从 Flutter 渲染的 <canvas> 元素抓取，绕开 RenderRepaintBoundary 的 CanvasKit 兼容问题
+/// - 移动端：使用 RenderRepaintBoundary.toImage（Flutter 标准路径）
 Future<ScreenshotResult> captureScreenshot({double pixelRatio = 1.0}) async {
+  if (kIsWeb) {
+    return platform.captureWebScreenshot();
+  }
+  return _captureNative(pixelRatio: pixelRatio);
+}
+
+/// 移动端 / 桌面端：使用 Flutter RenderRepaintBoundary
+Future<ScreenshotResult> _captureNative({double pixelRatio = 1.0}) async {
   for (int attempt = 0; attempt < 3; attempt++) {
     try {
       final ctx = screenshotKey.currentContext;
       if (ctx == null) {
-        // 还未挂载，等待后重试
         await Future<void>.delayed(const Duration(milliseconds: 100));
         continue;
       }
@@ -38,7 +47,6 @@ Future<ScreenshotResult> captureScreenshot({double pixelRatio = 1.0}) async {
         continue;
       }
 
-      // 等当前帧渲染完成
       await SchedulerBinding.instance.endOfFrame;
       if (boundary.debugNeedsPaint) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -46,27 +54,14 @@ Future<ScreenshotResult> captureScreenshot({double pixelRatio = 1.0}) async {
 
       ui.Image? image;
       try {
-        if (kIsWeb) {
-          // Web：异步 toImage 更稳定，避免 LateInitializationError
-          image = await boundary.toImage(pixelRatio: pixelRatio);
-        } else {
-          // 移动端：同步快照更快更稳定
-          try {
-            image = boundary.toImageSync(pixelRatio: pixelRatio);
-          } catch (_) {
-            image = await boundary.toImage(pixelRatio: pixelRatio);
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('toImage 失败 (attempt $attempt): $e');
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        continue;
+        image = boundary.toImageSync(pixelRatio: pixelRatio);
+      } catch (_) {
+        image = await boundary.toImage(pixelRatio: pixelRatio);
       }
 
       try {
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         if (byteData == null) {
-          if (kDebugMode) debugPrint('toByteData 返回 null (attempt $attempt)');
           await Future<void>.delayed(const Duration(milliseconds: 100));
           continue;
         }
@@ -82,11 +77,5 @@ Future<ScreenshotResult> captureScreenshot({double pixelRatio = 1.0}) async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
-
-  // 所有重试耗尽
-  final ctx = screenshotKey.currentContext;
-  if (ctx == null) {
-    return const ScreenshotResult(error: '截图区域未挂载（重试3次后仍失败）');
-  }
-  return const ScreenshotResult(error: '截图引擎异常（重试3次后仍失败）');
+  return const ScreenshotResult(error: '截图失败：超过重试次数');
 }
