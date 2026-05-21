@@ -8,22 +8,18 @@ import 'screenshot_capture.dart';
 
 /// Web 端截图：直接从 Flutter 渲染的 <flutter-view> / <canvas> 元素抓取像素
 ///
-/// CanvasKit 渲染会把整个 Flutter 视图渲染到一个或多个 <canvas> 上。
-/// 我们抓取最大的那个 canvas，再 toBlob → Uint8List。
+/// CanvasKit 渲染会把整个 Flutter 视图渲染到 <flt-glass-pane> 的 ShadowRoot 内的 <canvas>。
+/// 必须穿透 ShadowRoot 才能拿到 canvas。
 /// 这条路径绕开了 RenderRepaintBoundary.toImage 的兼容问题。
 Future<ScreenshotResult> captureWebScreenshot() async {
   try {
     // 让 Flutter 完成当前帧渲染（确保 canvas 内容是最新的）
     await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    // 1. 找到 Flutter view 内的所有 <canvas>
-    var canvases = html.document.querySelectorAll('flutter-view canvas');
+    // 1. 收集所有 canvas（含 ShadowRoot 内）
+    final canvases = _collectAllCanvases();
     if (canvases.isEmpty) {
-      // 回退：搜索整个页面
-      canvases = html.document.querySelectorAll('canvas');
-      if (canvases.isEmpty) {
-        return const ScreenshotResult(error: '未找到画布元素');
-      }
+      return const ScreenshotResult(error: '未找到画布元素');
     }
     return await _captureFromCanvases(canvases);
   } catch (e) {
@@ -32,19 +28,41 @@ Future<ScreenshotResult> captureWebScreenshot() async {
   }
 }
 
+/// 递归遍历 DOM（包括 ShadowRoot），收集所有 canvas 元素
+List<html.CanvasElement> _collectAllCanvases() {
+  final result = <html.CanvasElement>[];
+  void walk(html.Node node) {
+    if (node is html.CanvasElement) {
+      result.add(node);
+    }
+    // 检查元素的 shadowRoot
+    if (node is html.Element) {
+      final shadow = node.shadowRoot;
+      if (shadow != null) {
+        for (final child in shadow.childNodes) {
+          walk(child);
+        }
+      }
+    }
+    for (final child in node.childNodes) {
+      walk(child);
+    }
+  }
+  walk(html.document.body!);
+  return result;
+}
+
 /// 从找到的 canvas 集合中选择最大的可见 canvas，并把它转为 PNG bytes
-Future<ScreenshotResult> _captureFromCanvases(html.ElementList<html.Element> canvases) async {
+Future<ScreenshotResult> _captureFromCanvases(List<html.CanvasElement> canvases) async {
   html.CanvasElement? target;
   int maxArea = 0;
 
   for (final node in canvases) {
-    if (node is html.CanvasElement) {
-      final rect = node.getBoundingClientRect();
-      final area = (rect.width * rect.height).toInt();
-      if (area > maxArea) {
-        maxArea = area;
-        target = node;
-      }
+    final rect = node.getBoundingClientRect();
+    final area = (rect.width * rect.height).toInt();
+    if (area > maxArea) {
+      maxArea = area;
+      target = node;
     }
   }
 
