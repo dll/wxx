@@ -93,6 +93,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigRepo := repository.NewModelConfigRepo(db)
 	tokenUsageRepo := repository.NewTokenUsageRepo(db)
 	processRecordRepo := repository.NewProcessRecordRepo(db)
+	feedbackScreenshotRepo := repository.NewFeedbackScreenshotRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -195,7 +196,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
-	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
+	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc, feedbackScreenshotRepo)
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
@@ -441,12 +442,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
 
-	// 静态文件服务：上传文件（截图等），Vercel 使用 /tmp 路径
-	uploadsPath := "data/uploads"
-	if os.Getenv("VERCEL") != "" {
-		uploadsPath = "/tmp/data/uploads"
-	}
-	router.Static("/uploads", uploadsPath)
+	// 反馈截图：从 SQLite blob 流式输出，跨 Vercel 实例可读（取代曾经的本地文件 /uploads）
+	router.GET("/uploads/feedback/:filename", feedbackH.ServeScreenshot)
 
 	// 根路由
 	router.GET("/", func(c *gin.Context) {

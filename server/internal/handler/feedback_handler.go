@@ -1,15 +1,16 @@
 package handler
 
 import (
+	"encoding/base64"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,12 +18,16 @@ import (
 
 // FeedbackHandler 用户反馈 HTTP handler
 type FeedbackHandler struct {
-	feedbackSvc *service.FeedbackService
+	feedbackSvc      *service.FeedbackService
+	screenshotRepo   *repository.FeedbackScreenshotRepo
 }
 
 // NewFeedbackHandler 创建反馈 handler
-func NewFeedbackHandler(feedbackSvc *service.FeedbackService) *FeedbackHandler {
-	return &FeedbackHandler{feedbackSvc: feedbackSvc}
+func NewFeedbackHandler(feedbackSvc *service.FeedbackService, screenshotRepo *repository.FeedbackScreenshotRepo) *FeedbackHandler {
+	return &FeedbackHandler{
+		feedbackSvc:    feedbackSvc,
+		screenshotRepo: screenshotRepo,
+	}
 }
 
 // Submit 提交反馈 POST /api/v1/feedback
@@ -160,6 +165,7 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 }
 
 // UploadScreenshot 上传反馈截图 POST /api/v1/feedback/screenshot
+// 写入 SQLite blob 表（跨 Vercel 实例可读），返回 /uploads/feedback/{filename} URL
 func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -187,34 +193,39 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	}
 	filename := "fb-screenshot-" + uuid.New().String()[:8] + ext
 
-	// 确保上传目录存在（Vercel serverless 只有 /tmp 可写）
-	uploadDir := "data/uploads/feedback"
-	if os.Getenv("VERCEL") != "" {
-		uploadDir = "/tmp/data/uploads/feedback"
-	}
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "服务器存储初始化失败",
-		})
-		return
-	}
-
-	dstPath := filepath.Join(uploadDir, filename)
-	dst, err := os.Create(dstPath)
+	// 读取全部字节
+	bytes, err := io.ReadAll(file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "创建文件失败",
+			Message: "读取文件失败: " + err.Error(),
 		})
 		return
 	}
-	defer dst.Close()
 
-	if _, err := io.Copy(dst, file); err != nil {
+	// 推断 MIME（仅按扩展名简单判断）
+	mime := "image/png"
+	switch ext {
+	case ".jpg", ".jpeg":
+		mime = "image/jpeg"
+	case ".gif":
+		mime = "image/gif"
+	case ".webp":
+		mime = "image/webp"
+	}
+
+	// base64 编码后入库（跨实例持久；SQLite 文本字段更稳）
+	encoded := base64.StdEncoding.EncodeToString(bytes)
+
+	uploader := ""
+	if u := middleware.GetUserContext(c); u != nil {
+		uploader = u.Username
+	}
+
+	if err := h.screenshotRepo.Save(filename, mime, encoded, uploader, header.Size); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "写入文件失败",
+			Message: "保存截图失败: " + err.Error(),
 		})
 		return
 	}
@@ -229,4 +240,33 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 			"timestamp": time.Now().Format(time.RFC3339),
 		},
 	})
+}
+
+// ServeScreenshot GET /uploads/feedback/:filename — 从 SQLite blob 返回图片字节
+func (h *FeedbackHandler) ServeScreenshot(c *gin.Context) {
+	filename := c.Param("filename")
+	if filename == "" {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	dataB64, mime, err := h.screenshotRepo.GetByFilename(filename)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if dataB64 == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	bytes, err := base64.StdEncoding.DecodeString(dataB64)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if mime == "" {
+		mime = "image/png"
+	}
+	// 浏览器缓存：截图不可变，缓存 1 天
+	c.Header("Cache-Control", "public, max-age=86400, immutable")
+	c.Data(http.StatusOK, mime, bytes)
 }
