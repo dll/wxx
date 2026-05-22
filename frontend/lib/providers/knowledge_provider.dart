@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/capability_utils.dart';
 
 /// 知识大厅状态管理
 class KnowledgeProvider extends ChangeNotifier {
@@ -86,6 +87,11 @@ class KnowledgeProvider extends ChangeNotifier {
 
   Future<void> listResources({bool refresh = false}) async {
     if (_resourcesLoading) return;
+    if (!CapabilityUtils.has(Capability.counselorKbWrite)) {
+      _resourceError = '当前角色无权访问知识资源管理';
+      notifyListeners();
+      return;
+    }
     if (refresh) {
       _resourcePage = 1;
       _resources.clear();

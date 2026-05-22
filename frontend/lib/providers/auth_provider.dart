@@ -67,6 +67,10 @@ class AuthProvider extends ChangeNotifier {
 
   /// 获取用户资料
   Future<void> fetchProfile() async {
+    if (!Storage.isLoggedIn) {
+      // 未登录时不调用受保护接口，避免 401
+      return;
+    }
     _loading = true;
     _error = null;
     notifyListeners();
@@ -144,6 +148,7 @@ class AuthProvider extends ChangeNotifier {
   /// 获取语音开关配置（优先使用缓存）
   Future<int> getVoiceConfig() async {
     if (_voiceEnabled != null) return _voiceEnabled!;
+    if (!Storage.isLoggedIn) return 0;
     try {
       final resp = await _api.get(ApiConfig.voiceConfig);
       if (resp.data['code'] == 0) {

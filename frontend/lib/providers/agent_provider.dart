@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import '../utils/capability_utils.dart';
 
 /// 智能体管理状态
 class AgentProvider extends ChangeNotifier {
@@ -17,6 +18,11 @@ class AgentProvider extends ChangeNotifier {
 
   /// 加载所有智能体
   Future<void> loadAgents() async {
+    if (!CapabilityUtils.has(Capability.schoolAgentWrite)) {
+      _error = '当前角色无权访问智能体管理';
+      notifyListeners();
+      return;
+    }
     _loading = true;
     _error = '';
     notifyListeners();

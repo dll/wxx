@@ -3,6 +3,7 @@ import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/voice/voice_service.dart';
+import '../utils/capability_utils.dart';
 
 /// 对话状态管理
 class ChatProvider extends ChangeNotifier {
@@ -130,6 +131,8 @@ class ChatProvider extends ChangeNotifier {
   /// 加载激活的智能体列表（用于选择器）
   Future<void> loadAgents() async {
     if (_agentsLoading) return;
+    // 仅 school_admin 及以上拥有 school.agent.write 才可访问 /agents 接口
+    if (!CapabilityUtils.has(Capability.schoolAgentWrite)) return;
     _agentsLoading = true;
     notifyListeners();
 

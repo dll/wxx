@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import '../utils/capability_utils.dart';
 
 class TokenStatsProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -30,10 +31,12 @@ class TokenStatsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await Future.wait([
-        fetchMyStats(),
-        fetchSubordinateStats(),
-      ]);
+      // 个人统计：所有人都能看；下级统计仅 counselor 及以上可见
+      final tasks = <Future<void>>[fetchMyStats()];
+      if (CapabilityUtils.has(Capability.counselorTokenSubordinates)) {
+        tasks.add(fetchSubordinateStats());
+      }
+      await Future.wait(tasks);
     } catch (e) {
       _error = '获取词元统计失败: $e';
     } finally {
@@ -43,6 +46,7 @@ class TokenStatsProvider extends ChangeNotifier {
   }
 
   Future<void> fetchMyStats() async {
+    if (!CapabilityUtils.has(Capability.selfTokenStats)) return;
     try {
       final response = await _api.get(ApiConfig.tokenStatsMy, params: {'days': _days});
       if (response.data['code'] == 0 && response.data['data'] != null) {
@@ -55,6 +59,7 @@ class TokenStatsProvider extends ChangeNotifier {
   }
 
   Future<void> fetchSubordinateStats() async {
+    if (!CapabilityUtils.has(Capability.counselorTokenSubordinates)) return;
     try {
       final response = await _api.get(ApiConfig.tokenStatsSubordinates, params: {'days': _days});
       if (response.data['code'] == 0 && response.data['data'] != null) {
