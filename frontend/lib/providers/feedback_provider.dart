@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -137,22 +138,25 @@ class FeedbackProvider extends ChangeNotifier {
   }
 
   /// 通过 bytes 上传截图（Web 端）
+  ///
+  /// 实现说明：Vercel serverless 多实例场景下，文件系统 / SQLite 都无法跨实例可靠持久化，
+  /// 因此把截图直接 base64 编码为 data: URL，与反馈记录一起入库（feedback.screenshot_url）。
+  /// 这样反馈记录走任何实例的 DB 副本都能完整渲染图片，不再依赖单独的资源接口。
   Future<String?> uploadScreenshotBytes(List<int> bytes, String filename) async {
     try {
-      final response = await _api.uploadBytes(
-        ApiConfig.feedbackScreenshot,
-        bytes: bytes,
-        filename: filename,
-        fieldName: 'file',
-      );
-      if (response.data['code'] == 0) {
-        return response.data['data']?['url'] as String?;
-      }
-      _error = response.data['message'] ?? '上传截图失败';
-      notifyListeners();
-      return null;
+      if (bytes.isEmpty) return null;
+      final base64Str = base64Encode(bytes);
+      final ext = filename.split('.').last.toLowerCase();
+      final mime = (ext == 'jpg' || ext == 'jpeg')
+          ? 'image/jpeg'
+          : (ext == 'gif')
+              ? 'image/gif'
+              : (ext == 'webp')
+                  ? 'image/webp'
+                  : 'image/png';
+      return 'data:$mime;base64,$base64Str';
     } catch (e) {
-      _error = '截图上传网络错误: $e';
+      _error = '截图编码失败: $e';
       notifyListeners();
       return null;
     }

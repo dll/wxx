@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/feedback_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/feedback_screenshot.dart';
 
 /// 我的反馈（所有登录用户可见，仅展示自己提交过的反馈与处理状态/回复）
 class MyFeedbacksPage extends StatefulWidget {
@@ -154,19 +155,12 @@ class _MyFeedbackCard extends StatelessWidget {
                 onTap: () => _showFullScreenshot(context, feedback.screenshotUrl),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    feedback.screenshotUrl,
+                  child: FeedbackScreenshot(
+                    url: feedback.screenshotUrl,
                     height: 120,
                     cacheHeight: 240,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 40,
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: Text('截图加载失败', style: theme.textTheme.labelSmall),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -211,7 +205,7 @@ class _MyFeedbackCard extends StatelessWidget {
       context: context,
       builder: (ctx) => Dialog(
         child: InteractiveViewer(
-          child: Image.network(url, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+          child: FeedbackScreenshot(url: url, fit: BoxFit.contain),
         ),
       ),
     );
