@@ -66,3 +66,25 @@ func (s *SessionService) DeleteSession(userID int64, sessionID string) error {
 
 	return s.sessionRepo.Delete(sessionID)
 }
+
+// RenameSession 重命名会话标题（仅本人可改）
+func (s *SessionService) RenameSession(userID int64, sessionID, title string) error {
+	session, err := s.sessionRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return fmt.Errorf("查询会话失败: %w", err)
+	}
+	if session == nil {
+		return fmt.Errorf("会话不存在")
+	}
+	if session.UserID != userID {
+		return fmt.Errorf("无权操作该会话")
+	}
+
+	// 标题长度上限：60 字符（避免滥用）
+	if l := len([]rune(title)); l > 60 {
+		runes := []rune(title)
+		title = string(runes[:60])
+	}
+
+	return s.sessionRepo.UpdateTitle(sessionID, title)
+}

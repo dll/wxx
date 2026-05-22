@@ -77,6 +77,66 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	return results, rows.Err()
 }
 
+// SearchFAQ 仅在 resource_type='FAQ' 中检索（用于持久化问答缓存命中）
+// 返回按 BM25 排序的命中（score 越小越相关）。
+// 当前最多返回 limit 条，调用方决定是否使用阈值过滤。
+func (r *KBRepo) SearchFAQ(query string, role string, limit int) ([]*SearchResult, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+	escapedQuery := escapeQuery(query)
+
+	rows, err := r.db.Query(
+		`SELECT
+				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
+				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
+				kb.content, kb.source_link, kb.source_version,
+				kb.effective_at, kb.expired_at, kb.tags,
+				kb.updated_by, kb.created_at, kb.updated_at,
+				rank AS score
+			 FROM kb_fts
+			 JOIN kb_resources kb ON kb_fts.rowid = kb.id
+			 WHERE kb_fts MATCH ?
+			   AND kb.status = 'published'
+			   AND kb.resource_type = 'FAQ'
+			   AND (kb.role_scope = '' OR kb.role_scope LIKE ?)
+			 ORDER BY score
+			 LIMIT ?`,
+		escapedQuery, "%"+role+"%", limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("FAQ FTS 搜索失败: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*SearchResult
+	for rows.Next() {
+		sr := &SearchResult{}
+		kb := &sr.Resource
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+			&sr.Score,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, sr)
+	}
+	return results, rows.Err()
+}
+
+// SetStatus 修改资源状态（用于把过时 FAQ 标为 retired）
+func (r *KBRepo) SetStatus(resourceID string, status string) error {
+	_, err := r.db.Exec(
+		`UPDATE kb_resources SET status = ?, updated_at = datetime('now') WHERE resource_id = ?`,
+		status, resourceID,
+	)
+	return err
+}
+
 // Upsert 幂等导入：resource_id 已存在时按版本号决定更新或跳过
 // 返回 action: "created" / "updated" / "skipped"
 func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {

@@ -20,6 +20,7 @@ class ApiConfig {
   static const String sessions = '$apiPrefix/sessions';
   static String sessionMessages(String id) => '$apiPrefix/sessions/$id/messages';
   static String sessionDelete(String id) => '$apiPrefix/sessions/$id';
+  static String sessionRename(String id) => '$apiPrefix/sessions/$id';
 
   // ── 语音接口 ──
   static const String voiceAsr = '$apiPrefix/voice/asr';
@@ -70,7 +71,13 @@ class ApiConfig {
   // ── 反馈 ──
   static const String feedback = '$apiPrefix/feedback';
   static const String feedbackScreenshot = '$apiPrefix/feedback/screenshot';
+  static const String feedbackMine = '$apiPrefix/feedback/mine';
   static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
+
+  // ── 办事流程办理记录 ──
+  static const String processRecords = '$apiPrefix/process/records';
+  static String processRecordStart(String flow) => '$apiPrefix/process/records/$flow/start';
+  static String processRecordProgress(String flow) => '$apiPrefix/process/records/$flow/progress';
 
   // ── 语音配置 ──
   static const String voiceConfig = '$apiPrefix/user/voice-config';

@@ -80,3 +80,37 @@ func (r *MessageRepo) GetRecentContext(sessionID string, n int) ([]*model.Messag
 	}
 	return messages, nil
 }
+
+// GetUserQuestionByMessageID 通过任意消息（通常是 assistant）的 db id，
+// 找到与之同一个 trace_id 的 user 消息内容（即原始问题）
+func (r *MessageRepo) GetUserQuestionByMessageID(messageID int64) (string, error) {
+	// 先取该消息的 trace_id 和 session_id
+	var traceID, sessionID string
+	err := r.db.QueryRow(
+		`SELECT trace_id, session_id FROM messages WHERE id = ?`, messageID,
+	).Scan(&traceID, &sessionID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if traceID == "" {
+		return "", nil
+	}
+
+	var content string
+	err = r.db.QueryRow(
+		`SELECT content FROM messages
+		 WHERE trace_id = ? AND role = 'user' AND session_id = ?
+		 ORDER BY id ASC LIMIT 1`,
+		traceID, sessionID,
+	).Scan(&content)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return content, nil
+}

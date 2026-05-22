@@ -3,7 +3,7 @@ import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 
-/// 办事流程状态管理（入学/离校引导）
+/// 办事流程状态管理（入学/离校引导，进度持久化到后端）
 class EnrollmentProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
 
@@ -13,8 +13,9 @@ class EnrollmentProvider extends ChangeNotifier {
   AnswerCard? _answerCard;
   List<ProcessStepDetail> _stepDetails = [];
 
-  // 已完成步骤索引集合（本地追踪）
+  // 已完成步骤索引集合（来自后端持久化记录）
   final Set<int> _completedSteps = {};
+  String _recordId = ''; // 当前流程的后端 record_id（用于本地参考，更新时按 flowType 路由）
 
   String get flowType => _flowType;
   bool get loading => _loading;
@@ -23,6 +24,7 @@ class EnrollmentProvider extends ChangeNotifier {
   List<String> get steps => _answerCard?.steps ?? [];
   List<ProcessStepDetail> get stepDetails => _stepDetails;
   Set<int> get completedSteps => Set.unmodifiable(_completedSteps);
+  String get recordId => _recordId;
 
   int get totalSteps {
     if (_stepDetails.isNotEmpty) return _stepDetails.length;
@@ -39,11 +41,14 @@ class EnrollmentProvider extends ChangeNotifier {
     _answerCard = null;
     _stepDetails = [];
     _completedSteps.clear();
+    _recordId = '';
     _error = null;
     notifyListeners();
+    // 切换后异步加载流程指引（含恢复已完成步骤）
+    loadFlow();
   }
 
-  /// 加载流程指引（优先使用流程增强端点获取富文本步骤）
+  /// 加载流程指引并从后端恢复办理进度
   Future<void> loadFlow() async {
     _loading = true;
     _error = null;
@@ -79,7 +84,7 @@ class EnrollmentProvider extends ChangeNotifier {
           }
         }
 
-        _completedSteps.clear();
+        await _restoreFromBackend();
         _loading = false;
         notifyListeners();
         return;
@@ -103,7 +108,7 @@ class EnrollmentProvider extends ChangeNotifier {
 
       _answerCard = chatData.data;
       _stepDetails = chatData.data?.stepDetails ?? [];
-      _completedSteps.clear();
+      await _restoreFromBackend();
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -113,27 +118,68 @@ class EnrollmentProvider extends ChangeNotifier {
     }
   }
 
-  /// 切换步骤完成状态
-  void toggleStep(int index) {
+  /// 从后端拉取已有办理记录恢复进度（首次访问会自动 StartOrResume）
+  Future<void> _restoreFromBackend() async {
+    try {
+      final flowLabel = _flowType == 'enrollment' ? '新生入学' : '毕业离校';
+      final resp = await _api.post(
+        ApiConfig.processRecordStart(_flowType),
+        data: {
+          'flow_label': flowLabel,
+          'total_steps': totalSteps,
+        },
+      );
+      if (resp.data['code'] == 0 && resp.data['data'] != null) {
+        final rec = ProcessRecord.fromJson(resp.data['data']);
+        _recordId = rec.recordId;
+        _completedSteps
+          ..clear()
+          ..addAll(rec.completedSteps);
+      }
+    } catch (_) {
+      // 静默失败：恢复进度不阻塞主流程，下次切换会再尝试
+    }
+  }
+
+  Future<void> _persistProgress() async {
+    if (_flowType.isEmpty) return;
+    try {
+      await _api.post(
+        ApiConfig.processRecordProgress(_flowType),
+        data: {
+          'current_step': _completedSteps.isEmpty ? 0 : (_completedSteps.reduce((a, b) => a > b ? a : b) + 1),
+          'completed_steps': _completedSteps.toList()..sort(),
+        },
+      );
+    } catch (_) {
+      // 静默失败：本地状态已更新，下一次操作会再次尝试同步
+    }
+  }
+
+  /// 切换步骤完成状态（同步到后端）
+  Future<void> toggleStep(int index) async {
     if (_completedSteps.contains(index)) {
       _completedSteps.remove(index);
     } else {
       _completedSteps.add(index);
     }
     notifyListeners();
+    await _persistProgress();
   }
 
-  /// 全部标记为完成
-  void completeAll() {
+  /// 全部标记为完成（同步到后端）
+  Future<void> completeAll() async {
     for (var i = 0; i < totalSteps; i++) {
       _completedSteps.add(i);
     }
     notifyListeners();
+    await _persistProgress();
   }
 
-  /// 重置进度
-  void resetProgress() {
+  /// 重置进度（同步到后端）
+  Future<void> resetProgress() async {
     _completedSteps.clear();
     notifyListeners();
+    await _persistProgress();
   }
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -91,6 +92,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	settingsRepo := repository.NewSettingsRepo(db)
 	modelConfigRepo := repository.NewModelConfigRepo(db)
 	tokenUsageRepo := repository.NewTokenUsageRepo(db)
+	processRecordRepo := repository.NewProcessRecordRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -143,8 +145,24 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackSvc := service.NewFeedbackService(feedbackRepo)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
+	processRecordSvc := service.NewProcessRecordService(processRecordRepo)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
+		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
+		feedbackSvc.SetAnswerErrorHook(func(messageID, _ string) {
+			if messageID == "" {
+				return
+			}
+			id, err := strconv.ParseInt(messageID, 10, 64)
+			if err != nil {
+				return
+			}
+			question, err := messageRepo.GetUserQuestionByMessageID(id)
+			if err != nil || question == "" {
+				return
+			}
+			_ = chatSvc.RetireFAQ(question)
+		})
 	}
 
 	// Handler 层
@@ -180,6 +198,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
+	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
@@ -226,7 +245,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler)
 
 	return router, nil
 }
@@ -410,6 +429,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	cultureH *handler.CultureHandler,
 	schoolAdminH *handler.SchoolAdminHandler,
 	sysAdminH *handler.SysAdminHandler,
+	processRecordH *handler.ProcessRecordHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -467,6 +487,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
 			secured.GET("/sessions/:id/messages", auth.RequireCapability(auth.SelfSessionRead), sessionH.GetMessages)
 			secured.DELETE("/sessions/:id", auth.RequireCapability(auth.SelfSessionDelete), sessionH.DeleteSession)
+			secured.PATCH("/sessions/:id", auth.RequireCapability(auth.SelfSessionRead), sessionH.RenameSession)
 			secured.GET("/knowledge", auth.RequireCapability(auth.SelfKnowledgeRead), kbH.BrowseKnowledge)
 			secured.GET("/recommendations", auth.RequireCapability(auth.SelfRecommendRead), recH.GetRecommendations)
 
@@ -578,11 +599,21 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 反馈 ──
 			secured.POST("/feedback", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Submit)
 			secured.POST("/feedback/screenshot", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.UploadScreenshot)
+			// 我的反馈：所有登录用户都能查看自己提交的反馈（按 user_id 过滤）
+			secured.GET("/feedback/mine", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Mine)
 
 			feedback := secured.Group("/feedback")
 			{
 				feedback.GET("", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
 				feedback.PUT("/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
+			}
+
+			// ── 办事流程办理记录 ──
+			process := secured.Group("/process/records")
+			{
+				process.GET("", auth.RequireCapability(auth.SelfProcessRead), processRecordH.ListMine)
+				process.POST("/:flow/start", auth.RequireCapability(auth.SelfProcessRead), processRecordH.StartOrResume)
+				process.POST("/:flow/progress", auth.RequireCapability(auth.SelfProcessRead), processRecordH.UpdateProgress)
 			}
 
 			// ── 学生 AI 功能（个人能力，所有角色继承自 student 都可用）──

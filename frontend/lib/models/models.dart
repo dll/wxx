@@ -1445,3 +1445,83 @@ class SubordinateTokenStats {
     );
   }
 }
+
+/// 办事流程办理记录（与后端 process_records 表对应）
+class ProcessRecord {
+  final int id;
+  final String recordId;
+  final int userId;
+  final String flowType;
+  final String flowLabel;
+  final int currentStep;
+  final List<int> completedSteps;
+  final int totalSteps;
+  final String status; // in_progress / completed / abandoned
+  final String notes;
+  final String createdAt;
+  final String updatedAt;
+
+  ProcessRecord({
+    this.id = 0,
+    this.recordId = '',
+    this.userId = 0,
+    this.flowType = '',
+    this.flowLabel = '',
+    this.currentStep = 0,
+    this.completedSteps = const [],
+    this.totalSteps = 0,
+    this.status = 'in_progress',
+    this.notes = '',
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  factory ProcessRecord.fromJson(Map<String, dynamic> json) {
+    // completed_steps 从后端是 JSON 字符串（例如 "[0,1,3]"），需要解码
+    List<int> parseSteps(dynamic raw) {
+      if (raw is List) {
+        return raw.map((e) => (e as num).toInt()).toList();
+      }
+      if (raw is String && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => (e as num).toInt()).toList();
+          }
+        } catch (_) {}
+      }
+      return const [];
+    }
+
+    return ProcessRecord(
+      id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
+      recordId: json['record_id'] ?? '',
+      userId: json['user_id'] is int ? json['user_id'] : int.tryParse('${json['user_id']}') ?? 0,
+      flowType: json['flow_type'] ?? '',
+      flowLabel: json['flow_label'] ?? '',
+      currentStep: json['current_step'] ?? 0,
+      completedSteps: parseSteps(json['completed_steps']),
+      totalSteps: json['total_steps'] ?? 0,
+      status: json['status'] ?? 'in_progress',
+      notes: json['notes'] ?? '',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+    );
+  }
+
+  String get statusLabel {
+    switch (status) {
+      case 'completed':
+        return '已完成';
+      case 'abandoned':
+        return '已放弃';
+      default:
+        return '进行中';
+    }
+  }
+
+  double get progressRatio {
+    if (totalSteps <= 0) return 0;
+    return completedSteps.length / totalSteps;
+  }
+}

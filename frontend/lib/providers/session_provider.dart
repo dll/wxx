@@ -47,4 +47,28 @@ class SessionProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// 重命名会话
+  Future<bool> renameSession(String id, String title) async {
+    try {
+      await _api.patch(ApiConfig.sessionRename(id), data: {'title': title});
+      // 本地更新（避免刷新整张列表）
+      final idx = _sessions.indexWhere((s) => s.id == id);
+      if (idx != -1) {
+        final old = _sessions[idx];
+        _sessions[idx] = Session(
+          id: old.id,
+          title: title,
+          createdAt: old.createdAt,
+          updatedAt: old.updatedAt,
+        );
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = '重命名失败';
+      notifyListeners();
+      return false;
+    }
+  }
 }

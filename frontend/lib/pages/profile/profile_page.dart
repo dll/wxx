@@ -150,6 +150,12 @@ class _ProfilePageState extends State<ProfilePage> {
           // 我的收藏（所有角色可访问）
           _buildMenuCard(context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
 
+          // 我的反馈（所有角色可访问，查看自己提交的反馈与处理结果）
+          _buildMenuCard(context, Icons.rate_review, '我的反馈', '查看自己提交的反馈与处理状态', '/my-feedbacks'),
+
+          // 我的办事记录（所有角色可访问，查看自己的办事流程进度）
+          _buildMenuCard(context, Icons.assignment_turned_in_outlined, '我的办事记录', '查看入学/离校等流程办理进度', '/my-records'),
+
           // AI 模型配置（所有角色可访问）
           _buildMenuCard(context, Icons.tune, 'AI 模型配置', '配置 DeepSeek / 智谱 / 讯飞星火模型参数', '/profile/model-config'),
 

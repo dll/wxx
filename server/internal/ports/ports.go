@@ -17,6 +17,12 @@ import (
 type KBRepository interface {
 	// Search 全文检索，返回 BM25 相关性排序结果
 	Search(query string, ownerScope string, ownerID string, role string, limit int) ([]*repository.SearchResult, error)
+	// SearchFAQ 仅在 FAQ 资源中检索（用于持久化问答缓存命中）
+	SearchFAQ(query string, role string, limit int) ([]*repository.SearchResult, error)
+	// Upsert 幂等导入资源（按 resource_id + version）
+	Upsert(kb *model.KBResource) (int64, string, error)
+	// SetStatus 修改资源状态（如把 FAQ 标为 retired）
+	SetStatus(resourceID string, status string) error
 }
 
 // ── 会话端口 ──

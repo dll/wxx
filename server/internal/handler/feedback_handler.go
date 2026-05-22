@@ -86,6 +86,41 @@ func (h *FeedbackHandler) List(c *gin.Context) {
 	})
 }
 
+// Mine 我的反馈 GET /api/v1/feedback/mine?status=&page=&page_size=
+// 仅返回当前登录用户提交的反馈，所有角色可用
+func (h *FeedbackHandler) Mine(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	status := c.Query("status")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	items, total, err := h.feedbackSvc.ListMine(userCtx.UserID, status, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询我的反馈失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.FeedbackListResponse{
+		Code:     0,
+		Message:  "success",
+		Data:     items,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
 // Resolve 处理反馈 PUT /api/v1/feedback/:id
 func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	feedbackID := c.Param("id")

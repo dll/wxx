@@ -82,6 +82,55 @@ func (r *FeedbackRepo) Count(status string) (int, error) {
 	return count, nil
 }
 
+// ListByUser 按用户 ID 分页查询反馈列表（用于"我的反馈"）
+func (r *FeedbackRepo) ListByUser(userID int64, status string, offset, limit int) ([]*model.Feedback, error) {
+	query := `SELECT ` + listFeedbackCols + ` FROM feedback WHERE user_id = ?`
+	args := []interface{}{userID}
+
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*model.Feedback
+	for rows.Next() {
+		fb := &model.Feedback{}
+		if err := rows.Scan(&fb.ID, &fb.FeedbackID, &fb.UserID, &fb.Username,
+			&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content, &fb.ScreenshotURL,
+			&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.Reply, &fb.CreatedAt, &fb.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, fb)
+	}
+	return items, rows.Err()
+}
+
+// CountByUser 统计指定用户的反馈总数
+func (r *FeedbackRepo) CountByUser(userID int64, status string) (int, error) {
+	query := `SELECT COUNT(*) FROM feedback WHERE user_id = ?`
+	args := []interface{}{userID}
+
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	var count int
+	if err := r.db.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // GetByFeedbackID 按反馈 ID 查询
 func (r *FeedbackRepo) GetByFeedbackID(feedbackID string) (*model.Feedback, error) {
 	fb := &model.Feedback{}

@@ -129,7 +129,7 @@ class _SessionsPageState extends State<SessionsPage> {
                   child: Icon(Icons.chat, color: theme.colorScheme.onPrimaryContainer, size: 20),
                 ),
                 title: Text(
-                  session.title,
+                  session.title.isEmpty ? '新对话' : session.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -139,7 +139,22 @@ class _SessionsPageState extends State<SessionsPage> {
                         style: theme.textTheme.bodySmall,
                       )
                     : null,
-                trailing: const Icon(Icons.chevron_right),
+                trailing: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: '更多',
+                  onSelected: (action) async {
+                    if (action == 'rename') {
+                      await _showRenameDialog(context, prov, session.id, session.title);
+                    } else if (action == 'open') {
+                      context.read<ChatProvider>().loadSession(session.id);
+                      if (context.mounted) context.go('/chat');
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'open', child: Row(children: [Icon(Icons.chat_bubble_outline, size: 18), SizedBox(width: 8), Text('打开')])),
+                    PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('重命名')])),
+                  ],
+                ),
                 onTap: () {
                   // 加载该会话的消息，然后跳到对话页
                   context.read<ChatProvider>().loadSession(session.id);
@@ -151,5 +166,46 @@ class _SessionsPageState extends State<SessionsPage> {
         },
       ),
     );
+  }
+
+  /// 重命名会话对话框
+  Future<void> _showRenameDialog(BuildContext context, SessionProvider prov, String id, String currentTitle) async {
+    final ctrl = TextEditingController(text: currentTitle);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名会话'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 60,
+          decoration: const InputDecoration(
+            hintText: '请输入新的会话名称',
+            border: OutlineInputBorder(),
+          ),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (newTitle == null || newTitle.isEmpty || newTitle == currentTitle) return;
+    if (!context.mounted) return;
+    final ok = await prov.renameSession(id, newTitle);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '已重命名' : '重命名失败')),
+      );
+    }
   }
 }

@@ -143,3 +143,53 @@ func (h *SessionHandler) DeleteSession(c *gin.Context) {
 		"message": "success",
 	})
 }
+
+// RenameSession 重命名会话标题
+// PATCH /api/v1/sessions/:id  body: {"title": "新标题"}
+func (h *SessionHandler) RenameSession(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未认证",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	sessionID := c.Param("id")
+	if sessionID == "" {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "缺少会话 ID",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	var body struct {
+		Title string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数错误：" + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	if err := h.sessionSvc.RenameSession(userCtx.UserID, sessionID, body.Title); err != nil {
+		c.JSON(http.StatusForbidden, model.ErrorResponse{
+			Code:    403,
+			Message: err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+	})
+}

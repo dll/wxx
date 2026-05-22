@@ -20,6 +20,8 @@ import '../pages/admin/admin_settings_page.dart';
 import '../pages/admin/review_page.dart';
 import '../pages/admin/my_submissions_page.dart';
 import '../pages/admin/feedback_page.dart';
+import '../pages/profile/my_feedbacks_page.dart';
+import '../pages/process/my_records_page.dart';
 import '../pages/bookmarks/bookmarks_page.dart';
 // ── 学生 AI 功能页面 ──
 import '../pages/student/daily_briefing_page.dart';
@@ -204,6 +206,14 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/feedback',
           builder: (context, state) => const FeedbackPage(),
+        ),
+        GoRoute(
+          path: '/my-feedbacks',
+          builder: (context, state) => const MyFeedbacksPage(),
+        ),
+        GoRoute(
+          path: '/my-records',
+          builder: (context, state) => const MyRecordsPage(),
         ),
         GoRoute(
           path: '/bookmarks',

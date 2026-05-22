@@ -19,6 +19,7 @@ type Session struct {
 	ID        int64  `json:"id" db:"id"`
 	SessionID string `json:"session_id" db:"session_id"` // 会话唯一标识
 	UserID    int64  `json:"user_id" db:"user_id"`
+	Title     string `json:"title" db:"title"` // 会话标题（用户可重命名，空则前端 fallback）
 	CreatedAt string `json:"created_at" db:"created_at"`
 	UpdatedAt string `json:"updated_at" db:"updated_at"`
 }
@@ -212,4 +213,21 @@ type Agent struct {
 	ConfigJSON    string  `json:"config_json" db:"config_json"`
 	CreatedAt     string  `json:"created_at" db:"created_at"`
 	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
+}
+
+
+// ProcessRecord 办事流程办理记录，对应 process_records 表
+type ProcessRecord struct {
+	ID              int64  `json:"id" db:"id"`
+	RecordID        string `json:"record_id" db:"record_id"`
+	UserID          int64  `json:"user_id" db:"user_id"`
+	FlowType        string `json:"flow_type" db:"flow_type"`             // enrollment / graduation / leave / ...
+	FlowLabel       string `json:"flow_label" db:"flow_label"`           // 显示名称
+	CurrentStep     int    `json:"current_step" db:"current_step"`
+	CompletedSteps  string `json:"completed_steps" db:"completed_steps"` // JSON 数组字符串
+	TotalSteps      int    `json:"total_steps" db:"total_steps"`
+	Status          string `json:"status" db:"status"` // in_progress / completed / abandoned
+	Notes           string `json:"notes" db:"notes"`
+	CreatedAt       string `json:"created_at" db:"created_at"`
+	UpdatedAt       string `json:"updated_at" db:"updated_at"`
 }
