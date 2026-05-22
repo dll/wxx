@@ -1,23 +1,32 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // StudentHandler 学生角色 AI 功能接口
 type StudentHandler struct {
-	svc *service.StudentService
+	svc    *service.StudentService
+	kbRepo *repository.KBRepo // 用于 ProcessEnhanced 等需要读 KB/process_steps 的接口
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
 func NewStudentHandler(svc *service.StudentService) *StudentHandler {
 	return &StudentHandler{svc: svc}
+}
+
+// SetKBRepo 注入 KB 仓储（可选，仅 ProcessEnhanced 使用）
+func (h *StudentHandler) SetKBRepo(kb *repository.KBRepo) {
+	h.kbRepo = kb
 }
 
 // DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
@@ -319,23 +328,89 @@ func (h *StudentHandler) PrivateChat(c *gin.Context) {
 	})
 }
 
-// ProcessEnhanced AI 办事流程增强
+// ProcessEnhanced AI 办事流程增强 — 按 type 参数从 KB + process_steps 拼装真实数据
+// type: enrollment（入学）/ graduation（离校）/ major-transfer（转专业）/ student-loan（助学贷款）
 func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	flowType := c.DefaultQuery("type", "enrollment")
+	resourceID, flowTitle := mapFlowToResource(flowType)
+
+	// kbRepo 未注入或资源未命中时降级到通用流程提示，但绝不再回到"缓考申请"
+	var card *model.AnswerCard
+	steps := []gin.H{}
+	if h.kbRepo != nil {
+		if kb, err := h.kbRepo.GetByResourceID(resourceID); err == nil && kb != nil {
+			flowTitle = kb.Title
+			card = &model.AnswerCard{
+				Conclusion: kb.Summary,
+				Sources: []model.Source{{
+					ResourceID: kb.ResourceID,
+					Title:      kb.Title,
+					Version:    kb.Version,
+					SourceLink: kb.SourceLink,
+				}},
+			}
+		}
+		if rows, err := h.kbRepo.GetProcessSteps(resourceID); err == nil {
+			for _, s := range rows {
+				materials := ""
+				// materials 是 JSON 数组字符串，前端以字符串形式展示
+				if s.Materials != "" && s.Materials != "[]" {
+					var parsed []string
+					if err := json.Unmarshal([]byte(s.Materials), &parsed); err == nil {
+						b, _ := json.Marshal(parsed)
+						materials = string(b)
+					} else {
+						materials = s.Materials
+					}
+				}
+				steps = append(steps, gin.H{
+					"step":       s.StepOrder,
+					"title":      s.Title,
+					"status":     "pending",
+					"materials":  materials,
+					"entry_url":  s.EntryURL,
+					"deadline":   s.Deadline,
+					"location":   s.Location,
+					"notes":      s.Notes,
+					"contact":    "",
+					"phone":      "",
+					"office_hours": "",
+					"faq":        []gin.H{},
+				})
+			}
+		}
+	}
+
+	resp := gin.H{
 		"processes": []gin.H{
 			{
-				"id": "1", "title": "缓考申请流程", "status": "in_progress", "current_step": 2,
-				"steps": []gin.H{
-					{"step": 1, "title": "填写缓考申请表", "status": "completed", "contact": "教务处张老师", "phone": "0550-3510XXX", "location": "行政楼B102", "office_hours": "周一至五 8:30-11:30, 14:00-17:00", "faq": []gin.H{{"q": "申请表在哪下载？", "a": "教务系统→表格下载→缓考申请表"}}},
-					{"step": 2, "title": "辅导员签字", "status": "in_progress", "contact": "李辅导员", "phone": "0550-3510XXX", "location": "信息楼205", "office_hours": "周一至五 9:00-17:00", "faq": []gin.H{{"q": "辅导员不在怎么办？", "a": "可先在系统提交电子版，辅导员线上审批"}}},
-					{"step": 3, "title": "教务处审批", "status": "pending", "contact": "教务处", "phone": "0550-3510XXX", "location": "行政楼A201", "office_hours": "周一至五 8:30-17:00", "faq": []gin.H{{"q": "审批需要多久？", "a": "一般3个工作日内完成"}}},
-				},
+				"id":           "1",
+				"title":        flowTitle,
+				"status":       "in_progress",
+				"current_step": 0,
+				"steps":        steps,
 			},
 		},
-		"reminders": []gin.H{
-			{"title": "缓考申请截止", "deadline": "2026-05-20", "days_left": 5},
-		},
-	})
+		"reminders": []gin.H{},
+	}
+	if card != nil {
+		resp["answer_card"] = card
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// mapFlowToResource 把前端流程类型映射到 KB resource_id
+func mapFlowToResource(flowType string) (resourceID string, defaultTitle string) {
+	switch flowType {
+	case "graduation":
+		return "process-graduation-2026", "毕业生离校流程"
+	case "major-transfer", "major_transfer":
+		return "process-major-transfer-2026", "转专业流程"
+	case "student-loan", "student_loan":
+		return "process-student-loan-2026", "助学贷款申请流程"
+	default:
+		return "process-registration-2026", "新生入学报到流程"
+	}
 }
 
 // GenericAI 通用 AI 响应（用于多个简单功能）

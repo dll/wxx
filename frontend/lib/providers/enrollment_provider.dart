@@ -55,7 +55,7 @@ class EnrollmentProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 先尝试流程增强端点（返回富文本步骤详情）
+      // 流程增强端点：直接返回 {processes, reminders, answer_card}（无 code/data 包装）
       final processType = _flowType == 'enrollment' ? 'enrollment' : 'graduation';
       final resp = await _api.get(
         ApiConfig.processEnhanced,
@@ -63,9 +63,17 @@ class EnrollmentProvider extends ChangeNotifier {
       );
       final data = resp.data;
 
-      if (data['code'] == 0 && data['data'] != null) {
-        final respData = data['data'] as Map<String, dynamic>;
+      // 兼容两种返回结构：① 直接顶层结构  ② 有 code/data 包装
+      Map<String, dynamic>? respData;
+      if (data is Map<String, dynamic>) {
+        if (data['processes'] is List) {
+          respData = data;
+        } else if (data['data'] is Map<String, dynamic>) {
+          respData = data['data'] as Map<String, dynamic>;
+        }
+      }
 
+      if (respData != null) {
         // 解析 AnswerCard
         if (respData['answer_card'] != null) {
           _answerCard = AnswerCard.fromJson(respData['answer_card']);
@@ -84,10 +92,13 @@ class EnrollmentProvider extends ChangeNotifier {
           }
         }
 
-        await _restoreFromBackend();
-        _loading = false;
-        notifyListeners();
-        return;
+        // 拿到任意非空步骤就视为成功，不再走 fallback
+        if (_stepDetails.isNotEmpty || _answerCard != null) {
+          await _restoreFromBackend();
+          _loading = false;
+          notifyListeners();
+          return;
+        }
       }
 
       // 降级：使用通用对话接口
@@ -100,7 +111,7 @@ class EnrollmentProvider extends ChangeNotifier {
       final chatData = ChatResponse.fromJson(chatResp.data);
 
       if (chatData.code != 0) {
-        _error = chatData.message;
+        _error = '暂时没有可用的${_flowType == 'enrollment' ? '入学' : '离校'}流程数据，请稍后再试';
         _loading = false;
         notifyListeners();
         return;
@@ -112,7 +123,7 @@ class EnrollmentProvider extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     } catch (e) {
-      _error = '加载流程失败，请稍后重试';
+      _error = '加载流程失败：网络异常，请检查后重试';
       _loading = false;
       notifyListeners();
     }

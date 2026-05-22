@@ -201,6 +201,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc)
+	studentHandler.SetKBRepo(kbRepo)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
 	var teacherSvc *service.TeacherService
