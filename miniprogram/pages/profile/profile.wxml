@@ -41,6 +41,6 @@
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text>蔚小芯 v0.1.0 — 微信小程序</text>
+    <text>蔚小芯 v0.0.1 — 微信小程序</text>
   </view>
 </view>

@@ -272,7 +272,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('关于蔚小芯'),
-              subtitle: Text('v0.1.0 · 滁州学院信息学院'),
+              subtitle: Text('v0.0.1 · 滁州学院信息学院'),
             ),
           ),
 

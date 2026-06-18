@@ -67,7 +67,7 @@
 
 | 方法 | 路径 | 认证 | 角色要求 | 说明 |
 |------|------|------|----------|------|
-| `GET` | `/health` | 无 | — | 健康检查 `{"status":"running","service":"蔚小芯","version":"0.1.0","db":"ok"}` |
+| `GET` | `/health` | 无 | — | 健康检查 `{"status":"running","service":"蔚小芯","version":"0.0.1","db":"ok"}` |
 
 ---
 

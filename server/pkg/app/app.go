@@ -450,7 +450,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"service": "蔚小芯",
-			"version": "0.1.0",
+			"version": "0.0.1",
 			"docs":    "/health",
 		})
 	})
@@ -801,7 +801,7 @@ func healthHandler(db *sql.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "running",
 			"service": "蔚小芯",
-			"version": "0.1.0",
+			"version": "0.0.1",
 			"db":      dbOK,
 			"time":    time.Now().Format(time.RFC3339),
 		})
