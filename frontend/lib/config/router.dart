@@ -48,7 +48,6 @@ import '../pages/student/qa_plaza_page.dart';
 import '../pages/student/hot_topics_page.dart';
 import '../pages/student/qa_leaderboard_page.dart';
 import '../pages/student/private_chat_page.dart';
-import '../pages/student/process_enhanced_page.dart';
 // ── 辅导员 AI 功能页面 ──
 import '../pages/counselor/daily_focus_page.dart';
 import '../pages/counselor/class_report_page.dart';
@@ -244,7 +243,6 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/student/hot-topics', builder: (_, __) => const HotTopicsPage()),
         GoRoute(path: '/student/qa-leaderboard', builder: (_, __) => const QALeaderboardPage()),
         GoRoute(path: '/student/private-chat', builder: (_, __) => const PrivateChatPage()),
-        GoRoute(path: '/student/process-enhanced', builder: (_, __) => const ProcessEnhancedPage()),
         // ── 辅导员 AI 功能路由 ──
         GoRoute(path: '/counselor/daily-focus', builder: (_, __) => const DailyFocusPage()),
         GoRoute(path: '/counselor/class-report', builder: (_, __) => const ClassReportPage()),

@@ -220,7 +220,15 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	s.cacheSet(question, sessionID, card)
 
 	// │ FAQ 持久化缓存写入 ── 仅在有引用且非 agent/多智能体路径时入库
-	if agentID == "" && multiAgentResult == nil && len(card.Sources) > 0 {
+	// 排除流程类问题：流程类由结构化端点保证确定性，缓存会绕过最新 process_steps 数据
+	hasProcessResult := false
+	for _, r := range searchResults {
+		if r.Resource.ResourceType == "Process" {
+			hasProcessResult = true
+			break
+		}
+	}
+	if agentID == "" && multiAgentResult == nil && len(card.Sources) > 0 && !hasProcessResult {
 		go s.faqStore(question, card, userCtx.Role)
 	}
 
@@ -322,6 +330,8 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
 			RelevanceScore: -r.Score,
+			EffectiveAt:    r.Resource.EffectiveAt,
+			Snippet:        r.Resource.Summary,
 		})
 	}
 	// 合并多智能体来源（去重）
@@ -340,6 +350,11 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 	if len(results) == 0 {
 		card.Confidence = 0.3
 		card.Fallback = true
+		// 如果多智能体也没有来源，替换结论为兜底引导文案（避免 LLM 无依据编造）
+		if multiAgentResult == nil || len(multiAgentResult.Sources) == 0 {
+			card.Confidence = 0.0
+			card.Conclusion = `知识库中暂无相关信息，建议联系辅导员或拨打学生处电话 0550-3510022 获取最新通知。如有紧急问题，也可通过"今日校园"APP联系在线客服。`
+		}
 	}
 
 	// 生成追问建议

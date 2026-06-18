@@ -146,7 +146,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackSvc := service.NewFeedbackService(feedbackRepo)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
-	processRecordSvc := service.NewProcessRecordService(processRecordRepo)
+	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired

@@ -343,10 +343,12 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 			card = &model.AnswerCard{
 				Conclusion: kb.Summary,
 				Sources: []model.Source{{
-					ResourceID: kb.ResourceID,
-					Title:      kb.Title,
-					Version:    kb.Version,
-					SourceLink: kb.SourceLink,
+					ResourceID:  kb.ResourceID,
+					Title:       kb.Title,
+					Version:     kb.Version,
+					SourceLink:  kb.SourceLink,
+					EffectiveAt: kb.EffectiveAt,
+					Snippet:     kb.Summary,
 				}},
 			}
 		}
@@ -363,20 +365,29 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 						materials = s.Materials
 					}
 				}
-				steps = append(steps, gin.H{
-					"step":       s.StepOrder,
-					"title":      s.Title,
-					"status":     "pending",
-					"materials":  materials,
-					"entry_url":  s.EntryURL,
-					"deadline":   s.Deadline,
-					"location":   s.Location,
-					"notes":      s.Notes,
-					"contact":    "",
-					"phone":      "",
-					"office_hours": "",
-					"faq":        []gin.H{},
-				})
+			// 解析 FAQ JSON
+			var faqList []gin.H
+			if s.FAQ != "" && s.FAQ != "[]" {
+				if err := json.Unmarshal([]byte(s.FAQ), &faqList); err != nil {
+					faqList = []gin.H{}
+				}
+			} else {
+				faqList = []gin.H{}
+			}
+			steps = append(steps, gin.H{
+				"step":         s.StepOrder,
+				"title":        s.Title,
+				"status":       "pending",
+				"materials":    materials,
+				"entry_url":    s.EntryURL,
+				"deadline":     s.Deadline,
+				"location":     s.Location,
+				"notes":        s.Notes,
+				"contact":      s.Contact,
+				"phone":        s.Phone,
+				"office_hours": s.OfficeHours,
+				"faq":          faqList,
+			})
 			}
 		}
 	}

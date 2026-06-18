@@ -20,6 +20,8 @@ type Source struct {
 	Version        string  `json:"version"`
 	SourceLink     string  `json:"source_link"`
 	RelevanceScore float64 `json:"relevance_score"` // BM25 相关性分数
+	EffectiveAt    *string `json:"effective_at,omitempty"` // 生效时间（可空）
+	Snippet        string  `json:"snippet,omitempty"`       // 段落摘要
 }
 
 // Action 可执行动作（如"在线申请"按钮）

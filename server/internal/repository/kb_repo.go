@@ -397,12 +397,22 @@ func (r *KBRepo) Update(kb *model.KBResource) error {
 	return err
 }
 
+// CountProcessSteps 查询某流程资源的实际步骤数（用于校准 totalSteps）
+func (r *KBRepo) CountProcessSteps(resourceID string) (int, error) {
+	var count int
+	err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM process_steps WHERE resource_id = ?`, resourceID,
+	).Scan(&count)
+	return count, err
+}
+
 // GetProcessSteps 获取流程步骤（按步骤序号排序）
 func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error) {
 	rows, err := r.db.Query(
-		`SELECT id, resource_id, step_order, title, materials, entry_url, deadline, location, notes
-			 FROM process_steps WHERE resource_id = ?
-			 ORDER BY step_order ASC`, resourceID,
+		`SELECT id, resource_id, step_order, title, materials, entry_url, deadline, location, notes,
+		        contact, phone, office_hours, faq
+		 FROM process_steps WHERE resource_id = ?
+		 ORDER BY step_order ASC`, resourceID,
 	)
 	if err != nil {
 		return nil, err
@@ -413,7 +423,8 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 	for rows.Next() {
 		s := &model.ProcessStep{}
 		if err := rows.Scan(&s.ID, &s.ResourceID, &s.StepOrder, &s.Title,
-			&s.Materials, &s.EntryURL, &s.Deadline, &s.Location, &s.Notes); err != nil {
+			&s.Materials, &s.EntryURL, &s.Deadline, &s.Location, &s.Notes,
+			&s.Contact, &s.Phone, &s.OfficeHours, &s.FAQ); err != nil {
 			return nil, err
 		}
 		steps = append(steps, s)

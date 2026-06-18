@@ -59,15 +59,19 @@ type KBResource struct {
 
 // ProcessStep 流程步骤，对应 process_steps 表
 type ProcessStep struct {
-	ID         int64  `json:"id" db:"id"`
-	ResourceID string `json:"resource_id" db:"resource_id"`
-	StepOrder  int    `json:"step_order" db:"step_order"` // 步骤序号
-	Title      string `json:"title" db:"title"`
-	Materials  string `json:"materials" db:"materials"` // JSON 数组：所需材料
-	EntryURL   string `json:"entry_url" db:"entry_url"` // 办理入口
-	Deadline   string `json:"deadline" db:"deadline"`
-	Location   string `json:"location" db:"location"` // 办理地点
-	Notes      string `json:"notes" db:"notes"`
+	ID          int64  `json:"id" db:"id"`
+	ResourceID  string `json:"resource_id" db:"resource_id"`
+	StepOrder   int    `json:"step_order" db:"step_order"` // 步骤序号
+	Title       string `json:"title" db:"title"`
+	Materials   string `json:"materials" db:"materials"`     // JSON 数组：所需材料
+	EntryURL    string `json:"entry_url" db:"entry_url"`     // 办理入口
+	Deadline    string `json:"deadline" db:"deadline"`
+	Location    string `json:"location" db:"location"`       // 办理地点
+	Notes       string `json:"notes" db:"notes"`
+	Contact     string `json:"contact" db:"contact"`         // 联系人
+	Phone       string `json:"phone" db:"phone"`             // 联系电话
+	OfficeHours string `json:"office_hours" db:"office_hours"` // 办公时间
+	FAQ         string `json:"faq" db:"faq"`                 // JSON 数组：[{"q":"…","a":"…"}]
 }
 
 // AuditLog 审计日志，对应 audit_logs 表

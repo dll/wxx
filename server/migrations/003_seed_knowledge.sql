@@ -249,7 +249,7 @@ INSERT OR IGNORE INTO kb_resources (
 INSERT OR IGNORE INTO kb_resources (
     resource_id, resource_type, owner_scope, owner_id, role_scope,
     version, status, title, summary, content,
-    source_link, effective_at, tags, updated_by
+    source_link, effective_at, expired_at, tags, updated_by
 ) VALUES (
     'process-registration-2026', 'Process', 'school', '', '["student","counselor"]',
     'v3.0', 'published', '新生入学报到流程',
@@ -298,6 +298,7 @@ INSERT OR IGNORE INTO kb_resources (
 学生处：0550-3510022',
     'http://xsc.chzu.edu.cn/registration',
     '2026-09-01 00:00:00',
+    '2026-09-30 00:00:00',
     '["新生","入学报到","流程"]',
     'admin'
 );
@@ -897,16 +898,16 @@ INSERT OR IGNORE INTO kb_resources (
 -- 插入流程步骤数据
 -- ============================================================
 
--- 新生入学报到流程步骤
-INSERT OR IGNORE INTO process_steps (resource_id, step_order, title, materials, entry_url, deadline, location, notes)
+-- 新生入学报到流程步骤（含联系人/电话/办公时间/FAQ — 审核 §4.1 修复）
+INSERT OR IGNORE INTO process_steps (resource_id, step_order, title, materials, entry_url, deadline, location, notes, contact, phone, office_hours, faq)
 VALUES
-('process-registration-2026', 1, '身份核验', '["身份证","录取通知书"]', '', '报到当天', '体育馆主报到点', '出示身份证和录取通知书原件'),
-('process-registration-2026', 2, '缴费确认', '[]', 'http://cw.chzu.edu.cn/payment', '报到当天', '体育馆缴费区', '确认学费住宿费已缴或办理助学贷款手续'),
-('process-registration-2026', 3, '学院报到', '["身份证"]', '', '报到当天', '各学院报到点', '领取校园卡、宿舍钥匙和入学资料袋'),
-('process-registration-2026', 4, '宿舍入住', '["宿舍分配单"]', '', '报到当天', '各学生公寓楼', '凭宿舍分配单到公寓值班室办理入住'),
-('process-registration-2026', 5, '体检', '["体检表"]', '', '按学院安排', '校医院', '空腹抽血，携带1寸照片1张'),
-('process-registration-2026', 6, '图像采集', '["身份证"]', '', '报到当天', '体育馆图像采集区', '现场拍摄学籍照片'),
-('process-registration-2026', 7, '领取教材', '["校园卡"]', '', '报到当天', '教材中心', '凭校园卡领取本学期教材');
+('process-registration-2026', 1, '身份核验', '["身份证","录取通知书"]', '', '报到当天', '体育馆主报到点', '出示身份证和录取通知书原件', '招生办', '0550-3510011', '报到日 8:00-18:00', '[{"q":"录取通知书丢了怎么办？","a":"联系招生办 0550-3510011，凭身份证核实身份后可正常报到"}]'),
+('process-registration-2026', 2, '缴费确认', '[]', 'http://cw.chzu.edu.cn/payment', '报到当天', '体育馆缴费区', '确认学费住宿费已缴或办理助学贷款手续', '财务处', '0550-3510033', '报到日 8:00-18:00', '[{"q":"可以现场缴费吗？","a":"建议提前在线缴费避免排队，现场也设有缴费窗口"},{"q":"办理了助学贷款还需要缴费吗？","a":"贷款到账后自动抵扣学费住宿费，报到时出示贷款凭证即可"}]'),
+('process-registration-2026', 3, '学院报到', '["身份证"]', '', '报到当天', '各学院报到点', '领取校园卡、宿舍钥匙和入学资料袋', '各学院辅导员', '见班级群通知', '报到日 8:00-18:00', '[]'),
+('process-registration-2026', 4, '宿舍入住', '["宿舍分配单"]', '', '报到当天', '各学生公寓楼', '凭宿舍分配单到公寓值班室办理入住', '公寓值班室', '0550-3510088', '报到日 8:00-20:00', '[{"q":"床上用品需要自带吗？","a":"学校不统一配发，请自行携带或到校后购买"}]'),
+('process-registration-2026', 5, '体检', '["体检表"]', '', '按学院安排', '校医院', '空腹抽血，携带1寸照片1张', '校医院', '0550-3510120', '按学院安排批次，抽血须在上午完成', '[{"q":"体检需要空腹吗？","a":"抽血项目须空腹，建议上午尽早前往，可携带早餐抽血后食用"}]'),
+('process-registration-2026', 6, '图像采集', '["身份证"]', '', '报到当天', '体育馆图像采集区', '现场拍摄学籍照片', '教务处学籍科', '0550-3510015', '报到日 8:00-18:00', '[]'),
+('process-registration-2026', 7, '领取教材', '["校园卡"]', '', '报到当天', '教材中心', '凭校园卡领取本学期教材', '教材中心', '0550-3510081', '报到日 8:00-18:00', '[]');
 
 -- 助学贷款申请流程步骤
 INSERT OR IGNORE INTO process_steps (resource_id, step_order, title, materials, entry_url, deadline, location, notes)
