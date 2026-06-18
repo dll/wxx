@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # CLAUDE.md — 蔚小芯 (WXX)
 
 > 信息学院智慧校园 AI 学工助手。本文为 Claude Code 会话入口，细则按需加载 `docs/`、`specs/`。
@@ -26,7 +30,9 @@
 - **多智能体管理中心自研**；编排运行时 = Eino（开源）+ 自研封装
 - **Flutter UI 规范**：Material Design 3 基线，响应式布局 + 暗黑模式 + 磨砂质感 + 动画微交互，详见 `docs/蔚小芯开发规范.md` §13
 - **应用命名规范**：用户可见名称一律为「蔚小芯」（Android `android:label` / Web `<title>` / `manifest.json` 的 `name`/`short_name` / 后端 `/health` 的 `service` 字段）；APK 分发文件名固定为 `蔚小芯.apk`；技术 ID（`wxx_app` / `com.wxx.wxx_app` / 仓库 `wxx`）保持英文。详见 `docs/deployment.md`「应用命名规范」
-- **Vercel 部署**：前端项目 `wxx-frontend`（域名 `wxx.pydaydayup.xyz`），后端项目 `wxx-server`（域名 `api.pydaydayup.xyz`）。**绝不可在仓库根目录运行 `vercel deploy`**——根 `.vercel/repo.json` 指向 `wxx-server`，前端产物会污染后端 API。统一使用 `make deploy-web` 一键部署
+- **Vercel 部署**：前端项目 `wxx-frontend`（域名 `wxx.pydaydayup.xyz`），后端项目 `wxx-server`（域名 `api.pydaydayup.xyz`）。**绝不可在仓库根目录运行 `vercel deploy`**——根 `.vercel/repo.json` 指向 `wxx-server`，前端产物会污染后端 API。统一使用 `make deploy-web` 一键部署（或 `cd frontend && npx vercel deploy --prebuilt --prod`）
+- **Vercel 文件系统**：serverless 每实例 `/tmp` 独立且会回收，**禁止**把上传文件、用户数据写入文件系统。截图等二进制资产须存入 SQLite（base64）或对象存储。当前反馈截图存于 `feedback.screenshot_url` 字段（`data:image/png;base64,...` 格式），前端用 `widgets/feedback_screenshot.dart` 的 `FeedbackScreenshot` 组件渲染
+- **前端 Provider 能力门控**：调用受保护接口前必须用 `CapabilityUtils.has(Capability.xxx)` 检查，否则低权限角色会触发 401/403。能力常量定义在 `frontend/lib/utils/capability_utils.dart`，与后端 `server/internal/auth/capabilities.go` 同步
 
 ## Harness 协作纪律
 
@@ -110,13 +116,22 @@ make dev                     # 启动后端（热重载）
 make test                    # 单元测试
 make lint                    # go vet 静态检查
 
+# 后端编译（必须带 FTS5 tag）
+go build -tags fts5 ./...
+
 # Flutter 前端（初始化后）
 make flutter-get             # 安装依赖
 make flutter-run             # 开发运行
-make flutter-build-web       # 构建 Web
-make flutter-build-apk       # 构建 APK（自动产出 蔚小芯.apk）
+make flutter-build-web       # 构建 Web（路径含中文时用 flutter-build-web-safe）
+make flutter-build-apk       # 构建 APK（自动产出 蔚小芯.apk，路径含中文时用 flutter-build-apk-safe）
 make flutter-test            # 前端测试
-make deploy-web              # 构建 Web 并部署到 Vercel wxx-frontend
+
+# 部署（make 不可用时的手动等效命令）
+# 后端
+npx vercel deploy --prod --yes                                            # 在仓库根目录
+# 前端（必须在 frontend/ 目录，必须用 --prebuilt）
+cp -rf frontend/build/web/* frontend/.vercel/output/static/
+cd frontend && npx vercel deploy --prebuilt --prod
 
 # 全栈
 make all                     # 后端编译 + 前端 Web 构建
@@ -166,3 +181,19 @@ WXX/
 - **service** → 编排 repository + llm + agent，实现业务规则
 - **repository** → SQL 操作，不依赖 HTTP 或模型 API
 - **禁止** handler 直接调用 repository 或 llm
+
+## 迁移注意事项
+
+迁移文件按 `NNN_name.sql` 顺序递增（当前最高 `020_seed_graduation_process.sql`），由 `runMigrations()` 自动应用。
+
+关键约束：
+- `execSQL` 已处理 `ALTER TABLE ADD COLUMN` 的重复列错误（跳过而不报错）
+- Vercel 冷启动时 `/tmp/wxx.db` 为空，每次迁移须幂等（用 `CREATE IF NOT EXISTS` / `INSERT OR IGNORE`）
+- **禁止**在迁移里依赖文件系统路径
+
+## 当前状态（2026-05-23）
+
+- P0/P1/P2 功能完成；已实现：反馈闭环（我的反馈 + 管理员审核）、对话标题自动命名/重命名、办事记录持久化、FAQ FTS 缓存
+- 已修复：截图跨实例丢失（改 data URL）、办事流程写死缓考（按 type 读 KB）、401/403 噪音（能力门控）
+- Flutter Web 构建通过；后端 `go build -tags fts5 ./...` 零错误
+- 测试覆盖约 62%（middleware 80.6% / handler 60.9% / service 82.1% / repository 79.9%）

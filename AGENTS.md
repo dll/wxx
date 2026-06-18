@@ -30,6 +30,7 @@
 
 | 主题 | 路径 |
 |------|------|
+| **新手入门** | `docs/蔚小芯开发技术手册.md`（从零开始的完整开发指引） |
 | Harness 工作流（对齐本项目） | `docs/harness-workflow.md` |
 | Context Engine 摘录 | `docs/context-engine.md` |
 | 知识治理与运营 | `docs/knowledge-governance.md` |
@@ -38,6 +39,7 @@
 | AnswerCard / 导出审计 | `docs/ui-answer-card.md` |
 | 校外系统对接注意 | `docs/integrations.md` |
 | 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |
+| 部署指南 | `docs/deployment.md` |
 
 ## 内部知识（可选）
 
