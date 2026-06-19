@@ -94,6 +94,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	tokenUsageRepo := repository.NewTokenUsageRepo(db)
 	processRecordRepo := repository.NewProcessRecordRepo(db)
 	feedbackScreenshotRepo := repository.NewFeedbackScreenshotRepo(db)
+	forecastRepo := repository.NewForecastRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -125,6 +126,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	authSvc := service.NewAuthService(cfg, userRepo)
 	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
 	kbSvc := service.NewKBService(kbRepo)
+	forecastSvc := service.NewForecastService(db, forecastRepo, emotionRepo, feedbackRepo, llmClient)
 
 	var chatSvc *service.ChatService
 	if llmClient != nil {
@@ -241,13 +243,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		sysAdminSvc = service.NewSysAdminService(llmClient)
 	}
 	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
+	forecastHandler := handler.NewForecastHandler(forecastSvc)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler)
 
 	return router, nil
 }
@@ -432,6 +435,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	schoolAdminH *handler.SchoolAdminHandler,
 	sysAdminH *handler.SysAdminHandler,
 	processRecordH *handler.ProcessRecordHandler,
+	forecastH *handler.ForecastHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -503,6 +507,16 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 					emotion.PUT("/alerts/:id", auth.RequireCapability(auth.CounselorAlertHandle), emotionH.UpdateAlert)
 					emotion.GET("/trends", auth.RequireCapability(auth.CounselorEmotionTrends), emotionH.Trends)
 				}
+			}
+
+			// ── 问题预案（forecast.*）──
+			forecast := secured.Group("/forecast")
+			{
+				forecast.POST("/analysis", auth.RequireCapability(auth.SysAdminForecast), forecastH.Analyze)
+				forecast.GET("/issues", auth.RequireCapability(auth.SysAdminForecast), forecastH.ListForecasts)
+				forecast.GET("/issues/:id", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetForecast)
+				forecast.PUT("/issues/:id/status", auth.RequireCapability(auth.SysAdminForecast), forecastH.UpdateStatus)
+				forecast.GET("/statistics", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetStatistics)
 			}
 
 			// ── 知识库 CRUD（counselor.kb.write）──

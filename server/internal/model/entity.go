@@ -235,3 +235,69 @@ type ProcessRecord struct {
 	CreatedAt       string `json:"created_at" db:"created_at"`
 	UpdatedAt       string `json:"updated_at" db:"updated_at"`
 }
+
+// IssueForecast 问题预案，对应 issue_forecasts 表
+type IssueForecast struct {
+	ID                int64   `json:"id" db:"id"`
+	ForecastID        string  `json:"forecast_id" db:"forecast_id"`               // 预案ID（UUID）
+	CollegeID         string  `json:"college_id" db:"college_id"`                 // 学院ID（空=全校）
+	Category          string  `json:"category" db:"category"`                     // 问题分类
+	Subcategory       string  `json:"subcategory" db:"subcategory"`               // 子分类
+	Title             string  `json:"title" db:"title"`                           // 问题标题
+	RiskLevel         string  `json:"risk_level" db:"risk_level"`                 // 风险等级
+	Status            string  `json:"status" db:"status"`                         // 状态
+	AffectedCount     int     `json:"affected_count" db:"affected_count"`         // 影响人数
+	RootCause         string  `json:"root_cause" db:"root_cause"`                 // 原因分析
+	SuggestedActions  string  `json:"suggested_actions" db:"suggested_actions"`   // 建议措施（JSON数组）
+	DataSummary       string  `json:"data_summary" db:"data_summary"`             // 数据摘要（JSON）
+	Sources           string  `json:"sources" db:"sources"`                       // 数据来源（JSON数组）
+	AIAnalysis        string  `json:"ai_analysis" db:"ai_analysis"`               // AI分析结果
+	CreatedBy         *int64  `json:"created_by" db:"created_by"`                 // 创建人ID
+	CreatedAt         string  `json:"created_at" db:"created_at"`
+	UpdatedAt         string  `json:"updated_at" db:"updated_at"`
+	ResolvedAt        *string `json:"resolved_at" db:"resolved_at"`               // 解决时间
+	ResolvedBy        *int64  `json:"resolved_by" db:"resolved_by"`               // 解决人ID
+}
+
+// IssueDetail 问题详情，对应 issue_details 表
+type IssueDetail struct {
+	ID          int64   `json:"id" db:"id"`
+	ForecastID  string  `json:"forecast_id" db:"forecast_id"`
+	UserID      *int64  `json:"user_id" db:"user_id"`           // 用户ID
+	UserType    string  `json:"user_type" db:"user_type"`       // 用户类型
+	Username    string  `json:"username" db:"username"`
+	DisplayName string  `json:"display_name" db:"display_name"`
+	College     string  `json:"college" db:"college"`
+	ClassName   string  `json:"class_name" db:"class_name"`
+	DetailType  string  `json:"detail_type" db:"detail_type"`   // 详情类型
+	DetailData  string  `json:"detail_data" db:"detail_data"`   // 详情数据（JSON）
+	RiskScore   float64 `json:"risk_score" db:"risk_score"`     // 风险分数
+	CreatedAt   string  `json:"created_at" db:"created_at"`
+}
+
+// IssueForecastHistory 问题预案历史，对应 issue_forecast_history 表
+type IssueForecastHistory struct {
+	ID           int64  `json:"id" db:"id"`
+	ForecastID   string `json:"forecast_id" db:"forecast_id"`
+	Action       string `json:"action" db:"action"`             // 操作类型
+	OperatorID   *int64 `json:"operator_id" db:"operator_id"`   // 操作人ID
+	OperatorName string `json:"operator_name" db:"operator_name"`
+	Detail       string `json:"detail" db:"detail"`             // 操作详情（JSON）
+	CreatedAt    string `json:"created_at" db:"created_at"`
+}
+
+// ForecastSummary 问题预案统计摘要
+type ForecastSummary struct {
+	TotalIssues       int            `json:"total_issues"`
+	RiskDistribution  map[string]int `json:"risk_distribution"`
+	CategoryDistribut map[string]int `json:"category_distribution"`
+	Trend             string         `json:"trend"` // increasing/decreasing/stable
+	KeyFindings       []string       `json:"key_findings"`
+}
+
+// ForecastAnalysisResponse 问题预案分析响应
+type ForecastAnalysisResponse struct {
+	Summary ForecastSummary `json:"summary"`
+	Issues  []*IssueForecast `json:"issues"`
+	ReportURL string        `json:"report_url,omitempty"`
+}

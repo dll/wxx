@@ -121,6 +121,7 @@ const (
 	SystemSettingsWrite     Capability = "system.settings.write"     // 全局配置
 	SystemAuditAll          Capability = "system.audit.all"          // 全局审计日志
 	SystemPasswordReset     Capability = "system.password.reset"     // 重置任意用户密码
+	SysAdminForecast        Capability = "sys_admin.forecast"        // 问题预案
 )
 
 // roleNode 角色继承节点
@@ -221,7 +222,7 @@ var roles = map[string]*roleNode{
 		role:    "sys_admin",
 		parents: []string{"school_admin"},
 		capabilities: []Capability{
-			SystemSettingsWrite, SystemAuditAll, SystemPasswordReset,
+			SystemSettingsWrite, SystemAuditAll, SystemPasswordReset, SysAdminForecast,
 		},
 	},
 }
