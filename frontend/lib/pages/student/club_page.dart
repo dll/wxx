@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_new_features_provider.dart';
-import '../../services/api_service.dart';
-import '../../config/api_config.dart';
 
 /// 社团生活页面
 class ClubPage extends StatefulWidget {
@@ -119,13 +117,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                   isThreeLine: true,
                   trailing: ElevatedButton(
                     onPressed: () async {
-                      final api = ApiService();
-                      final res = await api.post(ApiConfig.clubActivityRegister,
-                        data: {'activity_id': a.id},
-                      );
+                      final ok = await context.read<StudentNewFeaturesProvider>().registerClubActivity(a.id);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(res.data['code'] == 0 ? '报名成功' : '报名失败')),
+                          SnackBar(content: Text(ok ? '报名成功' : '报名失败')),
                         );
                       }
                     },

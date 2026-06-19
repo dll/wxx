@@ -397,7 +397,9 @@ func (r *StudentFeaturesRepo) JoinClub(clubID, userID int64, studentID, studentN
 	if err != nil {
 		return 0, err
 	}
-	r.db.Exec("UPDATE clubs SET member_count = member_count + 1 WHERE id = ?", clubID)
+	if _, err := r.db.Exec("UPDATE clubs SET member_count = member_count + 1 WHERE id = ?", clubID); err != nil {
+		return 0, fmt.Errorf("更新社团人数失败: %w", err)
+	}
 	return result.LastInsertId()
 }
 
@@ -467,6 +469,8 @@ func (r *StudentFeaturesRepo) RegisterClubActivity(activityID, userID int64, stu
 	if err != nil {
 		return 0, err
 	}
-	r.db.Exec("UPDATE club_activities SET current_participants = current_participants + 1 WHERE id = ?", activityID)
+	if _, err := r.db.Exec("UPDATE club_activities SET current_participants = current_participants + 1 WHERE id = ?", activityID); err != nil {
+		return 0, fmt.Errorf("更新活动参与人数失败: %w", err)
+	}
 	return result.LastInsertId()
 }

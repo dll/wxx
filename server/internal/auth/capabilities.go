@@ -43,6 +43,18 @@ const (
 	SelfCultureLectures  Capability = "self.culture.lectures"  // 学术讲座
 	SelfCultureEvents    Capability = "self.culture.events"    // 校园活动
 	SelfCultureVolunteer Capability = "self.culture.volunteer" // 志愿服务
+
+	// ── 学生功能模块 ──
+	SelfGraduationRead  Capability = "self.graduation.read"  // 毕设选题查看
+	SelfGraduationWrite Capability = "self.graduation.write" // 毕设选题操作
+	SelfCompetitionRead  Capability = "self.competition.read"  // 学科竞赛查看
+	SelfCompetitionWrite Capability = "self.competition.write" // 学科竞赛报名
+	SelfPlanRead         Capability = "self.plan.read"         // 大学规划查看
+	SelfPlanWrite        Capability = "self.plan.write"        // 大学规划操作
+	SelfPartyRead        Capability = "self.party.read"        // 入党教育查看
+	SelfPartyWrite       Capability = "self.party.write"       // 入党教育操作
+	SelfClubRead         Capability = "self.club.read"         // 社团生活查看
+	SelfClubWrite        Capability = "self.club.write"        // 社团生活操作
 )
 
 // 学生会能力
@@ -157,6 +169,12 @@ var roles = map[string]*roleNode{
 			// 校园文化（全员）
 			SelfCultureAnthem, SelfCultureRadio, SelfCultureLectures,
 			SelfCultureEvents, SelfCultureVolunteer,
+			// 学生功能模块
+			SelfGraduationRead, SelfGraduationWrite,
+			SelfCompetitionRead, SelfCompetitionWrite,
+			SelfPlanRead, SelfPlanWrite,
+			SelfPartyRead, SelfPartyWrite,
+			SelfClubRead, SelfClubWrite,
 		},
 	},
 	"student_union": {

@@ -455,6 +455,26 @@ class StudentNewFeaturesProvider extends ChangeNotifier {
     }
   });
 
+  Future<bool> addStudyRecord({required String title, String content = ''}) async {
+    try {
+      final res = await _api.post(ApiConfig.partyStudyRecordAdd, data: {
+        'title': title,
+        'content': content,
+      });
+      if (res.data['code'] == 0) {
+        await fetchStudyRecords();
+        return true;
+      }
+      _error = res.data['message'] ?? '添加失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> fetchPartyStats() => _safeLoad(() async {
     final res = await _api.get(ApiConfig.partyStats);
     if (res.data['code'] == 0) {
@@ -501,4 +521,18 @@ class StudentNewFeaturesProvider extends ChangeNotifier {
       _clubActivities = (res.data['data'] as List? ?? []).map((e) => ClubActivity.fromJson(e)).toList();
     }
   });
+
+  Future<bool> registerClubActivity(int activityId) async {
+    try {
+      final res = await _api.post(ApiConfig.clubActivityRegister, data: {'activity_id': activityId});
+      if (res.data['code'] == 0) return true;
+      _error = res.data['message'] ?? '报名失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }

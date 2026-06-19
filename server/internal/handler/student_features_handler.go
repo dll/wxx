@@ -1,23 +1,24 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // StudentFeaturesHandler 学生功能 HTTP handler（竞赛+规划+入党+社团）
 type StudentFeaturesHandler struct {
-	repo *repository.StudentFeaturesRepo
+	svc *service.StudentFeaturesService
 }
 
 // NewStudentFeaturesHandler 创建学生功能 handler
-func NewStudentFeaturesHandler(repo *repository.StudentFeaturesRepo) *StudentFeaturesHandler {
-	return &StudentFeaturesHandler{repo: repo}
+func NewStudentFeaturesHandler(svc *service.StudentFeaturesService) *StudentFeaturesHandler {
+	return &StudentFeaturesHandler{svc: svc}
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -39,9 +40,10 @@ func (h *StudentFeaturesHandler) ListCompetitions(c *gin.Context) {
 		return
 	}
 
-	items, total, err := h.repo.ListCompetitions(level, category, status, page, pageSize)
+	items, total, err := h.svc.ListCompetitions(level, category, status, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败: " + err.Error()})
+		log.Printf("查询竞赛列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": items, "total": total, "page": page, "page_size": pageSize})
@@ -56,7 +58,7 @@ func (h *StudentFeaturesHandler) GetCompetition(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	item, err := h.repo.GetCompetition(id)
+	item, err := h.svc.GetCompetition(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "竞赛不存在"})
 		return
@@ -82,9 +84,10 @@ func (h *StudentFeaturesHandler) RegisterCompetition(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	id, err := h.repo.RegisterCompetition(req.CompetitionID, userCtx.UserID, userCtx.Username, userCtx.DisplayName, userCtx.OwnerScope, "", "", req.TeamName, req.TeamMembers, req.AdvisorName)
+	id, err := h.svc.RegisterCompetition(req.CompetitionID, userCtx.UserID, userCtx.Username, userCtx.DisplayName, userCtx.OwnerScope, "", "", req.TeamName, req.TeamMembers, req.AdvisorName)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "报名失败: " + err.Error()})
+		log.Printf("竞赛报名失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "报名失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "报名成功", "data": gin.H{"id": id}})
@@ -98,8 +101,9 @@ func (h *StudentFeaturesHandler) GetMyCompetitionRegistrations(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.GetMyCompetitionRegistrations(userCtx.UserID)
+	items, err := h.svc.GetMyCompetitionRegistrations(userCtx.UserID)
 	if err != nil {
+		log.Printf("查询竞赛报名失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -124,7 +128,8 @@ func (h *StudentFeaturesHandler) SubmitWork(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	if err := h.repo.SubmitWork(req.RegistrationID, req.WorkTitle, req.WorkDesc, req.WorkFileURL); err != nil {
+	if err := h.svc.SubmitWork(req.RegistrationID, req.WorkTitle, req.WorkDesc, req.WorkFileURL); err != nil {
+		log.Printf("作品提交失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "提交失败"})
 		return
 	}
@@ -139,8 +144,9 @@ func (h *StudentFeaturesHandler) GetCompetitionStats(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	stats, err := h.repo.GetCompetitionStats()
+	stats, err := h.svc.GetCompetitionStats()
 	if err != nil {
+		log.Printf("查询竞赛统计失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询统计失败"})
 		return
 	}
@@ -160,8 +166,9 @@ func (h *StudentFeaturesHandler) ListPlanTemplates(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.ListPlanTemplates(category)
+	items, err := h.svc.ListPlanTemplates(category)
 	if err != nil {
+		log.Printf("查询规划模板失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -176,8 +183,9 @@ func (h *StudentFeaturesHandler) ListMyPlans(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.ListMyPlans(userCtx.UserID)
+	items, err := h.svc.ListMyPlans(userCtx.UserID)
 	if err != nil {
+		log.Printf("查询我的规划失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -188,12 +196,13 @@ func (h *StudentFeaturesHandler) ListMyPlans(c *gin.Context) {
 // POST /api/v1/plan/create
 func (h *StudentFeaturesHandler) CreatePlan(c *gin.Context) {
 	var req struct {
-		TemplateID  int    `json:"template_id"`
-		Title       string `json:"title" binding:"required"`
-		Category    string `json:"category" binding:"required"`
-		AcademicYear int   `json:"academic_year"`
-		Semester    int    `json:"semester"`
-		Goals       string `json:"goals"`
+		TemplateID   int    `json:"template_id"`
+		Title        string `json:"title" binding:"required"`
+		Category     string `json:"category" binding:"required"`
+		AcademicYear int    `json:"academic_year"`
+		Semester     int    `json:"semester"`
+		Goals        string `json:"goals"`
+		Content      string `json:"content"` // 前端兼容字段
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
@@ -204,8 +213,13 @@ func (h *StudentFeaturesHandler) CreatePlan(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	id, err := h.repo.CreatePlan(userCtx.UserID, req.TemplateID, req.Title, req.Category, req.AcademicYear, req.Semester, req.Goals)
+	goals := req.Goals
+	if goals == "" && req.Content != "" {
+		goals = req.Content
+	}
+	id, err := h.svc.CreatePlan(userCtx.UserID, req.TemplateID, req.Title, req.Category, req.AcademicYear, req.Semester, goals)
 	if err != nil {
+		log.Printf("创建规划失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "创建失败"})
 		return
 	}
@@ -221,7 +235,8 @@ func (h *StudentFeaturesHandler) SubmitPlan(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	if err := h.repo.UpdatePlanStatus(id, "submitted", ""); err != nil {
+	if err := h.svc.SubmitPlan(id); err != nil {
+		log.Printf("提交规划失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "提交失败"})
 		return
 	}
@@ -249,8 +264,9 @@ func (h *StudentFeaturesHandler) ReviewPlan(c *gin.Context) {
 		c.JSON(http.StatusForbidden, model.ErrorResponse{Code: 403, Message: "无权操作"})
 		return
 	}
-	if err := h.repo.UpdatePlanStatus(id, req.Status, req.Comment); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "审核失败"})
+	if err := h.svc.ReviewPlan(id, req.Status, req.Comment); err != nil {
+		log.Printf("审核规划失败: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "审核完成"})
@@ -268,8 +284,9 @@ func (h *StudentFeaturesHandler) ListPartyStages(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.ListPartyStages()
+	items, err := h.svc.ListPartyStages()
 	if err != nil {
+		log.Printf("查询入党阶段失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -284,7 +301,7 @@ func (h *StudentFeaturesHandler) GetMyPartyProgress(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	item, err := h.repo.GetMyPartyProgress(userCtx.UserID)
+	item, err := h.svc.GetMyPartyProgress(userCtx.UserID)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "暂无入党进度记录", "data": nil})
 		return
@@ -308,8 +325,9 @@ func (h *StudentFeaturesHandler) UpdatePartyProgress(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	if err := h.repo.UpdatePartyProgress(userCtx.UserID, req.Stage, req.Notes); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新失败"})
+	if err := h.svc.UpdatePartyProgress(userCtx.UserID, req.Stage, req.Notes); err != nil {
+		log.Printf("更新入党进度失败: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "进度已更新"})
@@ -323,8 +341,9 @@ func (h *StudentFeaturesHandler) ListMyStudyRecords(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.ListMyStudyRecords(userCtx.UserID)
+	items, err := h.svc.ListMyStudyRecords(userCtx.UserID)
 	if err != nil {
+		log.Printf("查询学习记录失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -335,11 +354,11 @@ func (h *StudentFeaturesHandler) ListMyStudyRecords(c *gin.Context) {
 // POST /api/v1/party/study-record
 func (h *StudentFeaturesHandler) AddStudyRecord(c *gin.Context) {
 	var req struct {
-		StudyType   string `json:"study_type" binding:"required"`
+		StudyType   string `json:"study_type"`
 		Title       string `json:"title" binding:"required"`
 		Content     string `json:"content"`
 		Duration    int    `json:"duration"`
-		StudyDate   string `json:"study_date" binding:"required"`
+		StudyDate   string `json:"study_date"`
 		Certificate string `json:"certificate"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -351,8 +370,9 @@ func (h *StudentFeaturesHandler) AddStudyRecord(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	id, err := h.repo.AddStudyRecord(userCtx.UserID, req.StudyType, req.Title, req.Content, req.Duration, req.StudyDate, req.Certificate)
+	id, err := h.svc.AddStudyRecord(userCtx.UserID, req.StudyType, req.Title, req.Content, req.Duration, req.StudyDate, req.Certificate)
 	if err != nil {
+		log.Printf("添加学习记录失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "添加失败"})
 		return
 	}
@@ -367,8 +387,9 @@ func (h *StudentFeaturesHandler) GetPartyStats(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	stats, err := h.repo.GetPartyStats()
+	stats, err := h.svc.GetPartyStats()
 	if err != nil {
+		log.Printf("查询入党统计失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询统计失败"})
 		return
 	}
@@ -391,8 +412,9 @@ func (h *StudentFeaturesHandler) ListClubs(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, total, err := h.repo.ListClubs(category, page, pageSize)
+	items, total, err := h.svc.ListClubs(category, page, pageSize)
 	if err != nil {
+		log.Printf("查询社团列表失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -408,7 +430,7 @@ func (h *StudentFeaturesHandler) GetClub(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	item, err := h.repo.GetClub(id)
+	item, err := h.svc.GetClub(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "社团不存在"})
 		return
@@ -431,8 +453,9 @@ func (h *StudentFeaturesHandler) JoinClub(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	id, err := h.repo.JoinClub(req.ClubID, userCtx.UserID, userCtx.Username, userCtx.DisplayName, "member")
+	id, err := h.svc.JoinClub(req.ClubID, userCtx.UserID, userCtx.Username, userCtx.DisplayName, "member")
 	if err != nil {
+		log.Printf("加入社团失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "加入失败"})
 		return
 	}
@@ -447,8 +470,9 @@ func (h *StudentFeaturesHandler) GetMyClubs(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, err := h.repo.GetMyClubs(userCtx.UserID)
+	items, err := h.svc.GetMyClubs(userCtx.UserID)
 	if err != nil {
+		log.Printf("查询我的社团失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -468,8 +492,9 @@ func (h *StudentFeaturesHandler) ListClubActivities(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	items, total, err := h.repo.ListClubActivities(clubID, status, page, pageSize)
+	items, total, err := h.svc.ListClubActivities(clubID, status, page, pageSize)
 	if err != nil {
+		log.Printf("查询社团活动失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
@@ -491,8 +516,9 @@ func (h *StudentFeaturesHandler) RegisterClubActivity(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	id, err := h.repo.RegisterClubActivity(req.ActivityID, userCtx.UserID, userCtx.DisplayName)
+	id, err := h.svc.RegisterClubActivity(req.ActivityID, userCtx.UserID, userCtx.DisplayName)
 	if err != nil {
+		log.Printf("报名社团活动失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "报名失败"})
 		return
 	}

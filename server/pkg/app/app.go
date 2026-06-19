@@ -98,6 +98,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationRepo := repository.NewGraduationRepo(db)
 	studentFeaturesRepo := repository.NewStudentFeaturesRepo(db)
 
+	// ── 服务层 ──
+	graduationService := service.NewGraduationService(graduationRepo)
+	studentFeaturesService := service.NewStudentFeaturesService(studentFeaturesRepo)
+
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
 	if cfg.DeepSeekAPIKey != "" {
@@ -246,8 +250,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
 	forecastHandler := handler.NewForecastHandler(forecastSvc)
-	graduationHandler := handler.NewGraduationHandler(graduationRepo)
-	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesRepo)
+	graduationHandler := handler.NewGraduationHandler(graduationService)
+	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
@@ -542,44 +546,44 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 学科竞赛 ──
 			competition := secured.Group("/competition")
 			{
-				competition.GET("/list", studentFeaturesH.ListCompetitions)
-				competition.GET("/:id", studentFeaturesH.GetCompetition)
-				competition.POST("/register", studentFeaturesH.RegisterCompetition)
-				competition.GET("/my-registrations", studentFeaturesH.GetMyCompetitionRegistrations)
-				competition.POST("/submit-work", studentFeaturesH.SubmitWork)
-				competition.GET("/stats", studentFeaturesH.GetCompetitionStats)
+				competition.GET("/list", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.ListCompetitions)
+				competition.GET("/:id", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetCompetition)
+				competition.POST("/register", auth.RequireCapability(auth.SelfCompetitionWrite), studentFeaturesH.RegisterCompetition)
+				competition.GET("/my-registrations", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetMyCompetitionRegistrations)
+				competition.POST("/submit-work", auth.RequireCapability(auth.SelfCompetitionWrite), studentFeaturesH.SubmitWork)
+				competition.GET("/stats", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetCompetitionStats)
 			}
 
 			// ── 大学规划 ──
 			plan := secured.Group("/plan")
 			{
-				plan.GET("/templates", studentFeaturesH.ListPlanTemplates)
-				plan.GET("/my-plans", studentFeaturesH.ListMyPlans)
-				plan.POST("/create", studentFeaturesH.CreatePlan)
-				plan.PUT("/:id/submit", studentFeaturesH.SubmitPlan)
-				plan.PUT("/:id/review", studentFeaturesH.ReviewPlan)
+				plan.GET("/templates", auth.RequireCapability(auth.SelfPlanRead), studentFeaturesH.ListPlanTemplates)
+				plan.GET("/my-plans", auth.RequireCapability(auth.SelfPlanRead), studentFeaturesH.ListMyPlans)
+				plan.POST("/create", auth.RequireCapability(auth.SelfPlanWrite), studentFeaturesH.CreatePlan)
+				plan.PUT("/:id/submit", auth.RequireCapability(auth.SelfPlanWrite), studentFeaturesH.SubmitPlan)
+				plan.PUT("/:id/review", auth.RequireCapability(auth.CounselorKBWrite), studentFeaturesH.ReviewPlan)
 			}
 
 			// ── 入党教育 ──
 			party := secured.Group("/party")
 			{
-				party.GET("/stages", studentFeaturesH.ListPartyStages)
-				party.GET("/my-progress", studentFeaturesH.GetMyPartyProgress)
-				party.PUT("/my-progress", studentFeaturesH.UpdatePartyProgress)
-				party.GET("/my-study-records", studentFeaturesH.ListMyStudyRecords)
-				party.POST("/study-record", studentFeaturesH.AddStudyRecord)
-				party.GET("/stats", studentFeaturesH.GetPartyStats)
+				party.GET("/stages", auth.RequireCapability(auth.SelfPartyRead), studentFeaturesH.ListPartyStages)
+				party.GET("/my-progress", auth.RequireCapability(auth.SelfPartyRead), studentFeaturesH.GetMyPartyProgress)
+				party.PUT("/my-progress", auth.RequireCapability(auth.SelfPartyWrite), studentFeaturesH.UpdatePartyProgress)
+				party.GET("/my-study-records", auth.RequireCapability(auth.SelfPartyRead), studentFeaturesH.ListMyStudyRecords)
+				party.POST("/study-record", auth.RequireCapability(auth.SelfPartyWrite), studentFeaturesH.AddStudyRecord)
+				party.GET("/stats", auth.RequireCapability(auth.SelfPartyRead), studentFeaturesH.GetPartyStats)
 			}
 
 			// ── 社团生活 ──
 			club := secured.Group("/club")
 			{
-				club.GET("/list", studentFeaturesH.ListClubs)
-				club.GET("/:id", studentFeaturesH.GetClub)
-				club.POST("/join", studentFeaturesH.JoinClub)
-				club.GET("/my-clubs", studentFeaturesH.GetMyClubs)
-				club.GET("/activities", studentFeaturesH.ListClubActivities)
-				club.POST("/activity/register", studentFeaturesH.RegisterClubActivity)
+				club.GET("/list", auth.RequireCapability(auth.SelfClubRead), studentFeaturesH.ListClubs)
+				club.GET("/:id", auth.RequireCapability(auth.SelfClubRead), studentFeaturesH.GetClub)
+				club.POST("/join", auth.RequireCapability(auth.SelfClubWrite), studentFeaturesH.JoinClub)
+				club.GET("/my-clubs", auth.RequireCapability(auth.SelfClubRead), studentFeaturesH.GetMyClubs)
+				club.GET("/activities", auth.RequireCapability(auth.SelfClubRead), studentFeaturesH.ListClubActivities)
+				club.POST("/activity/register", auth.RequireCapability(auth.SelfClubWrite), studentFeaturesH.RegisterClubActivity)
 			}
 
 			// ── 知识库 CRUD（counselor.kb.write）──

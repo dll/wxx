@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_new_features_provider.dart';
-import '../../services/api_service.dart';
-import '../../config/api_config.dart';
 
 /// 入党教育页面（数据驱动版）
 class PartyEducationPage extends StatefulWidget {
@@ -167,16 +165,15 @@ class _PartyEducationPageState extends State<PartyEducationPage> {
           FilledButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
-              final api = ApiService();
-              final res = await api.post(ApiConfig.partyStudyRecordAdd,
-                data: {'title': titleCtrl.text, 'content': contentCtrl.text},
+              final ok = await context.read<StudentNewFeaturesProvider>().addStudyRecord(
+                title: titleCtrl.text,
+                content: contentCtrl.text,
               );
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(res.data['code'] == 0 ? '添加成功' : '添加失败')),
+                  SnackBar(content: Text(ok ? '添加成功' : '添加失败')),
                 );
-                context.read<StudentNewFeaturesProvider>().fetchStudyRecords();
               }
             },
             child: const Text('添加'),

@@ -175,16 +175,28 @@ func (r *GraduationRepo) CreateTopic(t *model.ThesisTopic) (int64, error) {
 	return result.LastInsertId()
 }
 
-// UpdateTopic 更新选题
+// UpdateTopic 更新选题（字段白名单防注入）
 func (r *GraduationRepo) UpdateTopic(id int64, fields map[string]interface{}) error {
 	if len(fields) == 0 {
 		return nil
 	}
+	allowedFields := map[string]bool{
+		"title": true, "advisor_id": true, "college": true, "major": true,
+		"topic_type": true, "nature": true, "result_form": true, "difficulty": true,
+		"description": true, "requirements": true, "keywords": true,
+		"max_students": true, "status": true,
+	}
 	setParts := []string{}
 	args := []interface{}{}
 	for k, v := range fields {
+		if !allowedFields[k] {
+			continue
+		}
 		setParts = append(setParts, k+" = ?")
 		args = append(args, v)
+	}
+	if len(setParts) == 0 {
+		return nil
 	}
 	args = append(args, id)
 	query := fmt.Sprintf("UPDATE thesis_topics SET %s, updated_at = datetime('now') WHERE id = ?", strings.Join(setParts, ", "))
@@ -280,7 +292,9 @@ func (r *GraduationRepo) CreateSelection(s *model.StudentTopicSelection) (int64,
 
 	// 更新选题已选人数
 	if s.TopicID > 0 {
-		_, _ = r.db.Exec("UPDATE thesis_topics SET selected_count = selected_count + 1 WHERE id = ?", s.TopicID)
+		if _, err := r.db.Exec("UPDATE thesis_topics SET selected_count = selected_count + 1 WHERE id = ?", s.TopicID); err != nil {
+			return 0, fmt.Errorf("更新选题人数失败: %w", err)
+		}
 	}
 
 	return result.LastInsertId()

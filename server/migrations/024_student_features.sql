@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS student_plans (
     category TEXT NOT NULL,                      -- 类别
     academic_year INTEGER,                       -- 学年（如2026）
     semester INTEGER,                            -- 学期（1或2）
-    goals TEXT NOT NULL,                         -- 目标列表（JSON数组）
+    goals TEXT DEFAULT '[]',                      -- 目标列表（JSON数组）
     progress REAL DEFAULT 0,                     -- 进度百分比（0-100）
     status TEXT DEFAULT 'draft',                 -- 状态：draft/submitted/approved/in_progress/completed
     reviewer_id INTEGER,                         -- 审核人ID
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS party_progress (
     conversion_date TEXT,                        -- 转正日期
     status TEXT DEFAULT 'applicant',             -- 状态：applicant/activist/development/probation/member
     party_member_id INTEGER,                     -- 入党介绍人
-    branch书记 TEXT,                             -- 支部书记
+    branch_secretary TEXT,                        -- 支部书记
     notes TEXT,                                  -- 备注
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS club_activities (
     location TEXT,                               -- 活动地点
     max_participants INTEGER,                    -- 最大参与人数
     current_participants INTEGER DEFAULT 0,      -- 当前参与人数
-    status TEXT DEFAULT 'upcoming',              -- 状态：upgoing/ongoing/finished/cancelled
+    status TEXT DEFAULT 'upcoming',              -- 状态：upcoming/ongoing/finished/cancelled
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (club_id) REFERENCES clubs(id)
 );
