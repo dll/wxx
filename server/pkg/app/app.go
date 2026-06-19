@@ -95,6 +95,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	processRecordRepo := repository.NewProcessRecordRepo(db)
 	feedbackScreenshotRepo := repository.NewFeedbackScreenshotRepo(db)
 	forecastRepo := repository.NewForecastRepo(db)
+	graduationRepo := repository.NewGraduationRepo(db)
+	studentFeaturesRepo := repository.NewStudentFeaturesRepo(db)
 
 	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
@@ -244,13 +246,15 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
 	forecastHandler := handler.NewForecastHandler(forecastSvc)
+	graduationHandler := handler.NewGraduationHandler(graduationRepo)
+	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesRepo)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler)
 
 	return router, nil
 }
@@ -436,6 +440,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	sysAdminH *handler.SysAdminHandler,
 	processRecordH *handler.ProcessRecordHandler,
 	forecastH *handler.ForecastHandler,
+	graduationH *handler.GraduationHandler,
+	studentFeaturesH *handler.StudentFeaturesHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -517,6 +523,63 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				forecast.GET("/issues/:id", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetForecast)
 				forecast.PUT("/issues/:id/status", auth.RequireCapability(auth.SysAdminForecast), forecastH.UpdateStatus)
 				forecast.GET("/statistics", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetStatistics)
+			}
+
+			// ── 毕设选题（graduation.*）──
+			graduation := secured.Group("/graduation")
+			{
+				graduation.GET("/advisors", graduationH.ListAdvisors)
+				graduation.GET("/topics", graduationH.ListTopics)
+				graduation.GET("/topics/:id", graduationH.GetTopic)
+				graduation.POST("/select", graduationH.SelectTopic)
+				graduation.GET("/my-selection", graduationH.GetMySelection)
+				graduation.GET("/milestones", graduationH.ListMilestones)
+				graduation.GET("/stats", graduationH.GetStats)
+				graduation.GET("/selections", graduationH.ListSelections)
+				graduation.PUT("/selections/:id/confirm", graduationH.ConfirmSelection)
+			}
+
+			// ── 学科竞赛 ──
+			competition := secured.Group("/competition")
+			{
+				competition.GET("/list", studentFeaturesH.ListCompetitions)
+				competition.GET("/:id", studentFeaturesH.GetCompetition)
+				competition.POST("/register", studentFeaturesH.RegisterCompetition)
+				competition.GET("/my-registrations", studentFeaturesH.GetMyCompetitionRegistrations)
+				competition.POST("/submit-work", studentFeaturesH.SubmitWork)
+				competition.GET("/stats", studentFeaturesH.GetCompetitionStats)
+			}
+
+			// ── 大学规划 ──
+			plan := secured.Group("/plan")
+			{
+				plan.GET("/templates", studentFeaturesH.ListPlanTemplates)
+				plan.GET("/my-plans", studentFeaturesH.ListMyPlans)
+				plan.POST("/create", studentFeaturesH.CreatePlan)
+				plan.PUT("/:id/submit", studentFeaturesH.SubmitPlan)
+				plan.PUT("/:id/review", studentFeaturesH.ReviewPlan)
+			}
+
+			// ── 入党教育 ──
+			party := secured.Group("/party")
+			{
+				party.GET("/stages", studentFeaturesH.ListPartyStages)
+				party.GET("/my-progress", studentFeaturesH.GetMyPartyProgress)
+				party.PUT("/my-progress", studentFeaturesH.UpdatePartyProgress)
+				party.GET("/my-study-records", studentFeaturesH.ListMyStudyRecords)
+				party.POST("/study-record", studentFeaturesH.AddStudyRecord)
+				party.GET("/stats", studentFeaturesH.GetPartyStats)
+			}
+
+			// ── 社团生活 ──
+			club := secured.Group("/club")
+			{
+				club.GET("/list", studentFeaturesH.ListClubs)
+				club.GET("/:id", studentFeaturesH.GetClub)
+				club.POST("/join", studentFeaturesH.JoinClub)
+				club.GET("/my-clubs", studentFeaturesH.GetMyClubs)
+				club.GET("/activities", studentFeaturesH.ListClubActivities)
+				club.POST("/activity/register", studentFeaturesH.RegisterClubActivity)
 			}
 
 			// ── 知识库 CRUD（counselor.kb.write）──

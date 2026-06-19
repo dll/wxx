@@ -301,3 +301,313 @@ type ForecastAnalysisResponse struct {
 	Issues  []*IssueForecast `json:"issues"`
 	ReportURL string        `json:"report_url,omitempty"`
 }
+
+// ══════════════════════════════════════════════════════════════
+// 毕设选题智能体模型
+// ══════════════════════════════════════════════════════════════
+
+// Advisor 导师
+type Advisor struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	AdvisorID     string `json:"advisor_id"`
+	Title         string `json:"title"`
+	College       string `json:"college"`
+	Department    string `json:"department"`
+	ResearchAreas string `json:"research_areas"`
+	MaxStudents   int    `json:"max_students"`
+	IsActive      int    `json:"is_active"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// ThesisTopic 毕设选题
+type ThesisTopic struct {
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	AdvisorID     int64  `json:"advisor_id"`
+	AdvisorName   string `json:"advisor_name,omitempty"`
+	College       string `json:"college"`
+	Major         string `json:"major"`
+	TopicType     string `json:"topic_type"`
+	Nature        string `json:"nature"`
+	ResultForm    string `json:"result_form"`
+	Difficulty    string `json:"difficulty"`
+	Description   string `json:"description"`
+	Requirements  string `json:"requirements"`
+	Keywords      string `json:"keywords"`
+	MaxStudents   int    `json:"max_students"`
+	SelectedCount int    `json:"selected_count"`
+	Batch         int    `json:"batch"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// StudentTopicSelection 学生选题记录
+type StudentTopicSelection struct {
+	ID              int64  `json:"id"`
+	UserID          int64  `json:"user_id"`
+	StudentID       string `json:"student_id"`
+	StudentName     string `json:"student_name"`
+	College         string `json:"college"`
+	Major           string `json:"major"`
+	ClassName       string `json:"class_name"`
+	Batch           int    `json:"batch"`
+	TopicID         int64  `json:"topic_id"`
+	TopicName       string `json:"topic_name,omitempty"`
+	AdvisorID       int64  `json:"advisor_id"`
+	AdvisorName     string `json:"advisor_name,omitempty"`
+	Status          string `json:"status"`
+	PreferenceOrder int    `json:"preference_order"`
+	Reason          string `json:"reason"`
+	ConfirmedAt     string `json:"confirmed_at"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+}
+
+// GraduationMilestone 毕设里程碑
+type GraduationMilestone struct {
+	ID          int64  `json:"id"`
+	Batch       int    `json:"batch"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Deadline    string `json:"deadline"`
+	Weight      int    `json:"weight"`
+	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// GraduationProgress 毕设进度
+type GraduationProgress struct {
+	ID             int64  `json:"id"`
+	UserID         int64  `json:"user_id"`
+	TopicID        int64  `json:"topic_id"`
+	MilestoneCode  string `json:"milestone_code"`
+	Status         string `json:"status"`
+	SubmittedAt    string `json:"submitted_at"`
+	CompletedAt    string `json:"completed_at"`
+	Feedback       string `json:"feedback"`
+	Score          int    `json:"score"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+// ══════════════════════════════════════════════════════════════
+// 学科竞赛模型
+// ══════════════════════════════════════════════════════════════
+
+// Competition 竞赛信息
+type Competition struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Level             string `json:"level"`
+	Category          string `json:"category"`
+	Organizer         string `json:"organizer"`
+	Description       string `json:"description"`
+	Requirements      string `json:"requirements"`
+	Features          string `json:"features"`
+	RegistrationStart string `json:"registration_start"`
+	RegistrationEnd   string `json:"registration_end"`
+	CompetitionDate   string `json:"competition_date"`
+	ResultDate        string `json:"result_date"`
+	Website           string `json:"website"`
+	ResourceLinks     string `json:"resource_links"`
+	MaxTeamSize       int    `json:"max_team_size"`
+	IsTeamCompetition int    `json:"is_team_competition"`
+	Status            string `json:"status"`
+	CreatedAt         string `json:"created_at"`
+	UpdatedAt         string `json:"updated_at"`
+}
+
+// CompetitionRegistration 竞赛报名
+type CompetitionRegistration struct {
+	ID              int64  `json:"id"`
+	CompetitionID   int64  `json:"competition_id"`
+	CompetitionName string `json:"competition_name,omitempty"`
+	UserID          int64  `json:"user_id"`
+	StudentID       string `json:"student_id"`
+	StudentName     string `json:"student_name"`
+	College         string `json:"college"`
+	Major           string `json:"major"`
+	ClassName       string `json:"class_name"`
+	TeamName        string `json:"team_name"`
+	TeamMembers     string `json:"team_members"`
+	AdvisorName     string `json:"advisor_name"`
+	Status          string `json:"status"`
+	WorkTitle       string `json:"work_title"`
+	WorkDescription string `json:"work_description"`
+	WorkFileURL     string `json:"work_file_url"`
+	AwardLevel      string `json:"award_level"`
+	AwardDate       string `json:"award_date"`
+	CertificateURL  string `json:"certificate_url"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+}
+
+// ══════════════════════════════════════════════════════════════
+// 大学规划模型
+// ══════════════════════════════════════════════════════════════
+
+// PlanTemplate 规划模板
+type PlanTemplate struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Category      string `json:"category"`
+	Description   string `json:"description"`
+	TargetAudience string `json:"target_audience"`
+	Duration      string `json:"duration"`
+	Goals         string `json:"goals"`
+	Milestones    string `json:"milestones"`
+	SuccessCases  string `json:"success_cases"`
+	AIPrompt      string `json:"ai_prompt"`
+	IsActive      int    `json:"is_active"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// StudentPlan 学生规划
+type StudentPlan struct {
+	ID               int64   `json:"id"`
+	UserID           int64   `json:"user_id"`
+	TemplateID       int64   `json:"template_id"`
+	TemplateName     string  `json:"template_name,omitempty"`
+	Title            string  `json:"title"`
+	Category         string  `json:"category"`
+	AcademicYear     int     `json:"academic_year"`
+	Semester         int     `json:"semester"`
+	Goals            string  `json:"goals"`
+	Progress         float64 `json:"progress"`
+	Status           string  `json:"status"`
+	ReviewerID       int64   `json:"reviewer_id"`
+	ReviewerComment  string  `json:"reviewer_comment"`
+	ReviewedAt       string  `json:"reviewed_at"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
+}
+
+// PlanProgressRecord 规划进度记录
+type PlanProgressRecord struct {
+	ID         int64  `json:"id"`
+	PlanID     int64  `json:"plan_id"`
+	GoalIndex  int    `json:"goal_index"`
+	GoalTitle  string `json:"goal_title"`
+	Status     string `json:"status"`
+	Evidence   string `json:"evidence"`
+	Score      int    `json:"score"`
+	Feedback   string `json:"feedback"`
+	RecordedAt string `json:"recorded_at"`
+}
+
+// ══════════════════════════════════════════════════════════════
+// 入党教育模型
+// ══════════════════════════════════════════════════════════════
+
+// PartyStage 入党阶段
+type PartyStage struct {
+	ID           int64  `json:"id"`
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	RequiredDocs string `json:"required_docs"`
+	SortOrder    int    `json:"sort_order"`
+}
+
+// PartyProgress 学生入党进度
+type PartyProgress struct {
+	ID               int64  `json:"id"`
+	UserID           int64  `json:"user_id"`
+	StudentID        string `json:"student_id"`
+	StudentName      string `json:"student_name"`
+	College          string `json:"college"`
+	CurrentStage     string `json:"current_stage"`
+	CurrentStageName string `json:"current_stage_name,omitempty"`
+	ApplyDate        string `json:"apply_date"`
+	ActivatorDate    string `json:"activator_date"`
+	DevelopmentDate  string `json:"development_date"`
+	ProbationStart   string `json:"probation_start"`
+	ConversionDate   string `json:"conversion_date"`
+	Status           string `json:"status"`
+	Notes            string `json:"notes"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+}
+
+// PartyStudyRecord 学习记录
+type PartyStudyRecord struct {
+	ID         int64  `json:"id"`
+	UserID     int64  `json:"user_id"`
+	StudyType  string `json:"study_type"`
+	Title      string `json:"title"`
+	Content    string `json:"content"`
+	Duration   int    `json:"duration"`
+	StudyDate  string `json:"study_date"`
+	Certificate string `json:"certificate"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// ══════════════════════════════════════════════════════════════
+// 社团生活模型
+// ══════════════════════════════════════════════════════════════
+
+// Club 社团
+type Club struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Category      string `json:"category"`
+	Description   string `json:"description"`
+	Founder       string `json:"founder"`
+	President     string `json:"president"`
+	ContactInfo   string `json:"contact_info"`
+	MemberCount   int    `json:"member_count"`
+	MaxMembers    int    `json:"max_members"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// ClubMember 社团成员
+type ClubMember struct {
+	ID          int64  `json:"id"`
+	ClubID      int64  `json:"club_id"`
+	ClubName    string `json:"club_name,omitempty"`
+	UserID      int64  `json:"user_id"`
+	StudentID   string `json:"student_id"`
+	StudentName string `json:"student_name"`
+	Role        string `json:"role"`
+	JoinDate    string `json:"join_date"`
+	LeaveDate   string `json:"leave_date"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// ClubActivity 社团活动
+type ClubActivity struct {
+	ID                  int64  `json:"id"`
+	ClubID              int64  `json:"club_id"`
+	ClubName            string `json:"club_name,omitempty"`
+	Title               string `json:"title"`
+	Description         string `json:"description"`
+	ActivityType        string `json:"activity_type"`
+	StartTime           string `json:"start_time"`
+	EndTime             string `json:"end_time"`
+	Location            string `json:"location"`
+	MaxParticipants     int    `json:"max_participants"`
+	CurrentParticipants int    `json:"current_participants"`
+	Status              string `json:"status"`
+	CreatedAt           string `json:"created_at"`
+}
+
+// ClubActivityRegistration 社团活动报名
+type ClubActivityRegistration struct {
+	ID           int64  `json:"id"`
+	ActivityID   int64  `json:"activity_id"`
+	UserID       int64  `json:"user_id"`
+	StudentName  string `json:"student_name"`
+	Status       string `json:"status"`
+	Feedback     string `json:"feedback"`
+	Rating       int    `json:"rating"`
+	CreatedAt    string `json:"created_at"`
+}
