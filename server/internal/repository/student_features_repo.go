@@ -39,7 +39,9 @@ func (r *StudentFeaturesRepo) ListCompetitions(level, category, status string, p
 	whereStr := strings.Join(where, " AND ")
 
 	var total int
-	r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM competitions WHERE %s", whereStr), args...).Scan(&total)
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM competitions WHERE %s", whereStr), args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("统计竞赛数量失败: %w", err)
+	}
 
 	offset := (page - 1) * pageSize
 	queryArgs := append(args, pageSize, offset)
@@ -53,7 +55,9 @@ func (r *StudentFeaturesRepo) ListCompetitions(level, category, status string, p
 	for rows.Next() {
 		var id, maxTeamSize, isTeam int
 		var name, lev, cat, org, desc, req, feats, regStart, regEnd, compDate, resDate, website, resLinks, status, created string
-		rows.Scan(&id, &name, &lev, &cat, &org, &desc, &req, &feats, &regStart, &regEnd, &compDate, &resDate, &website, &resLinks, &maxTeamSize, &isTeam, &status, &created)
+		if err := rows.Scan(&id, &name, &lev, &cat, &org, &desc, &req, &feats, &regStart, &regEnd, &compDate, &resDate, &website, &resLinks, &maxTeamSize, &isTeam, &status, &created); err != nil {
+			return nil, 0, fmt.Errorf("扫描竞赛记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "name": name, "level": lev, "category": cat, "organizer": org,
 			"description": desc, "requirements": req, "features": feats,
@@ -62,6 +66,9 @@ func (r *StudentFeaturesRepo) ListCompetitions(level, category, status string, p
 			"resource_links": resLinks, "max_team_size": maxTeamSize,
 			"is_team_competition": isTeam, "status": status, "created_at": created,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历竞赛记录失败: %w", err)
 	}
 	return items, total, nil
 }
@@ -108,11 +115,16 @@ func (r *StudentFeaturesRepo) GetMyCompetitionRegistrations(userID int64) ([]map
 	for rows.Next() {
 		var id, compID int
 		var compName, lev, status, workTitle, awardLevel, awardDate, created string
-		rows.Scan(&id, &compID, &compName, &lev, &status, &workTitle, &awardLevel, &awardDate, &created)
+		if err := rows.Scan(&id, &compID, &compName, &lev, &status, &workTitle, &awardLevel, &awardDate, &created); err != nil {
+			return nil, fmt.Errorf("扫描竞赛报名记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "competition_id": compID, "competition_name": compName, "level": lev,
 			"status": status, "work_title": workTitle, "award_level": awardLevel, "award_date": awardDate, "created_at": created,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历竞赛报名记录失败: %w", err)
 	}
 	return items, nil
 }
@@ -126,26 +138,43 @@ func (r *StudentFeaturesRepo) SubmitWork(regID int64, workTitle, workDesc, workF
 // GetCompetitionStats 竞赛统计
 func (r *StudentFeaturesRepo) GetCompetitionStats() (map[string]interface{}, error) {
 	stats := map[string]interface{}{}
-	var total, regCount, awardCount int
-	r.db.QueryRow("SELECT COUNT(*) FROM competitions").Scan(&total)
-	r.db.QueryRow("SELECT COUNT(*) FROM competition_registrations").Scan(&regCount)
-	r.db.QueryRow("SELECT COUNT(*) FROM competition_registrations WHERE award_level != '' AND award_level IS NOT NULL").Scan(&awardCount)
+
+	var total int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM competitions").Scan(&total); err != nil {
+		return nil, fmt.Errorf("统计竞赛总数失败: %w", err)
+	}
 	stats["total_competitions"] = total
+
+	var regCount int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM competition_registrations").Scan(&regCount); err != nil {
+		return nil, fmt.Errorf("统计报名总数失败: %w", err)
+	}
 	stats["total_registrations"] = regCount
+
+	var awardCount int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM competition_registrations WHERE award_level != '' AND award_level IS NOT NULL").Scan(&awardCount); err != nil {
+		return nil, fmt.Errorf("统计获奖总数失败: %w", err)
+	}
 	stats["total_awards"] = awardCount
 
-	levelRows, _ := r.db.Query("SELECT level, COUNT(*) FROM competitions GROUP BY level")
-	if levelRows != nil {
-		defer levelRows.Close()
-		dist := map[string]int{}
-		for levelRows.Next() {
-			var l string
-			var c int
-			levelRows.Scan(&l, &c)
-			dist[l] = c
-		}
-		stats["level_distribution"] = dist
+	levelRows, err := r.db.Query("SELECT level, COUNT(*) FROM competitions GROUP BY level")
+	if err != nil {
+		return nil, fmt.Errorf("查询竞赛等级分布失败: %w", err)
 	}
+	defer levelRows.Close()
+	dist := map[string]int{}
+	for levelRows.Next() {
+		var l string
+		var c int
+		if err := levelRows.Scan(&l, &c); err != nil {
+			return nil, fmt.Errorf("扫描竞赛等级分布失败: %w", err)
+		}
+		dist[l] = c
+	}
+	if err := levelRows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历竞赛等级分布失败: %w", err)
+	}
+	stats["level_distribution"] = dist
 	return stats, nil
 }
 
@@ -170,12 +199,17 @@ func (r *StudentFeaturesRepo) ListPlanTemplates(category string) ([]map[string]i
 	for rows.Next() {
 		var id int
 		var name, cat, desc, audience, dur, goals, mstones, cases, prompt string
-		rows.Scan(&id, &name, &cat, &desc, &audience, &dur, &goals, &mstones, &cases, &prompt)
+		if err := rows.Scan(&id, &name, &cat, &desc, &audience, &dur, &goals, &mstones, &cases, &prompt); err != nil {
+			return nil, fmt.Errorf("扫描规划模板失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "name": name, "category": cat, "description": desc,
 			"target_audience": audience, "duration": dur, "goals": goals,
 			"milestones": mstones, "success_cases": cases, "ai_prompt": prompt,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历规划模板失败: %w", err)
 	}
 	return items, nil
 }
@@ -194,11 +228,16 @@ func (r *StudentFeaturesRepo) ListMyPlans(userID int64) ([]map[string]interface{
 		var id int
 		var title, cat, status, comment, created, tmplName string
 		var progress float64
-		rows.Scan(&id, &title, &cat, &progress, &status, &comment, &created, &tmplName)
+		if err := rows.Scan(&id, &title, &cat, &progress, &status, &comment, &created, &tmplName); err != nil {
+			return nil, fmt.Errorf("扫描规划记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "title": title, "category": cat, "progress": progress,
 			"status": status, "reviewer_comment": comment, "created_at": created, "template_name": tmplName,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历规划记录失败: %w", err)
 	}
 	return items, nil
 }
@@ -240,10 +279,15 @@ func (r *StudentFeaturesRepo) ListPartyStages() ([]map[string]interface{}, error
 	for rows.Next() {
 		var id, order int
 		var code, name, desc, docs string
-		rows.Scan(&id, &code, &name, &desc, &docs, &order)
+		if err := rows.Scan(&id, &code, &name, &desc, &docs, &order); err != nil {
+			return nil, fmt.Errorf("扫描入党阶段失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "code": code, "name": name, "description": desc, "required_docs": docs, "sort_order": order,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历入党阶段失败: %w", err)
 	}
 	return items, nil
 }
@@ -259,7 +303,9 @@ func (r *StudentFeaturesRepo) GetMyPartyProgress(userID int64) (map[string]inter
 	}
 	// 获取阶段名称
 	var stageName string
-	r.db.QueryRow("SELECT name FROM party_stages WHERE code = ?", stage).Scan(&stageName)
+	if err := r.db.QueryRow("SELECT name FROM party_stages WHERE code = ?", stage).Scan(&stageName); err != nil {
+		stageName = stage
+	}
 	return map[string]interface{}{
 		"id": id, "user_id": uid, "student_id": sid, "student_name": sname, "college": college,
 		"current_stage": stage, "current_stage_name": stageName,
@@ -272,7 +318,9 @@ func (r *StudentFeaturesRepo) GetMyPartyProgress(userID int64) (map[string]inter
 // UpdatePartyProgress 更新入党进度
 func (r *StudentFeaturesRepo) UpdatePartyProgress(userID int64, stage, notes string) error {
 	var exists int
-	r.db.QueryRow("SELECT COUNT(*) FROM party_progress WHERE user_id = ?", userID).Scan(&exists)
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM party_progress WHERE user_id = ?", userID).Scan(&exists); err != nil {
+		return fmt.Errorf("查询入党进度失败: %w", err)
+	}
 	if exists == 0 {
 		_, err := r.db.Exec(`INSERT INTO party_progress (user_id, current_stage, status, notes) VALUES (?, ?, ?, ?)`,
 			userID, stage, stage, notes)
@@ -293,11 +341,16 @@ func (r *StudentFeaturesRepo) ListMyStudyRecords(userID int64) ([]map[string]int
 	for rows.Next() {
 		var id, dur int
 		var stype, title, content, sdate, cert, status, created string
-		rows.Scan(&id, &stype, &title, &content, &dur, &sdate, &cert, &status, &created)
+		if err := rows.Scan(&id, &stype, &title, &content, &dur, &sdate, &cert, &status, &created); err != nil {
+			return nil, fmt.Errorf("扫描学习记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "study_type": stype, "title": title, "content": content,
 			"duration": dur, "study_date": sdate, "certificate": cert, "status": status, "created_at": created,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历学习记录失败: %w", err)
 	}
 	return items, nil
 }
@@ -315,26 +368,43 @@ func (r *StudentFeaturesRepo) AddStudyRecord(userID int64, studyType, title, con
 // GetPartyStats 入党统计
 func (r *StudentFeaturesRepo) GetPartyStats() (map[string]interface{}, error) {
 	stats := map[string]interface{}{}
-	var total, studyCount, totalDuration int
-	r.db.QueryRow("SELECT COUNT(*) FROM party_progress").Scan(&total)
-	r.db.QueryRow("SELECT COUNT(*) FROM party_study_records").Scan(&studyCount)
-	r.db.QueryRow("SELECT COALESCE(SUM(duration), 0) FROM party_study_records").Scan(&totalDuration)
+
+	var total int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM party_progress").Scan(&total); err != nil {
+		return nil, fmt.Errorf("统计入党人数失败: %w", err)
+	}
 	stats["total_applicants"] = total
+
+	var studyCount int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM party_study_records").Scan(&studyCount); err != nil {
+		return nil, fmt.Errorf("统计学习记录数失败: %w", err)
+	}
 	stats["total_study_records"] = studyCount
+
+	var totalDuration int
+	if err := r.db.QueryRow("SELECT COALESCE(SUM(duration), 0) FROM party_study_records").Scan(&totalDuration); err != nil {
+		return nil, fmt.Errorf("统计学习时长失败: %w", err)
+	}
 	stats["total_study_hours"] = totalDuration / 60
 
-	stageRows, _ := r.db.Query("SELECT current_stage, COUNT(*) FROM party_progress GROUP BY current_stage")
-	if stageRows != nil {
-		defer stageRows.Close()
-		dist := map[string]int{}
-		for stageRows.Next() {
-			var s string
-			var c int
-			stageRows.Scan(&s, &c)
-			dist[s] = c
-		}
-		stats["stage_distribution"] = dist
+	stageRows, err := r.db.Query("SELECT current_stage, COUNT(*) FROM party_progress GROUP BY current_stage")
+	if err != nil {
+		return nil, fmt.Errorf("查询入党阶段分布失败: %w", err)
 	}
+	defer stageRows.Close()
+	dist := map[string]int{}
+	for stageRows.Next() {
+		var s string
+		var c int
+		if err := stageRows.Scan(&s, &c); err != nil {
+			return nil, fmt.Errorf("扫描入党阶段分布失败: %w", err)
+		}
+		dist[s] = c
+	}
+	if err := stageRows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历入党阶段分布失败: %w", err)
+	}
+	stats["stage_distribution"] = dist
 	return stats, nil
 }
 
@@ -351,7 +421,9 @@ func (r *StudentFeaturesRepo) ListClubs(category string, page, pageSize int) ([]
 		args = append(args, category)
 	}
 	var total int
-	r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM clubs WHERE %s", where), args...).Scan(&total)
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM clubs WHERE %s", where), args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("统计社团数量失败: %w", err)
+	}
 
 	offset := (page - 1) * pageSize
 	queryArgs := append(args, pageSize, offset)
@@ -364,12 +436,17 @@ func (r *StudentFeaturesRepo) ListClubs(category string, page, pageSize int) ([]
 	for rows.Next() {
 		var id, mc, mm int
 		var name, cat, desc, pres, contact, status, created string
-		rows.Scan(&id, &name, &cat, &desc, &pres, &contact, &mc, &mm, &status, &created)
+		if err := rows.Scan(&id, &name, &cat, &desc, &pres, &contact, &mc, &mm, &status, &created); err != nil {
+			return nil, 0, fmt.Errorf("扫描社团记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "name": name, "category": cat, "description": desc,
 			"president": pres, "contact_info": contact,
 			"member_count": mc, "max_members": mm, "status": status, "created_at": created,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历社团记录失败: %w", err)
 	}
 	return items, total, nil
 }
@@ -416,10 +493,15 @@ func (r *StudentFeaturesRepo) GetMyClubs(userID int64) ([]map[string]interface{}
 	for rows.Next() {
 		var id, clubID int
 		var name, role, joinDate, status string
-		rows.Scan(&id, &clubID, &name, &role, &joinDate, &status)
+		if err := rows.Scan(&id, &clubID, &name, &role, &joinDate, &status); err != nil {
+			return nil, fmt.Errorf("扫描我的社团记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "club_id": clubID, "club_name": name, "role": role, "join_date": joinDate, "status": status,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历我的社团记录失败: %w", err)
 	}
 	return items, nil
 }
@@ -437,7 +519,9 @@ func (r *StudentFeaturesRepo) ListClubActivities(clubID int64, status string, pa
 		args = append(args, status)
 	}
 	var total int
-	r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM club_activities ca WHERE %s", where), args...).Scan(&total)
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM club_activities ca WHERE %s", where), args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("统计社团活动数量失败: %w", err)
+	}
 
 	offset := (page - 1) * pageSize
 	queryArgs := append(args, pageSize, offset)
@@ -451,13 +535,18 @@ func (r *StudentFeaturesRepo) ListClubActivities(clubID int64, status string, pa
 	for rows.Next() {
 		var id, clubID, mp, cp int
 		var clubName, title, desc, atype, stime, etime, loc, status, created string
-		rows.Scan(&id, &clubID, &clubName, &title, &desc, &atype, &stime, &etime, &loc, &mp, &cp, &status, &created)
+		if err := rows.Scan(&id, &clubID, &clubName, &title, &desc, &atype, &stime, &etime, &loc, &mp, &cp, &status, &created); err != nil {
+			return nil, 0, fmt.Errorf("扫描社团活动记录失败: %w", err)
+		}
 		items = append(items, map[string]interface{}{
 			"id": id, "club_id": clubID, "club_name": clubName, "title": title,
 			"description": desc, "activity_type": atype, "start_time": stime, "end_time": etime,
 			"location": loc, "max_participants": mp, "current_participants": cp,
 			"status": status, "created_at": created,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历社团活动记录失败: %w", err)
 	}
 	return items, total, nil
 }

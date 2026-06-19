@@ -130,7 +130,11 @@ func (r *ForecastRepo) ListForecasts(collegeID string, category string, riskLeve
 		forecasts = append(forecasts, f)
 	}
 
-	return forecasts, total, nil
+		if err := rows.Err(); err != nil {
+			return nil, 0, fmt.Errorf("遍历问题预案列表失败: %w", err)
+		}
+
+		return forecasts, total, nil
 }
 
 // UpdateForecastStatus 更新问题预案状态
@@ -221,7 +225,11 @@ func (r *ForecastRepo) ListIssueDetails(forecastID string, detailType string, pa
 		details = append(details, d)
 	}
 
-	return details, total, nil
+		if err := rows.Err(); err != nil {
+			return nil, 0, fmt.Errorf("遍历问题详情列表失败: %w", err)
+		}
+
+		return details, total, nil
 }
 
 // GetRiskDistribution 获取风险等级分布
@@ -263,6 +271,10 @@ func (r *ForecastRepo) GetRiskDistribution(collegeID string, days int) (map[stri
 		distribution[level] = count
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历风险分布失败: %w", err)
+	}
+
 	return distribution, nil
 }
 
@@ -297,6 +309,10 @@ func (r *ForecastRepo) GetCategoryDistribution(collegeID string, days int) (map[
 			return nil, fmt.Errorf("扫描分类分布失败: %w", err)
 		}
 		distribution[category] = count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历分类分布失败: %w", err)
 	}
 
 	return distribution, nil
@@ -337,6 +353,10 @@ func (r *ForecastRepo) GetDailyTrend(collegeID string, days int) ([]map[string]i
 			"date":  date,
 			"count": count,
 		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历每日趋势失败: %w", err)
 	}
 
 	return trend, nil

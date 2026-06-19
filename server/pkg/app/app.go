@@ -522,25 +522,25 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 问题预案（forecast.*）──
 			forecast := secured.Group("/forecast")
 			{
-				forecast.POST("/analysis", auth.RequireCapability(auth.SysAdminForecast), forecastH.Analyze)
-				forecast.GET("/issues", auth.RequireCapability(auth.SysAdminForecast), forecastH.ListForecasts)
-				forecast.GET("/issues/:id", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetForecast)
-				forecast.PUT("/issues/:id/status", auth.RequireCapability(auth.SysAdminForecast), forecastH.UpdateStatus)
-				forecast.GET("/statistics", auth.RequireCapability(auth.SysAdminForecast), forecastH.GetStatistics)
+				forecast.POST("/analysis", auth.RequireCapability(auth.CollegeForecast), forecastH.Analyze)
+				forecast.GET("/issues", auth.RequireCapability(auth.CollegeForecast), forecastH.ListForecasts)
+				forecast.GET("/issues/:id", auth.RequireCapability(auth.CollegeForecast), forecastH.GetForecast)
+				forecast.PUT("/issues/:id/status", auth.RequireCapability(auth.CollegeForecast), forecastH.UpdateStatus)
+				forecast.GET("/statistics", auth.RequireCapability(auth.CollegeForecast), forecastH.GetStatistics)
 			}
 
 			// ── 毕设选题（graduation.*）──
 			graduation := secured.Group("/graduation")
 			{
-				graduation.GET("/advisors", graduationH.ListAdvisors)
-				graduation.GET("/topics", graduationH.ListTopics)
-				graduation.GET("/topics/:id", graduationH.GetTopic)
-				graduation.POST("/select", graduationH.SelectTopic)
-				graduation.GET("/my-selection", graduationH.GetMySelection)
-				graduation.GET("/milestones", graduationH.ListMilestones)
-				graduation.GET("/stats", graduationH.GetStats)
-				graduation.GET("/selections", graduationH.ListSelections)
-				graduation.PUT("/selections/:id/confirm", graduationH.ConfirmSelection)
+				graduation.GET("/advisors", auth.RequireCapability(auth.SelfGraduationRead), graduationH.ListAdvisors)
+				graduation.GET("/topics", auth.RequireCapability(auth.SelfGraduationRead), graduationH.ListTopics)
+				graduation.GET("/topics/:id", auth.RequireCapability(auth.SelfGraduationRead), graduationH.GetTopic)
+				graduation.POST("/select", auth.RequireCapability(auth.SelfGraduationWrite), graduationH.SelectTopic)
+				graduation.GET("/my-selection", auth.RequireCapability(auth.SelfGraduationRead), graduationH.GetMySelection)
+				graduation.GET("/milestones", auth.RequireCapability(auth.SelfGraduationRead), graduationH.ListMilestones)
+				graduation.GET("/stats", auth.RequireCapability(auth.SelfGraduationRead), graduationH.GetStats)
+				graduation.GET("/selections", auth.RequireCapability(auth.CollegeGraduationRead), graduationH.ListSelections)
+				graduation.PUT("/selections/:id/confirm", auth.RequireCapability(auth.CollegeGraduationWrite), graduationH.ConfirmSelection)
 			}
 
 			// ── 学科竞赛 ──

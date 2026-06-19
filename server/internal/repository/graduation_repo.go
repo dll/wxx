@@ -36,7 +36,7 @@ func (r *GraduationRepo) ListAdvisors(college string, page, pageSize int) ([]*mo
 	var total int
 	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM advisors WHERE %s", whereStr)
 	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("统计导师数量失败: %w", err)
 	}
 
 	offset := (page - 1) * pageSize
@@ -45,7 +45,7 @@ func (r *GraduationRepo) ListAdvisors(college string, page, pageSize int) ([]*mo
 
 	rows, err := r.db.Query(querySQL, args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("查询导师列表失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -53,9 +53,12 @@ func (r *GraduationRepo) ListAdvisors(college string, page, pageSize int) ([]*mo
 	for rows.Next() {
 		a := &model.Advisor{}
 		if err := rows.Scan(&a.ID, &a.Name, &a.AdvisorID, &a.Title, &a.College, &a.Department, &a.ResearchAreas, &a.MaxStudents, &a.IsActive, &a.CreatedAt, &a.UpdatedAt); err != nil {
-			return nil, 0, err
+			return nil, 0, fmt.Errorf("扫描导师记录失败: %w", err)
 		}
 		advisors = append(advisors, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历导师记录失败: %w", err)
 	}
 	return advisors, total, nil
 }
@@ -66,7 +69,7 @@ func (r *GraduationRepo) GetAdvisor(id int64) (*model.Advisor, error) {
 	err := r.db.QueryRow("SELECT id, name, advisor_id, title, college, department, research_areas, max_students, is_active, created_at, updated_at FROM advisors WHERE id = ?", id).
 		Scan(&a.ID, &a.Name, &a.AdvisorID, &a.Title, &a.College, &a.Department, &a.ResearchAreas, &a.MaxStudents, &a.IsActive, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询导师详情失败: %w", err)
 	}
 	return a, nil
 }
@@ -111,7 +114,7 @@ func (r *GraduationRepo) ListTopics(college, major, difficulty, status string, b
 	var total int
 	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM thesis_topics WHERE %s", whereStr)
 	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("统计选题数量失败: %w", err)
 	}
 
 	offset := (page - 1) * pageSize
@@ -126,7 +129,7 @@ func (r *GraduationRepo) ListTopics(college, major, difficulty, status string, b
 
 	rows, err := r.db.Query(querySQL, args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("查询选题列表失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -136,9 +139,12 @@ func (r *GraduationRepo) ListTopics(college, major, difficulty, status string, b
 		if err := rows.Scan(&t.ID, &t.Title, &t.AdvisorID, &t.AdvisorName, &t.College, &t.Major, &t.TopicType, &t.Nature,
 			&t.ResultForm, &t.Difficulty, &t.Description, &t.Requirements, &t.Keywords,
 			&t.MaxStudents, &t.SelectedCount, &t.Batch, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, 0, err
+			return nil, 0, fmt.Errorf("扫描选题记录失败: %w", err)
 		}
 		topics = append(topics, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历选题记录失败: %w", err)
 	}
 	return topics, total, nil
 }
@@ -157,7 +163,7 @@ func (r *GraduationRepo) GetTopic(id int64) (*model.ThesisTopic, error) {
 			&t.ResultForm, &t.Difficulty, &t.Description, &t.Requirements, &t.Keywords,
 			&t.MaxStudents, &t.SelectedCount, &t.Batch, &t.Status, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询选题详情失败: %w", err)
 	}
 	return t, nil
 }
@@ -170,7 +176,7 @@ func (r *GraduationRepo) CreateTopic(t *model.ThesisTopic) (int64, error) {
 		t.Title, t.AdvisorID, t.College, t.Major, t.TopicType, t.Nature, t.ResultForm, t.Difficulty,
 		t.Description, t.Requirements, t.Keywords, t.MaxStudents, t.Batch, t.Status)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("创建选题失败: %w", err)
 	}
 	return result.LastInsertId()
 }
@@ -201,7 +207,10 @@ func (r *GraduationRepo) UpdateTopic(id int64, fields map[string]interface{}) er
 	args = append(args, id)
 	query := fmt.Sprintf("UPDATE thesis_topics SET %s, updated_at = datetime('now') WHERE id = ?", strings.Join(setParts, ", "))
 	_, err := r.db.Exec(query, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("更新选题失败: %w", err)
+	}
+	return nil
 }
 
 // ── 学生选题相关 ──
@@ -225,7 +234,7 @@ func (r *GraduationRepo) ListSelections(topicID int64, batch, page, pageSize int
 	var total int
 	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM student_topic_selections WHERE %s", whereStr)
 	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("统计选题记录数量失败: %w", err)
 	}
 
 	offset := (page - 1) * pageSize
@@ -241,7 +250,7 @@ func (r *GraduationRepo) ListSelections(topicID int64, batch, page, pageSize int
 
 	rows, err := r.db.Query(querySQL, args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("查询选题记录列表失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -251,9 +260,12 @@ func (r *GraduationRepo) ListSelections(topicID int64, batch, page, pageSize int
 		if err := rows.Scan(&s.ID, &s.UserID, &s.StudentID, &s.StudentName, &s.College, &s.Major, &s.ClassName, &s.Batch,
 			&s.TopicID, &s.TopicName, &s.AdvisorID, &s.AdvisorName,
 			&s.Status, &s.PreferenceOrder, &s.Reason, &s.ConfirmedAt, &s.CreatedAt, &s.UpdatedAt); err != nil {
-			return nil, 0, err
+			return nil, 0, fmt.Errorf("扫描选题记录失败: %w", err)
 		}
 		selections = append(selections, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历选题记录失败: %w", err)
 	}
 	return selections, total, nil
 }
@@ -274,7 +286,7 @@ func (r *GraduationRepo) GetUserSelection(userID int64) (*model.StudentTopicSele
 			&s.TopicID, &s.TopicName, &s.AdvisorID, &s.AdvisorName,
 			&s.Status, &s.PreferenceOrder, &s.Reason, &s.ConfirmedAt, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户选题失败: %w", err)
 	}
 	return s, nil
 }
@@ -287,7 +299,7 @@ func (r *GraduationRepo) CreateSelection(s *model.StudentTopicSelection) (int64,
 		s.UserID, s.StudentID, s.StudentName, s.College, s.Major, s.ClassName, s.Batch,
 		s.TopicID, s.AdvisorID, s.Status, s.PreferenceOrder, s.Reason)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("创建选题记录失败: %w", err)
 	}
 
 	// 更新选题已选人数
@@ -304,7 +316,10 @@ func (r *GraduationRepo) CreateSelection(s *model.StudentTopicSelection) (int64,
 func (r *GraduationRepo) UpdateSelectionStatus(id int64, status string) error {
 	now := time.Now().Format(time.RFC3339)
 	_, err := r.db.Exec("UPDATE student_topic_selections SET status = ?, confirmed_at = ?, updated_at = datetime('now') WHERE id = ?", status, now, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("更新选题状态失败: %w", err)
+	}
+	return nil
 }
 
 // ── 里程碑相关 ──
@@ -313,7 +328,7 @@ func (r *GraduationRepo) UpdateSelectionStatus(id int64, status string) error {
 func (r *GraduationRepo) ListMilestones(batch int) ([]*model.GraduationMilestone, error) {
 	rows, err := r.db.Query("SELECT id, batch, code, name, deadline, weight, description, sort_order, created_at FROM graduation_milestones WHERE batch = ? ORDER BY sort_order", batch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询里程碑列表失败: %w", err)
 	}
 	defer rows.Close()
 
@@ -321,9 +336,12 @@ func (r *GraduationRepo) ListMilestones(batch int) ([]*model.GraduationMilestone
 	for rows.Next() {
 		m := &model.GraduationMilestone{}
 		if err := rows.Scan(&m.ID, &m.Batch, &m.Code, &m.Name, &m.Deadline, &m.Weight, &m.Description, &m.SortOrder, &m.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("扫描里程碑记录失败: %w", err)
 		}
 		milestones = append(milestones, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历里程碑记录失败: %w", err)
 	}
 	return milestones, nil
 }
@@ -336,40 +354,56 @@ func (r *GraduationRepo) GetTopicStats(batch int) (map[string]interface{}, error
 
 	// 总选题数
 	var totalTopics int
-	r.db.QueryRow("SELECT COUNT(*) FROM thesis_topics WHERE batch = ?", batch).Scan(&totalTopics)
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM thesis_topics WHERE batch = ?", batch).Scan(&totalTopics); err != nil {
+		return nil, fmt.Errorf("统计选题总数失败: %w", err)
+	}
 	stats["total_topics"] = totalTopics
 
 	// 各难度选题数
-	difficultyRows, _ := r.db.Query("SELECT difficulty, COUNT(*) FROM thesis_topics WHERE batch = ? GROUP BY difficulty", batch)
-	if difficultyRows != nil {
-		defer difficultyRows.Close()
-		difficultyStats := map[string]int{}
-		for difficultyRows.Next() {
-			var d string
-			var c int
-			difficultyRows.Scan(&d, &c)
-			difficultyStats[d] = c
-		}
-		stats["difficulty_distribution"] = difficultyStats
+	difficultyRows, err := r.db.Query("SELECT difficulty, COUNT(*) FROM thesis_topics WHERE batch = ? GROUP BY difficulty", batch)
+	if err != nil {
+		return nil, fmt.Errorf("查询难度分布失败: %w", err)
 	}
+	defer difficultyRows.Close()
+	difficultyStats := map[string]int{}
+	for difficultyRows.Next() {
+		var d string
+		var c int
+		if err := difficultyRows.Scan(&d, &c); err != nil {
+			return nil, fmt.Errorf("扫描难度分布失败: %w", err)
+		}
+		difficultyStats[d] = c
+	}
+	if err := difficultyRows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历难度分布失败: %w", err)
+	}
+	stats["difficulty_distribution"] = difficultyStats
 
 	// 各状态选题数
-	statusRows, _ := r.db.Query("SELECT status, COUNT(*) FROM thesis_topics WHERE batch = ? GROUP BY status", batch)
-	if statusRows != nil {
-		defer statusRows.Close()
-		statusStats := map[string]int{}
-		for statusRows.Next() {
-			var s string
-			var c int
-			statusRows.Scan(&s, &c)
-			statusStats[s] = c
-		}
-		stats["status_distribution"] = statusStats
+	statusRows, err := r.db.Query("SELECT status, COUNT(*) FROM thesis_topics WHERE batch = ? GROUP BY status", batch)
+	if err != nil {
+		return nil, fmt.Errorf("查询状态分布失败: %w", err)
 	}
+	defer statusRows.Close()
+	statusStats := map[string]int{}
+	for statusRows.Next() {
+		var s string
+		var c int
+		if err := statusRows.Scan(&s, &c); err != nil {
+			return nil, fmt.Errorf("扫描状态分布失败: %w", err)
+		}
+		statusStats[s] = c
+	}
+	if err := statusRows.Err(); err != nil {
+		return nil, fmt.Errorf("遍历状态分布失败: %w", err)
+	}
+	stats["status_distribution"] = statusStats
 
 	// 选题人数
 	var totalSelections int
-	r.db.QueryRow("SELECT COUNT(*) FROM student_topic_selections WHERE batch = ? AND status IN ('pending', 'confirmed')", batch).Scan(&totalSelections)
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM student_topic_selections WHERE batch = ? AND status IN ('pending', 'confirmed')", batch).Scan(&totalSelections); err != nil {
+		return nil, fmt.Errorf("统计选题人数失败: %w", err)
+	}
 	stats["total_selections"] = totalSelections
 
 	return stats, nil

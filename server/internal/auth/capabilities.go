@@ -114,11 +114,14 @@ const (
 
 // 学院管理能力
 const (
-	CollegeUserRead    Capability = "college.user.read"    // 本院用户管理
-	CollegeAuditRead   Capability = "college.audit.read"   // 本院审计日志
-	CollegeMetricsRead Capability = "college.metrics.read" // 本院指标
-	CollegeTwinScreen  Capability = "college.twin.screen"  // 学院数字孪生大屏
-	CollegeDataAnalysis Capability = "college.data.analysis" // 学院数据分析
+	CollegeUserRead       Capability = "college.user.read"         // 本院用户管理
+	CollegeAuditRead      Capability = "college.audit.read"        // 本院审计日志
+	CollegeMetricsRead    Capability = "college.metrics.read"      // 本院指标
+	CollegeTwinScreen     Capability = "college.twin.screen"       // 学院数字孪生大屏
+	CollegeDataAnalysis   Capability = "college.data.analysis"     // 学院数据分析
+	CollegeGraduationRead  Capability = "college.graduation.read"   // 毕设选题管理查看
+	CollegeGraduationWrite Capability = "college.graduation.write"  // 毕设选题管理操作
+	CollegeForecast        Capability = "college.forecast"          // 问题预案
 )
 
 // 学校管理能力
@@ -133,7 +136,6 @@ const (
 	SystemSettingsWrite     Capability = "system.settings.write"     // 全局配置
 	SystemAuditAll          Capability = "system.audit.all"          // 全局审计日志
 	SystemPasswordReset     Capability = "system.password.reset"     // 重置任意用户密码
-	SysAdminForecast        Capability = "sys_admin.forecast"        // 问题预案
 )
 
 // roleNode 角色继承节点
@@ -227,6 +229,7 @@ var roles = map[string]*roleNode{
 		capabilities: []Capability{
 			CollegeUserRead, CollegeAuditRead, CollegeMetricsRead,
 			CollegeTwinScreen, CollegeDataAnalysis,
+			CollegeGraduationRead, CollegeGraduationWrite, CollegeForecast,
 		},
 	},
 	"school_admin": {
@@ -240,7 +243,7 @@ var roles = map[string]*roleNode{
 		role:    "sys_admin",
 		parents: []string{"school_admin"},
 		capabilities: []Capability{
-			SystemSettingsWrite, SystemAuditAll, SystemPasswordReset, SysAdminForecast,
+			SystemSettingsWrite, SystemAuditAll, SystemPasswordReset,
 		},
 	},
 }

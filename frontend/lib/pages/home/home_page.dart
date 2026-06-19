@@ -14,6 +14,23 @@ import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 
+// ── 学生专区卡片配置 ──
+class _FeatureCard {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String route;
+  const _FeatureCard(this.icon, this.label, this.color, this.route);
+}
+
+const _studentFeatures = [
+  _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation'),
+  _FeatureCard(Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
+  _FeatureCard(Icons.calendar_today, '大学规划', Color(0xFF2E7D32), '/plan'),
+  _FeatureCard(Icons.flag_outlined, '入党教育', Color(0xFFC62828), '/party-education'),
+  _FeatureCard(Icons.groups_outlined, '社团生活', Color(0xFF7B1FA2), '/club'),
+];
+
 /// 首页仪表盘 — 按角色自适应布局
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -93,6 +110,16 @@ class _HomePageState extends State<HomePage> {
             // 所有角色：知识入口
             _buildKnowledgeEntry(theme),
             const SizedBox(height: 20),
+            // 学生专区（student/student_union）
+            if (role == 'student' || role == 'student_union') ...[
+              _buildStudentFeatures(theme),
+              const SizedBox(height: 20),
+            ],
+            // 管理专区（college_admin+）
+            if (role == 'college_admin' || role == 'school_admin' || role == 'sys_admin') ...[
+              _buildAdminFeatures(theme),
+              const SizedBox(height: 20),
+            ],
             // 最近对话
             _buildRecentSessions(theme),
           ],
@@ -342,6 +369,68 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 学生专区 — 毕设选题/学科竞赛/大学规划/入党教育/社团生活
+  Widget _buildStudentFeatures(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('学生专区', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (final f in _studentFeatures.take(3))
+              _buildKnowledgeCard(
+                theme,
+                icon: f.icon,
+                label: f.label,
+                color: f.color,
+                onTap: () => context.go(f.route),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final f in _studentFeatures.skip(3))
+              _buildKnowledgeCard(
+                theme,
+                icon: f.icon,
+                label: f.label,
+                color: f.color,
+                onTap: () => context.go(f.route),
+              ),
+            // 第 3 个位置留空保持对齐
+            const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 管理专区 — 问题预案
+  Widget _buildAdminFeatures(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('管理专区', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildKnowledgeCard(
+              theme,
+              icon: Icons.warning_rounded,
+              label: '问题预案',
+              color: const Color(0xFFC62828),
+              onTap: () => context.go('/forecast'),
+            ),
+            for (final _ in [1, 2, 3])
+              const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      ],
     );
   }
 

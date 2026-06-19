@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -99,7 +101,12 @@ func (h *GraduationHandler) GetTopic(c *gin.Context) {
 
 	topic, err := h.graduationService.GetTopic(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "选题不存在"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "选题不存在"})
+			return
+		}
+		log.Printf("查询选题详情失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
 
@@ -117,7 +124,12 @@ func (h *GraduationHandler) GetMySelection(c *gin.Context) {
 
 	selection, err := h.graduationService.GetMySelection(userCtx.UserID)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "暂无选题记录", "data": nil})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusOK, gin.H{"code": 0, "message": "暂无选题记录", "data": nil})
+			return
+		}
+		log.Printf("查询我的选题失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
 

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -60,7 +62,12 @@ func (h *StudentFeaturesHandler) GetCompetition(c *gin.Context) {
 	}
 	item, err := h.svc.GetCompetition(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "竞赛不存在"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "竞赛不存在"})
+			return
+		}
+		log.Printf("查询竞赛详情失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
@@ -432,7 +439,12 @@ func (h *StudentFeaturesHandler) GetClub(c *gin.Context) {
 	}
 	item, err := h.svc.GetClub(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "社团不存在"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "社团不存在"})
+			return
+		}
+		log.Printf("查询社团详情失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})

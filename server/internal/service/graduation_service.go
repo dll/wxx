@@ -45,7 +45,10 @@ func (s *GraduationService) GetMySelection(userID int64) (*model.StudentTopicSel
 // SelectTopic 学生选题（含业务校验）
 func (s *GraduationService) SelectTopic(userID int64, username, displayName, ownerScope string, topicID int64, reason string) (int64, error) {
 	// 检查是否已有选题记录
-	existing, _ := s.graduationRepo.GetUserSelection(userID)
+	existing, err := s.graduationRepo.GetUserSelection(userID)
+	if err != nil {
+		return 0, fmt.Errorf("查询已有选题失败: %w", err)
+	}
 	if existing != nil && existing.Status != "changed" {
 		return 0, fmt.Errorf("已有选题记录，如需改题请联系导师")
 	}
@@ -53,7 +56,7 @@ func (s *GraduationService) SelectTopic(userID int64, username, displayName, own
 	// 获取选题信息
 	topic, err := s.graduationRepo.GetTopic(topicID)
 	if err != nil {
-		return 0, fmt.Errorf("选题不存在")
+		return 0, fmt.Errorf("获取选题信息失败: %w", err)
 	}
 
 	// 检查选题是否已满
@@ -77,7 +80,7 @@ func (s *GraduationService) SelectTopic(userID int64, username, displayName, own
 	id, err := s.graduationRepo.CreateSelection(selection)
 	if err != nil {
 		log.Printf("选题失败: %v", err)
-		return 0, fmt.Errorf("选题操作失败")
+		return 0, fmt.Errorf("选题操作失败: %w", err)
 	}
 	return id, nil
 }
