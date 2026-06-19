@@ -2,6 +2,24 @@
 
 > 蔚小芯后端 API 端点完整登记。所有端点均前缀 `/api/v1`（健康检查除外）。
 
+## 目录
+
+- [认证与用户](#认证与用户)
+- [对话与会话](#对话与会话)
+- [知识](#知识)
+- [情感预警](#情感预警)
+- [智能体管理](#智能体管理)
+- [语音](#语音)
+- [系统](#系统)
+- [问题预案](#问题预案issue-forecast)
+- [毕设选题](#毕设选题graduation-topics)
+- [学科竞赛](#学科竞赛competitions)
+- [大学规划](#大学规划plan-templates)
+- [入党教育](#入党教育party-education)
+- [社团生活](#社团生活clubs)
+- [通用约定](#通用约定)
+- [变更登记](#变更登记)
+
 ## 端点总览
 
 ### 认证与用户
@@ -85,6 +103,64 @@
 
 ---
 
+### 毕设选题 (Graduation Topics)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/graduation/advisors` | JWT | 全部 | 导师列表 |
+| `GET` | `/graduation/available-topics` | JWT | 全部 | 可选选题列表 |
+| `POST` | `/graduation/select-topic` | JWT | student | 选择选题 |
+| `GET` | `/graduation/my-selection` | JWT | student | 我的选题 |
+| `GET` | `/graduation/milestones` | JWT | 全部 | 里程碑列表 |
+| `GET` | `/graduation/stats` | JWT | 全部 | 毕设进度统计 |
+| `GET` | `/graduation/selections` | JWT | ≥ counselor | 选题列表（教师/管理员） |
+| `PUT` | `/graduation/selections/:id/confirm` | JWT | ≥ counselor | 确认选题 |
+
+### 学科竞赛 (Competitions)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/competition/list` | JWT | 全部 | 竞赛列表 |
+| `GET` | `/competition/:id` | JWT | 全部 | 竞赛详情 |
+| `POST` | `/competition/register` | JWT | student | 报名竞赛 |
+| `GET` | `/competition/my-registrations` | JWT | student | 我的报名 |
+| `POST` | `/competition/submit-work` | JWT | student | 提交作品 |
+| `GET` | `/competition/stats` | JWT | 全部 | 竞赛统计 |
+
+### 大学规划 (Plan Templates)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/plan/templates` | JWT | 全部 | 规划模板列表 |
+| `GET` | `/plan/my-plans` | JWT | student | 我的规划 |
+| `POST` | `/plan/create` | JWT | student | 创建规划 |
+| `PUT` | `/plan/:id/submit` | JWT | student | 提交审核 |
+| `PUT` | `/plan/:id/review` | JWT | ≥ counselor | 审核规划 |
+
+### 入党教育 (Party Education)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/party/stages` | JWT | 全部 | 入党阶段列表 |
+| `GET` | `/party/my-progress` | JWT | student | 我的进度 |
+| `PUT` | `/party/my-progress` | JWT | student | 更新进度 |
+| `GET` | `/party/my-study-records` | JWT | student | 学习记录 |
+| `POST` | `/party/study-record` | JWT | student | 新增学习记录 |
+| `GET` | `/party/stats` | JWT | 全部 | 入党统计 |
+
+### 社团生活 (Clubs)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/club/list` | JWT | 全部 | 社团列表 |
+| `GET` | `/club/:id` | JWT | 全部 | 社团详情 |
+| `POST` | `/club/join` | JWT | student | 加入社团 |
+| `GET` | `/club/my-clubs` | JWT | student | 我的社团 |
+| `GET` | `/club/activities` | JWT | 全部 | 活动列表 |
+| `POST` | `/club/activity/register` | JWT | student | 报名活动 |
+
+---
+
 ## 通用约定
 
 | 约定 | 说明 |
@@ -99,6 +175,7 @@
 
 | 日期 | 变更摘要 | 兼容策略 |
 |------|----------|----------|
+| 2026-06-19 | 新增毕设选题、学科竞赛、大学规划、入党教育、社团生活 5 大模块（35 端点） | 向前兼容 |
 | 2026-06-19 | 新增问题预案：`/forecast/analysis`、`/forecast/issues`、`/forecast/issues/:id`、`/forecast/statistics`（5 端点） | 向前兼容 |
 | 2026-05-06 | 新增 `GET /recommendations` 个性化推荐引擎 | 向前兼容 |
 | 2026-05-05 | 新增 `GET /export` 知识导出（替代占位符 501） | 向前兼容 |

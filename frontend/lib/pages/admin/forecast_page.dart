@@ -188,7 +188,7 @@ class _ForecastPageState extends State<ForecastPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(e.key),
+                            Text(_riskLevelLabel(e.key)),
                             Text('${e.value}个'),
                           ],
                         ),
@@ -203,7 +203,7 @@ class _ForecastPageState extends State<ForecastPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(e.key),
+                            Text(_categoryLabel(e.key)),
                             Text('${e.value}个'),
                           ],
                         ),
@@ -324,6 +324,27 @@ class _ForecastPageState extends State<ForecastPage> {
         ],
       ),
     );
+  }
+
+  String _riskLevelLabel(String key) {
+    switch (key) {
+      case 'urgent': return '紧急';
+      case 'high': return '高';
+      case 'medium': return '中';
+      case 'low': return '低';
+      default: return key;
+    }
+  }
+
+  String _categoryLabel(String key) {
+    switch (key) {
+      case 'emotion': return '情感问题';
+      case 'process': return '流程问题';
+      case 'graduation': return '毕业问题';
+      case 'feedback': return '反馈问题';
+      case 'comprehensive': return '综合问题';
+      default: return key;
+    }
   }
 }
 
