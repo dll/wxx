@@ -193,6 +193,15 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.account_tree_outlined, 'AI 办事流程', '智能流程引导', '/student/process-enhanced'),
           ],
 
+          // ── 学生功能模块（毕设选题/学科竞赛/大学规划/入党教育/社团生活）──
+          if (profile?.role == 'student' || profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.topic_outlined, '毕设选题', '毕业设计选题与导师选择', '/graduation'),
+            _buildMenuCard(context, Icons.emoji_events_outlined, '学科竞赛', '竞赛报名与作品提交', '/competition'),
+            _buildMenuCard(context, Icons.calendar_today, '大学规划', '四年学业与职业规划', '/plan'),
+            _buildMenuCard(context, Icons.flag_outlined, '入党教育', '入党流程进度与学习', '/party-education'),
+            _buildMenuCard(context, Icons.groups_outlined, '社团生活', '社团加入与活动参与', '/club'),
+          ],
+
           // 辅导员 AI 功能
           if (profile?.role == 'counselor') ...[
             _buildMenuCard(context, Icons.visibility_outlined, 'AI 今日关注', '重点关注学生提醒', '/counselor/daily-focus'),

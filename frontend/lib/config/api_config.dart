@@ -174,4 +174,44 @@ class ApiConfig {
   static String forecastIssueDetail(String id) => '$apiPrefix/forecast/issues/$id';
   static String forecastIssueStatus(String id) => '$apiPrefix/forecast/issues/$id/status';
   static const String forecastStatistics = '$apiPrefix/forecast/statistics';
+
+  // ── 毕设选题 ──
+  static const String graduationAdvisors = '$apiPrefix/graduation/advisors';
+  static const String graduationTopics = '$apiPrefix/graduation/available-topics';
+  static const String graduationSelect = '$apiPrefix/graduation/select-topic';
+  static const String graduationMySelection = '$apiPrefix/graduation/my-selection';
+  static const String graduationMilestones = '$apiPrefix/graduation/milestones';
+  static const String graduationStats = '$apiPrefix/graduation/stats';
+  static const String graduationSelections = '$apiPrefix/graduation/selections';
+  static String graduationConfirm(String id) => '$apiPrefix/graduation/selections/$id/confirm';
+
+  // ── 学科竞赛 ──
+  static const String competitionList = '$apiPrefix/competition/list';
+  static String competitionDetail(String id) => '$apiPrefix/competition/$id';
+  static const String competitionRegister = '$apiPrefix/competition/register';
+  static const String competitionMyRegistrations = '$apiPrefix/competition/my-registrations';
+  static const String competitionSubmitWork = '$apiPrefix/competition/submit-work';
+  static const String competitionStats = '$apiPrefix/competition/stats';
+
+  // ── 大学规划 ──
+  static const String planTemplates = '$apiPrefix/plan/templates';
+  static const String planMyPlans = '$apiPrefix/plan/my-plans';
+  static const String planCreate = '$apiPrefix/plan/create';
+  static String planSubmit(String id) => '$apiPrefix/plan/$id/submit';
+  static String planReview(String id) => '$apiPrefix/plan/$id/review';
+
+  // ── 入党教育 ──
+  static const String partyStages = '$apiPrefix/party/stages';
+  static const String partyMyProgress = '$apiPrefix/party/my-progress';
+  static const String partyStudyRecords = '$apiPrefix/party/my-study-records';
+  static const String partyStudyRecordAdd = '$apiPrefix/party/study-record';
+  static const String partyStats = '$apiPrefix/party/stats';
+
+  // ── 社团生活 ──
+  static const String clubList = '$apiPrefix/club/list';
+  static String clubDetail(String id) => '$apiPrefix/club/$id';
+  static const String clubJoin = '$apiPrefix/club/join';
+  static const String clubMyClubs = '$apiPrefix/club/my-clubs';
+  static const String clubActivities = '$apiPrefix/club/activities';
+  static const String clubActivityRegister = '$apiPrefix/club/activity/register';
 }

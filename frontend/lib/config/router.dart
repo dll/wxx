@@ -88,6 +88,11 @@ import '../pages/culture/events_page.dart';
 import '../pages/culture/volunteer_page.dart';
 import '../pages/token_stats/token_stats_page.dart';
 import '../pages/admin/forecast_page.dart';
+import '../pages/student/graduation_page.dart';
+import '../pages/student/competition_page.dart';
+import '../pages/student/plan_page.dart';
+import '../pages/student/party_education_page.dart';
+import '../pages/student/club_page.dart';
 import '../utils/screenshot_capture.dart';
 import '../widgets/fab_menu.dart';
 
@@ -210,6 +215,26 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/forecast',
           builder: (context, state) => const ForecastPage(),
+        ),
+        GoRoute(
+          path: '/graduation',
+          builder: (context, state) => const GraduationPage(),
+        ),
+        GoRoute(
+          path: '/competition',
+          builder: (context, state) => const CompetitionPage(),
+        ),
+        GoRoute(
+          path: '/plan',
+          builder: (context, state) => const PlanPage(),
+        ),
+        GoRoute(
+          path: '/party-education',
+          builder: (context, state) => const PartyEducationPage(),
+        ),
+        GoRoute(
+          path: '/club',
+          builder: (context, state) => const ClubPage(),
         ),
         GoRoute(
           path: '/my-feedbacks',
