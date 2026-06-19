@@ -136,6 +136,10 @@ class _ProfilePageState extends State<ProfilePage> {
           if (profile?.role == 'sys_admin')
             _buildMenuCard(context, Icons.settings_outlined, '系统配置', '管理系统运行参数', '/admin/settings'),
 
+          // 问题预案（sys_admin、college_admin 可访问）
+          if (profile?.role == 'sys_admin' || profile?.role == 'college_admin')
+            _buildMenuCard(context, Icons.warning_amber_rounded, '问题预案', '查看和处理系统预警问题', '/forecast'),
+
           // 知识审核（counselor 及以上）
           if (_canAccessEmotion(profile?.role))
             _buildMenuCard(context, Icons.rate_review_outlined, '知识审核', '审核待发布的知识资源', '/review'),

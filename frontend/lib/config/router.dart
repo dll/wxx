@@ -87,6 +87,7 @@ import '../pages/culture/lectures_page.dart';
 import '../pages/culture/events_page.dart';
 import '../pages/culture/volunteer_page.dart';
 import '../pages/token_stats/token_stats_page.dart';
+import '../pages/admin/forecast_page.dart';
 import '../utils/screenshot_capture.dart';
 import '../widgets/fab_menu.dart';
 
@@ -205,6 +206,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/feedback',
           builder: (context, state) => const FeedbackPage(),
+        ),
+        GoRoute(
+          path: '/forecast',
+          builder: (context, state) => const ForecastPage(),
         ),
         GoRoute(
           path: '/my-feedbacks',

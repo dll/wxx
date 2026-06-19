@@ -167,4 +167,11 @@ class ApiConfig {
   static const String cultureLectures = '$apiPrefix/culture/lectures';
   static const String cultureEvents = '$apiPrefix/culture/events';
   static const String cultureVolunteer = '$apiPrefix/culture/volunteer';
+
+  // ── 问题预案 ──
+  static const String forecastAnalysis = '$apiPrefix/forecast/analysis';
+  static const String forecastIssues = '$apiPrefix/forecast/issues';
+  static String forecastIssueDetail(String id) => '$apiPrefix/forecast/issues/$id';
+  static String forecastIssueStatus(String id) => '$apiPrefix/forecast/issues/$id/status';
+  static const String forecastStatistics = '$apiPrefix/forecast/statistics';
 }

@@ -71,6 +71,20 @@
 
 ---
 
+### 问题预案（Issue Forecast）
+
+> **可见角色**：`sys_admin`、`college_admin`
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `POST` | `/forecast/analysis` | JWT | sys_admin.forecast | 执行问题分析，汇总多源数据并生成预案 |
+| `GET` | `/forecast/issues` | JWT | sys_admin.forecast | 问题预案列表 `?category=&risk_level=&status=&page=&page_size=` |
+| `GET` | `/forecast/issues/:id` | JWT | sys_admin.forecast | 获取单个问题预案详情 |
+| `PUT` | `/forecast/issues/:id/status` | JWT | sys_admin.forecast | 更新状态 `{status: "pending" \| "processing" \| "resolved" \| "archived"}` |
+| `GET` | `/forecast/statistics` | JWT | sys_admin.forecast | 问题统计 `?days=30`，返回风险分布 + 分类分布 + 每日趋势 |
+
+---
+
 ## 通用约定
 
 | 约定 | 说明 |
@@ -85,6 +99,7 @@
 
 | 日期 | 变更摘要 | 兼容策略 |
 |------|----------|----------|
+| 2026-06-19 | 新增问题预案：`/forecast/analysis`、`/forecast/issues`、`/forecast/issues/:id`、`/forecast/statistics`（5 端点） | 向前兼容 |
 | 2026-05-06 | 新增 `GET /recommendations` 个性化推荐引擎 | 向前兼容 |
 | 2026-05-05 | 新增 `GET /export` 知识导出（替代占位符 501） | 向前兼容 |
 | 2026-05-05 | 新增 `DELETE /sessions/:id` | 向前兼容 |
