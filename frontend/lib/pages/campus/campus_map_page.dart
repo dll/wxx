@@ -1,5 +1,6 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// 校园服务入口 — 地图导航 / VR全景 / 学校首页 / 招生抖音
 class CampusMapPage extends StatelessWidget {
@@ -8,6 +9,8 @@ class CampusMapPage extends StatelessWidget {
   static const _schoolHomeUrl = 'https://www.chzu.edu.cn';
   static const _vrUrl = 'https://www.chzu.edu.cn/vr/index.html';
   static const _douyinUrl = 'https://www.douyin.com/user/54452972915';
+  static const _amapUrl = 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode';
+  static const _qqmapUrl = 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988';
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +30,7 @@ class CampusMapPage extends StatelessWidget {
                 label: '高德地图',
                 subtitle: '导航到校',
                 color: const Color(0xFF1677FF),
-                onTap: () => _openMap(context, 'amap'),
+                url: _amapUrl,
               )),
               const SizedBox(width: 12),
               Expanded(child: _buildNavCard(
@@ -36,10 +39,15 @@ class CampusMapPage extends StatelessWidget {
                 label: '腾讯地图',
                 subtitle: '导航到校',
                 color: const Color(0xFF07C160),
-                onTap: () => _openMap(context, 'qqmap'),
+                url: _qqmapUrl,
               )),
             ],
           ),
+          const SizedBox(height: 12),
+          Text('地址：安徽省滁州市会峰西路1号 滁州学院',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              )),
           const SizedBox(height: 24),
           _buildSectionHeader(theme, '校园探索', Icons.explore_outlined),
           const SizedBox(height: 12),
@@ -94,13 +102,13 @@ class CampusMapPage extends StatelessWidget {
     required String label,
     required String subtitle,
     required Color color,
-    required VoidCallback onTap,
+    required String url,
   }) {
     return Material(
       color: color.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: onTap,
+        onTap: () => _openUrl(url),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -143,25 +151,12 @@ class CampusMapPage extends StatelessWidget {
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
         trailing: const Icon(Icons.open_in_new, size: 18),
-        onTap: () => _launchURL(context, url),
+        onTap: () => _openUrl(url),
       ),
     );
   }
 
-  Future<void> _openMap(BuildContext context, String mapType) async {
-    final lat = 32.2921;
-    final lng = 118.2988;
-    final name = '滁州学院';
-
-    // Flutter Web 下跳过 canLaunchUrl 检测，直接打开网页版导航
-    final url = mapType == 'amap'
-        ? 'https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode'
-        : 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng';
-    await _launchURL(context, url);
-  }
-
-  Future<void> _launchURL(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  void _openUrl(String url) {
+    html.window.open(url, '_blank');
   }
 }

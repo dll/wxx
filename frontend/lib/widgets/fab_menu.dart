@@ -1,5 +1,6 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'voice_dialog.dart';
@@ -227,18 +228,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   }
 
   Future<void> _openNavigation(BuildContext context) async {
-    const lat = 32.2921;
-    const lng = 118.2988;
-    const name = '滁州学院';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('正在打开导航…'), duration: Duration(seconds: 1)),
-    );
-
-    // 直接打开高德网页导航（兼容性好，自动唤起 App）
-    // 高德官方导航链接：https://uri.amap.com/navigation
-    final webUri = Uri.parse('https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode');
-    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    const url = 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode';
+    html.window.open(url, '_blank');
   }
 }
 
