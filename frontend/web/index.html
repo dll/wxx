@@ -31,6 +31,14 @@
 
   <title>蔚小芯</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // 强制清除旧 Service Worker 缓存，确保获取最新代码
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

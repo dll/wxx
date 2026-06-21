@@ -65,12 +65,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _loadData() {
+    if (!Storage.isLoggedIn) return; // 游客无需加载数据
     final role = Storage.role;
-    // 辅导员及以上角色加载告警统计
     if (_canAccessAlerts(role)) {
       context.read<EmotionProvider>().fetchStats();
     }
-    // 加载最近会话
     context.read<SessionProvider>().fetchSessions();
   }
 

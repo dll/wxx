@@ -48,7 +48,8 @@ List<html.CanvasElement> _collectAllCanvases() {
       walk(child);
     }
   }
-  walk(html.document.body!);
+  final body = html.document.body;
+  if (body != null) walk(body);
   return result;
 }
 
