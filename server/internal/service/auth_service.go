@@ -46,10 +46,10 @@ type LoginResult struct {
 // SendCode 发送短信验证码（开发环境：仅日志，后续对接短信通道）
 func (s *AuthService) SendCode(phone string) (string, error) {
 	if phone == "" {
-		return fmt.Errorf("手机号不能为空")
+		return "", fmt.Errorf("手机号不能为空")
 	}
 	if len(phone) != 11 || phone[0] != '1' {
-		return fmt.Errorf("手机号格式不正确")
+		return "", fmt.Errorf("手机号格式不正确")
 	}
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	smsCodeStore.Store(phone, code)
