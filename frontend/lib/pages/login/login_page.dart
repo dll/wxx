@@ -173,176 +173,243 @@ void _showGuestDialog(BuildContext context) {
     context: context,
     barrierDismissible: false,
     builder: (ctx) {
+      final theme = Theme.of(ctx);
       return StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('滁州学院快讯'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('欢迎来到滁州学院！验证手机号后即可浏览学校公开信息。', style: TextStyle(fontSize: 13)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: '您的称呼',
-                  hintText: '如：王同学、李老师',
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneCtrl,
-                decoration: const InputDecoration(
-                  labelText: '手机号',
-                  hintText: '11 位手机号',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                keyboardType: TextInputType.phone,
-                maxLength: 11,
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: codeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '短信验证码',
-                        hintText: '6 位数字',
-                        prefixIcon: Icon(Icons.sms_outlined),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
+        builder: (ctx, setDlgState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 渐变色头部
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF1565C0), const Color(0xFF1976D2).withValues(alpha: 0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 48,
-                    child: FilledButton.tonal(
-                      onPressed: sendingCode || countdown > 0
-                          ? null
-                          : () async {
-                              final phone = phoneCtrl.text.trim();
-                              if (!_isValidPhone(phone)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('请输入正确的 11 位手机号')),
-                                );
-                                return;
-                              }
-                              setDlgState(() => sendingCode = true);
-                              try {
-                                await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
-                                setDlgState(() {
-                                  sendingCode = false;
-                                  countdown = 60;
-                                });
-                                // 倒计时
-                                Future.doWhile(() async {
-                                  await Future.delayed(const Duration(seconds: 1));
-                                  if (ctx.mounted) {
-                                    setDlgState(() {
-                                      if (countdown > 0) countdown--;
-                                    });
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56, height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: const Icon(Icons.school, size: 32, color: Colors.white),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('欢迎来到滁州学院',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text('验证手机号即可浏览公开信息',
+                        style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
+                    ],
+                  ),
+                ),
+                // 表单区
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: '您的称呼',
+                          hintText: '如：王同学、李老师',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: phoneCtrl,
+                        decoration: InputDecoration(
+                          labelText: '手机号',
+                          hintText: '11 位手机号',
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        ),
+                        keyboardType: TextInputType.phone,
+                        maxLength: 11,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: codeCtrl,
+                              decoration: InputDecoration(
+                                labelText: '验证码',
+                                hintText: '6 位数字',
+                                prefixIcon: const Icon(Icons.sms_outlined),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                              ),
+                              keyboardType: TextInputType.number,
+                              maxLength: 6,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 56,
+                            child: FilledButton(
+                              onPressed: sendingCode || countdown > 0 ? null : () async {
+                                final phone = phoneCtrl.text.trim();
+                                if (!_isValidPhone(phone)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('请输入正确的 11 位手机号')),
+                                  );
+                                  return;
+                                }
+                                setDlgState(() => sendingCode = true);
+                                try {
+                                  final resp = await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
+                                  final respCode = resp.data?['data']?['code'];
+                                  if (respCode != null) {
+                                    codeCtrl.text = respCode.toString();
                                   }
-                                  return countdown > 0;
-                                });
-                              } catch (e) {
-                                setDlgState(() => sendingCode = false);
-                                final msg = e is DioException
-                                    ? (e.response?.data?['message'] ?? '发送失败，请稍后重试')
-                                    : '发送失败，请稍后重试';
+                                  setDlgState(() { sendingCode = false; countdown = 60; });
+                                  if (respCode != null && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('验证码（开发环境）: $respCode'),
+                                        duration: const Duration(seconds: 5),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                  Future.doWhile(() async {
+                                    await Future.delayed(const Duration(seconds: 1));
+                                    if (ctx.mounted) {
+                                      setDlgState(() { if (countdown > 0) countdown--; });
+                                    }
+                                    return countdown > 0;
+                                  });
+                                } catch (e) {
+                                  setDlgState(() => sendingCode = false);
+                                  final msg = e is DioException
+                                      ? (e.response?.data?['message'] ?? '发送失败，请稍后重试')
+                                      : '发送失败，请稍后重试';
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                                  }
+                                }
+                              },
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                minimumSize: const Size(100, 56),
+                              ),
+                              child: sendingCode
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : Text(countdown > 0 ? '${countdown}s' : '获取验证码', style: const TextStyle(fontSize: 14)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // 底部按钮
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: loading ? null : () => Navigator.of(ctx).pop(),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            minimumSize: const Size(0, 48),
+                          ),
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton(
+                          onPressed: loading ? null : () async {
+                            final name = nameCtrl.text.trim();
+                            final phone = phoneCtrl.text.trim();
+                            final code = codeCtrl.text.trim();
+                            if (name.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('请输入您的称呼')),
+                              );
+                              return;
+                            }
+                            if (!_isValidPhone(phone)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('请输入正确的 11 位手机号')),
+                              );
+                              return;
+                            }
+                            if (code.length != 6) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('请输入 6 位验证码')),
+                              );
+                              return;
+                            }
+                            setDlgState(() => loading = true);
+                            try {
+                              final api = ApiService();
+                              final resp = await api.post(ApiConfig.guestRegister, data: {
+                                'display_name': name, 'phone': phone, 'code': code,
+                              });
+                              if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
+                                await Storage.setToken(resp.data['data']['token'] as String);
+                                await context.read<AuthProvider>().fetchProfile();
+                                if (context.mounted) {
+                                  Navigator.of(ctx).pop();
+                                  context.go('/home');
+                                }
+                              } else {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(msg)),
+                                    SnackBar(content: Text(resp.data['message'] ?? '注册失败')),
                                   );
                                 }
                               }
-                            },
-                      child: sendingCode
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(countdown > 0 ? '${countdown}s' : '获取验证码', style: const TextStyle(fontSize: 13)),
-                    ),
+                            } catch (e) {
+                              final msg = e is DioException
+                                  ? (e.response?.data?['message'] ?? '网络错误，请稍后重试')
+                                  : '网络错误，请稍后重试';
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                              }
+                            } finally {
+                              if (ctx.mounted) setDlgState(() => loading = false);
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF1565C0),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            minimumSize: const Size(0, 48),
+                          ),
+                          child: loading
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('开始浏览', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: loading ? null : () => Navigator.of(ctx).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: loading
-                  ? null
-                  : () async {
-                      final name = nameCtrl.text.trim();
-                      final phone = phoneCtrl.text.trim();
-                      final code = codeCtrl.text.trim();
-                      if (name.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请输入您的称呼')),
-                        );
-                        return;
-                      }
-                      if (!_isValidPhone(phone)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请输入正确的 11 位手机号')),
-                        );
-                        return;
-                      }
-                      if (code.length != 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请输入 6 位短信验证码')),
-                        );
-                        return;
-                      }
-                      setDlgState(() => loading = true);
-                      try {
-                        final api = ApiService();
-                        final resp = await api.post(ApiConfig.guestRegister, data: {
-                          'display_name': name,
-                          'phone': phone,
-                          'code': code,
-                        });
-                        if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
-                          await Storage.setToken(resp.data['data']['token'] as String);
-                          await context.read<AuthProvider>().fetchProfile();
-                          if (context.mounted) {
-                            Navigator.of(ctx).pop();
-                            context.go('/browse');
-                          }
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(resp.data['message'] ?? '注册失败')),
-                            );
-                          }
-                        }
-                      } catch (e) {
-                        final msg = e is DioException
-                            ? (e.response?.data?['message'] ?? '网络错误，请稍后重试')
-                            : '网络错误，请稍后重试';
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(msg)),
-                          );
-                        }
-                      } finally {
-                        if (ctx.mounted) setDlgState(() => loading = false);
-                      }
-                    },
-              child: loading
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('开始浏览'),
-            ),
-          ],
         ),
       );
     },
@@ -394,7 +461,7 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
     final ok = await auth.login(username, _passwordCtrl.text.trim(), _selectedRole);
     if (!mounted) return;
     if (ok) {
-      context.go('/chat');
+      context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.error ?? '登录失败')),
@@ -592,7 +659,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
             }
             if (mounted) {
               Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted) router.go('/chat');
+                if (mounted) router.go('/home');
               });
             }
           } else if (qrData['status'] == 'expired') {

@@ -27,7 +27,7 @@ const _tabs = [
   _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
   _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2), 'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
   _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0), 'https://www.chzu.edu.cn', '滁州学院官方网站'),
-  _CampusTabInfo(_CampusTab.douyin, '抖音', Icons.music_note, Color(0xFFC62828), 'https://www.douyin.com/user/54452972915', '关注滁州学院招生办'),
+  _CampusTabInfo(_CampusTab.douyin, '抖音', Icons.music_note, Color(0xFFC62828), 'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2', '搜索滁州学院官方抖音'),
 ];
 
 class _CampusMapPageState extends State<CampusMapPage> {

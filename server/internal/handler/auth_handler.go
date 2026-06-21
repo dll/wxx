@@ -261,7 +261,8 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 		return
 	}
 
-	if err := h.authSvc.SendCode(req.Phone); err != nil {
+	code, err := h.authSvc.SendCode(req.Phone)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: err.Error(),
@@ -273,6 +274,7 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "验证码已发送",
+		"data":    gin.H{"code": code},
 	})
 }
 

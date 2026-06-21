@@ -44,7 +44,7 @@ type LoginResult struct {
 }
 
 // SendCode 发送短信验证码（开发环境：仅日志，后续对接短信通道）
-func (s *AuthService) SendCode(phone string) error {
+func (s *AuthService) SendCode(phone string) (string, error) {
 	if phone == "" {
 		return fmt.Errorf("手机号不能为空")
 	}
@@ -54,7 +54,7 @@ func (s *AuthService) SendCode(phone string) error {
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	smsCodeStore.Store(phone, code)
 	log.Printf("[DEV] 短信验证码 手机=%s code=%s", phone, code)
-	return nil
+	return code, nil
 }
 
 // VerifyCode 校验短信验证码
