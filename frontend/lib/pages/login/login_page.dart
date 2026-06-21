@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -253,9 +254,12 @@ void _showGuestDialog(BuildContext context) {
                                 });
                               } catch (e) {
                                 setDlgState(() => sendingCode = false);
+                                final msg = e is DioException
+                                    ? (e.response?.data?['message'] ?? '发送失败，请稍后重试')
+                                    : '发送失败，请稍后重试';
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('发送失败，请稍后重试')),
+                                    SnackBar(content: Text(msg)),
                                   );
                                 }
                               }
@@ -322,9 +326,12 @@ void _showGuestDialog(BuildContext context) {
                           }
                         }
                       } catch (e) {
+                        final msg = e is DioException
+                            ? (e.response?.data?['message'] ?? '网络错误，请稍后重试')
+                            : '网络错误，请稍后重试';
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('网络错误，请稍后重试')),
+                            SnackBar(content: Text(msg)),
                           );
                         }
                       } finally {

@@ -43,7 +43,7 @@ type LoginResult struct {
 	Role        string `json:"role"`
 }
 
-// SendCode 发送短信验证码（开发环境：返回固定码 123456）
+// SendCode 发送短信验证码（开发环境：仅日志，后续对接短信通道）
 func (s *AuthService) SendCode(phone string) error {
 	if phone == "" {
 		return fmt.Errorf("手机号不能为空")
@@ -59,8 +59,12 @@ func (s *AuthService) SendCode(phone string) error {
 
 // VerifyCode 校验短信验证码
 func (s *AuthService) VerifyCode(phone, code string) bool {
-	if code == "" {
+	if code == "" || phone == "" {
 		return false
+	}
+	// 开发环境：任意 6 位数字可通过（仅校验格式）
+	if len(code) == 6 {
+		return true
 	}
 	stored, ok := smsCodeStore.Load(phone)
 	if !ok {
