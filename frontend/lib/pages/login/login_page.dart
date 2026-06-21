@@ -8,7 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
 
-/// 登录页面 — 密码登录 + 扫码登录双模式
+/// 登录页面 — 注册/登录分离，右上角按钮
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -18,6 +18,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
+  bool _showLogin = false;
 
   @override
   void initState() {
@@ -35,6 +36,26 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 48,
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: () => _showGuestDialog(context),
+            child: const Text('注册', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () => setState(() => _showLogin = !_showLogin),
+            child: Text('登录', style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: _showLogin ? theme.colorScheme.primary : null,
+            )),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -42,8 +63,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: _showLogin ? MainAxisAlignment.start : MainAxisAlignment.center,
                 children: [
+                  if (!_showLogin) const SizedBox(height: 60),
                   // Logo
                   Icon(Icons.school, size: 72, color: theme.colorScheme.primary),
                   const SizedBox(height: 12),
@@ -63,7 +85,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(height: 36),
 
-                  // 滁州学院快讯（公开浏览）
+                  // 欢迎卡片（始终显示）
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -96,55 +118,48 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.tonalIcon(
-                            onPressed: () => _showGuestDialog(context),
-                            icon: const Icon(Icons.explore_outlined, size: 18),
-                            label: const Text('浏览公开快讯'),
-                          ),
-                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
 
-                  // 选项卡
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: TabBar(
-                      controller: _tabCtrl,
-                      indicator: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(10),
+                  // 登录表单（点击「登录」后显示）
+                  if (_showLogin) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelColor: theme.colorScheme.onPrimary,
-                      unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      dividerColor: Colors.transparent,
-                      tabs: const [
-                        Tab(text: '密码登录', height: 44),
-                        Tab(text: '扫码登录', height: 44),
-                      ],
+                      child: TabBar(
+                        controller: _tabCtrl,
+                        indicator: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelColor: theme.colorScheme.onPrimary,
+                        unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        dividerColor: Colors.transparent,
+                        tabs: const [
+                          Tab(text: '密码登录', height: 44),
+                          Tab(text: '扫码登录', height: 44),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    height: 360,
-                    child: TabBarView(
-                      controller: _tabCtrl,
-                      children: const [
-                        _PasswordLoginForm(),
-                        _QRCodeLoginPanel(),
-                      ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 360,
+                      child: TabBarView(
+                        controller: _tabCtrl,
+                        children: [
+                          _PasswordLoginForm(onGuestTap: () => _showGuestDialog(context)),
+                          const _QRCodeLoginPanel(),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
+                  if (!_showLogin) const SizedBox(height: 60),
                 ],
               ),
             ),
@@ -182,7 +197,6 @@ void _showGuestDialog(BuildContext context) {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 渐变色头部
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
@@ -213,7 +227,6 @@ void _showGuestDialog(BuildContext context) {
                     ],
                   ),
                 ),
-                // 表单区
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
                   child: Column(
@@ -278,31 +291,25 @@ void _showGuestDialog(BuildContext context) {
                                 try {
                                   final resp = await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
                                   final respCode = resp.data?['data']?['code'];
-                                  if (respCode != null) {
-                                    codeCtrl.text = respCode.toString();
-                                  }
+                                  if (respCode != null) codeCtrl.text = respCode.toString();
                                   setDlgState(() { sendingCode = false; countdown = 60; });
                                   if (respCode != null && context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('验证码（开发环境）: $respCode'),
-                                        duration: const Duration(seconds: 5),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text('验证码: $respCode'),
+                                      duration: const Duration(seconds: 5),
+                                      behavior: SnackBarBehavior.floating,
+                                    ));
                                   }
                                   Future.doWhile(() async {
                                     await Future.delayed(const Duration(seconds: 1));
-                                    if (ctx.mounted) {
-                                      setDlgState(() { if (countdown > 0) countdown--; });
-                                    }
+                                    if (ctx.mounted) setDlgState(() { if (countdown > 0) countdown--; });
                                     return countdown > 0;
                                   });
                                 } catch (e) {
                                   setDlgState(() => sendingCode = false);
                                   final msg = e is DioException
-                                      ? (e.response?.data?['message'] ?? '发送失败，请稍后重试')
-                                      : '发送失败，请稍后重试';
+                                      ? (e.response?.data?['message'] ?? '发送失败')
+                                      : '发送失败';
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                                   }
@@ -322,7 +329,6 @@ void _showGuestDialog(BuildContext context) {
                     ],
                   ),
                 ),
-                // 底部按钮
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Row(
@@ -365,8 +371,7 @@ void _showGuestDialog(BuildContext context) {
                             }
                             setDlgState(() => loading = true);
                             try {
-                              final api = ApiService();
-                              final resp = await api.post(ApiConfig.guestRegister, data: {
+                              final resp = await ApiService().post(ApiConfig.guestRegister, data: {
                                 'display_name': name, 'phone': phone, 'code': code,
                               });
                               if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
@@ -385,8 +390,8 @@ void _showGuestDialog(BuildContext context) {
                               }
                             } catch (e) {
                               final msg = e is DioException
-                                  ? (e.response?.data?['message'] ?? '网络错误，请稍后重试')
-                                  : '网络错误，请稍后重试';
+                                  ? (e.response?.data?['message'] ?? '网络错误')
+                                  : '网络错误';
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                               }
@@ -416,10 +421,11 @@ void _showGuestDialog(BuildContext context) {
   );
 }
 
-// ── 密码登录表单 ──
+// ── 密码登录表单（含游客角色）──
 
 class _PasswordLoginForm extends StatefulWidget {
-  const _PasswordLoginForm();
+  final VoidCallback? onGuestTap;
+  const _PasswordLoginForm({this.onGuestTap});
 
   @override
   State<_PasswordLoginForm> createState() => _PasswordLoginFormState();
@@ -440,6 +446,7 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
     {'value': 'assistant', 'label': '教辅'},
     {'value': 'student_union', 'label': '学生会'},
     {'value': 'student', 'label': '学生'},
+    {'value': 'guest', 'label': '游客（需注册）'},
   ];
 
   @override
@@ -450,6 +457,10 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
   }
 
   Future<void> _doLogin() async {
+    if (_selectedRole == 'guest') {
+      widget.onGuestTap?.call();
+      return;
+    }
     final username = _usernameCtrl.text.trim();
     if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -476,12 +487,13 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
       children: [
         TextField(
           controller: _usernameCtrl,
-          decoration: const InputDecoration(
-            labelText: '学号 / 工号',
-            prefixIcon: Icon(Icons.person_outline),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: _selectedRole == 'guest' ? '手机号（游客无需用户名）' : '学号 / 工号',
+            prefixIcon: const Icon(Icons.person_outline),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           textInputAction: TextInputAction.next,
+          keyboardType: _selectedRole == 'guest' ? TextInputType.phone : TextInputType.text,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -490,7 +502,7 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
           decoration: InputDecoration(
             labelText: '密码（开发环境可留空）',
             prefixIcon: const Icon(Icons.lock_outline),
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             suffixIcon: IconButton(
               icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _obscure = !_obscure),
@@ -501,15 +513,28 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: _selectedRole,
-          decoration: const InputDecoration(
-            labelText: '角色（开发环境可选）',
-            prefixIcon: Icon(Icons.badge_outlined),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: '角色',
+            prefixIcon: const Icon(Icons.badge_outlined),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           items: _roleOptions.map((r) {
+            final isGuest = r['value'] == 'guest';
             return DropdownMenuItem(
               value: r['value'] as String,
-              child: Text(r['label'] as String, style: const TextStyle(fontSize: 14)),
+              child: Row(
+                children: [
+                  Text(r['label'] as String, style: TextStyle(
+                    fontSize: 14,
+                    color: isGuest ? Colors.orange : null,
+                    fontWeight: isGuest ? FontWeight.w500 : null,
+                  )),
+                  if (isGuest) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.phone_android, size: 14, color: Colors.orange),
+                  ],
+                ],
+              ),
             );
           }).toList(),
           onChanged: (v) {
@@ -520,15 +545,25 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: FilledButton(
-            onPressed: auth.loading ? null : _doLogin,
-            child: auth.loading
-                ? const SizedBox(
-                    width: 24, height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('登 录', style: TextStyle(fontSize: 16)),
-          ),
+          child: _selectedRole == 'guest'
+              ? FilledButton.icon(
+                  onPressed: () => widget.onGuestTap?.call(),
+                  icon: const Icon(Icons.app_registration, size: 18),
+                  label: const Text('前往手机注册', style: TextStyle(fontSize: 16)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                )
+              : FilledButton(
+                  onPressed: auth.loading ? null : _doLogin,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: auth.loading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('登 录', style: TextStyle(fontSize: 16)),
+                ),
         ),
       ],
     );
@@ -547,11 +582,11 @@ class _QRCodeLoginPanel extends StatefulWidget {
 class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
   String? _qrSessionId;
   String? _qrImageUrl;
-  String _qrStatus = 'loading'; // loading | active | scanned | confirmed | expired
+  String _qrStatus = 'loading';
   Timer? _pollTimer;
   Timer? _expireTimer;
   int _pollFailureCount = 0;
-  static const _maxPollFailures = 10; // 连续失败超过则停止轮询
+  static const _maxPollFailures = 10;
   String _message = '正在生成二维码...';
 
   @override
@@ -567,8 +602,6 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
     super.dispose();
   }
 
-  /// 生成 QR 会话并构建二维码图片 URL
-  /// 安全：sessionID 完全由服务端生成，前端不参与
   Future<void> _generateQR() async {
     _pollTimer?.cancel();
     _expireTimer?.cancel();
@@ -580,7 +613,6 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
     });
 
     try {
-      // 调用后端创建 QR 会话，使用服务端返回的 session_id
       final api = ApiService();
       final resp = await api.post('/api/v1/auth/qr-login', data: <String, dynamic>{});
       if (!mounted) return;
@@ -598,12 +630,10 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         });
         _startPolling();
       } else {
-        // 后端 QR 端点异常，降级仅展示落地页
         _showFallbackQR('扫描二维码在手机上打开蔚小芯');
       }
     } catch (_) {
       if (!mounted) return;
-      // 降级：直接生成访问码
       _showFallbackQR('扫描二维码在手机上打开蔚小芯');
     }
   }
@@ -617,19 +647,14 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
     });
   }
 
-  /// 轮询 QR 扫描状态
   void _startPolling() {
     _pollTimer?.cancel();
     final api = ApiService();
-    // 在 timer 创建前 hoist 出 AuthProvider 引用，避免跨 async gap 用 context
     final authProvider = context.read<AuthProvider>();
     final router = GoRouter.of(context);
 
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted ||
-          _qrSessionId == null ||
-          _qrStatus == 'confirmed' ||
-          _qrStatus == 'expired') {
+      if (!mounted || _qrSessionId == null || _qrStatus == 'confirmed' || _qrStatus == 'expired') {
         timer.cancel();
         return;
       }
@@ -687,7 +712,6 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
       }
     });
 
-    // 5 分钟后过期（用持有的 timer 引用避免 dispose 后泄漏）
     _expireTimer = Timer(const Duration(minutes: 5), () {
       if (!mounted) return;
       if (_qrStatus == 'active' || _qrStatus == 'scanned') {
@@ -705,7 +729,6 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // QR 码容器
         Container(
           width: 240,
           height: 240,
@@ -719,13 +742,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
               width: _qrStatus == 'scanned' || _qrStatus == 'confirmed' ? 3 : 1,
             ),
             boxShadow: _qrStatus == 'scanned' || _qrStatus == 'confirmed'
-                ? [
-                    BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ]
+                ? [BoxShadow(color: Colors.green.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)]
                 : null,
           ),
           child: _qrStatus == 'loading'
@@ -737,24 +754,15 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Image.network(
-                            _qrImageUrl!,
-                            width: 238,
-                            height: 238,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.qr_code, size: 80, color: Colors.grey),
-                            ),
+                          child: Image.network(_qrImageUrl!,
+                            width: 238, height: 238, fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.qr_code, size: 80, color: Colors.grey)),
                           ),
                         ),
                         if (_qrStatus == 'scanned')
                           Container(
-                            width: 238,
-                            height: 238,
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
+                            width: 238, height: 238,
+                            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
                             child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -768,12 +776,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
                           ),
                         if (_qrStatus == 'confirmed')
                           Container(
-                            width: 238,
-                            height: 238,
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
+                            width: 238, height: 238,
+                            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(15)),
                             child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -791,7 +795,6 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         const SizedBox(height: 16),
         Text(_message, style: theme.textTheme.bodyMedium),
         const SizedBox(height: 12),
-        // 刷新按钮
         if (_qrStatus == 'expired')
           OutlinedButton.icon(
             onPressed: _generateQR,
@@ -799,12 +802,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
             label: const Text('刷新二维码'),
           ),
         const SizedBox(height: 16),
-        Text(
-          '手机扫码后打开蔚小芯，登录即可开始使用',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
+        Text('手机扫码后打开蔚小芯，登录即可开始使用',
+          style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       ],
     );
   }
