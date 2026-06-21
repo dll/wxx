@@ -140,6 +140,10 @@ class _ProfilePageState extends State<ProfilePage> {
           if (profile?.role == 'sys_admin' || profile?.role == 'college_admin')
             _buildMenuCard(context, Icons.warning_amber_rounded, '问题预案', '查看和处理系统预警问题', '/forecast'),
 
+          // 游客审核（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.person_search_outlined, '游客审核', '审核待处理的游客注册申请', '/admin/guests'),
+
           // 知识审核（counselor 及以上）
           if (_canAccessEmotion(profile?.role))
             _buildMenuCard(context, Icons.rate_review_outlined, '知识审核', '审核待发布的知识资源', '/review'),

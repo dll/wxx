@@ -79,6 +79,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final role = Storage.role;
+    final loggedIn = Storage.isLoggedIn;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -97,7 +98,10 @@ class _HomePageState extends State<HomePage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _buildWelcomeBanner(theme),
+            if (loggedIn)
+              _buildWelcomeBanner(theme)
+            else
+              _buildGuestBanner(theme),
             const SizedBox(height: 12),
             // 日期时间 + 校历入口
             const DateTimeBanner(),
@@ -124,9 +128,99 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
             ],
             // 最近对话
-            _buildRecentSessions(theme),
+            if (loggedIn) _buildRecentSessions(theme),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 滁州学院快讯（游客横幅）
+  Widget _buildGuestBanner(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1565C0),
+            const Color(0xFF7B1FA2),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.school, color: Colors.white.withValues(alpha: 0.9), size: 28),
+              const SizedBox(width: 8),
+              Text(
+                '滁州学院 · 公开快讯',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '欢迎来到滁州学院 👋',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '26 级新生 · 学生家长 · 中学教师 · 社会访客',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go('/login'),
+                  icon: const Icon(Icons.login, size: 18),
+                  label: const Text('登录 / 注册'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF1565C0),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go('/browse'),
+                  icon: const Icon(Icons.explore_outlined, size: 18),
+                  label: const Text('直接浏览'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

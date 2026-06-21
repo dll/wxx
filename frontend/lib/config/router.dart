@@ -88,6 +88,7 @@ import '../pages/culture/events_page.dart';
 import '../pages/culture/volunteer_page.dart';
 import '../pages/token_stats/token_stats_page.dart';
 import '../pages/admin/forecast_page.dart';
+import '../pages/admin/admin_guest_review_page.dart';
 import '../pages/campus/campus_map_page.dart';
 import '../pages/student/graduation_page.dart';
 import '../pages/student/competition_page.dart';
@@ -116,9 +117,13 @@ final GoRouter appRouter = GoRouter(
 
     // 首次启动 → 必须先同意隐私政策
     if (!firstLaunchDone && !isConsentPage) return '/consent';
-    // 已完成首次启动但未登录 → 去登录
-    if (firstLaunchDone && !loggedIn && !isLoginPage) return '/login';
-    // 已登录 → 不需要看登录页；同意页仅在已完成首次启动后才跳过
+    // 未登录 → 允许访问首页（游客模式），但其他页面需登录
+    if (!loggedIn) {
+      final publicPaths = ['/home', '/login', '/consent', '/campus', '/browse'];
+      final isPublic = publicPaths.any((p) => state.matchedLocation.startsWith(p));
+      if (!isPublic) return '/home';
+    }
+    // 已登录 → 不需要看登录页
     if (loggedIn && isLoginPage) return '/home';
     if (loggedIn && isConsentPage && firstLaunchDone) return '/home';
 
@@ -216,6 +221,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/forecast',
           builder: (context, state) => const ForecastPage(),
+        ),
+        GoRoute(
+          path: '/admin/guests',
+          builder: (context, state) => const AdminGuestReviewPage(),
         ),
         GoRoute(
           path: '/graduation',

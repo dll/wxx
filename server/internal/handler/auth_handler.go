@@ -236,10 +236,44 @@ func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
 	})
 }
 
+// sendCodeRequest 发送验证码请求
+type sendCodeRequest struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
 // guestRegisterRequest 游客注册请求
 type guestRegisterRequest struct {
 	DisplayName string `json:"display_name" binding:"required"`
 	Phone       string `json:"phone" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+}
+
+// SendCode 发送短信验证码
+// POST /api/v1/auth/send-code
+func (h *AuthHandler) SendCode(c *gin.Context) {
+	var req sendCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数错误：" + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	if err := h.authSvc.SendCode(req.Phone); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "验证码已发送",
+	})
 }
 
 // GuestRegister 游客注册
@@ -255,7 +289,7 @@ func (h *AuthHandler) GuestRegister(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authSvc.GuestRegister(req.DisplayName, req.Phone)
+	result, err := h.authSvc.GuestRegister(req.DisplayName, req.Phone, req.Code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -267,7 +301,7 @@ func (h *AuthHandler) GuestRegister(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
-		"message": "游客注册成功，请等待管理员审核",
+		"message": "欢迎来到滁州学院！注册成功，请等待管理员审核",
 		"data":    result,
 	})
 }

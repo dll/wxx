@@ -482,6 +482,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			authGroup.POST("/qr-login", handler.CreateQRSession)
 			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
 			authGroup.PUT("/qr-scan", handler.ScanQRSession)
+			authGroup.POST("/send-code", authH.SendCode)
 			authGroup.POST("/guest-register", authH.GuestRegister)
 		}
 

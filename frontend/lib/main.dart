@@ -21,6 +21,7 @@ import 'providers/culture_provider.dart';
 import 'providers/token_stats_provider.dart';
 import 'providers/forecast_provider.dart';
 import 'providers/student_new_features_provider.dart';
+import 'providers/guest_provider.dart';
 import 'utils/storage.dart';
 
 void main() async {
@@ -87,6 +88,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TokenStatsProvider()),
         ChangeNotifierProvider(create: (_) => ForecastProvider()),
         ChangeNotifierProvider(create: (_) => StudentNewFeaturesProvider()),
+        ChangeNotifierProvider(create: (_) => GuestProvider()),
         ChangeNotifierProvider(create: (_) => ThemeNotifier()),
       ],
       child: Consumer<ThemeNotifier>(

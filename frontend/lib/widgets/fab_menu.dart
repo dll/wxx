@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'voice_dialog.dart';
@@ -21,9 +22,15 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   // 可拖拽位置（相对于右下角）
   double _dx = 16;
-  double _dy = 80;
+  double _dy = 120;
 
   static const _items = <_FabItem>[
+    _FabItem(
+      icon: Icons.map_outlined,
+      label: '校园服务',
+      color: Color(0xFF1677FF),
+      action: _FabAction.campus,
+    ),
     _FabItem(
       icon: Icons.feedback_outlined,
       label: '反馈',
@@ -208,6 +215,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   void _onTap(_FabItem item) {
     switch (item.action) {
+      case _FabAction.campus:
+        context.push('/campus');
       case _FabAction.feedback:
         showFeedbackDialog(context);
       case _FabAction.voice:
@@ -220,7 +229,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
 // ── 内部组件 ──
 
-enum _FabAction { feedback, voice, focus }
+enum _FabAction { campus, feedback, voice, focus }
 
 class _FabItem {
   final IconData icon;

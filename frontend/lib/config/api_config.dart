@@ -208,6 +208,7 @@ class ApiConfig {
   static const String partyStats = '$apiPrefix/party/stats';
 
   // ── 游客注册 ──
+  static const String sendCode = '$apiPrefix/auth/send-code';
   static const String guestRegister = '$apiPrefix/auth/guest-register';
 
   // ── 游客管理（管理员）──

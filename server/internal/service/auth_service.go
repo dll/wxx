@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
@@ -12,6 +14,9 @@ import (
 	"github.com/dll/wxx/server/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// 短信验证码存储（开发环境）
+var smsCodeStore sync.Map
 
 // AuthService 认证业务服务
 type AuthService struct {
@@ -38,13 +43,43 @@ type LoginResult struct {
 	Role        string `json:"role"`
 }
 
+// SendCode 发送短信验证码（开发环境：返回固定码 123456）
+func (s *AuthService) SendCode(phone string) error {
+	if phone == "" {
+		return fmt.Errorf("手机号不能为空")
+	}
+	if len(phone) != 11 || phone[0] != '1' {
+		return fmt.Errorf("手机号格式不正确")
+	}
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	smsCodeStore.Store(phone, code)
+	log.Printf("[DEV] 短信验证码 手机=%s code=%s", phone, code)
+	return nil
+}
+
+// VerifyCode 校验短信验证码
+func (s *AuthService) VerifyCode(phone, code string) bool {
+	if code == "" {
+		return false
+	}
+	stored, ok := smsCodeStore.Load(phone)
+	if !ok {
+		return false
+	}
+	smsCodeStore.Delete(phone)
+	return stored.(string) == code
+}
+
 // GuestRegister 游客注册
-func (s *AuthService) GuestRegister(displayName, phone string) (*LoginResult, error) {
+func (s *AuthService) GuestRegister(displayName, phone, code string) (*LoginResult, error) {
 	if displayName == "" {
 		return nil, fmt.Errorf("昵称不能为空")
 	}
 	if phone == "" {
 		return nil, fmt.Errorf("手机号不能为空")
+	}
+	if !s.VerifyCode(phone, code) {
+		return nil, fmt.Errorf("验证码错误或已过期")
 	}
 
 	// 生成唯一用户名

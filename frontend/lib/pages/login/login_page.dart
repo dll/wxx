@@ -62,18 +62,49 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(height: 36),
 
-                  // 游客登录
-                  SizedBox(
+                  // 滁州学院快讯（公开浏览）
+                  Container(
                     width: double.infinity,
-                    height: 44,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showGuestDialog(context),
-                      icon: const Icon(Icons.person_outline, size: 18),
-                      label: const Text('游客体验（无需学号）'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
-                        side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primaryContainer,
+                          theme.colorScheme.tertiaryContainer,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.school, size: 28, color: theme.colorScheme.primary),
+                        const SizedBox(height: 8),
+                        Text(
+                          '欢迎来到滁州学院 👋',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '26级新生 · 学生家长 · 中学教师 · 访客',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () => _showGuestDialog(context),
+                            icon: const Icon(Icons.explore_outlined, size: 18),
+                            label: const Text('浏览公开快讯'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -123,11 +154,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   }
 }
 
+/// 校验手机号格式（中国大陆 11 位）
+bool _isValidPhone(String phone) {
+  return RegExp(r'^1[3-9]\d{9}$').hasMatch(phone);
+}
+
 /// 弹出来宾注册对话框
 void _showGuestDialog(BuildContext context) {
   final nameCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+  final codeCtrl = TextEditingController();
   bool loading = false;
+  bool sendingCode = false;
+  int countdown = 0;
 
   showDialog(
     context: context,
@@ -135,18 +174,20 @@ void _showGuestDialog(BuildContext context) {
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('游客体验'),
+          title: const Text('滁州学院快讯'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('无需学号，注册后可浏览公开知识库', style: TextStyle(fontSize: 13)),
+              const Text('欢迎来到滁州学院！验证手机号后即可浏览学校公开信息。', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 16),
               TextField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(
-                  labelText: '昵称',
+                  labelText: '您的称呼',
+                  hintText: '如：王同学、李老师',
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
               const SizedBox(height: 12),
@@ -154,10 +195,77 @@ void _showGuestDialog(BuildContext context) {
                 controller: phoneCtrl,
                 decoration: const InputDecoration(
                   labelText: '手机号',
+                  hintText: '11 位手机号',
                   prefixIcon: Icon(Icons.phone_outlined),
                   border: OutlineInputBorder(),
+                  isDense: true,
                 ),
                 keyboardType: TextInputType.phone,
+                maxLength: 11,
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: codeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '短信验证码',
+                        hintText: '6 位数字',
+                        prefixIcon: Icon(Icons.sms_outlined),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 48,
+                    child: FilledButton.tonal(
+                      onPressed: sendingCode || countdown > 0
+                          ? null
+                          : () async {
+                              final phone = phoneCtrl.text.trim();
+                              if (!_isValidPhone(phone)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('请输入正确的 11 位手机号')),
+                                );
+                                return;
+                              }
+                              setDlgState(() => sendingCode = true);
+                              try {
+                                await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
+                                setDlgState(() {
+                                  sendingCode = false;
+                                  countdown = 60;
+                                });
+                                // 倒计时
+                                Future.doWhile(() async {
+                                  await Future.delayed(const Duration(seconds: 1));
+                                  if (ctx.mounted) {
+                                    setDlgState(() {
+                                      if (countdown > 0) countdown--;
+                                    });
+                                  }
+                                  return countdown > 0;
+                                });
+                              } catch (e) {
+                                setDlgState(() => sendingCode = false);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('发送失败，请稍后重试')),
+                                  );
+                                }
+                              }
+                            },
+                      child: sendingCode
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(countdown > 0 ? '${countdown}s' : '获取验证码', style: const TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -172,9 +280,22 @@ void _showGuestDialog(BuildContext context) {
                   : () async {
                       final name = nameCtrl.text.trim();
                       final phone = phoneCtrl.text.trim();
-                      if (name.isEmpty || phone.isEmpty) {
+                      final code = codeCtrl.text.trim();
+                      if (name.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请填写昵称和手机号')),
+                          const SnackBar(content: Text('请输入您的称呼')),
+                        );
+                        return;
+                      }
+                      if (!_isValidPhone(phone)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('请输入正确的 11 位手机号')),
+                        );
+                        return;
+                      }
+                      if (code.length != 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('请输入 6 位短信验证码')),
                         );
                         return;
                       }
@@ -184,13 +305,14 @@ void _showGuestDialog(BuildContext context) {
                         final resp = await api.post(ApiConfig.guestRegister, data: {
                           'display_name': name,
                           'phone': phone,
+                          'code': code,
                         });
                         if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
                           await Storage.setToken(resp.data['data']['token'] as String);
                           await context.read<AuthProvider>().fetchProfile();
                           if (context.mounted) {
                             Navigator.of(ctx).pop();
-                            context.go('/home');
+                            context.go('/browse');
                           }
                         } else {
                           if (context.mounted) {
@@ -211,7 +333,7 @@ void _showGuestDialog(BuildContext context) {
                     },
               child: loading
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('注册体验'),
+                  : const Text('开始浏览'),
             ),
           ],
         ),
