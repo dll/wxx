@@ -231,21 +231,12 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     const lng = 118.2988;
     const name = '滁州学院';
 
-    // 优先高德地图 App
-    final amapUri = Uri.parse('androidamap://route?sourceApplication=蔚小芯&dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0');
-    if (await canLaunchUrl(amapUri)) {
-      await launchUrl(amapUri);
-      return;
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('正在打开导航…'), duration: Duration(seconds: 1)),
+    );
 
-    // 降级腾讯地图 App
-    final qqmapUri = Uri.parse('qqmap://map/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng');
-    if (await canLaunchUrl(qqmapUri)) {
-      await launchUrl(qqmapUri);
-      return;
-    }
-
-    // 最终降级到网页版高德
+    // 直接打开高德网页导航（兼容性好，自动唤起 App）
+    // 高德官方导航链接：https://uri.amap.com/navigation
     final webUri = Uri.parse('https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode');
     await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }

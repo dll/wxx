@@ -149,38 +149,19 @@ class CampusMapPage extends StatelessWidget {
   }
 
   Future<void> _openMap(BuildContext context, String mapType) async {
-    final lat = 32.2921; // 滁州学院经纬度
+    final lat = 32.2921;
     final lng = 118.2988;
     final name = '滁州学院';
 
-    Uri? uri;
-    if (mapType == 'amap') {
-      uri = Uri.parse('androidamap://route?sourceApplication=蔚小芯&slat=&slon=&sname=&dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0');
-    } else if (mapType == 'qqmap') {
-      uri = Uri.parse('qqmap://map/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng');
-    }
-
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      // 降级到网页版
-      final webUrl = mapType == 'amap'
-          ? 'https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode'
-          : 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng';
-      await _launchURL(context, webUrl);
-    }
+    // Flutter Web 下跳过 canLaunchUrl 检测，直接打开网页版导航
+    final url = mapType == 'amap'
+        ? 'https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode'
+        : 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng';
+    await _launchURL(context, url);
   }
 
   Future<void> _launchURL(BuildContext context, String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开链接')),
-        );
-      }
-    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
