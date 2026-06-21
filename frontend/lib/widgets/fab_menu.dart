@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'voice_dialog.dart';
@@ -26,8 +26,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   static const _items = <_FabItem>[
     _FabItem(
-      icon: Icons.map_outlined,
-      label: '校园服务',
+      icon: Icons.navigation,
+      label: '导航到校',
       color: Color(0xFF1677FF),
       action: _FabAction.campus,
     ),
@@ -216,7 +216,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   void _onTap(_FabItem item) {
     switch (item.action) {
       case _FabAction.campus:
-        context.push('/campus');
+        _openNavigation(context);
       case _FabAction.feedback:
         showFeedbackDialog(context);
       case _FabAction.voice:
@@ -224,6 +224,30 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       case _FabAction.focus:
         showFocusMode(context);
     }
+  }
+
+  Future<void> _openNavigation(BuildContext context) async {
+    const lat = 32.2921;
+    const lng = 118.2988;
+    const name = '滁州学院';
+
+    // 优先高德地图 App
+    final amapUri = Uri.parse('androidamap://route?sourceApplication=蔚小芯&dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0');
+    if (await canLaunchUrl(amapUri)) {
+      await launchUrl(amapUri);
+      return;
+    }
+
+    // 降级腾讯地图 App
+    final qqmapUri = Uri.parse('qqmap://map/routeplan?type=drive&to=$name&tolat=$lat&tolng=$lng');
+    if (await canLaunchUrl(qqmapUri)) {
+      await launchUrl(qqmapUri);
+      return;
+    }
+
+    // 最终降级到网页版高德
+    final webUri = Uri.parse('https://uri.amap.com/navigation?to=$lng,$lat,$name&mode=car&coordinate=gaode');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 }
 
