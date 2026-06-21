@@ -47,24 +47,50 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: theme.colorScheme.surface,
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _buildFlowChip(
-              label: '入学流程',
-              icon: Icons.school,
-              active: prov.flowType == 'enrollment',
-              onTap: () => prov.setFlowType('enrollment'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFlowChip(
+                  label: '入学流程',
+                  icon: Icons.school,
+                  active: prov.flowType == 'enrollment',
+                  onTap: () => prov.setFlowType('enrollment'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFlowChip(
+                  label: '离校流程',
+                  icon: Icons.celebration,
+                  active: prov.flowType == 'graduation',
+                  onTap: () => prov.setFlowType('graduation'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildFlowChip(
-              label: '离校流程',
-              icon: Icons.celebration,
-              active: prov.flowType == 'graduation',
-              onTap: () => prov.setFlowType('graduation'),
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFlowChip(
+                  label: '转专业',
+                  icon: Icons.swap_horiz,
+                  active: prov.flowType == 'major_change',
+                  onTap: () => prov.setFlowType('major_change'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFlowChip(
+                  label: '助学贷款',
+                  icon: Icons.account_balance,
+                  active: prov.flowType == 'student_loan',
+                  onTap: () => prov.setFlowType('student_loan'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

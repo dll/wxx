@@ -10,6 +10,7 @@ type User struct {
 	OwnerID      string `json:"owner_id" db:"owner_id"`         // 归属 ID
 	PasswordHash string `json:"-" db:"password_hash"`           // bcrypt 密码哈希（空=免密）
 	VoiceEnabled int    `json:"voice_enabled" db:"voice_enabled"` // 语音开关：0=关闭 1=开启
+	Status       string `json:"status" db:"status"`             // active/pending/rejected/disabled
 	CreatedAt    string `json:"created_at" db:"created_at"`
 	UpdatedAt    string `json:"updated_at" db:"updated_at"`
 }

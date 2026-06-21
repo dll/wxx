@@ -207,6 +207,14 @@ class ApiConfig {
   static const String partyStudyRecordAdd = '$apiPrefix/party/study-record';
   static const String partyStats = '$apiPrefix/party/stats';
 
+  // ── 游客注册 ──
+  static const String guestRegister = '$apiPrefix/auth/guest-register';
+
+  // ── 游客管理（管理员）──
+  static const String adminGuestsPending = '$apiPrefix/admin/guests/pending';
+  static String adminGuestApprove(String id) => '$apiPrefix/admin/guests/$id/approve';
+  static String adminGuestReject(String id) => '$apiPrefix/admin/guests/$id/reject';
+
   // ── 社团生活 ──
   static const String clubList = '$apiPrefix/club/list';
   static String clubDetail(String id) => '$apiPrefix/club/$id';

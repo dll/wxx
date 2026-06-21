@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/middleware"
@@ -35,6 +36,109 @@ type LoginResult struct {
 	ExpiresIn   int    `json:"expires_in"` // 过期时间（秒）
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
+}
+
+// GuestRegister 游客注册
+func (s *AuthService) GuestRegister(displayName, phone string) (*LoginResult, error) {
+	if displayName == "" {
+		return nil, fmt.Errorf("昵称不能为空")
+	}
+	if phone == "" {
+		return nil, fmt.Errorf("手机号不能为空")
+	}
+
+	// 生成唯一用户名
+	username := fmt.Sprintf("guest_%s_%d", phone, time.Now().UnixMilli()%10000)
+
+	user := &model.User{
+		Username:    username,
+		DisplayName: displayName,
+		Role:        "guest",
+		OwnerScope:  "college",
+		OwnerID:     "default",
+		Status:      "pending", // 游客默认为 pending，需审核
+	}
+	id, err := s.userRepo.Create(user)
+	if err != nil {
+		return nil, fmt.Errorf("创建游客失败: %w", err)
+	}
+	user.ID = id
+
+	token, err := middleware.GenerateToken(s.cfg, user)
+	if err != nil {
+		return nil, fmt.Errorf("签发 token 失败: %w", err)
+	}
+
+	return &LoginResult{
+		Token:       token,
+		ExpiresIn:   s.cfg.JWTExpireHours * 3600,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+	}, nil
+}
+
+// ApproveGuest 审核通过游客->学生
+func (s *AuthService) ApproveGuest(guestID int64, newUsername string) error {
+	if newUsername == "" {
+		return fmt.Errorf("学号不能为空")
+	}
+
+	user, err := s.userRepo.GetByID(guestID)
+	if err != nil {
+		return fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return ErrUserNotFound
+	}
+	if user.Role != "guest" {
+		return fmt.Errorf("该用户不是游客")
+	}
+	if user.Status != "pending" {
+		return fmt.Errorf("该游客状态不是待审核: %s", user.Status)
+	}
+
+	// 检查学号是否已被使用
+	existing, err := s.userRepo.GetByUsername(newUsername)
+	if err != nil {
+		return fmt.Errorf("查询学号失败: %w", err)
+	}
+	if existing != nil {
+		return fmt.Errorf("学号 %s 已被使用", newUsername)
+	}
+
+	// 更新用户名和角色
+	user.Username = newUsername
+	user.Role = "student"
+	user.Status = "active"
+	if err := s.userRepo.UpdateUsernameAndRole(user.ID, newUsername, "student"); err != nil {
+		return fmt.Errorf("更新用户信息失败: %w", err)
+	}
+	if err := s.userRepo.UpdateStatus(user.ID, "active"); err != nil {
+		return fmt.Errorf("更新状态失败: %w", err)
+	}
+
+	return nil
+}
+
+// RejectGuest 拒绝游客申请
+func (s *AuthService) RejectGuest(guestID int64) error {
+	user, err := s.userRepo.GetByID(guestID)
+	if err != nil {
+		return fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return ErrUserNotFound
+	}
+	if user.Role != "guest" {
+		return fmt.Errorf("该用户不是游客")
+	}
+
+	return s.userRepo.UpdateStatus(user.ID, "rejected")
+}
+
+// ListPendingGuests 列出待审核游客
+func (s *AuthService) ListPendingGuests() ([]*model.User, error) {
+	return s.userRepo.ListPendingGuests()
 }
 
 // RecordConsent 记录用户同意隐私政策与用户协议

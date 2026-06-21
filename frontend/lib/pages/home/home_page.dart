@@ -110,6 +110,9 @@ class _HomePageState extends State<HomePage> {
             // 所有角色：知识入口
             _buildKnowledgeEntry(theme),
             const SizedBox(height: 20),
+            // 所有角色：校园服务
+            _buildCampusService(theme),
+            const SizedBox(height: 20),
             // 学生专区（student/student_union）
             if (role == 'student' || role == 'student_union') ...[
               _buildStudentFeatures(theme),
@@ -369,6 +372,52 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 校园服务 — 地图/全景/招生抖音
+  Widget _buildCampusService(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('校园服务', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildKnowledgeCard(
+              theme,
+              icon: Icons.map_outlined,
+              label: '校园导航',
+              color: const Color(0xFF1677FF),
+              onTap: () => context.go('/campus'),
+            ),
+            const SizedBox(width: 10),
+            _buildKnowledgeCard(
+              theme,
+              icon: Icons.view_in_ar,
+              label: 'VR全景',
+              color: const Color(0xFF7B1FA2),
+              onTap: () => context.go('/campus'),
+            ),
+            const SizedBox(width: 10),
+            _buildKnowledgeCard(
+              theme,
+              icon: Icons.school,
+              label: '学校首页',
+              color: const Color(0xFF1565C0),
+              onTap: () => context.go('/campus'),
+            ),
+            const SizedBox(width: 10),
+            _buildKnowledgeCard(
+              theme,
+              icon: Icons.music_note,
+              label: '招生抖音',
+              color: const Color(0xFFC62828),
+              onTap: () => context.go('/campus'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

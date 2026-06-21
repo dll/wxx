@@ -60,6 +60,9 @@ dependencies:
   # 图表可视化（词元统计折线图/柱状图）
   fl_chart: ^0.69.0
 
+  # 外部链接跳转（地图/抖音/VR全景）
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

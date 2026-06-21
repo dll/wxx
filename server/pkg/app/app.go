@@ -482,6 +482,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			authGroup.POST("/qr-login", handler.CreateQRSession)
 			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
 			authGroup.PUT("/qr-scan", handler.ScanQRSession)
+			authGroup.POST("/guest-register", authH.GuestRegister)
 		}
 
 		// 需要 JWT 认证
@@ -667,6 +668,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.PUT("/users/:id/password", auth.RequireCapability(auth.SystemPasswordReset), adminH.ResetUserPassword)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)
+
+				// 游客管理（college_admin+）
+				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)
+				admin.PUT("/guests/:id/approve", auth.RequireCapability(auth.CollegeUserRead), adminH.ApproveGuest)
+				admin.PUT("/guests/:id/reject", auth.RequireCapability(auth.CollegeUserRead), adminH.RejectGuest)
 			}
 
 			// ── 知识审核 ──

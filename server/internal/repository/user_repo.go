@@ -17,7 +17,7 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 }
 
 // userCols 统一 SELECT 列名
-const userCols = `id, username, display_name, role, owner_scope, owner_id, password_hash, voice_enabled, created_at, updated_at`
+const userCols = `id, username, display_name, role, owner_scope, owner_id, password_hash, voice_enabled, status, created_at, updated_at`
 
 // GetByUsername 根据用户名查询用户
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
@@ -26,7 +26,7 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 		`SELECT `+userCols+` FROM users WHERE username = ?`, username,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.PasswordHash, &user.VoiceEnabled,
-		&user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -44,7 +44,7 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 		`SELECT `+userCols+` FROM users WHERE id = ?`, id,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.PasswordHash, &user.VoiceEnabled,
-		&user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -87,7 +87,7 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 		u := &model.User{}
 		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
 			&u.OwnerScope, &u.OwnerID, &u.PasswordHash, &u.VoiceEnabled,
-			&u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -131,15 +131,69 @@ func (r *UserRepo) Update(user *model.User) error {
 
 // Create 创建用户，返回新用户 ID
 func (r *UserRepo) Create(user *model.User) (int64, error) {
+	status := user.Status
+	if status == "" {
+		status = "active"
+	}
 	result, err := r.db.Exec(
-		`INSERT INTO users (username, display_name, role, owner_scope, owner_id)
-		 VALUES (?, ?, ?, ?, ?)`,
-		user.Username, user.DisplayName, user.Role, user.OwnerScope, user.OwnerID,
+		`INSERT INTO users (username, display_name, role, owner_scope, owner_id, status)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		user.Username, user.DisplayName, user.Role, user.OwnerScope, user.OwnerID, status,
 	)
 	if err != nil {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+// ListPendingGuests 列出待审核游客
+func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
+	rows, err := r.db.Query(
+		`SELECT `+userCols+` FROM users WHERE role = 'guest' AND status = 'pending' ORDER BY id ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*model.User
+	for rows.Next() {
+		u := &model.User{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
+			&u.OwnerScope, &u.OwnerID, &u.PasswordHash, &u.VoiceEnabled,
+			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// UpdateStatus 更新用户状态
+func (r *UserRepo) UpdateStatus(userID int64, status string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?`,
+		status, userID,
+	)
+	return err
+}
+
+// UpdateRole 更新用户角色
+func (r *UserRepo) UpdateRole(userID int64, role string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET role = ?, updated_at = datetime('now') WHERE id = ?`,
+		role, userID,
+	)
+	return err
+}
+
+// UpdateUsernameAndRole 更新用户名和角色（游客审核通过用）
+func (r *UserRepo) UpdateUsernameAndRole(userID int64, username, role string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET username = ?, role = ?, updated_at = datetime('now') WHERE id = ?`,
+		username, role, userID,
+	)
+	return err
 }
 
 // UpdatePassword 更新用户密码哈希

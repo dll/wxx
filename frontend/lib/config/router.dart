@@ -88,6 +88,7 @@ import '../pages/culture/events_page.dart';
 import '../pages/culture/volunteer_page.dart';
 import '../pages/token_stats/token_stats_page.dart';
 import '../pages/admin/forecast_page.dart';
+import '../pages/campus/campus_map_page.dart';
 import '../pages/student/graduation_page.dart';
 import '../pages/student/competition_page.dart';
 import '../pages/student/plan_page.dart';
@@ -247,6 +248,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/bookmarks',
           builder: (context, state) => const BookmarksPage(),
+        ),
+        GoRoute(
+          path: '/campus',
+          builder: (context, state) => const CampusMapPage(),
         ),
         // ── 学生 AI 功能路由 ──
         GoRoute(path: '/student/daily-briefing', builder: (_, __) => const DailyBriefingPage()),

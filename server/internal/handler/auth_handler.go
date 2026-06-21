@@ -236,6 +236,42 @@ func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
 	})
 }
 
+// guestRegisterRequest 游客注册请求
+type guestRegisterRequest struct {
+	DisplayName string `json:"display_name" binding:"required"`
+	Phone       string `json:"phone" binding:"required"`
+}
+
+// GuestRegister 游客注册
+// POST /api/v1/auth/guest-register
+func (h *AuthHandler) GuestRegister(c *gin.Context) {
+	var req guestRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数错误：" + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	result, err := h.authSvc.GuestRegister(req.DisplayName, req.Phone)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "游客注册失败：" + err.Error(),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "游客注册成功，请等待管理员审核",
+		"data":    result,
+	})
+}
+
 // GetCapabilities 获取当前用户拥有的能力列表（含继承）
 // GET /api/v1/user/capabilities
 // 前端登录后拉取一次，缓存用于菜单/按钮可见性判断

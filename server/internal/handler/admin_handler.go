@@ -261,3 +261,82 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 		"message": "密码已重置",
 	})
 }
+
+// ListPendingGuests 列出待审核游客 GET /api/v1/admin/guests/pending
+func (h *AdminHandler) ListPendingGuests(c *gin.Context) {
+	guests, err := h.authSvc.ListPendingGuests()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询待审核游客失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    guests,
+	})
+}
+
+// ApproveGuest 审核通过游客 PUT /api/v1/admin/guests/:id/approve
+func (h *AdminHandler) ApproveGuest(c *gin.Context) {
+	guestID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "用户 ID 格式错误",
+		})
+		return
+	}
+
+	var req struct {
+		StudentID string `json:"student_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "请求参数错误：" + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authSvc.ApproveGuest(guestID, req.StudentID); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "游客审核通过，已升级为学生",
+	})
+}
+
+// RejectGuest 拒绝游客申请 PUT /api/v1/admin/guests/:id/reject
+func (h *AdminHandler) RejectGuest(c *gin.Context) {
+	guestID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "用户 ID 格式错误",
+		})
+		return
+	}
+
+	if err := h.authSvc.RejectGuest(guestID); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "已拒绝该游客申请",
+	})
+}

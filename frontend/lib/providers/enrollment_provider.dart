@@ -56,7 +56,26 @@ class EnrollmentProvider extends ChangeNotifier {
 
     try {
       // 流程增强端点：直接返回 {processes, reminders, answer_card}（无 code/data 包装）
-      final processType = _flowType == 'enrollment' ? 'enrollment' : 'graduation';
+      String processType;
+      String fallbackQuestion;
+      switch (_flowType) {
+        case 'major_change':
+          processType = 'major_change';
+          fallbackQuestion = '转专业流程及所需材料';
+          break;
+        case 'student_loan':
+          processType = 'student_loan';
+          fallbackQuestion = '助学贷款申请流程及所需材料';
+          break;
+        case 'graduation':
+          processType = 'graduation';
+          fallbackQuestion = '毕业生离校手续办理流程及步骤';
+          break;
+        default:
+          processType = 'enrollment';
+          fallbackQuestion = '新生入学流程及所需材料';
+          break;
+      }
       final resp = await _api.get(
         ApiConfig.processEnhanced,
         params: {'type': processType},
@@ -102,11 +121,7 @@ class EnrollmentProvider extends ChangeNotifier {
       }
 
       // 降级：使用通用对话接口
-      final question = _flowType == 'enrollment'
-          ? '新生入学流程及所需材料'
-          : '毕业生离校手续办理流程及步骤';
-
-      final req = ChatRequest(question: question);
+      final req = ChatRequest(question: fallbackQuestion);
       final chatResp = await _api.post(ApiConfig.chat, data: req.toJson());
       final chatData = ChatResponse.fromJson(chatResp.data);
 
@@ -132,7 +147,12 @@ class EnrollmentProvider extends ChangeNotifier {
   /// 从后端拉取已有办理记录恢复进度（首次访问会自动 StartOrResume）
   Future<void> _restoreFromBackend() async {
     try {
-      final flowLabel = _flowType == 'enrollment' ? '新生入学' : '毕业离校';
+      final flowLabel = {
+        'enrollment': '新生入学',
+        'graduation': '毕业离校',
+        'major_change': '转专业',
+        'student_loan': '助学贷款',
+      }[_flowType] ?? '办事流程';
       final resp = await _api.post(
         ApiConfig.processRecordStart(_flowType),
         data: {

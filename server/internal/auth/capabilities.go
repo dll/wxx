@@ -12,6 +12,7 @@ type Capability string
 
 // 个人能力（每个登录用户都该有）
 const (
+	SelfGuestRead       Capability = "self.guest.read"       // 游客浏览公开信息
 	SelfBriefingRead    Capability = "self.briefing.read"    // 今日速览
 	SelfDiaryRead       Capability = "self.diary.read"       // 学习日记
 	SelfCheckinWrite    Capability = "self.checkin.write"    // 每日打卡
@@ -154,6 +155,14 @@ type roleNode struct {
 //
 // 修改方法：调整 parents 字段；新角色在此添加节点即可
 var roles = map[string]*roleNode{
+	"guest": {
+		role:    "guest",
+		parents: nil,
+		capabilities: []Capability{
+			SelfGuestRead,
+			SelfKnowledgeRead,
+		},
+	},
 	"student": {
 		role:    "student",
 		parents: nil,

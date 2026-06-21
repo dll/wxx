@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
@@ -61,6 +62,22 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(height: 36),
 
+                  // 游客登录
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showGuestDialog(context),
+                      icon: const Icon(Icons.person_outline, size: 18),
+                      label: const Text('游客体验（无需学号）'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // 选项卡
                   Container(
                     decoration: BoxDecoration(
@@ -104,6 +121,103 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       ),
     );
   }
+}
+
+/// 弹出来宾注册对话框
+void _showGuestDialog(BuildContext context) {
+  final nameCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  bool loading = false;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('游客体验'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('无需学号，注册后可浏览公开知识库', style: TextStyle(fontSize: 13)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: '昵称',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: '手机号',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: loading ? null : () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      final name = nameCtrl.text.trim();
+                      final phone = phoneCtrl.text.trim();
+                      if (name.isEmpty || phone.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('请填写昵称和手机号')),
+                        );
+                        return;
+                      }
+                      setDlgState(() => loading = true);
+                      try {
+                        final api = ApiService();
+                        final resp = await api.post(ApiConfig.guestRegister, data: {
+                          'display_name': name,
+                          'phone': phone,
+                        });
+                        if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
+                          await Storage.setToken(resp.data['data']['token'] as String);
+                          await context.read<AuthProvider>().fetchProfile();
+                          if (context.mounted) {
+                            Navigator.of(ctx).pop();
+                            context.go('/home');
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(resp.data['message'] ?? '注册失败')),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('网络错误，请稍后重试')),
+                          );
+                        }
+                      } finally {
+                        if (ctx.mounted) setDlgState(() => loading = false);
+                      }
+                    },
+              child: loading
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('注册体验'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 // ── 密码登录表单 ──
