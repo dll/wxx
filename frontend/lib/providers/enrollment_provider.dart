@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -138,7 +139,11 @@ class EnrollmentProvider extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     } catch (e) {
-      _error = '加载流程失败：网络异常，请检查后重试';
+      if (e is DioException && e.response?.statusCode == 403) {
+        _error = '暂无权限访问，请先登录';
+      } else {
+        _error = '加载流程失败：网络异常，请检查后重试';
+      }
       _loading = false;
       notifyListeners();
     }

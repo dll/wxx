@@ -161,6 +161,8 @@ var roles = map[string]*roleNode{
 		capabilities: []Capability{
 			SelfGuestRead,
 			SelfKnowledgeRead,
+			SelfChat,
+			SelfProcessRead,
 		},
 	},
 	"student": {
