@@ -2,7 +2,8 @@
 class ApiConfig {
   // 后端基础地址（开发环境）
   // Web 端与后端同源时可用相对路径；跨域时需完整 URL
-  static const String baseUrl = 'https://wxx-server-2apyus7gx-czldl.vercel.app';
+  // 后端地址（同域代理：Cloudflare Pages Functions → Vercel）
+  static const String baseUrl = '';
 
   // API 版本前缀
   static const String apiPrefix = '/api/v1';
