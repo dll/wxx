@@ -40,6 +40,7 @@
 | 校外系统对接注意 | `docs/integrations.md` |
 | 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |
 | 部署指南 | `docs/deployment.md` |
+| **前端部署（Cloudflare Pages）** | `docs/蔚小芯前端重新部署.md`（迁移记录 + 自动部署） |
 
 ## 内部知识（可选）
 

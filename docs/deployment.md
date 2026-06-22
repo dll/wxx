@@ -59,6 +59,8 @@ make flutter-build-apk-safe   # 路径含中文（推荐，复制到 ASCII 临�
 
 ## Vercel 前端部署（强制流程）
 
+> **注意**：前端已迁移至 Cloudflare Pages（`wxx-agent.pages.dev`），详见 `docs/蔚小芯前端重新部署.md`。Vercel 后端 `wxx-server` 仍保留运行，通过 Cloudflare Functions 代理访问。以下为 Vercel 历史部署记录。
+
 > 前端 Vercel 项目：`wxx-frontend`（绑定域名 `https://wxx.pydaydayup.xyz`）
 > 后端 Vercel 项目：`wxx-server`（绑定域名 `https://api.pydaydayup.xyz`，`api/index.go` 入口）
 
