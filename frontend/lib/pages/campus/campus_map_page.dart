@@ -23,7 +23,7 @@ class _CampusTabInfo {
 }
 
 const _tabs = [
-  _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
+  _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航'),
   _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2), 'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
   _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0), 'https://www.chzu.edu.cn', '滁州学院官方网站'),
   _CampusTabInfo(_CampusTab.douyin, '抖音', Icons.music_note, Color(0xFFC62828), 'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2', '搜索滁州学院官方抖音'),
@@ -32,7 +32,6 @@ const _tabs = [
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
   String _copiedText = '';
-  double _imageScale = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +202,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildEnrollmentMapCard(theme),
+        _buildMapServiceCard(theme),
         const SizedBox(height: 12),
         // 路线说明
         Card(
@@ -248,7 +247,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildEnrollmentMapCard(ThemeData theme) {
+  Widget _buildMapServiceCard(ThemeData theme) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -262,82 +261,22 @@ class _CampusMapPageState extends State<CampusMapPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.map_outlined, size: 20, color: const Color(0xFF1677FF)),
+                Icon(Icons.web, size: 20, color: const Color(0xFF1677FF)),
                 const SizedBox(width: 8),
-                Text('新生入学流程地图',
+                Text('地图服务',
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.fullscreen, size: 20),
-                  tooltip: '全屏查看',
-                  onPressed: () => _showFullscreenMap(theme),
-                ),
               ],
             ),
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: Image.asset(
-                  'assets/images/会峰校区2003新生报到交通指示图01.png',
-                  height: 200 * _imageScale,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_not_supported,
-                              size: 40, color: theme.colorScheme.outline),
-                          const SizedBox(height: 8),
-                          Text('图片未加载',
-                              style: TextStyle(color: theme.colorScheme.outline)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.photo_size_select_small,
-                    size: 16, color: theme.colorScheme.outline),
-                Expanded(
-                  child: Slider(
-                    value: _imageScale,
-                    min: 0.5,
-                    max: 2.0,
-                    divisions: 15,
-                    label: '${(_imageScale * 100).toInt()}%',
-                    onChanged: (v) => setState(() => _imageScale = v),
-                  ),
-                ),
-                Icon(Icons.photo_size_select_large,
-                    size: 16, color: theme.colorScheme.outline),
-              ],
-            ),
-            Center(
-              child: Text('${(_imageScale * 100).toInt()}%',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-            ),
-            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _showFullscreenMap(theme),
-                icon: const Icon(Icons.open_in_full, size: 16),
-                label: const Text('全屏查看'),
+                onPressed: () => launchUrl(
+                  Uri.parse('https://www.chzu.edu.cn'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('查看校园地图'),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -347,46 +286,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ],
         ),
       ),
-    );
-  }
-
-  void _showFullscreenMap(ThemeData theme) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '关闭',
-      barrierColor: Colors.black87,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) {
-        return Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            title: const Text('新生入学流程地图'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          body: InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 5.0,
-            child: Center(
-              child: Image.asset(
-                'assets/images/会峰校区2003新生报到交通指示图01.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Text('图片未加载',
-                      style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
