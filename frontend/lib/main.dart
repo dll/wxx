@@ -30,10 +30,6 @@ void main() async {
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
   };
-  PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('未处理异常: $error');
-    return true;
-  };
 
   await Storage.init();
   runApp(const WxxApp());
