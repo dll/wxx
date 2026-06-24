@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蔚小芯 — 图标预览</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;500;700;900&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e0e4f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(66, 165, 245, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(66, 165, 245, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  position: relative;
+  z-index: 1;
+  padding: 60px 24px 40px;
+  text-align: center;
+}
+
+header h1 {
+  font-size: clamp(32px, 6vw, 56px);
+  font-weight: 900;
+  background: linear-gradient(135deg, #64B5F6, #42A5F5, #1A237E);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 6px;
+}
+
+header p {
+  margin-top: 12px;
+  font-weight: 300;
+  color: #7986cb;
+  font-size: 16px;
+  letter-spacing: 3px;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 960px;
+  padding: 0 24px 80px;
+}
+
+/* Hero showcase */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+  gap: 32px;
+}
+
+.hero-icon {
+  width: 192px;
+  height: 192px;
+  border-radius: 40px;
+  box-shadow:
+    0 0 60px rgba(66, 165, 245, 0.3),
+    0 20px 60px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.hero-label {
+  font-size: 14px;
+  font-weight: 300;
+  color: #546e7a;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* Mock phone */
+.mockups {
+  display: flex;
+  gap: 48px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 48px 0;
+}
+
+.phone {
+  width: 240px;
+  background: #111827;
+  border-radius: 32px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 30px 80px rgba(0,0,0,0.6);
+}
+
+.phone-notch {
+  background: #0a0e1a;
+  width: 120px;
+  height: 24px;
+  margin: 0 auto;
+  border-radius: 0 0 16px 16px;
+}
+
+.phone-screen {
+  background: #0f1929;
+  border-radius: 20px;
+  margin: 8px 0;
+  padding: 24px 16px;
+  min-height: 400px;
+}
+
+.phone-time {
+  text-align: center;
+  font-size: 12px;
+  color: #546e7a;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.phone-icon-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.phone-icon-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 64px;
+}
+
+.phone-icon-item img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.phone-icon-item span {
+  font-size: 10px;
+  color: #90a4ae;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.phone-icon-item.highlight img {
+  box-shadow: 0 0 20px rgba(66, 165, 245, 0.3);
+}
+
+.phone-icon-item.highlight span {
+  color: #64B5F6;
+}
+
+/* Size matrix */
+.size-matrix {
+  margin: 48px 0;
+}
+
+.size-matrix h2 {
+  font-weight: 500;
+  font-size: 20px;
+  margin-bottom: 24px;
+  color: #90a4ae;
+  letter-spacing: 2px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+}
+
+.size-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.size-card:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(66, 165, 245, 0.3);
+}
+
+.size-card img {
+  image-rendering: auto;
+}
+
+.size-card .label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64B5F6;
+}
+
+.size-card .dims {
+  font-size: 11px;
+  color: #546e7a;
+}
+
+/* Comparison */
+.comparison {
+  margin: 48px 0;
+}
+
+.comparison h2 {
+  font-weight: 500;
+  font-size: 20px;
+  margin-bottom: 24px;
+  color: #90a4ae;
+  letter-spacing: 2px;
+}
+
+.compare-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.compare-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.compare-item img {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.compare-item .tag {
+  font-size: 12px;
+  color: #78909c;
+  padding: 4px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+}
+
+.compare-item .tag.new {
+  border-color: #42A5F5;
+  color: #42A5F5;
+}
+
+.compare-item .tag.old {
+  border-color: #546e7a;
+  color: #546e7a;
+  text-decoration: line-through;
+}
+
+.arrow {
+  font-size: 28px;
+  color: #42A5F5;
+  opacity: 0.5;
+}
+
+/* Build button */
+.build-area {
+  text-align: center;
+  padding: 48px 0;
+}
+
+.build-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 48px;
+  background: linear-gradient(135deg, #1A237E, #42A5F5);
+  color: #fff;
+  border: none;
+  border-radius: 40px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 8px 32px rgba(66, 165, 245, 0.3);
+  text-decoration: none;
+}
+
+.build-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(66, 165, 245, 0.5);
+}
+
+.build-btn:active {
+  transform: translateY(0);
+}
+
+footer {
+  position: relative;
+  z-index: 1;
+  padding: 32px;
+  color: #37474f;
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<header>
+  <h1>蔚小芯</h1>
+  <p>AZURE · SPARK · AI</p>
+</header>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <img class="hero-icon" src="../frontend/web/icons/Icon-192.png" alt="蔚小芯 icon">
+    <div class="hero-label">应用图标 · 蔚蓝芯光</div>
+  </div>
+
+  <!-- Mock phone screens -->
+  <div class="mockups">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-time">9:41</div>
+        <div class="phone-icon-row">
+          <div class="phone-icon-item highlight">
+            <img src="../frontend/web/icons/Icon-192.png" alt="蔚小芯">
+            <span>蔚小芯</span>
+          </div>
+          <div class="phone-icon-item">
+            <img src="../frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="Placeholder" style="opacity:0.3">
+            <span>设置</span>
+          </div>
+          <div class="phone-icon-item">
+            <img src="../frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="Placeholder" style="opacity:0.3">
+            <span>相册</span>
+          </div>
+          <div class="phone-icon-item">
+            <img src="../frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="Placeholder" style="opacity:0.3">
+            <span>信息</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen" style="display:flex; align-items:center; justify-content:center;">
+        <div style="text-align:center;">
+          <img src="../frontend/web/icons/Icon-192.png" alt="蔚小芯" style="width:80px; height:80px; border-radius:20px; box-shadow:0 8px 32px rgba(66,165,245,0.4);">
+          <div style="margin-top:12px; font-size:13px; color:#64B5F6; font-weight:700;">蔚小芯</div>
+          <div style="margin-top:4px; font-size:11px; color:#546e7a;">滁州学院信息学院</div>
+          <div style="margin-top:4px; font-size:11px; color:#546e7a;">智慧学工AI助手</div>
+          <div style="margin-top:16px; display:flex; gap:8px; justify-content:center;">
+            <span style="padding:4px 12px; border:1px solid rgba(66,165,245,0.3); border-radius:12px; font-size:10px; color:#64B5F6;">打开</span>
+            <span style="padding:4px 12px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; font-size:10px; color:#546e7a;">卸载</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Size matrix -->
+  <div class="size-matrix">
+    <h2>✦ 图标尺寸矩阵</h2>
+    <div class="matrix-grid">
+      <div class="size-card">
+        <img src="../frontend/android/app/src/main/res/mipmap-mdpi/ic_launcher.png" alt="48">
+        <div class="label">MDPI</div>
+        <div class="dims">48 × 48</div>
+      </div>
+      <div class="size-card">
+        <img src="../frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" alt="72">
+        <div class="label">HDPI</div>
+        <div class="dims">72 × 72</div>
+      </div>
+      <div class="size-card">
+        <img src="../frontend/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png" alt="96">
+        <div class="label">XHDPI</div>
+        <div class="dims">96 × 96</div>
+      </div>
+      <div class="size-card">
+        <img src="../frontend/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png" alt="144">
+        <div class="label">XXHDPI</div>
+        <div class="dims">144 × 144</div>
+      </div>
+      <div class="size-card">
+        <img src="../frontend/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="192">
+        <div class="label">XXXHDPI</div>
+        <div class="dims">192 × 192</div>
+      </div>
+      <div class="size-card">
+        <img src="../frontend/web/icons/Icon-512.png" alt="512" style="width:64px; height:64px;">
+        <div class="label">Web</div>
+        <div class="dims">512 × 512</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New vs Old -->
+  <div class="comparison">
+    <h2>✦ 新旧对比</h2>
+    <div class="compare-row">
+      <div class="compare-item">
+        <img src="../frontend/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="New" style="width:128px; height:128px;">
+        <span class="tag new">✦ 新 · 蔚蓝芯光</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="compare-item">
+        <div style="width:128px; height:128px; border-radius:16px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:40px; color:#37474f; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="#546e7a"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+        </div>
+        <span class="tag old">旧 · Flutter 默认</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build -->
+  <div class="build-area">
+    <a class="build-btn" href="#" onclick="document.getElementById('build-status').textContent='执行中...'; return false;">
+      📦 构建 APK
+    </a>
+    <div id="build-status" style="margin-top:16px; color:#546e7a; font-size:13px;">确认图标后执行 APK 打包</div>
+  </div>
+
+</div>
+
+<footer>蔚小芯 · 滁州学院信息学院 · 2025-2026</footer>
+
+</body>
+</html>

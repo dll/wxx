@@ -111,6 +111,13 @@ deploy-web-prebuilt:
 	cd $(FLUTTER_DIR) && npx --yes vercel deploy --prebuilt --prod
 	@echo "=== 已部署到 https://wxx.pydaydayup.xyz ==="
 
+# ---- 前端全量构建 ----
+# 顺序构建 Web + APK（调用 PowerShell 7 脚本）
+.PHONY: all-frontend
+
+all-frontend:
+	pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1
+
 # ---- 全部 ----
 .PHONY: all test-all hooks all-safe all-apk-safe
 

@@ -14,15 +14,27 @@ flutter analyze --no-pub
 # 开发运行（Web）
 flutter run -d chrome
 
+# ── 一键构建 Web + APK（推荐）────────────────────────────
+# 同时构建 Web 和 APK 两个版本，产物：
+#   Web:  build/web/index.html
+#   APK:  build/app/outputs/flutter-apk/weixiaoxin-release.apk
+# 注意：确保项目路径不含中文，否则 Web 构建会因 impellerc bug 失败
+make all-frontend
+
+# ── 单独构建 ──────────────────────────────────────────────
+
 # 构建 Web（中文路径需用临时目录绕过 impellerc bug）
 flutter build web --release
 
-# 构建 APK（产物自动重命名为 蔚小芯.apk，详见 docs/deployment.md）
+# 构建 APK（推荐直接使用 gradlew 以避免 flutter build 管道丢失 Gradle 输出）
+cd android && ./gradlew assembleRelease
+
+# 构建 APK（通过 Flutter CLI，产物自动重命名为 蔚小芯.apk，详见 docs/deployment.md）
 make flutter-build-apk        # ASCII 路径
 make flutter-build-apk-safe   # 路径含中文时使用
 
-# 部署 Web 到 Vercel（wxx-frontend 项目，域名 wxx.pydaydayup.xyz）
-make deploy-web
+# 部署 Web 到 Cloudflare Pages（项目 wxx-agent，域名 wxx-agent.pages.dev）
+# 详见 docs/蔚小芯前端重新部署.md
 
 # 测试
 flutter test
