@@ -32,6 +32,7 @@ const _tabs = [
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
   String _copiedText = '';
+  double _imageScale = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -201,7 +202,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        _buildEnrollmentMapCard(theme),
+        const SizedBox(height: 12),
         // 路线说明
         Card(
           elevation: 0,
@@ -242,6 +245,148 @@ class _CampusMapPageState extends State<CampusMapPage> {
         Text('$label：', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
         Expanded(child: Text(desc, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant))),
       ],
+    );
+  }
+
+  Widget _buildEnrollmentMapCard(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.map_outlined, size: 20, color: const Color(0xFF1677FF)),
+                const SizedBox(width: 8),
+                Text('新生入学流程地图',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.fullscreen, size: 20),
+                  tooltip: '全屏查看',
+                  onPressed: () => _showFullscreenMap(theme),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.asset(
+                  'assets/images/会峰校区2003新生报到交通指示图01.png',
+                  height: 200 * _imageScale,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 150,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_not_supported,
+                              size: 40, color: theme.colorScheme.outline),
+                          const SizedBox(height: 8),
+                          Text('图片未加载',
+                              style: TextStyle(color: theme.colorScheme.outline)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.photo_size_select_small,
+                    size: 16, color: theme.colorScheme.outline),
+                Expanded(
+                  child: Slider(
+                    value: _imageScale,
+                    min: 0.5,
+                    max: 2.0,
+                    divisions: 15,
+                    label: '${(_imageScale * 100).toInt()}%',
+                    onChanged: (v) => setState(() => _imageScale = v),
+                  ),
+                ),
+                Icon(Icons.photo_size_select_large,
+                    size: 16, color: theme.colorScheme.outline),
+              ],
+            ),
+            Center(
+              child: Text('${(_imageScale * 100).toInt()}%',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showFullscreenMap(theme),
+                icon: const Icon(Icons.open_in_full, size: 16),
+                label: const Text('全屏查看'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullscreenMap(ThemeData theme) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭',
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text('新生入学流程地图'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          body: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 5.0,
+            child: Center(
+              child: Image.asset(
+                'assets/images/会峰校区2003新生报到交通指示图01.png',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Text('图片未加载',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

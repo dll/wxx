@@ -167,3 +167,7 @@ desktop.ini
 tmp/
 temp/
 .vercel
+
+# Gradle build output
+frontend/android/gradle_err.txt
+frontend/android/gradle_out.txt
