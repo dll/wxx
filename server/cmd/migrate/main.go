@@ -101,6 +101,11 @@ func main() {
 				continue
 			}
 			if _, err := db.Exec(stmt); err != nil {
+				// 与生产迁移 runner 保持一致：ALTER TABLE ADD COLUMN 重复列名视为已达目标状态
+				if isDuplicateColumnError(err) && strings.Contains(strings.ToUpper(stmt), "ALTER TABLE") {
+					log.Printf("跳过 %s 第 %d 条语句（列已存在）: %v", filename, i+1, err)
+					continue
+				}
 				log.Fatalf("执行 %s 第 %d 条语句失败: %v\nSQL: %s", filename, i+1, err, truncate(stmt, 200))
 			}
 		}
@@ -166,6 +171,16 @@ func splitSQL(content string) []string {
 	}
 
 	return statements
+}
+
+// isDuplicateColumnError 检测 SQLite "duplicate column name" 错误
+func isDuplicateColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate column name") ||
+		strings.Contains(msg, "duplicate column")
 }
 
 // truncate 截断字符串用于日志输出

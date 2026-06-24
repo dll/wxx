@@ -52,6 +52,14 @@ func (h *FeedbackHandler) Submit(c *gin.Context) {
 
 	fb, err := h.feedbackSvc.Submit(userCtx.UserID, userCtx.Username, &req)
 	if err != nil {
+		// Vercel /tmp 数据库冷启动后，旧 token 对应的用户可能已不存在
+		if err == service.ErrUserNotFound {
+			c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+				Code:    401,
+				Message: "登录状态已失效，请重新登录",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "提交反馈失败: " + err.Error(),

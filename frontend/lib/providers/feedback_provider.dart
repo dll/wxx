@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -181,6 +182,22 @@ class FeedbackProvider extends ChangeNotifier {
         return true;
       }
       _error = response.data['message'] ?? '提交失败';
+      notifyListeners();
+      return false;
+    } on DioException catch (e) {
+      // 401 由 ApiService 拦截器统一处理（退出登录并跳转登录页）
+      if (e.response?.statusCode == 401) {
+        _error = '登录状态已失效，请重新登录';
+        notifyListeners();
+        return false;
+      }
+      // 优先使用服务端返回的业务错误信息，便于定位 500 等后端问题
+      final serverMessage = e.response?.data is Map
+          ? (e.response?.data as Map)['message']?.toString()
+          : null;
+      _error = serverMessage?.isNotEmpty == true
+          ? serverMessage!
+          : '网络错误: $e';
       notifyListeners();
       return false;
     } catch (e) {

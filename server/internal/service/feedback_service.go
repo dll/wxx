@@ -14,14 +14,15 @@ import (
 // FeedbackService 用户反馈业务服务
 type FeedbackService struct {
 	feedbackRepo *repository.FeedbackRepo
+	userRepo     *repository.UserRepo
 	// 可选：用户反馈"回答有误"时回调（用于失效 FAQ 缓存等）
 	// messageID 是用户在前端记录的消息 id，由调用方决定如何用它定位原问题
 	onAnswerError func(messageID, content string)
 }
 
 // NewFeedbackService 创建反馈服务
-func NewFeedbackService(feedbackRepo *repository.FeedbackRepo) *FeedbackService {
-	return &FeedbackService{feedbackRepo: feedbackRepo}
+func NewFeedbackService(feedbackRepo *repository.FeedbackRepo, userRepo *repository.UserRepo) *FeedbackService {
+	return &FeedbackService{feedbackRepo: feedbackRepo, userRepo: userRepo}
 }
 
 // SetAnswerErrorHook 注入"回答有误"反馈钩子（如失效 FAQ 缓存）
@@ -32,6 +33,17 @@ func (s *FeedbackService) SetAnswerErrorHook(fn func(messageID, content string))
 
 // Submit 提交反馈（含可选截图）
 func (s *FeedbackService) Submit(userID int64, username string, req *model.FeedbackCreateRequest) (*model.Feedback, error) {
+	// 校验 token 中的用户是否仍存在于当前数据库（Vercel /tmp 数据库冷启动后旧 token 可能失效）
+	if s.userRepo != nil {
+		u, err := s.userRepo.GetByID(userID)
+		if err != nil {
+			return nil, ErrUserNotFound
+		}
+		if u == nil {
+			return nil, ErrUserNotFound
+		}
+	}
+
 	fb := &model.Feedback{
 		FeedbackID:    "fb-" + uuid.New().String()[:8],
 		UserID:        userID,

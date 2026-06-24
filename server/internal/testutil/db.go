@@ -38,6 +38,20 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"011_feedback_enhance.sql",
 		"012_voice_config.sql",
 		"013_user_model_config.sql",
+		"014_update_model_defaults.sql",
+		"015_token_usage.sql",
+		"016_fix_seed_users.sql",
+		"017_session_title.sql",
+		"018_process_records.sql",
+		"019_feedback_screenshot_blob.sql",
+		"020_seed_graduation_process.sql",
+		"021_add_step_contact_fields.sql",
+		"022_issue_forecasts.sql",
+		"023_graduation_topics.sql",
+		"024_student_features.sql",
+		"025_add_user_status.sql",
+		"026_seed_additional_processes.sql",
+		"027_add_guest_role.sql",
 	} {
 		p := resolveMigrationPath(t, m)
 		c, err := os.ReadFile(p)
@@ -96,6 +110,11 @@ func execMigrationSQL(t *testing.T, db *sql.DB, content string) {
 			continue
 		}
 		if _, err := db.Exec(stmt); err != nil {
+			// 与生产迁移 runner 保持一致：ALTER TABLE ADD COLUMN 重复列名视为已达目标状态
+			if isDuplicateColumnError(err) && strings.Contains(strings.ToUpper(stmt), "ALTER TABLE") {
+				t.Logf("跳过重复列: %v", err)
+				continue
+			}
 			t.Fatalf("执行 SQL 失败: %v\nSQL: %s", err, truncateSQL(stmt, 200))
 		}
 	}
@@ -145,6 +164,16 @@ func SplitSQL(content string) []string {
 	}
 
 	return statements
+}
+
+// isDuplicateColumnError 检测 SQLite "duplicate column name" 错误
+func isDuplicateColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate column name") ||
+		strings.Contains(msg, "duplicate column")
 }
 
 // truncateSQL 截断 SQL 用于错误日志

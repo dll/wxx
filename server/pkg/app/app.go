@@ -151,7 +151,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
-	feedbackSvc := service.NewFeedbackService(feedbackRepo)
+	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
