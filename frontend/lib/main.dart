@@ -27,9 +27,15 @@ import 'utils/storage.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化本地存储
-  await Storage.init();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('未处理异常: $error');
+    return true;
+  };
 
+  await Storage.init();
   runApp(const WxxApp());
 }
 
