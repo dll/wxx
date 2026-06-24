@@ -1,0 +1,6 @@
+<!-- WebView 壳 — 加载 Flutter Web 前端 -->
+<web-view 
+  src="{{src}}" 
+  bindload="onWebViewLoad" 
+  binderror="onWebViewError"
+/>

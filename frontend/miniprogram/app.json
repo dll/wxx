@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "蔚小芯",
+    "navigationBarBackgroundColor": "#1565C0",
+    "navigationBarTextStyle": "white"
+  },
+  "requiredBackgroundModes": [],
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2"
+}
