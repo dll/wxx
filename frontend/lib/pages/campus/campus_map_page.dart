@@ -1,7 +1,6 @@
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// 校园服务入口 — 高德地图 / VR全景 / 学校首页 / 招生抖音
 class CampusMapPage extends StatefulWidget {
@@ -163,9 +162,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => html.window.open(
-                    'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode',
-                    '_blank',
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode'),
+                    mode: LaunchMode.externalApplication,
                   ),
                   icon: const Icon(Icons.directions_car, size: 18),
                   label: const Text('高德地图导航'),
@@ -186,9 +185,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => html.window.open(
-                    'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988',
-                    '_blank',
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988'),
+                    mode: LaunchMode.externalApplication,
                   ),
                   icon: const Icon(Icons.map, size: 18),
                   label: const Text('腾讯地图导航'),
@@ -285,7 +284,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () => html.window.open(tab.url, '_blank'),
+                onPressed: () => launchUrl(Uri.parse(tab.url), mode: LaunchMode.externalApplication),
                 icon: const Icon(Icons.open_in_new, size: 20),
                 label: Text('打开 ${tab.label}'),
                 style: ElevatedButton.styleFrom(

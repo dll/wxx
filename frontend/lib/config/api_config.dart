@@ -1,9 +1,15 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// API 配置常量
 class ApiConfig {
-  // 后端基础地址（开发环境）
-  // Web 端与后端同源时可用相对路径；跨域时需完整 URL
-  // 后端地址（同域代理：Cloudflare Pages Functions → Vercel）
-  static const String baseUrl = '';
+  /// 后端基础地址
+  /// Web 端：空字符串（同域 Cloudflare Pages Functions 代理）
+  /// Android/iOS：通过 Cloudflare Pages 代理转发到 Vercel 后端
+  /// （国内直连 Vercel 被墙，必须走 Cloudflare 中转）
+  static String get baseUrl {
+    if (kIsWeb) return '';
+    return 'https://wxx-agent.pages.dev';
+  }
 
   // API 版本前缀
   static const String apiPrefix = '/api/v1';

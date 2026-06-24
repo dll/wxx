@@ -1,6 +1,5 @@
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'voice_dialog.dart';
@@ -28,7 +27,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   static const _items = <_FabItem>[
     _FabItem(
       icon: Icons.navigation,
-      label: '导航到校',
+      label: '导航',
       color: Color(0xFF1677FF),
       action: _FabAction.campus,
     ),
@@ -229,7 +228,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   Future<void> _openNavigation(BuildContext context) async {
     const url = 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode';
-    html.window.open(url, '_blank');
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }
 

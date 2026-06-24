@@ -237,7 +237,7 @@ class ChatProvider extends ChangeNotifier {
 
     final audioData = await _voice.textToSpeech(msg.content);
     if (audioData == null) {
-      _error = '语音合成失败';
+      _error = '语音合成失败：后端服务未响应或未配置 TTS 引擎，请检查网络连接';
       _isPlaying = false;
       _playingIndex = -1;
       notifyListeners();

@@ -131,12 +131,15 @@ class VoiceService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
+        if (response.data is Uint8List) {
+          return response.data as Uint8List;
+        }
         if (response.data is List<int>) {
           return Uint8List.fromList(response.data as List<int>);
         }
       }
       return null;
-    } on DioException {
+    } on DioException catch (_) {
       return null;
     }
   }

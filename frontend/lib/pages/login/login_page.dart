@@ -289,6 +289,8 @@ void _showGuestDialog(BuildContext context) {
                                 }
                                 setDlgState(() => sendingCode = true);
                                 try {
+                                  // 开发环境：后端返回随机 6 位数字，不实际发送短信
+                                  // 生产环境：由第三方短信 SDK 发送，前端不返回 code
                                   final resp = await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
                                   final respCode = resp.data?['data']?['code'];
                                   if (respCode != null) codeCtrl.text = respCode.toString();

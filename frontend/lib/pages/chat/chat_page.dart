@@ -580,6 +580,21 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.only(left: 16),
             child: actionBar,
           ),
+          // 无知识库引用时提示用户前往知识大厅
+          if (msg.answerCard == null || msg.answerCard!.sources.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 20, top: 2),
+              child: GestureDetector(
+                onTap: () => context.go('/browse'),
+                child: Text(
+                  '💡 该回答未引用知识库，仅供参考。前往知识大厅浏览已收录内容 →',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -203,6 +203,12 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             const SizedBox(height: 16),
           ],
 
+          // 流程节点图示
+          if (prov.totalSteps > 0) ...[
+            _buildFlowDiagram(prov, theme),
+            const SizedBox(height: 16),
+          ],
+
           // 步骤列表
           if (prov.steps.isNotEmpty) ...[
             Text('办理步骤', style: theme.textTheme.titleSmall?.copyWith(
@@ -346,6 +352,118 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     color: progress == 1.0 ? Colors.green : theme.colorScheme.primary,
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 流程节点图示 — 所有步骤作为横向连接节点展示
+  Widget _buildFlowDiagram(EnrollmentProvider prov, ThemeData theme) {
+    final labels = prov.steps;
+    if (labels.isEmpty) return const SizedBox.shrink();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.account_tree_outlined, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text('流程全景', style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  )),
+                ],
+              ),
+            ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(labels.length, (i) {
+                  final isCompleted = prov.completedSteps.contains(i);
+                  final isLast = i == labels.length - 1;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 节点
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? Colors.green
+                                  : theme.colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isCompleted
+                                    ? Colors.green
+                                    : theme.colorScheme.primary.withValues(alpha: 0.4),
+                                width: 2,
+                              ),
+                            ),
+                            child: Center(
+                              child: isCompleted
+                                  ? const Icon(Icons.check, size: 20, color: Colors.white)
+                                  : Text(
+                                      '${i + 1}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              labels[i],
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isCompleted
+                                    ? theme.colorScheme.outline
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: isCompleted ? FontWeight.normal : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 连接箭头
+                      if (!isLast)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 12,
+                            color: isCompleted
+                                ? Colors.green.withValues(alpha: 0.5)
+                                : theme.colorScheme.outlineVariant,
+                          ),
+                        ),
+                    ],
+                  );
+                }),
               ),
             ),
           ],
