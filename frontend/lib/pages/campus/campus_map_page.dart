@@ -1,6 +1,7 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// 校园服务入口 — 高德地图 / VR全景 / 学校首页 / 招生抖音
 class CampusMapPage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _CampusTabInfo {
 }
 
 const _tabs = [
-  _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航'),
+  _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
   _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2), 'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
   _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0), 'https://www.chzu.edu.cn', '滁州学院官方网站'),
   _CampusTabInfo(_CampusTab.douyin, '抖音', Icons.music_note, Color(0xFFC62828), 'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2', '搜索滁州学院官方抖音'),
@@ -32,6 +33,7 @@ const _tabs = [
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
   String _copiedText = '';
+  double _imageScale = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -162,9 +164,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode'),
-                    mode: LaunchMode.externalApplication,
+                  onPressed: () => html.window.open(
+                    'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode',
+                    '_blank',
                   ),
                   icon: const Icon(Icons.directions_car, size: 18),
                   label: const Text('高德地图导航'),
@@ -185,9 +187,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988'),
-                    mode: LaunchMode.externalApplication,
+                  onPressed: () => html.window.open(
+                    'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988',
+                    '_blank',
                   ),
                   icon: const Icon(Icons.map, size: 18),
                   label: const Text('腾讯地图导航'),
@@ -202,7 +204,33 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildMapServiceCard(theme),
+        // ── 校园报到导航按钮 ──
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () => html.window.open(
+                    'assets/campus_navigation.html',
+                    '_blank',
+                  ),
+                  icon: const Icon(Icons.explore, size: 18),
+                  label: const Text('校园报到导航'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE65100),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildEnrollmentMapCard(theme),
         const SizedBox(height: 12),
         // 路线说明
         Card(
@@ -247,7 +275,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildMapServiceCard(ThemeData theme) {
+  Widget _buildEnrollmentMapCard(ThemeData theme) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -261,22 +289,82 @@ class _CampusMapPageState extends State<CampusMapPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.web, size: 20, color: const Color(0xFF1677FF)),
+                Icon(Icons.map_outlined, size: 20, color: const Color(0xFF1677FF)),
                 const SizedBox(width: 8),
-                Text('地图服务',
+                Text('新生入学流程地图',
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.fullscreen, size: 20),
+                  tooltip: '全屏查看',
+                  onPressed: () => _showFullscreenMap(theme),
+                ),
               ],
             ),
             const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.asset(
+                  'assets/images/会峰校区2003新生报到交通指示图01.png',
+                  height: 200 * _imageScale,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 150,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_not_supported,
+                              size: 40, color: theme.colorScheme.outline),
+                          const SizedBox(height: 8),
+                          Text('图片未加载',
+                              style: TextStyle(color: theme.colorScheme.outline)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.photo_size_select_small,
+                    size: 16, color: theme.colorScheme.outline),
+                Expanded(
+                  child: Slider(
+                    value: _imageScale,
+                    min: 0.5,
+                    max: 2.0,
+                    divisions: 15,
+                    label: '${(_imageScale * 100).toInt()}%',
+                    onChanged: (v) => setState(() => _imageScale = v),
+                  ),
+                ),
+                Icon(Icons.photo_size_select_large,
+                    size: 16, color: theme.colorScheme.outline),
+              ],
+            ),
+            Center(
+              child: Text('${(_imageScale * 100).toInt()}%',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://www.chzu.edu.cn'),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('查看校园地图'),
+                onPressed: () => _showFullscreenMap(theme),
+                icon: const Icon(Icons.open_in_full, size: 16),
+                label: const Text('全屏查看'),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -286,6 +374,46 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showFullscreenMap(ThemeData theme) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭',
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text('新生入学流程地图'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          body: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 5.0,
+            child: Center(
+              child: Image.asset(
+                'assets/images/会峰校区2003新生报到交通指示图01.png',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Text('图片未加载',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -328,7 +456,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () => launchUrl(Uri.parse(tab.url), mode: LaunchMode.externalApplication),
+                onPressed: () => html.window.open(tab.url, '_blank'),
                 icon: const Icon(Icons.open_in_new, size: 20),
                 label: Text('打开 ${tab.label}'),
                 style: ElevatedButton.styleFrom(
