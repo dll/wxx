@@ -57,7 +57,7 @@ class _ConsentPageState extends State<ConsentPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '信息学院智慧学工 AI 助手',
+                    '计算机学院智慧学工 AI 助手',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -334,7 +334,7 @@ class _ConsentPageState extends State<ConsentPage> {
 
 一、服务说明
 
-1.1 蔚小芯是滁州学院信息学院提供的智慧校园 AI 学工助手，旨在为师生提供便捷的校园信息查询、学习辅导和生活服务。
+1.1 蔚小芯是滁州学院计算机科学与工程学院（网络空间安全学院）提供的智慧校园 AI 学工助手，旨在为师生提供便捷的校园信息查询、学习辅导和生活服务。
 
 1.2 服务功能包括但不限于：
 • 智能问答（政策咨询、流程引导、学习辅导）

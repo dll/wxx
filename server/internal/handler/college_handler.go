@@ -29,7 +29,7 @@ func (h *CollegeHandler) TwinScreen(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"college": "信息学院",
+		"college": "计算机学院",
 		"overview": gin.H{
 			"total_students": 580, "health_score": 85.2, "risk_students": 12, "active_rate": 0.78,
 		},
@@ -54,7 +54,7 @@ func (h *CollegeHandler) DataAnalysis(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"content":     "信息学院数据分析报告：全院平均绩点3.12，挂科率4.2%，出勤率92.5%。",
+		"content":     "计算机学院数据分析报告：全院平均绩点3.12，挂科率4.2%，出勤率92.5%。",
 		"data_source": "fallback",
 	})
 }

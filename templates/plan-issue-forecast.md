@@ -47,7 +47,7 @@
 POST /api/v1/forecast/analysis
 请求：
 {
-  "college_id": "信息学院",      // 可选，学院筛选
+  "college_id": "计算机学院",      // 可选，学院筛选
   "time_range": "last_30_days", // 时间范围
   "analysis_type": "comprehensive",  // comprehensive|emotion|academic|attendance|complaint|discipline
   "data_sources": ["emotion", "feedback", "grades", "attendance", "leave", "discipline"]  // 可选，指定数据源

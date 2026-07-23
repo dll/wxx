@@ -81,7 +81,7 @@ func (h *SchoolAdminHandler) AcademicOverview(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"date":            "2026-05-18",
-		"college_rankings": []gin.H{{"college": "信息学院", "health": 85.2}},
+		"college_rankings": []gin.H{{"college": "计算机学院", "health": 85.2}},
 		"data_source":     "fallback",
 	})
 }

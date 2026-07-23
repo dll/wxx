@@ -99,7 +99,7 @@ func (s *UnionService) GeneratePoster(ctx context.Context, title, style string) 
 	return &PosterDesign{
 		Style:       style,
 		Title:       title,
-		Subtitle:    "滁州学院信息学院",
+		Subtitle:    "滁州学院计算机学院",
 		Copy:        "诚邀您的参与！\n时间：2026年5月\n地点：信息楼报告厅",
 		ColorScheme: styleConfig["colors"],
 		Layout:      styleConfig["layout"],

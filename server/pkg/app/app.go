@@ -155,6 +155,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
+	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)
+	docSvc := service.NewDocumentService("./data/uploads", 50)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
@@ -250,6 +252,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
 	forecastHandler := handler.NewForecastHandler(forecastSvc)
+	notificationHandler := handler.NewNotificationHandler(notificationSvc)
+	uploadHandler := handler.NewUploadHandler(docSvc, kbSvc)
 	graduationHandler := handler.NewGraduationHandler(graduationService)
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
 
@@ -258,7 +262,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler)
 
 	return router, nil
 }
@@ -446,6 +450,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	forecastH *handler.ForecastHandler,
 	graduationH *handler.GraduationHandler,
 	studentFeaturesH *handler.StudentFeaturesHandler,
+	notificationH *handler.NotificationHandler,
+	uploadH *handler.UploadHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -689,12 +695,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.POST("/feedback/screenshot", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.UploadScreenshot)
 			// 我的反馈：所有登录用户都能查看自己提交的反馈（按 user_id 过滤）
 			secured.GET("/feedback/mine", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Mine)
-
-			feedback := secured.Group("/feedback")
-			{
-				feedback.GET("", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
-				feedback.PUT("/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
-			}
+			// 管理员反馈列表和处理（注意：直接注册避免 Group 产生的尾部斜杠重定向丢 Authorization 头）
+			secured.GET("/feedback", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
+			secured.PUT("/feedback/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
 
 			// ── 办事流程办理记录 ──
 			process := secured.Group("/process/records")
@@ -743,7 +746,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/mental-health-report", auth.RequireCapability(auth.SelfGenericAI), studentH.MentalHealthReport)
 				student.GET("/note-assistant", auth.RequireCapability(auth.SelfGenericAI), studentH.NoteAssistant)
 				student.GET("/alumni-match", auth.RequireCapability(auth.SelfGenericAI), studentH.AlumniMatch)
-			// ── P3 生态扩展 ──
+				// ── P3 生态扩展 ──
 				student.GET("/dynamic-mentor", auth.RequireCapability(auth.SelfGenericAI), studentH.DynamicMentor)
 				student.GET("/career-sim-enhanced", auth.RequireCapability(auth.SelfGenericAI), studentH.EnhancedCareerSim)
 			}
@@ -786,6 +789,17 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				counselor.GET("/monthly-brief", auth.RequireCapability(auth.CounselorClassReport), counselorH.MonthlyBrief)
 				counselor.POST("/session-insight", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.SessionInsight)
 			}
+
+			// ── 通知推送（辅导员及以上角色） ──
+			secured.POST("/notifications", auth.RequireCapability(auth.CounselorNotify), notificationH.Create)
+			secured.GET("/notifications", auth.RequireCapability(auth.CounselorNotify), notificationH.List)
+			secured.POST("/notifications/:id/publish", auth.RequireCapability(auth.CounselorNotify), notificationH.Publish)
+			secured.DELETE("/notifications/:id", auth.RequireCapability(auth.CounselorNotify), notificationH.Delete)
+			secured.GET("/notifications/webhook-status", auth.RequireCapability(auth.CounselorNotify), notificationH.WebhookStatus)
+
+			// ── 文档上传与知识入库 ──
+			secured.POST("/kb/upload", auth.RequireCapability(auth.CounselorKBWrite), uploadH.Upload)
+			secured.GET("/kb/formats", uploadH.SupportedFormats)
 
 			// ── 教师 AI 功能 ──
 			teacher := secured.Group("/teacher")

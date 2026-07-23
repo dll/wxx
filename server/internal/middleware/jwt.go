@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -60,9 +61,10 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 		// 从 Authorization 头提取 token
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			log.Printf("[JWTAuth] 缺少认证信息 path=%s method=%s ip=%s", c.Request.URL.Path, c.Request.Method, c.ClientIP())
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
-				"message": "缺少认证信息",
+				"message": "缺少认证信息，请重新登录",
 			})
 			return
 		}
@@ -70,6 +72,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 		// 格式：Bearer <token>
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
+			log.Printf("[JWTAuth] 认证格式错误 path=%s method=%s", c.Request.URL.Path, c.Request.Method)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
 				"message": "认证格式错误，需要 Bearer token",
@@ -89,9 +92,10 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
+			log.Printf("[JWTAuth] token 验证失败 path=%s method=%s err=%v", c.Request.URL.Path, c.Request.Method, err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
-				"message": "token 无效或已过期",
+				"message": "token 无效或已过期，请重新登录",
 			})
 			return
 		}
@@ -107,6 +111,8 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			DisplayName: claims.DisplayName,
 		}
 		c.Set(contextKeyUser, userCtx)
+
+		log.Printf("[JWTAuth] 认证成功 user=%s role=%s path=%s", claims.Username, claims.Role, c.Request.URL.Path)
 
 		c.Next()
 	}

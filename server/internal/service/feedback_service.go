@@ -106,7 +106,7 @@ func (s *FeedbackService) ListMine(userID int64, status string, page, pageSize i
 	return items, total, nil
 }
 
-// Resolve 处理反馈（标记为已解决或驳回，含可选回复）
+// Resolve 处理反馈（标记为处理中/已解决/驳回，含可选回复）
 func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status, reply string) (*model.Feedback, error) {
 	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
 	if err != nil {
@@ -115,15 +115,35 @@ func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status, reply string) 
 	if fb == nil {
 		return nil, fmt.Errorf("反馈不存在: %s", feedbackID)
 	}
-	if fb.Status != "pending" {
-		return nil, fmt.Errorf("反馈状态为 %s，不可重复处理", fb.Status)
+	// 允许的状态流转：pending→processing, pending→resolved, pending→dismissed, processing→resolved, processing→dismissed
+	validTransitions := map[string][]string{
+		"pending":    {"processing", "resolved", "dismissed"},
+		"processing": {"resolved", "dismissed"},
+		"resolved":   {},
+		"dismissed":  {},
+	}
+	allowed, ok := validTransitions[fb.Status]
+	if !ok {
+		return nil, fmt.Errorf("未知的反馈状态: %s", fb.Status)
+	}
+	valid := false
+	for _, s := range allowed {
+		if s == status {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return nil, fmt.Errorf("反馈状态为 %s，不可变更为 %s", fb.Status, status)
 	}
 
 	now := time.Now().Format("2006-01-02 15:04:05")
 	fb.Status = status
 	fb.ResolvedBy = resolvedBy
 	fb.ResolvedAt = &now
-	fb.Reply = reply
+	if reply != "" {
+		fb.Reply = reply
+	}
 
 	if err := s.feedbackRepo.Update(fb); err != nil {
 		return nil, fmt.Errorf("更新反馈状态失败: %w", err)

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS agents (
 INSERT OR IGNORE INTO agents (agent_id, name, description, agent_type, system_prompt, model_provider)
 VALUES
     ('qa-default', '通用问答助手', '处理日常学习、生活、校园事务等通用咨询', 'qa',
-     '你是滁州学院信息学院的智能学工助手"蔚小芯"。你友好、耐心、专业，擅长解答学生关于学习、生活、校园事务的各种问题。回答应简洁清晰，使用中文，对政策类问题必须引用具体条款。',
+     '你是滁州学院计算机学院的智能学工助手"蔚小芯"。你友好、耐心、专业，擅长解答学生关于学习、生活、校园事务的各种问题。回答应简洁清晰，使用中文，对政策类问题必须引用具体条款。',
      ''),
 
     ('policy-expert', '政策解读专家', '专门处理校规校纪、奖助学金、学籍管理等政策类问题', 'policy',

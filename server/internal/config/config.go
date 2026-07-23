@@ -57,6 +57,10 @@ type Config struct {
 	WeiyuanSyncSecret string
 	WeiyuanImportURL  string
 
+	// 通知推送 Webhook（QQ群/微信群）
+	QQWebhookURL    string // QQ 群机器人 Webhook URL
+	WechatWebhookURL string // 企业微信机器人 Webhook URL
+
 	// Temporal 工作流引擎
 	TemporalHostPort  string // e.g., "localhost:7233"（空 = 禁用）
 	TemporalNamespace string // e.g., "wxx"
@@ -107,6 +111,10 @@ func Load() *Config {
 
 		WeiyuanSyncSecret: envOr("WEIYUAN_SYNC_SECRET", ""),
 		WeiyuanImportURL:  envOr("WEIYUAN_IMPORT_URL", ""),
+
+		// 通知推送 Webhook
+		QQWebhookURL:     envOr("QQ_WEBHOOK_URL", ""),
+		WechatWebhookURL: envOr("WECHAT_WEBHOOK_URL", ""),
 
 		// Temporal（空 = 禁用）
 		TemporalHostPort:  envOr("TEMPORAL_HOST_PORT", ""),

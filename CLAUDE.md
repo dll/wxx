@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # CLAUDE.md — 蔚小芯 (WXX)
 
-> 信息学院智慧校园 AI 学工助手。本文为 Claude Code 会话入口，细则按需加载 `docs/`、`specs/`。
+> 计算机科学与工程学院（网络空间安全学院）智慧校园 AI 学工助手。本文为 Claude Code 会话入口，细则按需加载 `docs/`、`specs/`。
 
 ## 项目一句话
 

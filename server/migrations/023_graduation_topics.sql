@@ -136,16 +136,16 @@ INSERT OR IGNORE INTO graduation_milestones (batch, code, name, deadline, weight
 
 -- 插入示例导师数据
 INSERT OR IGNORE INTO advisors (name, advisor_id, title, college, department, research_areas, max_students) VALUES
-('张教授', 'T001', '教授', '信息学院', '计算机科学系', '["人工智能","机器学习","数据挖掘"]', 6),
-('李副教授', 'T002', '副教授', '信息学院', '计算机科学系', '["软件工程","Web开发","数据库"]', 5),
-('王讲师', 'T003', '讲师', '信息学院', '计算机科学系', '["网络安全","信息安全","密码学"]', 4),
-('赵教授', 'T004', '教授', '信息学院', '电子信息系', '["嵌入式系统","物联网","单片机"]', 5),
-('陈副教授', 'T005', '副教授', '信息学院', '电子信息系', '["通信工程","信号处理","5G技术"]', 4);
+('张教授', 'T001', '教授', '计算机学院', '计算机科学系', '["人工智能","机器学习","数据挖掘"]', 6),
+('李副教授', 'T002', '副教授', '计算机学院', '计算机科学系', '["软件工程","Web开发","数据库"]', 5),
+('王讲师', 'T003', '讲师', '计算机学院', '计算机科学系', '["网络安全","信息安全","密码学"]', 4),
+('赵教授', 'T004', '教授', '计算机学院', '电子信息系', '["嵌入式系统","物联网","单片机"]', 5),
+('陈副教授', 'T005', '副教授', '计算机学院', '电子信息系', '["通信工程","信号处理","5G技术"]', 4);
 
 -- 插入示例选题数据
 INSERT OR IGNORE INTO thesis_topics (title, advisor_id, college, major, topic_type, nature, result_form, difficulty, description, keywords, max_students, batch) VALUES
-('基于深度学习的图像识别系统设计与实现', 1, '信息学院', '软件工程', 'design', 'engineering', 'system', 'hard', '利用深度学习技术实现图像分类和目标检测系统', '深度学习,图像识别,CNN,PyTorch', 2, 2026),
-('智能家居控制系统设计', 2, '信息学院', '软件工程', 'design', 'engineering', 'system', 'medium', '设计并实现基于物联网的智能家居控制系统', '物联网,嵌入式,传感器,Android', 2, 2026),
-('校园二手交易平台开发', 3, '信息学院', '软件工程', 'design', 'engineering', 'system', 'medium', '开发校园二手物品交易平台，支持在线交易', 'Web开发,React,Node.js,MySQL', 3, 2026),
-('学生行为分析预警系统', 4, '信息学院', '软件工程', 'design', 'engineering', 'system', 'hard', '基于学生行为数据进行分析和预警', '数据分析,机器学习,Python,可视化', 2, 2026),
-('企业级OA系统设计与实现', 5, '信息学院', '软件工程', 'design', 'engineering', 'system', 'medium', '设计并实现企业级办公自动化系统', 'Java,Spring Boot,Vue.js,微服务', 3, 2026);
+('基于深度学习的图像识别系统设计与实现', 1, '计算机学院', '软件工程', 'design', 'engineering', 'system', 'hard', '利用深度学习技术实现图像分类和目标检测系统', '深度学习,图像识别,CNN,PyTorch', 2, 2026),
+('智能家居控制系统设计', 2, '计算机学院', '软件工程', 'design', 'engineering', 'system', 'medium', '设计并实现基于物联网的智能家居控制系统', '物联网,嵌入式,传感器,Android', 2, 2026),
+('校园二手交易平台开发', 3, '计算机学院', '软件工程', 'design', 'engineering', 'system', 'medium', '开发校园二手物品交易平台，支持在线交易', 'Web开发,React,Node.js,MySQL', 3, 2026),
+('学生行为分析预警系统', 4, '计算机学院', '软件工程', 'design', 'engineering', 'system', 'hard', '基于学生行为数据进行分析和预警', '数据分析,机器学习,Python,可视化', 2, 2026),
+('企业级OA系统设计与实现', 5, '计算机学院', '软件工程', 'design', 'engineering', 'system', 'medium', '设计并实现企业级办公自动化系统', 'Java,Spring Boot,Vue.js,微服务', 3, 2026);

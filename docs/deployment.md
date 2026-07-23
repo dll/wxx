@@ -13,10 +13,10 @@
 | Android | APK 输出（Gradle `outputFileName`） | `蔚小芯-release.apk` / `蔚小芯-debug.apk` |
 | Android | 最终分发文件（`build/app/outputs/flutter-apk/`） | `蔚小芯.apk` |
 | Web | `<title>` (`web/index.html`) | 蔚小芯 |
-| Web | `meta description` | 蔚小芯 — 滁州学院信息学院智慧学工 AI 助手 |
+| Web | `meta description` | 蔚小芯 — 滁州学院计算机学院智慧学工 AI 助手 |
 | Web | `apple-mobile-web-app-title` | 蔚小芯 |
 | Web | `manifest.json` `name` / `short_name` | 蔚小芯 |
-| Web | `manifest.json` `description` | 蔚小芯 — 滁州学院信息学院智慧学工 AI 助手 |
+| Web | `manifest.json` `description` | 蔚小芯 — 滁州学院计算机学院智慧学工 AI 助手 |
 | 后端 | `/health` 返回 `service` 字段 | 蔚小芯 |
 
 技术 ID（不暴露给用户）保留英文：

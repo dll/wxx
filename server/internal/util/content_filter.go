@@ -232,15 +232,27 @@ func CheckLLMOutput(text string) FilterResult {
 	return defaultFilter.CheckOutput(text)
 }
 
-// AddBlockWord 动态添加拦截词（支持类别）
-func (f *ContentFilter) AddBlockWord(category, word string) {
+// AddBlockWord 动态添加拦截词。省略 word 时使用 custom 类别，兼容旧调用。
+func (f *ContentFilter) AddBlockWord(category string, words ...string) {
+	word := category
+	if len(words) > 0 {
+		word = words[0]
+	} else {
+		category = "custom"
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.blockWords[category] = append(f.blockWords[category], word)
 }
 
-// AddFlagWord 动态添加标记词
-func (f *ContentFilter) AddFlagWord(category, word string) {
+// AddFlagWord 动态添加标记词。省略 word 时使用 custom 类别，兼容旧调用。
+func (f *ContentFilter) AddFlagWord(category string, words ...string) {
+	word := category
+	if len(words) > 0 {
+		word = words[0]
+	} else {
+		category = "custom"
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.flagWords[category] = append(f.flagWords[category], word)

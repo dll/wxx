@@ -31,7 +31,7 @@ type TwinScreenData struct {
 
 func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName string) *TwinScreenData {
 	if collegeName == "" {
-		collegeName = "信息学院"
+		collegeName = "计算机学院"
 	}
 
 	data := &TwinScreenData{
@@ -80,7 +80,7 @@ type DataAnalysisResult struct {
 func (s *CollegeService) AnalyzeData(ctx context.Context, query string) *DataAnalysisResult {
 	result := &DataAnalysisResult{
 		Query:      query,
-		Content:    "信息学院数据分析报告：全院平均绩点3.12，挂科率4.2%，出勤率92.5%，心理预警12人，活动参与率65%。",
+		Content:    "计算机学院数据分析报告：全院平均绩点3.12，挂科率4.2%，出勤率92.5%，心理预警12人，活动参与率65%。",
 		DataSource: "fallback",
 	}
 

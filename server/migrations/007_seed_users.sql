@@ -9,11 +9,11 @@ VALUES ('sysadmin', '系统管理员', 'sys_admin', 'school', 'all');
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
 VALUES ('schooladmin', '学校管理员', 'school_admin', 'school', 'all');
 
--- ── 学院管理员（信息学院） ──
+-- ── 学院管理员（计算机学院） ──
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
-VALUES ('collegeadmin', '信息学院管理员', 'college_admin', 'college', 'cs');
+VALUES ('collegeadmin', '计算机学院管理员', 'college_admin', 'college', 'cs');
 
--- ── 辅导员（信息学院 / 数理学院） ──
+-- ── 辅导员（计算机学院 / 数理学院） ──
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
 VALUES ('counselor_cs', '李辅导员', 'counselor', 'college', 'cs');
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
@@ -23,7 +23,7 @@ VALUES ('counselor_math', '王辅导员', 'counselor', 'college', 'math');
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
 VALUES ('stunion', '学生会主席', 'student_union', 'college', 'cs');
 
--- ── 学生（信息学院 / 数理学院） ──
+-- ── 学生（计算机学院 / 数理学院） ──
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)
 VALUES ('student_cs', '张同学', 'student', 'college', 'cs');
 INSERT OR IGNORE INTO users (username, display_name, role, owner_scope, owner_id)

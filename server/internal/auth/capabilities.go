@@ -92,6 +92,7 @@ const (
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
 	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
 	CounselorImportStudent     Capability = "counselor.import.student" // 导入学生（学生会及以上角色继承）
+	CounselorNotify            Capability = "counselor.notify"          // 通知管理（创建/发布/删除）
 )
 
 // 教师能力
@@ -215,6 +216,7 @@ var roles = map[string]*roleNode{
 			CounselorCommunityManage, CounselorHotTopicSense,
 			CounselorProcessEdit, CounselorStudentList,
 			CounselorTokenSubordinates,
+			CounselorNotify,
 		},
 	},
 	"teacher": {

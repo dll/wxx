@@ -36,7 +36,7 @@ func (s *SchoolAdminService) GenerateSchoolPanorama(ctx context.Context) *School
 		HealthScore:   82.5,
 		RiskStudents:  85,
 		Colleges: []map[string]interface{}{
-			{"name": "信息学院", "students": 1200, "health": 85.2, "risk": 12, "trend": "up"},
+			{"name": "计算机学院", "students": 1200, "health": 85.2, "risk": 12, "trend": "up"},
 			{"name": "经管学院", "students": 1500, "health": 80.5, "risk": 18, "trend": "stable"},
 			{"name": "文学院", "students": 900, "health": 88.0, "risk": 5, "trend": "up"},
 			{"name": "理学院", "students": 800, "health": 79.0, "risk": 15, "trend": "down"},
@@ -103,7 +103,7 @@ func (s *SchoolAdminService) CompareColleges(ctx context.Context, metric string)
 		Metric: metric,
 		Rankings: []map[string]interface{}{
 			{"rank": 1, "college": "文学院", "score": 88.0, "change": "+2.5"},
-			{"rank": 2, "college": "信息学院", "score": 85.2, "change": "+1.8"},
+			{"rank": 2, "college": "计算机学院", "score": 85.2, "change": "+1.8"},
 			{"rank": 3, "college": "经管学院", "score": 80.5, "change": "-0.5"},
 			{"rank": 4, "college": "理学院", "score": 79.0, "change": "-3.2"},
 		},
@@ -112,7 +112,7 @@ func (s *SchoolAdminService) CompareColleges(ctx context.Context, metric string)
 		},
 		Suggestions: []string{
 			"建议理学院增加学业辅导资源",
-			"推广信息学院的导师制经验到其他学院",
+			"推广计算机学院的导师制经验到其他学院",
 			"建立学院间帮扶结对机制",
 		},
 		DataSource: "mock",
@@ -133,12 +133,12 @@ func (s *SchoolAdminService) GenerateAcademicOverview(ctx context.Context) *Scho
 	return &SchoolAcademicOverview{
 		Date: time.Now().Format("2006-01-02"),
 		CollegeRankings: []map[string]interface{}{
-			{"college": "信息学院", "health": 85.2, "academic": 77, "activity": 78, "rank": 2},
+			{"college": "计算机学院", "health": 85.2, "academic": 77, "activity": 78, "rank": 2},
 			{"college": "经管学院", "health": 80.5, "academic": 75, "activity": 72, "rank": 3},
 			{"college": "文学院", "health": 88.0, "academic": 82, "activity": 85, "rank": 1},
 		},
 		CounselorEfficiency: []map[string]interface{}{
-			{"name": "李辅导员", "college": "信息学院", "talks_monthly": 15, "alerts_handled": 8, "score": 92},
+			{"name": "李辅导员", "college": "计算机学院", "talks_monthly": 15, "alerts_handled": 8, "score": 92},
 			{"name": "王辅导员", "college": "经管学院", "talks_monthly": 10, "alerts_handled": 5, "score": 78},
 		},
 		KeyStudentTypes: map[string]int{

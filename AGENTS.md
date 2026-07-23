@@ -4,7 +4,7 @@
 
 ## 项目一句话
 
-信息学院 **蔚小芯**：Flutter 客户端 + Go/Gin 后端 + **Context Engine（结构化 + FTS/BM25 为主）** + Eino 编排 + 第三方大模型 API；**sources 可追溯**，向量与 Agentic RAG 可插拔。
+计算机科学与工程学院（网络空间安全学院）**蔚小芯**：Flutter 客户端 + Go/Gin 后端 + **Context Engine（结构化 + FTS/BM25 为主）** + Eino 编排 + 第三方大模型 API；**sources 可追溯**，向量与 Agentic RAG 可插拔。
 
 ## 必读顺序
 

@@ -59,7 +59,7 @@ func (h *UnionHandler) PosterGen(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"style":       style,
 		"title":       title,
-		"subtitle":    "滁州学院信息学院",
+		"subtitle":    "滁州学院计算机学院",
 		"copy":        "诚邀您的参与！",
 		"color_scheme": "蓝色系",
 		"layout":      "科技风格排版",
