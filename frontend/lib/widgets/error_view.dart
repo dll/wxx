@@ -67,6 +67,7 @@ class ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final displayMessage = _safeMessage(message);
     final color = isEmpty
         ? theme.colorScheme.outline
         : theme.colorScheme.onSurfaceVariant;
@@ -77,10 +78,10 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: iconSize, color: color.withOpacity( 0.6)),
+            Icon(icon, size: iconSize, color: color.withOpacity(0.6)),
             const SizedBox(height: 12),
             Text(
-              message,
+              displayMessage,
               style: theme.textTheme.bodyLarge?.copyWith(color: color),
               textAlign: TextAlign.center,
             ),
@@ -89,7 +90,7 @@ class ErrorView extends StatelessWidget {
               Text(
                 subtitle!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: color.withOpacity( 0.6),
+                  color: color.withOpacity(0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -106,5 +107,14 @@ class ErrorView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _safeMessage(String raw) {
+    if (raw.contains('DioException') ||
+        raw.contains('connection timeout') ||
+        raw.contains('RequestOptions')) {
+      return '网络请求超时，请稍后重试';
+    }
+    return raw;
   }
 }

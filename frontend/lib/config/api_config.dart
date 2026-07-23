@@ -16,8 +16,8 @@ class ApiConfig {
 
   // 超时设置（毫秒）
   // Vercel 冷启动 + 跨境延迟较长，连接超时适当放大
-  static const int connectTimeout = 30000;
-  static const int receiveTimeout = 60000; // LLM 响应较慢，给足时间
+  static const int connectTimeout = 90000;
+  static const int receiveTimeout = 120000; // Vercel 冷启动与模型响应可能较慢
 
   // ── 接口路径 ──
   static const String login = '$apiPrefix/auth/login';

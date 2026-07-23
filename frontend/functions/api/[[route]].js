@@ -22,11 +22,15 @@ export async function onRequest(context) {
   }
 
   const isLogin = url.pathname === '/api/v1/auth/login';
+  const isFeedbackSubmit = request.method === 'POST' &&
+    url.pathname === '/api/v1/feedback';
   const shouldBuffer = isLogin ||
+    isFeedbackSubmit ||
     url.pathname === '/api/health' ||
     url.pathname === '/api/v1/user/profile' ||
     url.pathname === '/api/v1/user/capabilities';
-  const maxAttempts = shouldBuffer ? 2 : 1;
+  // 反馈提交是非幂等写操作，只缓冲响应，不自动重试，避免上游已写入后重复创建。
+  const maxAttempts = shouldBuffer && !isFeedbackSubmit ? 2 : 1;
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -56,7 +60,11 @@ export async function onRequest(context) {
   console.error('代理后端请求失败', lastError);
   return new Response(JSON.stringify({
     code: 502,
-    message: isLogin ? '登录服务暂时不可用，请稍后重试' : '后端服务暂时不可用，请稍后重试',
+    message: isLogin
+      ? '登录服务暂时不可用，请稍后重试'
+      : isFeedbackSubmit
+        ? '反馈服务暂时不可用，请稍后重试'
+        : '后端服务暂时不可用，请稍后重试',
   }), {
     status: 502,
     headers: {

@@ -53,8 +53,7 @@ class FeedbackProvider extends ChangeNotifier {
       final response = await _api.get(ApiConfig.feedback, params: params);
       if (response.data['code'] == 0) {
         final list = (response.data['data'] as List?)
-                ?.map((e) =>
-                    FeedbackEntry.fromJson(e as Map<String, dynamic>))
+                ?.map((e) => FeedbackEntry.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [];
         _feedbacks.addAll(list);
@@ -95,8 +94,7 @@ class FeedbackProvider extends ChangeNotifier {
       final response = await _api.get(ApiConfig.feedbackMine, params: params);
       if (response.data['code'] == 0) {
         final list = (response.data['data'] as List?)
-                ?.map((e) =>
-                    FeedbackEntry.fromJson(e as Map<String, dynamic>))
+                ?.map((e) => FeedbackEntry.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [];
         _myFeedbacks.addAll(list);
@@ -143,9 +141,15 @@ class FeedbackProvider extends ChangeNotifier {
   /// 实现说明：Vercel serverless 多实例场景下，文件系统 / SQLite 都无法跨实例可靠持久化，
   /// 因此把截图直接 base64 编码为 data: URL，与反馈记录一起入库（feedback.screenshot_url）。
   /// 这样反馈记录走任何实例的 DB 副本都能完整渲染图片，不再依赖单独的资源接口。
-  Future<String?> uploadScreenshotBytes(List<int> bytes, String filename) async {
+  Future<String?> uploadScreenshotBytes(
+      List<int> bytes, String filename) async {
     try {
       if (bytes.isEmpty) return null;
+      if (bytes.length > 900 * 1024) {
+        _error = '截图体积过大，已改为仅提交文字反馈';
+        notifyListeners();
+        return null;
+      }
       final base64Str = base64Encode(bytes);
       final ext = filename.split('.').last.toLowerCase();
       final mime = (ext == 'jpg' || ext == 'jpeg')
@@ -197,17 +201,18 @@ class FeedbackProvider extends ChangeNotifier {
           : null;
       _error = serverMessage?.isNotEmpty == true
           ? serverMessage!
-          : '网络错误: $e';
+          : _friendlyRequestError(e, '提交反馈');
       notifyListeners();
       return false;
-    } catch (e) {
-      _error = '网络错误: $e';
+    } catch (_) {
+      _error = '提交反馈失败，请稍后重试';
       notifyListeners();
       return false;
     }
   }
 
-  Future<bool> resolveFeedback(String feedbackId, String status, {String reply = ''}) async {
+  Future<bool> resolveFeedback(String feedbackId, String status,
+      {String reply = ''}) async {
     try {
       final response = await _api.put(
         ApiConfig.feedbackResolve(feedbackId),
@@ -227,6 +232,23 @@ class FeedbackProvider extends ChangeNotifier {
       _error = '网络错误: $e';
       notifyListeners();
       return false;
+    }
+  }
+
+  String _friendlyRequestError(DioException error, String action) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return '$action超时，请稍后重试';
+      case DioExceptionType.connectionError:
+        return '暂时无法连接服务，请检查网络后重试';
+      default:
+        final status = error.response?.statusCode;
+        if (status == 502 || status == 503 || status == 504) {
+          return '服务暂时不可用，请稍后重试';
+        }
+        return '$action失败，请稍后重试';
     }
   }
 }

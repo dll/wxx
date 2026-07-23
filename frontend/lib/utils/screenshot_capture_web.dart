@@ -48,13 +48,15 @@ List<html.CanvasElement> _collectAllCanvases() {
       walk(child);
     }
   }
+
   final body = html.document.body;
   if (body != null) walk(body);
   return result;
 }
 
 /// 从找到的 canvas 集合中选择最大的可见 canvas，并把它转为 PNG bytes
-Future<ScreenshotResult> _captureFromCanvases(List<html.CanvasElement> canvases) async {
+Future<ScreenshotResult> _captureFromCanvases(
+    List<html.CanvasElement> canvases) async {
   html.CanvasElement? target;
   int maxArea = 0;
 
@@ -71,9 +73,30 @@ Future<ScreenshotResult> _captureFromCanvases(List<html.CanvasElement> canvases)
     return const ScreenshotResult(error: '画布尺寸为 0');
   }
 
+  // 反馈截图只用于定位页面问题，限制到 960×540 以内可显著降低
+  // Base64 JSON 体积，避免 Vercel Serverless 请求等待超过客户端超时。
+  final sourceWidth =
+      target.width ?? target.getBoundingClientRect().width.toInt();
+  final sourceHeight =
+      target.height ?? target.getBoundingClientRect().height.toInt();
+  final widthScale = sourceWidth > 960 ? 960 / sourceWidth : 1.0;
+  final heightScale = sourceHeight > 540 ? 540 / sourceHeight : 1.0;
+  final scale = widthScale < heightScale ? widthScale : heightScale;
+  final exportCanvas = html.CanvasElement(
+    width: (sourceWidth * scale).round().clamp(1, 960),
+    height: (sourceHeight * scale).round().clamp(1, 540),
+  );
+  exportCanvas.context2D.drawImageScaled(
+    target,
+    0,
+    0,
+    exportCanvas.width!.toDouble(),
+    exportCanvas.height!.toDouble(),
+  );
+
   // 优先 toDataUrl（同步，最稳定），失败再走 toBlob
   try {
-    final dataUrl = target.toDataUrl('image/png');
+    final dataUrl = exportCanvas.toDataUrl('image/png');
     final commaIdx = dataUrl.indexOf(',');
     if (commaIdx <= 0) {
       return const ScreenshotResult(error: '画布导出格式异常');
@@ -86,7 +109,7 @@ Future<ScreenshotResult> _captureFromCanvases(List<html.CanvasElement> canvases)
     return ScreenshotResult(bytes: bytes);
   } catch (e1) {
     if (kDebugMode) debugPrint('toDataUrl 失败，回退 toBlob: $e1');
-    return _captureViaToBlob(target);
+    return _captureViaToBlob(exportCanvas);
   }
 }
 
