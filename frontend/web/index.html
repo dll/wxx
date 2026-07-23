@@ -31,10 +31,23 @@
   <title>蔚小芯</title>
   <link rel="manifest" href="manifest.json">
   <script>
-    // 强制清除旧 Service Worker 缓存，确保获取最新代码
+    // 清除旧 Service Worker 与缓存，避免继续加载历史登录页。
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(reg) { reg.unregister(); });
+      Promise.all([
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(reg) { return reg.unregister(); }));
+        }),
+        'caches' in self
+          ? caches.keys().then(function(keys) {
+              return Promise.all(keys.map(function(key) { return caches.delete(key); }));
+            })
+          : Promise.resolve()
+      ]).then(function() {
+        if (navigator.serviceWorker.controller &&
+            !sessionStorage.getItem('wxx-cache-refreshed')) {
+          sessionStorage.setItem('wxx-cache-refreshed', '1');
+          location.reload();
+        }
       });
     }
   </script>

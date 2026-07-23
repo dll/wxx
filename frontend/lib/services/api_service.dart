@@ -32,7 +32,8 @@ class ApiService {
         handler.next(options);
       },
       onError: (error, handler) {
-        if (error.response?.statusCode == 401) {
+        if (error.response?.statusCode == 401 &&
+            error.requestOptions.path != ApiConfig.login) {
           // Token 过期或无效，触发退出登录
           onUnauthorized?.call();
         }

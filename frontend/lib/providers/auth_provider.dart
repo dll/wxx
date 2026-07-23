@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
@@ -58,11 +60,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('登录请求失败: $e');
-      if (e is DioException && e.response?.data is Map) {
-        _error = (e.response!.data as Map)['message']?.toString() ?? '登录失败';
-      } else {
-        _error = '网络错误，请检查网络连接或后端服务是否启动';
-      }
+      _error = _loginErrorMessage(e);
       _loading = false;
       notifyListeners();
       return false;
@@ -186,5 +184,58 @@ class AuthProvider extends ChangeNotifier {
     logout();
     // 通知 GoRouter 重新评估鉴权状态，自动跳转登录页
     authRefreshNotifier.refresh();
+  }
+
+  String _loginErrorMessage(Object error) {
+    if (error is! DioException) {
+      return '登录失败，请稍后重试';
+    }
+
+    final response = error.response;
+    final responseMessage = _responseMessage(response?.data);
+    if (responseMessage != null && responseMessage.isNotEmpty) {
+      return responseMessage;
+    }
+
+    switch (response?.statusCode) {
+      case 400:
+        return '请输入完整的账号和密码';
+      case 401:
+        return '账号或密码错误';
+      case 403:
+        return '账号尚未启用或已被停用';
+      case 502:
+      case 503:
+      case 504:
+        return '登录服务暂时不可用，请稍后重试';
+    }
+
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return '登录请求超时，请稍后重试';
+      case DioExceptionType.connectionError:
+        return '暂时无法连接登录服务，请检查网络后重试';
+      default:
+        return '登录失败，请稍后重试';
+    }
+  }
+
+  String? _responseMessage(dynamic data) {
+    if (data is Map) {
+      return data['message']?.toString();
+    }
+    if (data is String && data.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(data);
+        if (decoded is Map) {
+          return decoded['message']?.toString();
+        }
+      } catch (_) {
+        // 非 JSON 错误页不直接展示，避免把网关 HTML 暴露给用户。
+      }
+    }
+    return null;
   }
 }
