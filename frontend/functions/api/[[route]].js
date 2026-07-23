@@ -2,7 +2,8 @@
 export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
-  const targetUrl = 'https://wxx-server-j1us8ki1c-czldl.vercel.app' + url.pathname + url.search;
+  const backendPath = url.pathname === '/api/health' ? '/health' : url.pathname;
+  const targetUrl = 'https://wxx-server-j1us8ki1c-czldl.vercel.app' + backendPath + url.search;
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -21,7 +22,11 @@ export async function onRequest(context) {
   }
 
   const isLogin = url.pathname === '/api/v1/auth/login';
-  const maxAttempts = isLogin ? 2 : 1;
+  const shouldBuffer = isLogin ||
+    url.pathname === '/api/health' ||
+    url.pathname === '/api/v1/user/profile' ||
+    url.pathname === '/api/v1/user/capabilities';
+  const maxAttempts = shouldBuffer ? 2 : 1;
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -31,8 +36,8 @@ export async function onRequest(context) {
         body: requestBody ? requestBody.slice(0) : undefined,
       });
 
-      // 登录响应先完整读取，避免上游流中断后浏览器只得到模糊网络错误。
-      const responseBody = isLogin ? await resp.arrayBuffer() : resp.body;
+      // 登录与启动关键接口先完整读取，避免上游流中断后浏览器只得到模糊网络错误。
+      const responseBody = shouldBuffer ? await resp.arrayBuffer() : resp.body;
       const out = new Headers(resp.headers);
       applyCorsHeaders(out);
 
