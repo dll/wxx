@@ -90,7 +90,8 @@ const (
 	CounselorHotTopicSense     Capability = "counselor.hot_topic.sense"    // 热点话题感知
 	CounselorProcessEdit       Capability = "counselor.process.edit"       // 流程步骤编辑
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
-	CounselorTokenSubordinates Capability = "counselor.token.subordinates" // 下级词元统计
+	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
+	CounselorImportStudent     Capability = "counselor.import.student"     // 导入学生
 )
 
 // 教师能力
@@ -213,6 +214,7 @@ var roles = map[string]*roleNode{
 			CounselorCommunityManage, CounselorHotTopicSense,
 			CounselorProcessEdit, CounselorStudentList,
 			CounselorTokenSubordinates,
+			CounselorImportStudent,
 		},
 	},
 	"teacher": {
@@ -331,3 +333,5 @@ func IsKnownRole(role string) bool {
 	_, ok := roles[role]
 	return ok
 }
+
+

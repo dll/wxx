@@ -2,12 +2,14 @@ package service
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"time"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/util"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AdminService 管理端业务服务
@@ -141,4 +143,134 @@ func (s *AdminService) UpdateSettings(settings map[string]string, updatedBy stri
 	}
 	log.Printf("系统配置已更新 by=%s count=%d", updatedBy, len(settings))
 	return nil
+}
+// ImportStudentRow 导入学生行数据
+type ImportStudentRow struct {
+	Username    string // 学号
+	DisplayName string // 姓名
+	College     string // 院系
+	Major       string // 专业
+	ClassName   string // 班级
+}
+
+// ImportStudentsResult 导入结果
+type ImportStudentsResult struct {
+	Total   int    `json:"total"`
+	Success int    `json:"success"`
+	Failed  int    `json:"failed"`
+	Details []repository.BatchCreateResult `json:"details"`
+}
+
+// ImportStudents 从 xlsx 批量导入学生
+func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword string) (*ImportStudentsResult, error) {
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("导入数据为空")
+	}
+
+	// 加密默认密码（若提供）；否则每个学生以学号作为默认密码
+	sharedHash := ""
+	if defaultPassword != "" {
+		h, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+		sharedHash = string(h)
+	}
+
+	students := make([]*model.User, 0, len(rows))
+	for _, r := range rows {
+		if r.Username == "" {
+			return nil, fmt.Errorf("学号不能为空（姓名: %s）", r.DisplayName)
+		}
+		ownerID := r.ClassName
+		if ownerID == "" {
+			ownerID = r.College
+		}
+		// 无统一默认密码时，以学号作为个人默认密码
+		pwd := defaultPassword
+		if pwd == "" {
+			pwd = r.Username
+		}
+		u := &model.User{
+			Username:     r.Username,
+			DisplayName:  r.DisplayName,
+			Role:         "student",
+			OwnerScope:   "college",
+			OwnerID:      ownerID,
+			Status:       "active",
+			PasswordHash: pwd,
+		}
+		students = append(students, u)
+	}
+
+	results, err := s.userRepo.BatchCreateStudents(students, sharedHash)
+	if err != nil {
+		return nil, fmt.Errorf("批量创建学生失败: %w", err)
+	}
+
+	successCount := 0
+	failedCount := 0
+	for _, r := range results {
+		if r.Success {
+			successCount++
+		} else {
+			failedCount++
+		}
+	}
+
+	return &ImportStudentsResult{
+		Total:   len(rows),
+		Success: successCount,
+		Failed:  failedCount,
+		Details: results,
+	}, nil
+}
+
+// ParseStudentXLSX 解析学生名单 xlsx 文件，返回结构化行数据
+func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStudentRow, error) {
+	rows, err := util.ParseXLSX(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("解析 xlsx 失败: %w", err)
+	}
+
+	if len(rows) < 2 {
+		return nil, fmt.Errorf("数据不足（至少需要表头+1行数据）")
+	}
+
+	// 表头映射：中文字段名 -> 列字母
+	header := rows[0]
+	colMap := make(map[string]string)
+	for col, name := range header {
+		switch name {
+		case "学号":
+			colMap["username"] = col
+		case "姓名":
+			colMap["display_name"] = col
+		case "院系":
+			colMap["college"] = col
+		case "专业":
+			colMap["major"] = col
+		case "班级":
+			colMap["class_name"] = col
+		}
+	}
+
+	if colMap["username"] == "" || colMap["display_name"] == "" {
+		return nil, fmt.Errorf("表头缺少必要列：学号、姓名")
+	}
+
+	var result []*ImportStudentRow
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		r := &ImportStudentRow{
+			Username:    row[colMap["username"]],
+			DisplayName: row[colMap["display_name"]],
+			College:     row[colMap["college"]],
+			Major:       row[colMap["major"]],
+			ClassName:   row[colMap["class_name"]],
+		}
+		result = append(result, r)
+	}
+
+	return result, nil
 }

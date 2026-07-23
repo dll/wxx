@@ -208,36 +208,17 @@ func (s *AuthService) LoginByUsername(username string, role string, password str
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 
-	// 用户不存在时自动创建（开发环境）
+	// 用户不存在 → 返回错误（预发布环境，必须先导入）
 	if user == nil {
-		if role == "" {
-			role = "student"
-		}
-		user = &model.User{
-			Username:    username,
-			DisplayName: username,
-			Role:        role,
-			OwnerScope:  "college",
-			OwnerID:     "default",
-		}
-		id, err := s.userRepo.Create(user)
-		if err != nil {
-			return nil, fmt.Errorf("创建用户失败: %w", err)
-		}
-		user.ID = id
+		return nil, fmt.Errorf("用户不存在，请联系管理员导入账号")
 	}
 
-	// 若用户已设置密码，验证密码
-	if user.PasswordHash != "" {
-		if password == "" {
-			return nil, fmt.Errorf("密码不能为空")
-		}
-		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-			if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-				return nil, fmt.Errorf("密码错误")
-			}
-			return nil, fmt.Errorf("密码验证失败: %w", err)
-		}
+	// 密码验证（预发布环境密码必填）
+	if password == "" {
+		return nil, fmt.Errorf("密码不能为空")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return nil, fmt.Errorf("密码错误")
 	}
 
 	// 签发 JWT

@@ -2,8 +2,11 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/dll/wxx/server/internal/model"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserRepo 用户数据访问
@@ -212,4 +215,101 @@ func (r *UserRepo) UpdateVoiceEnabled(userID int64, enabled int) error {
 		enabled, userID,
 	)
 	return err
+}
+// BatchCreateResult 批量创建结果
+type BatchCreateResult struct {
+	Username   string // 用户名
+	DisplayName string // 显示名
+	Success    bool   // 是否成功
+	Error      string // 错误原因（失败时）
+}
+// sharedHash 为统一 bcrypt 哈希值（为空则不设统一密码）
+func (r *UserRepo) BatchCreateStudents(students []*model.User, sharedHash string) ([]BatchCreateResult, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("开始事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	results := make([]BatchCreateResult, 0, len(students))
+	stmt, err := tx.Prepare(
+		`INSERT INTO users (username, display_name, role, owner_scope, owner_id, password_hash, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return nil, fmt.Errorf("预编译语句失败: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, u := range students {
+		// 检查是否已存在
+		var exists int
+		err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ?`, u.Username).Scan(&exists)
+		if err != nil {
+			results = append(results, BatchCreateResult{
+				Username: u.Username, DisplayName: u.DisplayName,
+				Success: false, Error: fmt.Sprintf("查询冲突失败: %v", err),
+			})
+			continue
+		}
+		if exists > 0 {
+			results = append(results, BatchCreateResult{
+				Username: u.Username, DisplayName: u.DisplayName,
+				Success: false, Error: "用户名已存在",
+			})
+			continue
+		}
+
+		role := u.Role
+		if role == "" {
+			role = "student"
+		}
+		scope := u.OwnerScope
+		if scope == "" {
+			scope = "college"
+		}
+		ownerID := u.OwnerID
+		if ownerID == "" {
+			ownerID = "default"
+		}
+
+		// 优先使用用户自带的密码，其次使用统一密码
+		userHash := u.PasswordHash
+		if userHash == "" {
+			userHash = sharedHash
+		}
+		// 如果最终密码非空，需要 bcrypt 加密（只有 raw password 非空才需要）
+		if userHash != "" {
+			// 检查是否已经是 bcrypt hash（以 $2a$ 开头）
+			if len(userHash) < 4 || userHash[:4] != "$2a$" {
+				h, gErr := bcrypt.GenerateFromPassword([]byte(userHash), bcrypt.DefaultCost)
+				if gErr != nil {
+					results = append(results, BatchCreateResult{
+						Username: u.Username, DisplayName: u.DisplayName,
+						Success: false, Error: fmt.Sprintf("密码加密失败: %v", gErr),
+					})
+					continue
+				}
+				userHash = string(h)
+			}
+		}
+		_, err = stmt.Exec(u.Username, u.DisplayName, role, scope, ownerID, userHash, u.Status)
+		if err != nil {
+			results = append(results, BatchCreateResult{
+				Username: u.Username, DisplayName: u.DisplayName,
+				Success: false, Error: fmt.Sprintf("插入失败: %v", err),
+			})
+			continue
+		}
+
+		results = append(results, BatchCreateResult{
+			Username: u.Username, DisplayName: u.DisplayName,
+			Success: true, Error: "",
+		})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("提交事务失败: %w", err)
+	}
+
+	return results, nil
 }
