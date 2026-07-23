@@ -89,7 +89,7 @@ class _SummaryCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
+                      color: Colors.white.withOpacity( 0.18),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(b.toString(), style: const TextStyle(color: Colors.white, fontSize: 12)),

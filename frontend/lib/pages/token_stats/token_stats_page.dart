@@ -179,7 +179,7 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
                       dotData: FlDotData(show: daily.length <= 14),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.blue.withValues(alpha: 0.1),
+                        color: Colors.blue.withOpacity( 0.1),
                       ),
                     ),
                     LineChartBarData(

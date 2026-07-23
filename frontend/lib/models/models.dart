@@ -34,10 +34,9 @@ class AnswerCard {
               ?.map((s) => ProcessStepDetail.fromJson(s))
               .toList() ??
           [],
-      sources: (json['sources'] as List?)
-              ?.map((s) => Source.fromJson(s))
-              .toList() ??
-          [],
+      sources:
+          (json['sources'] as List?)?.map((s) => Source.fromJson(s)).toList() ??
+              [],
       risks: List<String>.from(json['risks'] ?? []),
       followUps: List<String>.from(json['follow_ups'] ?? []),
       actions: (json['actions'] as List?)
@@ -91,10 +90,9 @@ class ProcessStepDetail {
       materials: json['materials'] ?? '',
       entryUrl: json['entry_url'] ?? '',
       deadline: json['deadline'] ?? '',
-      faq: (json['faq'] as List?)
-              ?.map((f) => ProcessFAQ.fromJson(f))
-              .toList() ??
-          [],
+      faq:
+          (json['faq'] as List?)?.map((f) => ProcessFAQ.fromJson(f)).toList() ??
+              [],
     );
   }
 }
@@ -273,6 +271,12 @@ class UserProfile {
   final String displayName;
   final String college;
   final String major;
+  final String className;
+  final String enrollmentDate;
+  final String enrollmentYear;
+  final String ownerScope;
+  final String ownerId;
+  final String status;
 
   UserProfile({
     required this.id,
@@ -281,6 +285,12 @@ class UserProfile {
     required this.displayName,
     this.college = '',
     this.major = '',
+    this.className = '',
+    this.enrollmentDate = '',
+    this.enrollmentYear = '',
+    this.ownerScope = '',
+    this.ownerId = '',
+    this.status = 'active',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -291,8 +301,14 @@ class UserProfile {
       username: data['username'] ?? '',
       role: data['role'] ?? 'student',
       displayName: data['display_name'] ?? data['username'] ?? '',
-      college: data['college'] ?? '',
+      college: data['college'] ?? data['owner_id'] ?? '',
       major: data['major'] ?? '',
+      className: data['class_name'] ?? '',
+      enrollmentDate: data['enrollment_date'] ?? '',
+      enrollmentYear: data['enrollment_year'] ?? '',
+      ownerScope: data['owner_scope'] ?? '',
+      ownerId: data['owner_id'] ?? '',
+      status: data['status'] ?? 'active',
     );
   }
 
@@ -864,9 +880,18 @@ class DailyBriefing {
     return DailyBriefing(
       date: json['date'] ?? '',
       greeting: json['greeting'] ?? '',
-      courses: (json['courses'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
-      deadlines: (json['deadlines'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
-      activities: (json['activities'] as List?)?.map((e) => BriefingItem.fromJson(e)).toList() ?? [],
+      courses: (json['courses'] as List?)
+              ?.map((e) => BriefingItem.fromJson(e))
+              .toList() ??
+          [],
+      deadlines: (json['deadlines'] as List?)
+              ?.map((e) => BriefingItem.fromJson(e))
+              .toList() ??
+          [],
+      activities: (json['activities'] as List?)
+              ?.map((e) => BriefingItem.fromJson(e))
+              .toList() ??
+          [],
       weather: json['weather'] ?? '',
       motto: json['motto'] ?? '',
     );
@@ -879,7 +904,8 @@ class BriefingItem {
   final String time;
   final String icon;
 
-  BriefingItem({this.title = '', this.subtitle = '', this.time = '', this.icon = ''});
+  BriefingItem(
+      {this.title = '', this.subtitle = '', this.time = '', this.icon = ''});
 
   factory BriefingItem.fromJson(Map<String, dynamic> json) {
     return BriefingItem(
@@ -917,7 +943,9 @@ class LearningDiary {
       coursesStudied: List<String>.from(json['courses_studied'] ?? []),
       keyPoints: List<String>.from(json['key_points'] ?? []),
       studyMinutes: json['study_minutes'] ?? 0,
-      quiz: (json['quiz'] as List?)?.map((e) => QuizItem.fromJson(e)).toList() ?? [],
+      quiz:
+          (json['quiz'] as List?)?.map((e) => QuizItem.fromJson(e)).toList() ??
+              [],
       tomorrowPlan: json['tomorrow_plan'] ?? '',
       encouragement: json['encouragement'] ?? '',
     );
@@ -930,7 +958,11 @@ class QuizItem {
   final int correctIndex;
   final String explanation;
 
-  QuizItem({this.question = '', this.options = const [], this.correctIndex = 0, this.explanation = ''});
+  QuizItem(
+      {this.question = '',
+      this.options = const [],
+      this.correctIndex = 0,
+      this.explanation = ''});
 
   factory QuizItem.fromJson(Map<String, dynamic> json) {
     return QuizItem(
@@ -949,12 +981,22 @@ class DigitalTwinData {
   final String aiSummary;
   final List<String> suggestions;
 
-  DigitalTwinData({this.dimensions = const [], this.idealDimensions = const [], this.aiSummary = '', this.suggestions = const []});
+  DigitalTwinData(
+      {this.dimensions = const [],
+      this.idealDimensions = const [],
+      this.aiSummary = '',
+      this.suggestions = const []});
 
   factory DigitalTwinData.fromJson(Map<String, dynamic> json) {
     return DigitalTwinData(
-      dimensions: (json['dimensions'] as List?)?.map((e) => TwinDimension.fromJson(e)).toList() ?? [],
-      idealDimensions: (json['ideal_dimensions'] as List?)?.map((e) => TwinDimension.fromJson(e)).toList() ?? [],
+      dimensions: (json['dimensions'] as List?)
+              ?.map((e) => TwinDimension.fromJson(e))
+              .toList() ??
+          [],
+      idealDimensions: (json['ideal_dimensions'] as List?)
+              ?.map((e) => TwinDimension.fromJson(e))
+              .toList() ??
+          [],
       aiSummary: json['ai_summary'] ?? '',
       suggestions: List<String>.from(json['suggestions'] ?? []),
     );
@@ -986,7 +1028,13 @@ class CheckinRecord {
   final bool todayChecked;
   final List<String> recentDates;
 
-  CheckinRecord({this.date = '', this.streak = 0, this.totalDays = 0, this.longestStreak = 0, this.todayChecked = false, this.recentDates = const []});
+  CheckinRecord(
+      {this.date = '',
+      this.streak = 0,
+      this.totalDays = 0,
+      this.longestStreak = 0,
+      this.todayChecked = false,
+      this.recentDates = const []});
 
   factory CheckinRecord.fromJson(Map<String, dynamic> json) {
     return CheckinRecord(
@@ -1009,7 +1057,13 @@ class AchievementData {
   final List<Achievement> badges;
   final int weeklyRank;
 
-  AchievementData({this.totalPoints = 0, this.level = 1, this.levelName = '青铜', this.nextLevelPoints = 100, this.badges = const [], this.weeklyRank = 0});
+  AchievementData(
+      {this.totalPoints = 0,
+      this.level = 1,
+      this.levelName = '青铜',
+      this.nextLevelPoints = 100,
+      this.badges = const [],
+      this.weeklyRank = 0});
 
   factory AchievementData.fromJson(Map<String, dynamic> json) {
     return AchievementData(
@@ -1017,7 +1071,10 @@ class AchievementData {
       level: json['level'] ?? 1,
       levelName: json['level_name'] ?? '青铜',
       nextLevelPoints: json['next_level_points'] ?? 100,
-      badges: (json['badges'] as List?)?.map((e) => Achievement.fromJson(e)).toList() ?? [],
+      badges: (json['badges'] as List?)
+              ?.map((e) => Achievement.fromJson(e))
+              .toList() ??
+          [],
       weeklyRank: json['weekly_rank'] ?? 0,
     );
   }
@@ -1031,7 +1088,13 @@ class Achievement {
   final bool unlocked;
   final String unlockedAt;
 
-  Achievement({this.id = '', this.name = '', this.icon = '', this.description = '', this.unlocked = false, this.unlockedAt = ''});
+  Achievement(
+      {this.id = '',
+      this.name = '',
+      this.icon = '',
+      this.description = '',
+      this.unlocked = false,
+      this.unlockedAt = ''});
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
     return Achievement(
@@ -1055,7 +1118,14 @@ class CourseNode {
   final List<String> prerequisites;
   final String category;
 
-  CourseNode({this.id = '', this.name = '', this.credits = 0, this.semester = 1, this.status = 'pending', this.prerequisites = const [], this.category = ''});
+  CourseNode(
+      {this.id = '',
+      this.name = '',
+      this.credits = 0,
+      this.semester = 1,
+      this.status = 'pending',
+      this.prerequisites = const [],
+      this.category = ''});
 
   factory CourseNode.fromJson(Map<String, dynamic> json) {
     return CourseNode(
@@ -1069,7 +1139,14 @@ class CourseNode {
     );
   }
 
-  String get statusLabel => {'completed': '已修', 'current': '在修', 'pending': '待修', 'elective': '可选'}[status] ?? '待修';
+  String get statusLabel =>
+      {
+        'completed': '已修',
+        'current': '在修',
+        'pending': '待修',
+        'elective': '可选'
+      }[status] ??
+      '待修';
 }
 
 /// 课程学情看板
@@ -1080,14 +1157,22 @@ class CourseAnalyticsData {
   final List<KnowledgePoint> knowledgePoints;
   final List<String> weakPoints;
 
-  CourseAnalyticsData({this.courseName = '', this.progress = 0, this.rankPercentile = 50, this.knowledgePoints = const [], this.weakPoints = const []});
+  CourseAnalyticsData(
+      {this.courseName = '',
+      this.progress = 0,
+      this.rankPercentile = 50,
+      this.knowledgePoints = const [],
+      this.weakPoints = const []});
 
   factory CourseAnalyticsData.fromJson(Map<String, dynamic> json) {
     return CourseAnalyticsData(
       courseName: json['course_name'] ?? '',
       progress: (json['progress'] ?? 0).toDouble(),
       rankPercentile: json['rank_percentile'] ?? 50,
-      knowledgePoints: (json['knowledge_points'] as List?)?.map((e) => KnowledgePoint.fromJson(e)).toList() ?? [],
+      knowledgePoints: (json['knowledge_points'] as List?)
+              ?.map((e) => KnowledgePoint.fromJson(e))
+              .toList() ??
+          [],
       weakPoints: List<String>.from(json['weak_points'] ?? []),
     );
   }
@@ -1100,10 +1185,15 @@ class KnowledgePoint {
   KnowledgePoint({this.name = '', this.mastery = 0});
 
   factory KnowledgePoint.fromJson(Map<String, dynamic> json) {
-    return KnowledgePoint(name: json['name'] ?? '', mastery: (json['mastery'] ?? 0).toDouble());
+    return KnowledgePoint(
+        name: json['name'] ?? '', mastery: (json['mastery'] ?? 0).toDouble());
   }
 
-  String get level => mastery >= 0.8 ? 'good' : mastery >= 0.5 ? 'medium' : 'weak';
+  String get level => mastery >= 0.8
+      ? 'good'
+      : mastery >= 0.5
+          ? 'medium'
+          : 'weak';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1149,7 +1239,11 @@ class FocusStudent {
   final String riskLevel;
   final String suggestion;
 
-  FocusStudent({this.name = '', this.reason = '', this.riskLevel = 'low', this.suggestion = ''});
+  FocusStudent(
+      {this.name = '',
+      this.reason = '',
+      this.riskLevel = 'low',
+      this.suggestion = ''});
 
   factory FocusStudent.fromJson(Map<String, dynamic> json) {
     return FocusStudent(
@@ -1174,9 +1268,15 @@ class ClassReportData {
   final String aiNarrative;
 
   ClassReportData({
-    this.date = '', this.className = '', this.activeRate = 0, this.absentCount = 0,
-    this.homeworkRate = 0, this.emotionAlertCount = 0, this.checkinRate = 0,
-    this.anomalies = const [], this.aiNarrative = '',
+    this.date = '',
+    this.className = '',
+    this.activeRate = 0,
+    this.absentCount = 0,
+    this.homeworkRate = 0,
+    this.emotionAlertCount = 0,
+    this.checkinRate = 0,
+    this.anomalies = const [],
+    this.aiNarrative = '',
   });
 
   factory ClassReportData.fromJson(Map<String, dynamic> json) {
@@ -1205,7 +1305,15 @@ class TalkRecord {
   final List<String> followUps;
   final String status;
 
-  TalkRecord({this.id = '', this.studentName = '', this.date = '', this.topic = '', this.emotion = '', this.summary = '', this.followUps = const [], this.status = 'pending'});
+  TalkRecord(
+      {this.id = '',
+      this.studentName = '',
+      this.date = '',
+      this.topic = '',
+      this.emotion = '',
+      this.summary = '',
+      this.followUps = const [],
+      this.status = 'pending'});
 
   factory TalkRecord.fromJson(Map<String, dynamic> json) {
     return TalkRecord(
@@ -1235,7 +1343,14 @@ class LessonPlan {
   final List<String> interactions;
   final List<String> homework;
 
-  LessonPlan({this.topic = '', this.outline = '', this.keyPoints = const [], this.difficulties = const [], this.strategies = const [], this.interactions = const [], this.homework = const []});
+  LessonPlan(
+      {this.topic = '',
+      this.outline = '',
+      this.keyPoints = const [],
+      this.difficulties = const [],
+      this.strategies = const [],
+      this.interactions = const [],
+      this.homework = const []});
 
   factory LessonPlan.fromJson(Map<String, dynamic> json) {
     return LessonPlan(
@@ -1258,12 +1373,20 @@ class ClassHeatmapData {
   final int totalStudents;
   final int anomalyCount;
 
-  ClassHeatmapData({this.courseName = '', this.points = const [], this.weakTopFive = const [], this.totalStudents = 0, this.anomalyCount = 0});
+  ClassHeatmapData(
+      {this.courseName = '',
+      this.points = const [],
+      this.weakTopFive = const [],
+      this.totalStudents = 0,
+      this.anomalyCount = 0});
 
   factory ClassHeatmapData.fromJson(Map<String, dynamic> json) {
     return ClassHeatmapData(
       courseName: json['course_name'] ?? '',
-      points: (json['points'] as List?)?.map((e) => KnowledgePoint.fromJson(e)).toList() ?? [],
+      points: (json['points'] as List?)
+              ?.map((e) => KnowledgePoint.fromJson(e))
+              .toList() ??
+          [],
       weakTopFive: List<String>.from(json['weak_top_five'] ?? []),
       totalStudents: json['total_students'] ?? 0,
       anomalyCount: json['anomaly_count'] ?? 0,
@@ -1378,7 +1501,11 @@ class TokenDailyPoint {
   final int outputTokens;
   final int totalTokens;
 
-  TokenDailyPoint({this.date = '', this.promptTokens = 0, this.outputTokens = 0, this.totalTokens = 0});
+  TokenDailyPoint(
+      {this.date = '',
+      this.promptTokens = 0,
+      this.outputTokens = 0,
+      this.totalTokens = 0});
 
   factory TokenDailyPoint.fromJson(Map<String, dynamic> json) {
     return TokenDailyPoint(
@@ -1396,7 +1523,11 @@ class TokenStatsSummary {
   final int totalTokens;
   final int todayTokens;
 
-  const TokenStatsSummary({this.totalPromptTokens = 0, this.totalOutputTokens = 0, this.totalTokens = 0, this.todayTokens = 0});
+  const TokenStatsSummary(
+      {this.totalPromptTokens = 0,
+      this.totalOutputTokens = 0,
+      this.totalTokens = 0,
+      this.todayTokens = 0});
 
   factory TokenStatsSummary.fromJson(Map<String, dynamic> json) {
     return TokenStatsSummary(
@@ -1418,8 +1549,12 @@ class TokenStatsData {
 
   factory TokenStatsData.fromJson(Map<String, dynamic> json) {
     return TokenStatsData(
-      summary: json['summary'] != null ? TokenStatsSummary.fromJson(json['summary']) : null,
-      daily: (json['daily'] as List?)?.map((e) => TokenDailyPoint.fromJson(e)).toList(),
+      summary: json['summary'] != null
+          ? TokenStatsSummary.fromJson(json['summary'])
+          : null,
+      daily: (json['daily'] as List?)
+          ?.map((e) => TokenDailyPoint.fromJson(e))
+          .toList(),
     );
   }
 }
@@ -1432,7 +1567,13 @@ class SubordinateTokenStats {
   final int promptTokens;
   final int outputTokens;
 
-  SubordinateTokenStats({this.userId = 0, this.username = '', this.displayName = '', this.totalTokens = 0, this.promptTokens = 0, this.outputTokens = 0});
+  SubordinateTokenStats(
+      {this.userId = 0,
+      this.username = '',
+      this.displayName = '',
+      this.totalTokens = 0,
+      this.promptTokens = 0,
+      this.outputTokens = 0});
 
   factory SubordinateTokenStats.fromJson(Map<String, dynamic> json) {
     return SubordinateTokenStats(
@@ -1496,7 +1637,9 @@ class ProcessRecord {
     return ProcessRecord(
       id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
       recordId: json['record_id'] ?? '',
-      userId: json['user_id'] is int ? json['user_id'] : int.tryParse('${json['user_id']}') ?? 0,
+      userId: json['user_id'] is int
+          ? json['user_id']
+          : int.tryParse('${json['user_id']}') ?? 0,
       flowType: json['flow_type'] ?? '',
       flowLabel: json['flow_label'] ?? '',
       currentStep: json['current_step'] ?? 0,
@@ -1523,5 +1666,57 @@ class ProcessRecord {
   double get progressRatio {
     if (totalSteps <= 0) return 0;
     return completedSteps.length / totalSteps;
+  }
+}
+
+/// 导入结果数据
+class ImportResultData {
+  final int total;
+  final int success;
+  final int failed;
+  final List<ImportResultDetail> details;
+
+  const ImportResultData({
+    required this.total,
+    required this.success,
+    required this.failed,
+    required this.details,
+  });
+
+  factory ImportResultData.fromJson(Map<String, dynamic> json) {
+    return ImportResultData(
+      total: json['total'] ?? 0,
+      success: json['success'] ?? 0,
+      failed: json['failed'] ?? 0,
+      details: (json['details'] as List?)
+              ?.map(
+                  (e) => ImportResultDetail.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+/// 导入结果明细
+class ImportResultDetail {
+  final String username;
+  final String displayName;
+  final bool success;
+  final String error;
+
+  const ImportResultDetail({
+    required this.username,
+    required this.displayName,
+    required this.success,
+    required this.error,
+  });
+
+  factory ImportResultDetail.fromJson(Map<String, dynamic> json) {
+    return ImportResultDetail(
+      username: json['username'] ?? '',
+      displayName: json['display_name'] ?? '',
+      success: json['success'] ?? false,
+      error: json['error'] ?? '',
+    );
   }
 }

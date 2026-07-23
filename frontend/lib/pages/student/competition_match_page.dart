@@ -35,7 +35,7 @@ class _CompetitionMatchPageState extends State<CompetitionMatchPage> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.7)],
+                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity( 0.7)],
                         begin: Alignment.topLeft, end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
@@ -46,7 +46,7 @@ class _CompetitionMatchPageState extends State<CompetitionMatchPage> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('竞赛匹配', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('AI 推荐适合的竞赛', style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 13)),
+                        Text('AI 推荐适合的竞赛', style: TextStyle(color: theme.colorScheme.onPrimary.withOpacity( 0.8), fontSize: 13)),
                       ])),
                     ]),
                   ),
@@ -63,7 +63,7 @@ class _CompetitionMatchPageState extends State<CompetitionMatchPage> {
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(children: [
-                          Icon(Icons.emoji_events, size: 48, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                          Icon(Icons.emoji_events, size: 48, color: theme.colorScheme.primary.withOpacity( 0.5)),
                           const SizedBox(height: 12),
                           Text('暂无内容', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                         ]),

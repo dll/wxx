@@ -69,7 +69,7 @@ class _FocusOverlayState extends State<_FocusOverlay> with SingleTickerProviderS
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.78),
+                color: Colors.black.withOpacity( 0.78),
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -89,7 +89,7 @@ class _FocusOverlayState extends State<_FocusOverlay> with SingleTickerProviderS
                     Text(
                       '页面内容已隐藏，点击任意位置恢复',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: Colors.white.withOpacity( 0.72),
                         fontSize: 14,
                         letterSpacing: 1,
                       ),
@@ -97,7 +97,7 @@ class _FocusOverlayState extends State<_FocusOverlay> with SingleTickerProviderS
                     const SizedBox(height: 36),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.18),
+                        backgroundColor: Colors.white.withOpacity( 0.18),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),

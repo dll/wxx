@@ -290,7 +290,7 @@ class _ChatPageState extends State<ChatPage> {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            color: theme.colorScheme.outlineVariant.withOpacity( 0.3),
           ),
         ),
       ),
@@ -351,7 +351,7 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.school, size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.3)),
+          Icon(Icons.school, size: 64, color: theme.colorScheme.primary.withOpacity( 0.3)),
           const SizedBox(height: 16),
           Text(
             '你好！我是蔚小芯',
@@ -743,7 +743,7 @@ $printScript
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity( 0.4)),
                       ),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
@@ -758,7 +758,7 @@ $printScript
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.85),
+                                    color: Colors.green.withOpacity( 0.85),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Row(
@@ -781,7 +781,7 @@ $printScript
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity( 0.3),
                       ),
                       child: Row(
                         children: [
@@ -939,10 +939,10 @@ $printScript
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                  color: theme.colorScheme.errorContainer.withOpacity( 0.4),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.colorScheme.error.withValues(alpha: 0.3),
+                    color: theme.colorScheme.error.withOpacity( 0.3),
                   ),
                 ),
                 child: Row(

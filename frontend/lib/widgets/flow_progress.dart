@@ -132,7 +132,7 @@ class _AnimatedFlowIconState extends State<_AnimatedFlowIcon>
       child: Icon(
         Icons.sync,
         size: 48,
-        color: widget.theme.colorScheme.primary.withValues(alpha: 0.6),
+        color: widget.theme.colorScheme.primary.withOpacity( 0.6),
       ),
     );
   }

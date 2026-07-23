@@ -41,6 +41,7 @@
 | 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |
 | 部署指南 | `docs/deployment.md` |
 | **前端部署（Cloudflare Pages）** | `docs/蔚小芯前端重新部署.md`（迁移记录 + 自动部署） |
+| **学生用户导入与账号管理** | `docs/user-import.md`（权限、Excel 模板、初始密码与验收） |
 | **前端全量构建脚本** | `scripts/build-all.ps1`（一键构建 Web + APK，用法：`pwsh scripts/build-all.ps1` 或 `make all-frontend`） |
 | **微信小程序（WebView 壳）** | `frontend/miniprogram/`（AppID: wx811d1225e67b8f38，加载 Cloudflare Pages 前端） |
 

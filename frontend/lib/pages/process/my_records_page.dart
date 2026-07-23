@@ -122,7 +122,7 @@ class _RecordCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
+                      color: statusColor.withOpacity( 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

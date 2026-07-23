@@ -25,7 +25,8 @@ class ApiConfig {
   static const String consent = '$apiPrefix/user/consent';
   static const String chat = '$apiPrefix/chat';
   static const String sessions = '$apiPrefix/sessions';
-  static String sessionMessages(String id) => '$apiPrefix/sessions/$id/messages';
+  static String sessionMessages(String id) =>
+      '$apiPrefix/sessions/$id/messages';
   static String sessionDelete(String id) => '$apiPrefix/sessions/$id';
   static String sessionRename(String id) => '$apiPrefix/sessions/$id';
 
@@ -40,7 +41,8 @@ class ApiConfig {
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';
   static const String emotionAlerts = '$apiPrefix/emotion/alerts';
   static const String emotionStats = '$apiPrefix/emotion/stats';
-  static String emotionAlertUpdate(String id) => '$apiPrefix/emotion/alerts/$id';
+  static String emotionAlertUpdate(String id) =>
+      '$apiPrefix/emotion/alerts/$id';
 
   // ── 导出 ──
   static const String export = '$apiPrefix/export';
@@ -56,7 +58,8 @@ class ApiConfig {
 
   // ── 词元统计 ──
   static const String tokenStatsMy = '$apiPrefix/token-stats/my';
-  static const String tokenStatsSubordinates = '$apiPrefix/token-stats/subordinates';
+  static const String tokenStatsSubordinates =
+      '$apiPrefix/token-stats/subordinates';
 
   // ── 管理端 ──
   static const String adminMetrics = '$apiPrefix/admin/metrics';
@@ -70,7 +73,8 @@ class ApiConfig {
   static String kbResource(String id) => '$apiPrefix/kb/resources/$id';
   static String kbApprove(String id) => '$apiPrefix/kb/resources/$id/approve';
   static String kbReject(String id) => '$apiPrefix/kb/resources/$id/reject';
-  static String kbSubmitReview(String id) => '$apiPrefix/kb/resources/$id/submit';
+  static String kbSubmitReview(String id) =>
+      '$apiPrefix/kb/resources/$id/submit';
 
   // ── 知识审核 ──
   static const String reviewPending = '$apiPrefix/review/pending';
@@ -83,8 +87,10 @@ class ApiConfig {
 
   // ── 办事流程办理记录 ──
   static const String processRecords = '$apiPrefix/process/records';
-  static String processRecordStart(String flow) => '$apiPrefix/process/records/$flow/start';
-  static String processRecordProgress(String flow) => '$apiPrefix/process/records/$flow/progress';
+  static String processRecordStart(String flow) =>
+      '$apiPrefix/process/records/$flow/start';
+  static String processRecordProgress(String flow) =>
+      '$apiPrefix/process/records/$flow/progress';
 
   // ── 语音配置 ──
   static const String voiceConfig = '$apiPrefix/user/voice-config';
@@ -108,7 +114,8 @@ class ApiConfig {
   static const String weeklyReport = '$apiPrefix/student/weekly-report';
   static const String achievements = '$apiPrefix/student/achievements';
   static const String freshmanPlan = '$apiPrefix/student/freshman-plan';
-  static const String ideologicalRecord = '$apiPrefix/student/ideological-record';
+  static const String ideologicalRecord =
+      '$apiPrefix/student/ideological-record';
   static const String partyProgress = '$apiPrefix/student/party-progress';
   static const String politicalStudy = '$apiPrefix/student/political-study';
   static const String campusLife = '$apiPrefix/student/campus-life';
@@ -127,38 +134,51 @@ class ApiConfig {
 
   // ── 辅导员 AI 功能 ──
   static const String counselorDailyFocus = '$apiPrefix/counselor/daily-focus';
-  static const String counselorClassReport = '$apiPrefix/counselor/class-report';
+  static const String counselorClassReport =
+      '$apiPrefix/counselor/class-report';
   static const String counselorTwinBoard = '$apiPrefix/counselor/twin-board';
   static const String counselorPrediction = '$apiPrefix/counselor/prediction';
-  static const String counselorIntervention = '$apiPrefix/counselor/intervention';
+  static const String counselorIntervention =
+      '$apiPrefix/counselor/intervention';
   static const String counselorTalkRecord = '$apiPrefix/counselor/talk-record';
   static const String counselorTalkTips = '$apiPrefix/counselor/talk-tips';
   static const String counselorIdeological = '$apiPrefix/counselor/ideological';
-  static const String counselorClassProfile = '$apiPrefix/counselor/class-profile';
+  static const String counselorClassProfile =
+      '$apiPrefix/counselor/class-profile';
 
   // ── 辅导员社区功能 ──
-  static const String counselorCommunityManage = '$apiPrefix/counselor/community-manage';
-  static const String counselorHotTopicSense = '$apiPrefix/counselor/hot-topic-sense';
-  static const String counselorProcessEdit = '$apiPrefix/counselor/process-edit';
-  static const String counselorStudentList = '$apiPrefix/counselor/student-list';
+  static const String counselorCommunityManage =
+      '$apiPrefix/counselor/community-manage';
+  static const String counselorHotTopicSense =
+      '$apiPrefix/counselor/hot-topic-sense';
+  static const String counselorProcessEdit =
+      '$apiPrefix/counselor/process-edit';
+  static const String counselorStudentList =
+      '$apiPrefix/counselor/student-list';
 
   // ── 教师 AI 功能 ──
-  static const String teacherDailyOverview = '$apiPrefix/teacher/daily-overview';
+  static const String teacherDailyOverview =
+      '$apiPrefix/teacher/daily-overview';
   static const String teacherLessonPrep = '$apiPrefix/teacher/lesson-prep';
   static const String teacherExamGen = '$apiPrefix/teacher/exam-gen';
-  static const String teacherClassInteract = '$apiPrefix/teacher/class-interact';
+  static const String teacherClassInteract =
+      '$apiPrefix/teacher/class-interact';
   static const String teacherGrading = '$apiPrefix/teacher/grading';
   static const String teacherHeatmap = '$apiPrefix/teacher/heatmap';
   static const String teacherReflection = '$apiPrefix/teacher/reflection';
-  static const String teacherStyleDist = '$apiPrefix/teacher/style-distribution';
+  static const String teacherStyleDist =
+      '$apiPrefix/teacher/style-distribution';
 
   // ── 教师社区功能 ──
   static const String teacherCommunityQA = '$apiPrefix/teacher/community-qa';
 
   // ── 教辅 AI 功能 ──
-  static const String assistantScheduleCheck = '$apiPrefix/assistant/schedule-check';
-  static const String assistantGradAudit = '$apiPrefix/assistant/graduation-audit';
-  static const String assistantExamArrange = '$apiPrefix/assistant/exam-arrange';
+  static const String assistantScheduleCheck =
+      '$apiPrefix/assistant/schedule-check';
+  static const String assistantGradAudit =
+      '$apiPrefix/assistant/graduation-audit';
+  static const String assistantExamArrange =
+      '$apiPrefix/assistant/exam-arrange';
 
   // ── 学生会 AI 功能 ──
   static const String unionEventPlan = '$apiPrefix/union/event-plan';
@@ -178,26 +198,33 @@ class ApiConfig {
   // ── 问题预案 ──
   static const String forecastAnalysis = '$apiPrefix/forecast/analysis';
   static const String forecastIssues = '$apiPrefix/forecast/issues';
-  static String forecastIssueDetail(String id) => '$apiPrefix/forecast/issues/$id';
-  static String forecastIssueStatus(String id) => '$apiPrefix/forecast/issues/$id/status';
+  static String forecastIssueDetail(String id) =>
+      '$apiPrefix/forecast/issues/$id';
+  static String forecastIssueStatus(String id) =>
+      '$apiPrefix/forecast/issues/$id/status';
   static const String forecastStatistics = '$apiPrefix/forecast/statistics';
 
   // ── 毕设选题 ──
   static const String graduationAdvisors = '$apiPrefix/graduation/advisors';
-  static const String graduationTopics = '$apiPrefix/graduation/available-topics';
+  static const String graduationTopics =
+      '$apiPrefix/graduation/available-topics';
   static const String graduationSelect = '$apiPrefix/graduation/select-topic';
-  static const String graduationMySelection = '$apiPrefix/graduation/my-selection';
+  static const String graduationMySelection =
+      '$apiPrefix/graduation/my-selection';
   static const String graduationMilestones = '$apiPrefix/graduation/milestones';
   static const String graduationStats = '$apiPrefix/graduation/stats';
   static const String graduationSelections = '$apiPrefix/graduation/selections';
-  static String graduationConfirm(String id) => '$apiPrefix/graduation/selections/$id/confirm';
+  static String graduationConfirm(String id) =>
+      '$apiPrefix/graduation/selections/$id/confirm';
 
   // ── 学科竞赛 ──
   static const String competitionList = '$apiPrefix/competition/list';
   static String competitionDetail(String id) => '$apiPrefix/competition/$id';
   static const String competitionRegister = '$apiPrefix/competition/register';
-  static const String competitionMyRegistrations = '$apiPrefix/competition/my-registrations';
-  static const String competitionSubmitWork = '$apiPrefix/competition/submit-work';
+  static const String competitionMyRegistrations =
+      '$apiPrefix/competition/my-registrations';
+  static const String competitionSubmitWork =
+      '$apiPrefix/competition/submit-work';
   static const String competitionStats = '$apiPrefix/competition/stats';
 
   // ── 大学规划 ──
@@ -220,8 +247,10 @@ class ApiConfig {
 
   // ── 游客管理（管理员）──
   static const String adminGuestsPending = '$apiPrefix/admin/guests/pending';
-  static String adminGuestApprove(String id) => '$apiPrefix/admin/guests/$id/approve';
-  static String adminGuestReject(String id) => '$apiPrefix/admin/guests/$id/reject';
+  static String adminGuestApprove(String id) =>
+      '$apiPrefix/admin/guests/$id/approve';
+  static String adminGuestReject(String id) =>
+      '$apiPrefix/admin/guests/$id/reject';
 
   // ── 社团生活 ──
   static const String clubList = '$apiPrefix/club/list';
@@ -229,5 +258,9 @@ class ApiConfig {
   static const String clubJoin = '$apiPrefix/club/join';
   static const String clubMyClubs = '$apiPrefix/club/my-clubs';
   static const String clubActivities = '$apiPrefix/club/activities';
-  static const String clubActivityRegister = '$apiPrefix/club/activity/register';
+  static const String clubActivityRegister =
+      '$apiPrefix/club/activity/register';
+
+  // ── 学生导入（除学生和游客外的组织角色）──
+  static const String importStudents = '$apiPrefix/admin/users/import';
 }

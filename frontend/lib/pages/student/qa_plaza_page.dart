@@ -50,7 +50,7 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.7)],
+                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity( 0.7)],
                       ),
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -60,7 +60,7 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('问答广场', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('AI 增强的校园问答社区', style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 13)),
+                        Text('AI 增强的校园问答社区', style: TextStyle(color: theme.colorScheme.onPrimary.withOpacity( 0.8), fontSize: 13)),
                       ])),
                     ]),
                   ),

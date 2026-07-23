@@ -78,6 +78,7 @@ class AdminProvider extends ChangeNotifier {
       _userPage = 1;
       _users.clear();
     }
+    _error = '';
     _usersLoading = true;
     notifyListeners();
 
@@ -108,8 +109,8 @@ class AdminProvider extends ChangeNotifier {
   }
 
   void setUserFilter({String? role, String? scope}) {
-    _userRoleFilter = role ?? '';
-    _userScopeFilter = scope ?? '';
+    if (role != null) _userRoleFilter = role;
+    if (scope != null) _userScopeFilter = scope;
     fetchUsers(refresh: true);
   }
 
@@ -176,8 +177,7 @@ class AdminProvider extends ChangeNotifier {
       final response = await _api.get(ApiConfig.adminSettings);
       if (response.data['code'] == 0 && response.data['data'] != null) {
         final list = (response.data['data'] as List?)
-                ?.map(
-                    (e) => SystemSetting.fromJson(e as Map<String, dynamic>))
+                ?.map((e) => SystemSetting.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [];
         _settings.clear();
@@ -193,8 +193,8 @@ class AdminProvider extends ChangeNotifier {
 
   Future<bool> updateSettings(Map<String, String> settings) async {
     try {
-      final response = await _api.put(ApiConfig.adminSettings,
-          data: {'settings': settings});
+      final response =
+          await _api.put(ApiConfig.adminSettings, data: {'settings': settings});
       if (response.data['code'] == 0) {
         await fetchSettings();
         return true;
@@ -224,5 +224,52 @@ class AdminProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // ── 学生导入 ──
+
+  ImportResultData? _importResult;
+  bool _importing = false;
+
+  ImportResultData? get importResult => _importResult;
+  bool get importing => _importing;
+
+  /// 从 xlsx 批量导入学生
+  Future<bool> importStudents(List<int> fileBytes, String filename,
+      {String? defaultPassword}) async {
+    _importing = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      final response = await _api.uploadBytes(
+        ApiConfig.importStudents,
+        bytes: fileBytes,
+        filename: filename,
+        fieldName: 'file',
+        fields: {
+          if (defaultPassword != null && defaultPassword.isNotEmpty)
+            'default_password': defaultPassword,
+        },
+      );
+      if (response.data['code'] == 0 && response.data['data'] != null) {
+        _importResult = ImportResultData.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+        return true;
+      }
+      _error = response.data['message'] ?? '导入失败';
+      return false;
+    } catch (e) {
+      _error = '导入失败: ' + e.toString();
+      return false;
+    } finally {
+      _importing = false;
+      notifyListeners();
+    }
+  }
+
+  void clearImportResult() {
+    _importResult = null;
+    notifyListeners();
   }
 }

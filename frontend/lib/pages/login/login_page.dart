@@ -16,7 +16,8 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
   bool _showLogin = false;
 
@@ -44,14 +45,16 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         actions: [
           TextButton(
             onPressed: () => _showGuestDialog(context),
-            child: const Text('注册', style: TextStyle(fontWeight: FontWeight.w600)),
+            child:
+                const Text('注册', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () => setState(() => _showLogin = !_showLogin),
-            child: Text('登录', style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: _showLogin ? theme.colorScheme.primary : null,
-            )),
+            child: Text('登录',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: _showLogin ? theme.colorScheme.primary : null,
+                )),
           ),
           const SizedBox(width: 8),
         ],
@@ -63,11 +66,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
-                mainAxisAlignment: _showLogin ? MainAxisAlignment.start : MainAxisAlignment.center,
+                mainAxisAlignment: _showLogin
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
                 children: [
                   if (!_showLogin) const SizedBox(height: 60),
                   // Logo
-                  Icon(Icons.school, size: 72, color: theme.colorScheme.primary),
+                  Icon(Icons.school,
+                      size: 72, color: theme.colorScheme.primary),
                   const SizedBox(height: 12),
                   Text(
                     '蔚小芯',
@@ -102,7 +108,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.school, size: 28, color: theme.colorScheme.primary),
+                        Icon(Icons.school,
+                            size: 28, color: theme.colorScheme.primary),
                         const SizedBox(height: 8),
                         Text(
                           '欢迎来到滁州学院 👋',
@@ -127,7 +134,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     const SizedBox(height: 24),
                     Container(
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withOpacity(0.5),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: TabBar(
@@ -138,8 +146,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         ),
                         indicatorSize: TabBarIndicatorSize.tab,
                         labelColor: theme.colorScheme.onPrimary,
-                        unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        unselectedLabelColor:
+                            theme.colorScheme.onSurfaceVariant,
+                        labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
                         dividerColor: Colors.transparent,
                         tabs: const [
                           Tab(text: '密码登录', height: 44),
@@ -153,7 +163,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       child: TabBarView(
                         controller: _tabCtrl,
                         children: [
-                          _PasswordLoginForm(onGuestTap: () => _showGuestDialog(context)),
+                          _PasswordLoginForm(
+                              onGuestTap: () => _showGuestDialog(context)),
                           const _QRCodeLoginPanel(),
                         ],
                       ),
@@ -191,8 +202,10 @@ void _showGuestDialog(BuildContext context) {
       final theme = Theme.of(ctx);
       return StatefulBuilder(
         builder: (ctx, setDlgState) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -202,28 +215,39 @@ void _showGuestDialog(BuildContext context) {
                   padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [const Color(0xFF1565C0), const Color(0xFF1976D2).withValues(alpha: 0.8)],
+                      colors: [
+                        const Color(0xFF1565C0),
+                        const Color(0xFF1976D2).withOpacity(0.8)
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: Column(
                     children: [
                       Container(
-                        width: 56, height: 56,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: const Icon(Icons.school, size: 32, color: Colors.white),
+                        child: const Icon(Icons.school,
+                            size: 32, color: Colors.white),
                       ),
                       const SizedBox(height: 12),
                       const Text('欢迎来到滁州学院',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
                       const SizedBox(height: 4),
                       Text('验证手机号即可浏览公开信息',
-                        style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.85))),
                     ],
                   ),
                 ),
@@ -237,9 +261,11 @@ void _showGuestDialog(BuildContext context) {
                           labelText: '您的称呼',
                           hintText: '如：王同学、李老师',
                           prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                          fillColor: theme.colorScheme.surfaceContainerHighest
+                              .withOpacity(0.4),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -249,9 +275,11 @@ void _showGuestDialog(BuildContext context) {
                           labelText: '手机号',
                           hintText: '11 位手机号',
                           prefixIcon: const Icon(Icons.phone_outlined),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                          fillColor: theme.colorScheme.surfaceContainerHighest
+                              .withOpacity(0.4),
                         ),
                         keyboardType: TextInputType.phone,
                         maxLength: 11,
@@ -267,9 +295,12 @@ void _showGuestDialog(BuildContext context) {
                                 labelText: '验证码',
                                 hintText: '6 位数字',
                                 prefixIcon: const Icon(Icons.sms_outlined),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                                 filled: true,
-                                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                                fillColor: theme
+                                    .colorScheme.surfaceContainerHighest
+                                    .withOpacity(0.4),
                               ),
                               keyboardType: TextInputType.number,
                               maxLength: 6,
@@ -279,51 +310,79 @@ void _showGuestDialog(BuildContext context) {
                           SizedBox(
                             height: 56,
                             child: FilledButton(
-                              onPressed: sendingCode || countdown > 0 ? null : () async {
-                                final phone = phoneCtrl.text.trim();
-                                if (!_isValidPhone(phone)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('请输入正确的 11 位手机号')),
-                                  );
-                                  return;
-                                }
-                                setDlgState(() => sendingCode = true);
-                                try {
-                                  // 开发环境：后端返回随机 6 位数字，不实际发送短信
-                                  // 生产环境：由第三方短信 SDK 发送，前端不返回 code
-                                  final resp = await ApiService().post(ApiConfig.sendCode, data: {'phone': phone});
-                                  final respCode = resp.data?['data']?['code'];
-                                  if (respCode != null) codeCtrl.text = respCode.toString();
-                                  setDlgState(() { sendingCode = false; countdown = 60; });
-                                  if (respCode != null && context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                      content: Text('验证码: $respCode'),
-                                      duration: const Duration(seconds: 5),
-                                      behavior: SnackBarBehavior.floating,
-                                    ));
-                                  }
-                                  Future.doWhile(() async {
-                                    await Future.delayed(const Duration(seconds: 1));
-                                    if (ctx.mounted) setDlgState(() { if (countdown > 0) countdown--; });
-                                    return countdown > 0;
-                                  });
-                                } catch (e) {
-                                  setDlgState(() => sendingCode = false);
-                                  final msg = e is DioException
-                                      ? (e.response?.data?['message'] ?? '发送失败')
-                                      : '发送失败';
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                                  }
-                                }
-                              },
+                              onPressed: sendingCode || countdown > 0
+                                  ? null
+                                  : () async {
+                                      final phone = phoneCtrl.text.trim();
+                                      if (!_isValidPhone(phone)) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text('请输入正确的 11 位手机号')),
+                                        );
+                                        return;
+                                      }
+                                      setDlgState(() => sendingCode = true);
+                                      try {
+                                        // 开发环境：后端返回随机 6 位数字，不实际发送短信
+                                        // 生产环境：由第三方短信 SDK 发送，前端不返回 code
+                                        final resp = await ApiService().post(
+                                            ApiConfig.sendCode,
+                                            data: {'phone': phone});
+                                        final respCode =
+                                            resp.data?['data']?['code'];
+                                        if (respCode != null)
+                                          codeCtrl.text = respCode.toString();
+                                        setDlgState(() {
+                                          sendingCode = false;
+                                          countdown = 60;
+                                        });
+                                        if (respCode != null &&
+                                            context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(SnackBar(
+                                            content: Text('验证码: $respCode'),
+                                            duration:
+                                                const Duration(seconds: 5),
+                                            behavior: SnackBarBehavior.floating,
+                                          ));
+                                        }
+                                        Future.doWhile(() async {
+                                          await Future.delayed(
+                                              const Duration(seconds: 1));
+                                          if (ctx.mounted)
+                                            setDlgState(() {
+                                              if (countdown > 0) countdown--;
+                                            });
+                                          return countdown > 0;
+                                        });
+                                      } catch (e) {
+                                        setDlgState(() => sendingCode = false);
+                                        final msg = e is DioException
+                                            ? (e.response?.data?['message'] ??
+                                                '发送失败')
+                                            : '发送失败';
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                                  SnackBar(content: Text(msg)));
+                                        }
+                                      }
+                                    },
                               style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                                 minimumSize: const Size(100, 56),
                               ),
                               child: sendingCode
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : Text(countdown > 0 ? '${countdown}s' : '获取验证码', style: const TextStyle(fontSize: 14)),
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white))
+                                  : Text(
+                                      countdown > 0 ? '${countdown}s' : '获取验证码',
+                                      style: const TextStyle(fontSize: 14)),
                             ),
                           ),
                         ],
@@ -337,9 +396,11 @@ void _showGuestDialog(BuildContext context) {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: loading ? null : () => Navigator.of(ctx).pop(),
+                          onPressed:
+                              loading ? null : () => Navigator.of(ctx).pop(),
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             minimumSize: const Size(0, 48),
                           ),
                           child: const Text('取消'),
@@ -349,66 +410,93 @@ void _showGuestDialog(BuildContext context) {
                       Expanded(
                         flex: 2,
                         child: FilledButton(
-                          onPressed: loading ? null : () async {
-                            final name = nameCtrl.text.trim();
-                            final phone = phoneCtrl.text.trim();
-                            final code = codeCtrl.text.trim();
-                            if (name.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('请输入您的称呼')),
-                              );
-                              return;
-                            }
-                            if (!_isValidPhone(phone)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('请输入正确的 11 位手机号')),
-                              );
-                              return;
-                            }
-                            if (code.length != 6) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('请输入 6 位验证码')),
-                              );
-                              return;
-                            }
-                            setDlgState(() => loading = true);
-                            try {
-                              final resp = await ApiService().post(ApiConfig.guestRegister, data: {
-                                'display_name': name, 'phone': phone, 'code': code,
-                              });
-                              if (resp.data['code'] == 0 && resp.data['data']?['token'] != null) {
-                                await Storage.setToken(resp.data['data']['token'] as String);
-                                await context.read<AuthProvider>().fetchProfile();
-                                if (context.mounted) {
-                                  Navigator.of(ctx).pop();
-                                  context.go('/home');
-                                }
-                              } else {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(resp.data['message'] ?? '注册失败')),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              final msg = e is DioException
-                                  ? (e.response?.data?['message'] ?? '网络错误')
-                                  : '网络错误';
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                              }
-                            } finally {
-                              if (ctx.mounted) setDlgState(() => loading = false);
-                            }
-                          },
+                          onPressed: loading
+                              ? null
+                              : () async {
+                                  final name = nameCtrl.text.trim();
+                                  final phone = phoneCtrl.text.trim();
+                                  final code = codeCtrl.text.trim();
+                                  if (name.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('请输入您的称呼')),
+                                    );
+                                    return;
+                                  }
+                                  if (!_isValidPhone(phone)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('请输入正确的 11 位手机号')),
+                                    );
+                                    return;
+                                  }
+                                  if (code.length != 6) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('请输入 6 位验证码')),
+                                    );
+                                    return;
+                                  }
+                                  setDlgState(() => loading = true);
+                                  try {
+                                    final resp = await ApiService()
+                                        .post(ApiConfig.guestRegister, data: {
+                                      'display_name': name,
+                                      'phone': phone,
+                                      'code': code,
+                                    });
+                                    if (resp.data['code'] == 0 &&
+                                        resp.data['data']?['token'] != null) {
+                                      await Storage.setToken(
+                                          resp.data['data']['token'] as String);
+                                      await context
+                                          .read<AuthProvider>()
+                                          .fetchProfile();
+                                      if (context.mounted) {
+                                        Navigator.of(ctx).pop();
+                                        context.go('/home');
+                                      }
+                                    } else {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  resp.data['message'] ??
+                                                      '注册失败')),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    final msg = e is DioException
+                                        ? (e.response?.data?['message'] ??
+                                            '网络错误')
+                                        : '网络错误';
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                              SnackBar(content: Text(msg)));
+                                    }
+                                  } finally {
+                                    if (ctx.mounted)
+                                      setDlgState(() => loading = false);
+                                  }
+                                },
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF1565C0),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                             minimumSize: const Size(0, 48),
                           ),
                           child: loading
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Text('开始浏览', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : const Text('开始浏览',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ],
@@ -437,19 +525,6 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
-  String _selectedRole = 'student';
-
-  static const _roleOptions = [
-    {'value': 'sys_admin', 'label': '系统管理员'},
-    {'value': 'school_admin', 'label': '学校管理员'},
-    {'value': 'college_admin', 'label': '学院管理员'},
-    {'value': 'counselor', 'label': '辅导员'},
-    {'value': 'teacher', 'label': '教师'},
-    {'value': 'assistant', 'label': '教辅'},
-    {'value': 'student_union', 'label': '学生会'},
-    {'value': 'student', 'label': '学生'},
-    {'value': 'guest', 'label': '游客（需注册）'},
-  ];
 
   @override
   void dispose() {
@@ -459,10 +534,6 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
   }
 
   Future<void> _doLogin() async {
-    if (_selectedRole == 'guest') {
-      widget.onGuestTap?.call();
-      return;
-    }
     final username = _usernameCtrl.text.trim();
     if (username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -470,8 +541,15 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
       );
       return;
     }
+    final password = _passwordCtrl.text;
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入密码')),
+      );
+      return;
+    }
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(username, _passwordCtrl.text.trim(), _selectedRole);
+    final ok = await auth.login(username, password);
     if (!mounted) return;
     if (ok) {
       context.go('/home');
@@ -490,19 +568,19 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
         TextField(
           controller: _usernameCtrl,
           decoration: InputDecoration(
-            labelText: _selectedRole == 'guest' ? '手机号（游客无需用户名）' : '学号 / 工号',
+            labelText: '学号 / 工号',
             prefixIcon: const Icon(Icons.person_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           textInputAction: TextInputAction.next,
-          keyboardType: _selectedRole == 'guest' ? TextInputType.phone : TextInputType.text,
+          keyboardType: TextInputType.text,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _passwordCtrl,
           obscureText: _obscure,
           decoration: InputDecoration(
-            labelText: '密码（开发环境可留空）',
+            labelText: '密码',
             prefixIcon: const Icon(Icons.lock_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             suffixIcon: IconButton(
@@ -512,60 +590,30 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
           ),
           onSubmitted: (_) => _doLogin(),
         ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedRole,
-          decoration: InputDecoration(
-            labelText: '角色',
-            prefixIcon: const Icon(Icons.badge_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          items: _roleOptions.map((r) {
-            final isGuest = r['value'] == 'guest';
-            return DropdownMenuItem(
-              value: r['value'] as String,
-              child: Row(
-                children: [
-                  Text(r['label'] as String, style: TextStyle(
-                    fontSize: 14,
-                    color: isGuest ? Colors.orange : null,
-                    fontWeight: isGuest ? FontWeight.w500 : null,
-                  )),
-                  if (isGuest) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.phone_android, size: 14, color: Colors.orange),
-                  ],
-                ],
-              ),
-            );
-          }).toList(),
-          onChanged: (v) {
-            if (v != null) setState(() => _selectedRole = v);
-          },
-        ),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: _selectedRole == 'guest'
-              ? FilledButton.icon(
-                  onPressed: () => widget.onGuestTap?.call(),
-                  icon: const Icon(Icons.app_registration, size: 18),
-                  label: const Text('前往手机注册', style: TextStyle(fontSize: 16)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                )
-              : FilledButton(
-                  onPressed: auth.loading ? null : _doLogin,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: auth.loading
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('登 录', style: TextStyle(fontSize: 16)),
-                ),
+          child: FilledButton(
+            onPressed: auth.loading ? null : _doLogin,
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: auth.loading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('登 录', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: widget.onGuestTap,
+          icon: const Icon(Icons.app_registration),
+          label: const Text('游客手机注册'),
         ),
       ],
     );
@@ -616,7 +664,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
 
     try {
       final api = ApiService();
-      final resp = await api.post('/api/v1/auth/qr-login', data: <String, dynamic>{});
+      final resp =
+          await api.post('/api/v1/auth/qr-login', data: <String, dynamic>{});
       if (!mounted) return;
 
       final code = resp.data['code'];
@@ -624,9 +673,11 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
       if (code == 0 && data is Map && data['session_id'] is String) {
         final sessionId = data['session_id'] as String;
         _qrSessionId = sessionId;
-        final encodedUrl = Uri.encodeComponent('https://wxx.pydaydayup.xyz/#/login?qr=$sessionId');
+        final encodedUrl = Uri.encodeComponent(
+            'https://wxx.pydaydayup.xyz/#/login?qr=$sessionId');
         setState(() {
-          _qrImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
+          _qrImageUrl =
+              'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
           _qrStatus = 'active';
           _message = '请使用手机浏览器扫描二维码';
         });
@@ -641,9 +692,11 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
   }
 
   void _showFallbackQR(String message) {
-    final encodedUrl = Uri.encodeComponent('https://wxx.pydaydayup.xyz/#/login');
+    final encodedUrl =
+        Uri.encodeComponent('https://wxx.pydaydayup.xyz/#/login');
     setState(() {
-      _qrImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
+      _qrImageUrl =
+          'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
       _qrStatus = 'active';
       _message = message;
     });
@@ -656,13 +709,17 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
     final router = GoRouter.of(context);
 
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted || _qrSessionId == null || _qrStatus == 'confirmed' || _qrStatus == 'expired') {
+      if (!mounted ||
+          _qrSessionId == null ||
+          _qrStatus == 'confirmed' ||
+          _qrStatus == 'expired') {
         timer.cancel();
         return;
       }
 
       try {
-        final resp = await api.get('/api/v1/auth/qr-status', params: {'session': _qrSessionId!});
+        final resp = await api
+            .get('/api/v1/auth/qr-status', params: {'session': _qrSessionId!});
         if (!mounted) return;
         _pollFailureCount = 0;
 
@@ -740,11 +797,16 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
             border: Border.all(
               color: _qrStatus == 'expired'
                   ? theme.colorScheme.error
-                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  : theme.colorScheme.outlineVariant.withOpacity(0.4),
               width: _qrStatus == 'scanned' || _qrStatus == 'confirmed' ? 3 : 1,
             ),
             boxShadow: _qrStatus == 'scanned' || _qrStatus == 'confirmed'
-                ? [BoxShadow(color: Colors.green.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)]
+                ? [
+                    BoxShadow(
+                        color: Colors.green.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2)
+                  ]
                 : null,
           ),
           child: _qrStatus == 'loading'
@@ -756,37 +818,56 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Image.network(_qrImageUrl!,
-                            width: 238, height: 238, fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.qr_code, size: 80, color: Colors.grey)),
+                          child: Image.network(
+                            _qrImageUrl!,
+                            width: 238,
+                            height: 238,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.qr_code,
+                                    size: 80, color: Colors.grey)),
                           ),
                         ),
                         if (_qrStatus == 'scanned')
                           Container(
-                            width: 238, height: 238,
-                            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                            width: 238,
+                            height: 238,
+                            decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(15)),
                             child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+                                  Icon(Icons.check_circle_outline,
+                                      size: 48, color: Colors.green),
                                   SizedBox(height: 8),
-                                  Text('已扫描', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                                  Text('已扫描',
+                                      style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w600)),
                                 ],
                               ),
                             ),
                           ),
                         if (_qrStatus == 'confirmed')
                           Container(
-                            width: 238, height: 238,
-                            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(15)),
+                            width: 238,
+                            height: 238,
+                            decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(15)),
                             child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, size: 48, color: Colors.green),
+                                  Icon(Icons.check_circle,
+                                      size: 48, color: Colors.green),
                                   SizedBox(height: 8),
-                                  Text('登录成功', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                                  Text('登录成功',
+                                      style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w600)),
                                 ],
                               ),
                             ),
@@ -805,7 +886,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
           ),
         const SizedBox(height: 16),
         Text('手机扫码后打开蔚小芯，登录即可开始使用',
-          style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       ],
     );
   }
@@ -815,9 +897,12 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.timer_off_outlined, size: 48, color: theme.colorScheme.error),
+          Icon(Icons.timer_off_outlined,
+              size: 48, color: theme.colorScheme.error),
           const SizedBox(height: 8),
-          Text('已过期', style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w600)),
+          Text('已过期',
+              style: TextStyle(
+                  color: theme.colorScheme.error, fontWeight: FontWeight.w600)),
         ],
       ),
     );

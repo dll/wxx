@@ -195,7 +195,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _type,
+                        value: _type,
                         decoration: const InputDecoration(
                           labelText: '类型',
                           border: OutlineInputBorder(),
@@ -215,7 +215,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _scope,
+                        value: _scope,
                         decoration: const InputDecoration(
                           labelText: '范围',
                           border: OutlineInputBorder(),

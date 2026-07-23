@@ -49,6 +49,22 @@ func TestHasCapability_Denied(t *testing.T) {
 	}
 }
 
+func TestImportStudentCapability_AllNonStudentRoles(t *testing.T) {
+	for _, role := range []string{
+		"student_union", "counselor", "teacher", "assistant",
+		"college_admin", "school_admin", "sys_admin",
+	} {
+		if !HasCapability(role, CounselorImportStudent) {
+			t.Errorf("%s 应拥有导入学生能力", role)
+		}
+	}
+	for _, role := range []string{"student", "guest"} {
+		if HasCapability(role, CounselorImportStudent) {
+			t.Errorf("%s 不应拥有导入学生能力", role)
+		}
+	}
+}
+
 // TestHasCapability_UnknownRole 未知角色
 func TestHasCapability_UnknownRole(t *testing.T) {
 	if HasCapability("hacker", SelfBriefingRead) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -94,6 +95,13 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 		return nil, fmt.Errorf("用户不存在: id=%d", userID)
 	}
 
+	if req.DisplayName != nil {
+		name := strings.TrimSpace(*req.DisplayName)
+		if name == "" {
+			return nil, fmt.Errorf("显示名称不能为空")
+		}
+		user.DisplayName = name
+	}
 	if req.Role != nil {
 		user.Role = *req.Role
 	}
@@ -101,7 +109,10 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 		user.OwnerScope = *req.OwnerScope
 	}
 	if req.OwnerID != nil {
-		user.OwnerID = *req.OwnerID
+		user.OwnerID = strings.TrimSpace(*req.OwnerID)
+	}
+	if req.Status != nil {
+		user.Status = *req.Status
 	}
 
 	if err := s.userRepo.Update(user); err != nil {
@@ -144,30 +155,42 @@ func (s *AdminService) UpdateSettings(settings map[string]string, updatedBy stri
 	log.Printf("系统配置已更新 by=%s count=%d", updatedBy, len(settings))
 	return nil
 }
+
 // ImportStudentRow 导入学生行数据
 type ImportStudentRow struct {
-	Username    string // 学号
-	DisplayName string // 姓名
-	College     string // 院系
-	Major       string // 专业
-	ClassName   string // 班级
+	Username       string // 学号
+	DisplayName    string // 姓名
+	College        string // 院系
+	Major          string // 专业
+	ClassName      string // 班级
+	EnrollmentDate string // 入学时间
+	EnrollmentYear string // 入学年份
+	Role           string // Excel 中的角色，仅允许学生
 }
 
 // ImportStudentsResult 导入结果
 type ImportStudentsResult struct {
-	Total   int    `json:"total"`
-	Success int    `json:"success"`
-	Failed  int    `json:"failed"`
+	Total   int                            `json:"total"`
+	Success int                            `json:"success"`
+	Failed  int                            `json:"failed"`
 	Details []repository.BatchCreateResult `json:"details"`
 }
 
 // ImportStudents 从 xlsx 批量导入学生
-func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword string) (*ImportStudentsResult, error) {
+func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword, importerRole, importerScope, importerOwnerID string) (*ImportStudentsResult, error) {
 	if len(rows) == 0 {
 		return nil, fmt.Errorf("导入数据为空")
 	}
+	if len(rows) > 5000 {
+		return nil, fmt.Errorf("单次最多导入 5000 名学生")
+	}
 
-	// 加密默认密码（若提供）；否则每个学生以学号作为默认密码
+	defaultPassword = strings.TrimSpace(defaultPassword)
+	if defaultPassword != "" && len([]rune(defaultPassword)) < 6 {
+		return nil, fmt.Errorf("统一初始密码不能少于 6 位")
+	}
+
+	// 统一密码只计算一次哈希；留空时每名学生使用自己的学号并分别加密。
 	sharedHash := ""
 	if defaultPassword != "" {
 		h, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
@@ -178,34 +201,85 @@ func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword 
 	}
 
 	students := make([]*model.User, 0, len(rows))
-	for _, r := range rows {
-		if r.Username == "" {
-			return nil, fmt.Errorf("学号不能为空（姓名: %s）", r.DisplayName)
+	results := make([]repository.BatchCreateResult, 0, len(rows))
+	for _, source := range rows {
+		username := strings.TrimSpace(source.Username)
+		displayName := strings.TrimSpace(source.DisplayName)
+		role := strings.ToLower(strings.TrimSpace(source.Role))
+		if username == "" {
+			results = append(results, repository.BatchCreateResult{
+				DisplayName: displayName, Error: "学号不能为空",
+			})
+			continue
 		}
-		ownerID := r.ClassName
+		if displayName == "" {
+			results = append(results, repository.BatchCreateResult{
+				Username: username, Error: "姓名不能为空",
+			})
+			continue
+		}
+		if role != "" && role != "学生" && role != "student" {
+			results = append(results, repository.BatchCreateResult{
+				Username: username, DisplayName: displayName,
+				Error: "角色必须为学生",
+			})
+			continue
+		}
+
+		college := strings.TrimSpace(source.College)
+		className := strings.TrimSpace(source.ClassName)
+		ownerScope := "college"
+		ownerID := college
+		if importerRole != "sys_admin" && importerRole != "school_admin" {
+			if importerScope != "" {
+				ownerScope = importerScope
+			}
+			if importerOwnerID != "" {
+				ownerID = importerOwnerID
+			}
+		} else if ownerID == "" {
+			ownerID = className
+		}
 		if ownerID == "" {
-			ownerID = r.College
+			ownerID = "default"
 		}
-		// 无统一默认密码时，以学号作为个人默认密码
-		pwd := defaultPassword
-		if pwd == "" {
-			pwd = r.Username
+
+		passwordHash := sharedHash
+		if passwordHash == "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(username), bcrypt.DefaultCost)
+			if err != nil {
+				results = append(results, repository.BatchCreateResult{
+					Username: username, DisplayName: displayName,
+					Error: "密码加密失败",
+				})
+				continue
+			}
+			passwordHash = string(hash)
 		}
+
 		u := &model.User{
-			Username:     r.Username,
-			DisplayName:  r.DisplayName,
-			Role:         "student",
-			OwnerScope:   "college",
-			OwnerID:      ownerID,
-			Status:       "active",
-			PasswordHash: pwd,
+			Username:       username,
+			DisplayName:    displayName,
+			Role:           "student",
+			OwnerScope:     ownerScope,
+			OwnerID:        ownerID,
+			College:        college,
+			Major:          strings.TrimSpace(source.Major),
+			ClassName:      className,
+			EnrollmentDate: strings.TrimSpace(source.EnrollmentDate),
+			EnrollmentYear: strings.TrimSpace(source.EnrollmentYear),
+			Status:         "active",
+			PasswordHash:   passwordHash,
 		}
 		students = append(students, u)
 	}
 
-	results, err := s.userRepo.BatchCreateStudents(students, sharedHash)
-	if err != nil {
-		return nil, fmt.Errorf("批量创建学生失败: %w", err)
+	if len(students) > 0 {
+		created, err := s.userRepo.BatchCreateStudents(students)
+		if err != nil {
+			return nil, fmt.Errorf("批量创建学生失败: %w", err)
+		}
+		results = append(results, created...)
 	}
 
 	successCount := 0
@@ -219,7 +293,7 @@ func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword 
 	}
 
 	return &ImportStudentsResult{
-		Total:   len(rows),
+		Total:   len(results),
 		Success: successCount,
 		Failed:  failedCount,
 		Details: results,
@@ -237,11 +311,33 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 		return nil, fmt.Errorf("数据不足（至少需要表头+1行数据）")
 	}
 
-	// 表头映射：中文字段名 -> 列字母
-	header := rows[0]
+	// 在前 10 行内定位表头，兼容模板顶部存在标题或说明行。
+	headerIndex := -1
+	var header util.XLSXRow
+	for i := 0; i < len(rows) && i < 10; i++ {
+		hasUsername := false
+		hasDisplayName := false
+		for _, value := range rows[i] {
+			switch strings.TrimSpace(strings.TrimPrefix(value, "\ufeff")) {
+			case "学号":
+				hasUsername = true
+			case "姓名":
+				hasDisplayName = true
+			}
+		}
+		if hasUsername && hasDisplayName {
+			headerIndex = i
+			header = rows[i]
+			break
+		}
+	}
+	if headerIndex < 0 {
+		return nil, fmt.Errorf("表头缺少必要列：学号、姓名")
+	}
+
 	colMap := make(map[string]string)
 	for col, name := range header {
-		switch name {
+		switch strings.TrimSpace(strings.TrimPrefix(name, "\ufeff")) {
 		case "学号":
 			colMap["username"] = col
 		case "姓名":
@@ -252,6 +348,12 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 			colMap["major"] = col
 		case "班级":
 			colMap["class_name"] = col
+		case "入学时间", "入学日期":
+			colMap["enrollment_date"] = col
+		case "入学年份":
+			colMap["enrollment_year"] = col
+		case "角色":
+			colMap["role"] = col
 		}
 	}
 
@@ -260,16 +362,27 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 	}
 
 	var result []*ImportStudentRow
-	for i := 1; i < len(rows); i++ {
+	for i := headerIndex + 1; i < len(rows); i++ {
 		row := rows[i]
+		username := strings.TrimSpace(row[colMap["username"]])
+		displayName := strings.TrimSpace(row[colMap["display_name"]])
+		if username == "" && displayName == "" {
+			continue
+		}
 		r := &ImportStudentRow{
-			Username:    row[colMap["username"]],
-			DisplayName: row[colMap["display_name"]],
-			College:     row[colMap["college"]],
-			Major:       row[colMap["major"]],
-			ClassName:   row[colMap["class_name"]],
+			Username:       username,
+			DisplayName:    displayName,
+			College:        strings.TrimSpace(row[colMap["college"]]),
+			Major:          strings.TrimSpace(row[colMap["major"]]),
+			ClassName:      strings.TrimSpace(row[colMap["class_name"]]),
+			EnrollmentDate: strings.TrimSpace(row[colMap["enrollment_date"]]),
+			EnrollmentYear: strings.TrimSpace(row[colMap["enrollment_year"]]),
+			Role:           strings.TrimSpace(row[colMap["role"]]),
 		}
 		result = append(result, r)
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("表格中没有可导入的学生数据")
 	}
 
 	return result, nil

@@ -406,10 +406,10 @@ class MainShell extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.7),
+              color: theme.colorScheme.surface.withOpacity( 0.7),
               border: Border(
                 top: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.outlineVariant.withOpacity( 0.3),
                 ),
               ),
             ),

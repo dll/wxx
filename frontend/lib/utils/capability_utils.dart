@@ -61,6 +61,8 @@ class Capability {
   static const counselorCommunityManage = 'counselor.community.manage';
   static const counselorHotTopicSense = 'counselor.hot_topic.sense';
   static const counselorProcessEdit = 'counselor.process.edit';
+  static const counselorImportStudent = 'counselor.import.student';
+
   static const counselorStudentList = 'counselor.student.list';
   static const counselorTokenSubordinates = 'counselor.token.subordinates';
 

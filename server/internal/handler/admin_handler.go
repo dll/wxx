@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"bytes"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
@@ -103,10 +107,10 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if req.Role == nil && req.OwnerScope == nil && req.OwnerID == nil {
+	if req.DisplayName == nil && req.Role == nil && req.OwnerScope == nil && req.OwnerID == nil && req.Status == nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "至少需要修改一项 (role/owner_scope/owner_id)",
+			Message: "至少需要修改一项用户信息",
 		})
 		return
 	}
@@ -338,5 +342,137 @@ func (h *AdminHandler) RejectGuest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "已拒绝该游客申请",
+	})
+}
+
+// ImportStudentsRequest 导入学生请求体（JSON 格式）
+type importStudentsRequest struct {
+	Students        []importStudentItem `json:"students" binding:"required"`
+	DefaultPassword string              `json:"default_password"` // 默认密码，空则用学号
+}
+
+type importStudentItem struct {
+	Username       string `json:"username" binding:"required"`
+	DisplayName    string `json:"display_name"`
+	College        string `json:"college"`
+	Major          string `json:"major"`
+	ClassName      string `json:"class_name"`
+	EnrollmentDate string `json:"enrollment_date"`
+	EnrollmentYear string `json:"enrollment_year"`
+	Role           string `json:"role"`
+}
+
+// ImportStudents 批量导入学生
+// POST /api/v1/admin/users/import
+func (h *AdminHandler) ImportStudents(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
+		return
+	}
+
+	contentType := c.ContentType()
+
+	// 支持 multipart/form-data（上传 xlsx 文件）和 application/json（直接传 JSON）
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		h.importStudentsFromFile(c)
+	} else {
+		h.importStudentsFromJSON(c)
+	}
+}
+
+// importStudentsFromFile 通过上传 xlsx 文件导入
+func (h *AdminHandler) importStudentsFromFile(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 12<<20)
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "请选择要上传的 xlsx 文件"})
+		return
+	}
+	defer file.Close()
+	if !strings.EqualFold(filepath.Ext(header.Filename), ".xlsx") {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "仅支持 .xlsx 格式"})
+		return
+	}
+	if header.Size <= 0 || header.Size > 10<<20 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "文件大小必须在 10MB 以内"})
+		return
+	}
+
+	// 读取文件到内存
+	data, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "读取文件失败: " + err.Error()})
+		return
+	}
+
+	defaultPassword := c.DefaultPostForm("default_password", "")
+
+	// 解析 xlsx
+	rows, err := h.adminSvc.ParseStudentXLSX(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "解析文件失败: " + err.Error()})
+		return
+	}
+
+	result, err := h.adminSvc.ImportStudents(
+		rows, defaultPassword, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "导入完成",
+		"data":    result,
+	})
+}
+
+// importStudentsFromJSON 通过 JSON 数组导入
+func (h *AdminHandler) importStudentsFromJSON(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
+		return
+	}
+	var req importStudentsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "请求参数错误: " + err.Error()})
+		return
+	}
+
+	rows := make([]*service.ImportStudentRow, 0, len(req.Students))
+	for _, s := range req.Students {
+		rows = append(rows, &service.ImportStudentRow{
+			Username:       s.Username,
+			DisplayName:    s.DisplayName,
+			College:        s.College,
+			Major:          s.Major,
+			ClassName:      s.ClassName,
+			EnrollmentDate: s.EnrollmentDate,
+			EnrollmentYear: s.EnrollmentYear,
+			Role:           s.Role,
+		})
+	}
+
+	result, err := h.adminSvc.ImportStudents(
+		rows, req.DefaultPassword, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "导入完成",
+		"data":    result,
 	})
 }

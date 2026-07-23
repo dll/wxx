@@ -373,7 +373,7 @@ class _ForecastCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getRiskColor(forecast.riskLevel).withValues(alpha: 0.1),
+                      color: _getRiskColor(forecast.riskLevel).withOpacity( 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -389,7 +389,7 @@ class _ForecastCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      color: theme.colorScheme.primaryContainer.withOpacity( 0.3),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -404,7 +404,7 @@ class _ForecastCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(forecast.status).withValues(alpha: 0.1),
+                      color: _getStatusColor(forecast.status).withOpacity( 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

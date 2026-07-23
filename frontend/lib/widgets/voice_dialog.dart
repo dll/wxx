@@ -286,7 +286,7 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                   Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE65100).withValues(alpha: 0.12),
+                      color: const Color(0xFFE65100).withOpacity( 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.mic, color: Color(0xFFE65100)),
@@ -348,8 +348,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                           width: 72, height: 72,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isActive ? color : color.withValues(alpha: 0.18),
-                            border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
+                            color: isActive ? color : color.withOpacity( 0.18),
+                            border: Border.all(color: color.withOpacity( 0.5), width: 2),
                           ),
                           child: Icon(
                             _statusIcon(),
@@ -379,7 +379,7 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.4),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: _mode == 'assistant' && _turns.isNotEmpty
@@ -484,11 +484,11 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
         constraints: const BoxConstraints(maxWidth: 320),
         decoration: BoxDecoration(
           color: isUser
-              ? theme.colorScheme.primary.withValues(alpha: isInterim ? 0.4 : 1.0)
+              ? theme.colorScheme.primary.withOpacity( isInterim ? 0.4 : 1.0)
               : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: !isUser
-              ? Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4))
+              ? Border.all(color: theme.colorScheme.outlineVariant.withOpacity( 0.4))
               : null,
         ),
         child: Text(

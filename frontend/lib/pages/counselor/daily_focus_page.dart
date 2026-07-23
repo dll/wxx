@@ -61,8 +61,8 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
               borderRadius: BorderRadius.circular(12),
               gradient: LinearGradient(
                 colors: [
-                  theme.colorScheme.primary.withValues(alpha: 0.08),
-                  theme.colorScheme.secondary.withValues(alpha: 0.04),
+                  theme.colorScheme.primary.withOpacity( 0.08),
+                  theme.colorScheme.secondary.withOpacity( 0.04),
                 ],
               ),
             ),
@@ -128,7 +128,7 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
         if (data.aiNarrative.isNotEmpty) ...[
           const SizedBox(height: 16),
           Card(
-            color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+            color: theme.colorScheme.tertiaryContainer.withOpacity( 0.5),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -193,7 +193,7 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: riskColor.withValues(alpha: 0.12),
+                        color: riskColor.withOpacity( 0.12),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(

@@ -674,6 +674,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)
 				admin.PUT("/guests/:id/approve", auth.RequireCapability(auth.CollegeUserRead), adminH.ApproveGuest)
 				admin.PUT("/guests/:id/reject", auth.RequireCapability(auth.CollegeUserRead), adminH.RejectGuest)
+				// 学生导入（除学生和游客外的组织角色均可用）
+				admin.POST("/users/import", auth.RequireCapability(auth.CounselorImportStudent), adminH.ImportStudents)
 			}
 
 			// ── 知识审核 ──

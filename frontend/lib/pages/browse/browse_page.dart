@@ -161,7 +161,7 @@ class _BrowsePageState extends State<BrowsePage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity( 0.3)),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -178,7 +178,7 @@ class _BrowsePageState extends State<BrowsePage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: typeColor.withValues(alpha: 0.12),
+                      color: typeColor.withOpacity( 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(_typeIconData(card.resourceType), size: 20, color: typeColor),
@@ -217,7 +217,7 @@ class _BrowsePageState extends State<BrowsePage> {
                   children: card.tags.take(3).map((tag) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                          color: theme.colorScheme.tertiaryContainer.withOpacity( 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(

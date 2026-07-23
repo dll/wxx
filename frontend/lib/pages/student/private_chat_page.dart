@@ -80,7 +80,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Widget _chatTile(ThemeData theme, String name, String msg, String time, int unread, Color avatar) {
     return ListTile(
-      leading: CircleAvatar(backgroundColor: avatar.withValues(alpha: 0.2), child: Text(name[0], style: TextStyle(color: avatar))),
+      leading: CircleAvatar(backgroundColor: avatar.withOpacity( 0.2), child: Text(name[0], style: TextStyle(color: avatar))),
       title: Text(name),
       subtitle: Text(msg, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

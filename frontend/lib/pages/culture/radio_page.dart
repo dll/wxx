@@ -156,7 +156,7 @@ class _NowPlayingCardState extends State<_NowPlayingCard> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: 0.3),
+            color: Colors.red.withOpacity( 0.3),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),

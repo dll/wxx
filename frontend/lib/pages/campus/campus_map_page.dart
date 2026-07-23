@@ -107,7 +107,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1677FF).withValues(alpha: 0.1),
+                    color: const Color(0xFF1677FF).withOpacity( 0.1),
                     borderRadius: BorderRadius.circular(40),
                   ),
                   child: const Icon(Icons.map_outlined, size: 40, color: Color(0xFF1677FF)),
@@ -235,7 +235,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
         // 路线说明
         Card(
           elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -429,7 +429,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: tab.color.withValues(alpha: 0.1),
+                color: tab.color.withOpacity( 0.1),
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Icon(tab.icon, size: 48, color: tab.color),

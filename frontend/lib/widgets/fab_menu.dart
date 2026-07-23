@@ -192,7 +192,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             ),
             boxShadow: [
               BoxShadow(
-                color: activeColor.withValues(alpha: 0.45),
+                color: activeColor.withOpacity( 0.45),
                 blurRadius: 14,
                 offset: const Offset(0, 5),
                 spreadRadius: 1,
@@ -264,7 +264,7 @@ class _PillLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withOpacity( 0.12),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -298,7 +298,7 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.4),
+            color: color.withOpacity( 0.4),
             blurRadius: 10,
             offset: const Offset(0, 3),
             spreadRadius: 1,

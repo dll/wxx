@@ -193,7 +193,7 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+          top: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity( 0.3)),
         ),
       ),
       child: SafeArea(

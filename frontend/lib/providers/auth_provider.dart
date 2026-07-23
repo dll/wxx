@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../config/router.dart';
 import '../models/models.dart';
@@ -26,7 +27,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// 登录
-  Future<bool> login(String username, String password, [String role = 'student']) async {
+  Future<bool> login(String username, String password) async {
     _loading = true;
     _error = null;
     notifyListeners();
@@ -35,7 +36,6 @@ class AuthProvider extends ChangeNotifier {
       final resp = await _api.post(ApiConfig.login, data: {
         'username': username,
         'password': password,
-        'role': role,
       });
 
       final data = resp.data;
@@ -58,7 +58,11 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('登录请求失败: $e');
-      _error = '网络错误，请检查网络连接或后端服务是否启动';
+      if (e is DioException && e.response?.data is Map) {
+        _error = (e.response!.data as Map)['message']?.toString() ?? '登录失败';
+      } else {
+        _error = '网络错误，请检查网络连接或后端服务是否启动';
+      }
       _loading = false;
       notifyListeners();
       return false;

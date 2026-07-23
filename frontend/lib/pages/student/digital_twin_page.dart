@@ -211,7 +211,7 @@ class _RadarChartPainter extends CustomPainter {
       canvas.drawPath(
         path,
         Paint()
-          ..color = Colors.grey.withValues(alpha: 0.15)
+          ..color = Colors.grey.withOpacity( 0.15)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1,
       );
@@ -226,7 +226,7 @@ class _RadarChartPainter extends CustomPainter {
         center,
         Offset(x, y),
         Paint()
-          ..color = Colors.grey.withValues(alpha: 0.3)
+          ..color = Colors.grey.withOpacity( 0.3)
           ..strokeWidth = 1,
       );
     }
@@ -250,7 +250,7 @@ class _RadarChartPainter extends CustomPainter {
       canvas.drawPath(
         idealPath,
         Paint()
-          ..color = secondaryColor.withValues(alpha: 0.4)
+          ..color = secondaryColor.withOpacity( 0.4)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
@@ -263,7 +263,7 @@ class _RadarChartPainter extends CustomPainter {
           Offset(center.dx + vRadius * cos(angle),
               center.dy + vRadius * sin(angle)),
           3,
-          Paint()..color = secondaryColor.withValues(alpha: 0.6),
+          Paint()..color = secondaryColor.withOpacity( 0.6),
         );
       }
     }
@@ -288,7 +288,7 @@ class _RadarChartPainter extends CustomPainter {
     canvas.drawPath(
       dataPath,
       Paint()
-        ..color = color.withValues(alpha: 0.2)
+        ..color = color.withOpacity( 0.2)
         ..style = PaintingStyle.fill,
     );
 

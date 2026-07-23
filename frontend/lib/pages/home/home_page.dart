@@ -154,12 +154,12 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Icon(Icons.school, color: Colors.white.withValues(alpha: 0.9), size: 28),
+              Icon(Icons.school, color: Colors.white.withOpacity( 0.9), size: 28),
               const SizedBox(width: 8),
               Text(
                 '滁州学院 · 公开快讯',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withOpacity( 0.9),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -179,7 +179,7 @@ class _HomePageState extends State<HomePage> {
           Text(
             '26 级新生 · 学生家长 · 中学教师 · 社会访客',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: Colors.white.withOpacity( 0.85),
               fontSize: 13,
             ),
           ),
@@ -209,7 +209,7 @@ class _HomePageState extends State<HomePage> {
                   label: const Text('直接浏览'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+                    side: BorderSide(color: Colors.white.withOpacity( 0.6)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
@@ -244,7 +244,7 @@ class _HomePageState extends State<HomePage> {
         gradient: LinearGradient(
           colors: [
             theme.colorScheme.primary,
-            theme.colorScheme.primary.withValues(alpha: 0.7),
+            theme.colorScheme.primary.withOpacity( 0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -266,7 +266,7 @@ class _HomePageState extends State<HomePage> {
           Text(
             '我是蔚小芯，你的学工智能助手',
             style: TextStyle(
-              color: theme.colorScheme.onPrimary.withValues(alpha: 0.85),
+              color: theme.colorScheme.onPrimary.withOpacity( 0.85),
               fontSize: 14,
             ),
           ),
@@ -357,9 +357,9 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withOpacity( 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withOpacity( 0.2)),
         ),
         child: Column(
           children: [
@@ -441,7 +441,7 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: Material(
-        color: color.withValues(alpha: 0.06),
+        color: color.withOpacity( 0.06),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -604,7 +604,7 @@ class _HomePageState extends State<HomePage> {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ErrorView.empty(

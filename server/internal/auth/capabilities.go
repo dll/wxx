@@ -46,8 +46,8 @@ const (
 	SelfCultureVolunteer Capability = "self.culture.volunteer" // 志愿服务
 
 	// ── 学生功能模块 ──
-	SelfGraduationRead  Capability = "self.graduation.read"  // 毕设选题查看
-	SelfGraduationWrite Capability = "self.graduation.write" // 毕设选题操作
+	SelfGraduationRead   Capability = "self.graduation.read"   // 毕设选题查看
+	SelfGraduationWrite  Capability = "self.graduation.write"  // 毕设选题操作
 	SelfCompetitionRead  Capability = "self.competition.read"  // 学科竞赛查看
 	SelfCompetitionWrite Capability = "self.competition.write" // 学科竞赛报名
 	SelfPlanRead         Capability = "self.plan.read"         // 大学规划查看
@@ -91,7 +91,7 @@ const (
 	CounselorProcessEdit       Capability = "counselor.process.edit"       // 流程步骤编辑
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
 	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
-	CounselorImportStudent     Capability = "counselor.import.student"     // 导入学生
+	CounselorImportStudent     Capability = "counselor.import.student" // 导入学生（学生会及以上角色继承）
 )
 
 // 教师能力
@@ -116,14 +116,14 @@ const (
 
 // 学院管理能力
 const (
-	CollegeUserRead       Capability = "college.user.read"         // 本院用户管理
-	CollegeAuditRead      Capability = "college.audit.read"        // 本院审计日志
-	CollegeMetricsRead    Capability = "college.metrics.read"      // 本院指标
-	CollegeTwinScreen     Capability = "college.twin.screen"       // 学院数字孪生大屏
-	CollegeDataAnalysis   Capability = "college.data.analysis"     // 学院数据分析
-	CollegeGraduationRead  Capability = "college.graduation.read"   // 毕设选题管理查看
-	CollegeGraduationWrite Capability = "college.graduation.write"  // 毕设选题管理操作
-	CollegeForecast        Capability = "college.forecast"          // 问题预案
+	CollegeUserRead        Capability = "college.user.read"        // 本院用户管理
+	CollegeAuditRead       Capability = "college.audit.read"       // 本院审计日志
+	CollegeMetricsRead     Capability = "college.metrics.read"     // 本院指标
+	CollegeTwinScreen      Capability = "college.twin.screen"      // 学院数字孪生大屏
+	CollegeDataAnalysis    Capability = "college.data.analysis"    // 学院数据分析
+	CollegeGraduationRead  Capability = "college.graduation.read"  // 毕设选题管理查看
+	CollegeGraduationWrite Capability = "college.graduation.write" // 毕设选题管理操作
+	CollegeForecast        Capability = "college.forecast"         // 问题预案
 )
 
 // 学校管理能力
@@ -135,9 +135,9 @@ const (
 
 // 系统管理能力
 const (
-	SystemSettingsWrite     Capability = "system.settings.write"     // 全局配置
-	SystemAuditAll          Capability = "system.audit.all"          // 全局审计日志
-	SystemPasswordReset     Capability = "system.password.reset"     // 重置任意用户密码
+	SystemSettingsWrite Capability = "system.settings.write" // 全局配置
+	SystemAuditAll      Capability = "system.audit.all"      // 全局审计日志
+	SystemPasswordReset Capability = "system.password.reset" // 重置任意用户密码
 )
 
 // roleNode 角色继承节点
@@ -196,6 +196,7 @@ var roles = map[string]*roleNode{
 		parents: []string{"student"},
 		capabilities: []Capability{
 			UnionKBSubmit, UnionFeedbackList, UnionEventPlan, UnionPosterGen,
+			CounselorImportStudent,
 		},
 	},
 	"counselor": {
@@ -214,7 +215,6 @@ var roles = map[string]*roleNode{
 			CounselorCommunityManage, CounselorHotTopicSense,
 			CounselorProcessEdit, CounselorStudentList,
 			CounselorTokenSubordinates,
-			CounselorImportStudent,
 		},
 	},
 	"teacher": {
@@ -236,7 +236,7 @@ var roles = map[string]*roleNode{
 		},
 	},
 	"college_admin": {
-		role:    "college_admin",
+		role: "college_admin",
 		// 学院管理员同时继承辅导员/教师/教辅三条线
 		parents: []string{"counselor", "teacher", "assistant"},
 		capabilities: []Capability{
@@ -333,5 +333,3 @@ func IsKnownRole(role string) bool {
 	_, ok := roles[role]
 	return ok
 }
-
-

@@ -2,10 +2,10 @@
 export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
-  const targetUrl = 'https://wxx-server-2apyus7gx-czldl.vercel.app' + url.pathname + url.search;
+  const targetUrl = 'https://wxx-server-j1us8ki1c-czldl.vercel.app' + url.pathname + url.search;
 
   const headers = new Headers(request.headers);
-  headers.set('Host', 'wxx-server-2apyus7gx-czldl.vercel.app');
+  headers.set('Host', 'wxx-server-j1us8ki1c-czldl.vercel.app');
 
   const init = { method: request.method, headers };
   if (request.method !== 'GET' && request.method !== 'HEAD') {

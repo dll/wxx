@@ -73,7 +73,8 @@ class ApiService {
   }
 
   /// 上传文件（原生平台）
-  Future<Response> upload(String path, {required String filePath, required String fieldName}) async {
+  Future<Response> upload(String path,
+      {required String filePath, required String fieldName}) async {
     final filename = filePath.split('/').last;
     final formData = FormData.fromMap({
       fieldName: await MultipartFile.fromFile(filePath, filename: filename),
@@ -82,8 +83,15 @@ class ApiService {
   }
 
   /// 上传文件（Web / bytes）
-  Future<Response> uploadBytes(String path, {required List<int> bytes, required String filename, required String fieldName}) async {
+  Future<Response> uploadBytes(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    required String fieldName,
+    Map<String, dynamic>? fields,
+  }) async {
     final formData = FormData.fromMap({
+      ...?fields,
       fieldName: MultipartFile.fromBytes(bytes, filename: filename),
     });
     return _dio.post(path, data: formData);

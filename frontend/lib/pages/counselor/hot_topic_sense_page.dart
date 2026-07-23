@@ -37,7 +37,7 @@ class _HotTopicSensePageState extends State<HotTopicSensePage> {
               padding: const EdgeInsets.all(16),
               children: [
                 Card(
-                  color: Colors.red.withValues(alpha: 0.05),
+                  color: Colors.red.withOpacity( 0.05),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(children: [
@@ -68,7 +68,7 @@ class _HotTopicSensePageState extends State<HotTopicSensePage> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: trendColor.withValues(alpha: 0.1),
+          backgroundColor: trendColor.withOpacity( 0.1),
           child: Text('$heat', style: TextStyle(color: trendColor, fontWeight: FontWeight.bold, fontSize: 13)),
         ),
         title: Text(title),

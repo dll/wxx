@@ -130,7 +130,7 @@ class _MyFeedbackCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
+                    color: statusColor.withOpacity( 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -183,7 +183,7 @@ class _MyFeedbackCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  color: theme.colorScheme.primaryContainer.withOpacity( 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

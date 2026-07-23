@@ -97,8 +97,8 @@ class _AuditTile extends StatelessWidget {
         leading: CircleAvatar(
           radius: 16,
           backgroundColor: isOk
-              ? Colors.green.withValues(alpha: 0.1)
-              : Colors.red.withValues(alpha: 0.1),
+              ? Colors.green.withOpacity( 0.1)
+              : Colors.red.withOpacity( 0.1),
           child: Icon(
             isOk ? Icons.check : Icons.close,
             size: 16,

@@ -271,7 +271,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+                color: theme.colorScheme.errorContainer.withOpacity( 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -413,7 +413,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                               border: Border.all(
                                 color: isCompleted
                                     ? Colors.green
-                                    : theme.colorScheme.primary.withValues(alpha: 0.4),
+                                    : theme.colorScheme.primary.withOpacity( 0.4),
                                 width: 2,
                               ),
                             ),
@@ -457,7 +457,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                             Icons.arrow_forward_ios,
                             size: 12,
                             color: isCompleted
-                                ? Colors.green.withValues(alpha: 0.5)
+                                ? Colors.green.withOpacity( 0.5)
                                 : theme.colorScheme.outlineVariant,
                           ),
                         ),
@@ -522,7 +522,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   width: 2,
                   height: detail != null ? 100 : 48,
                   color: isCompleted
-                      ? Colors.green.withValues(alpha: 0.5)
+                      ? Colors.green.withOpacity( 0.5)
                       : theme.colorScheme.outlineVariant,
                 ),
             ],
@@ -538,12 +538,12 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isCompleted
-                    ? Colors.green.withValues(alpha: 0.05)
-                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ? Colors.green.withOpacity( 0.05)
+                    : theme.colorScheme.surfaceContainerHighest.withOpacity( 0.5),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isCompleted
-                      ? Colors.green.withValues(alpha: 0.3)
+                      ? Colors.green.withOpacity( 0.3)
                       : Colors.transparent,
                 ),
               ),

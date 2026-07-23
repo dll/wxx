@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,12 @@ type AuthService struct {
 
 // ErrUserNotFound 用户不存在 sentinel error，调用方可用 errors.Is 识别后单独处理
 var ErrUserNotFound = errors.New("用户不存在")
+
+// ErrInvalidCredentials 表示账号或密码不正确。
+var ErrInvalidCredentials = errors.New("账号或密码错误")
+
+// ErrAccountUnavailable 表示账号尚未获准登录或已被停用。
+var ErrAccountUnavailable = errors.New("账号不可用")
 
 // NewAuthService 创建认证服务
 func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo) *AuthService {
@@ -197,9 +204,10 @@ func (s *AuthService) RecordConsent(userID int64) error {
 }
 
 // LoginByUsername 通过用户名登录（开发环境简化登录，生产环境走 SSO）
-func (s *AuthService) LoginByUsername(username string, role string, password string) (*LoginResult, error) {
-	if username == "" {
-		return nil, fmt.Errorf("用户名不能为空")
+func (s *AuthService) LoginByUsername(username string, _ string, password string) (*LoginResult, error) {
+	username = strings.TrimSpace(username)
+	if username == "" || password == "" {
+		return nil, ErrInvalidCredentials
 	}
 
 	// 查询用户
@@ -210,15 +218,19 @@ func (s *AuthService) LoginByUsername(username string, role string, password str
 
 	// 用户不存在 → 返回错误（预发布环境，必须先导入）
 	if user == nil {
-		return nil, fmt.Errorf("用户不存在，请联系管理员导入账号")
+		return nil, ErrInvalidCredentials
 	}
 
-	// 密码验证（预发布环境密码必填）
-	if password == "" {
-		return nil, fmt.Errorf("密码不能为空")
+	if user.Status != "active" {
+		return nil, fmt.Errorf("%w：当前状态为 %s", ErrAccountUnavailable, user.Status)
+	}
+
+	// 所有可登录账号都必须保存 bcrypt 哈希，不允许空密码兜底。
+	if user.PasswordHash == "" {
+		return nil, ErrInvalidCredentials
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return nil, fmt.Errorf("密码错误")
+		return nil, ErrInvalidCredentials
 	}
 
 	// 签发 JWT

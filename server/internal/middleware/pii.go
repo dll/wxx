@@ -45,9 +45,6 @@ func PIIMask() gin.HandlerFunc {
 			result := util.MaskPIIWithDetail(bodyStr)
 			c.Set("pii_detected", true)
 			c.Set("pii_types", result.PIITypesFound)
-
-			// 将脱敏后的请求体替换回请求流
-			c.Request.Body = io.NopCloser(bytes.NewBufferString(result.Masked))
 		}
 
 		c.Next()

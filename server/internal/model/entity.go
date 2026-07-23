@@ -2,17 +2,22 @@ package model
 
 // User 用户，对应 users 表
 type User struct {
-	ID           int64  `json:"id" db:"id"`
-	Username     string `json:"username" db:"username"`         // 用户名（唯一）
-	DisplayName  string `json:"display_name" db:"display_name"` // 显示名
-	Role         string `json:"role" db:"role"`                 // 角色枚举
-	OwnerScope   string `json:"owner_scope" db:"owner_scope"`   // 归属范围：school/college/class
-	OwnerID      string `json:"owner_id" db:"owner_id"`         // 归属 ID
-	PasswordHash string `json:"-" db:"password_hash"`           // bcrypt 密码哈希（空=免密）
-	VoiceEnabled int    `json:"voice_enabled" db:"voice_enabled"` // 语音开关：0=关闭 1=开启
-	Status       string `json:"status" db:"status"`             // active/pending/rejected/disabled
-	CreatedAt    string `json:"created_at" db:"created_at"`
-	UpdatedAt    string `json:"updated_at" db:"updated_at"`
+	ID             int64  `json:"id" db:"id"`
+	Username       string `json:"username" db:"username"`               // 用户名（唯一）
+	DisplayName    string `json:"display_name" db:"display_name"`       // 显示名
+	Role           string `json:"role" db:"role"`                       // 角色枚举
+	OwnerScope     string `json:"owner_scope" db:"owner_scope"`         // 归属范围：school/college/class
+	OwnerID        string `json:"owner_id" db:"owner_id"`               // 归属 ID
+	College        string `json:"college" db:"college"`                 // 学院
+	Major          string `json:"major" db:"major"`                     // 专业
+	ClassName      string `json:"class_name" db:"class_name"`           // 班级
+	EnrollmentDate string `json:"enrollment_date" db:"enrollment_date"` // 入学日期
+	EnrollmentYear string `json:"enrollment_year" db:"enrollment_year"` // 入学年份
+	PasswordHash   string `json:"-" db:"password_hash"`                 // bcrypt 密码哈希；可登录账号不得为空
+	VoiceEnabled   int    `json:"voice_enabled" db:"voice_enabled"`     // 语音开关：0=关闭 1=开启
+	Status         string `json:"status" db:"status"`                   // active/pending/rejected/disabled
+	CreatedAt      string `json:"created_at" db:"created_at"`
+	UpdatedAt      string `json:"updated_at" db:"updated_at"`
 }
 
 // Session 会话，对应 sessions 表
@@ -38,13 +43,13 @@ type Message struct {
 // KBResource 知识资源，对应 kb_resources 表
 type KBResource struct {
 	ID            int64   `json:"id" db:"id"`
-	ResourceID    string  `json:"resource_id" db:"resource_id"`       // 资源唯一标识
-	ResourceType  string  `json:"resource_type" db:"resource_type"`   // Policy/Process/FAQ/Activity
-	OwnerScope    string  `json:"owner_scope" db:"owner_scope"`       // school/college/class
+	ResourceID    string  `json:"resource_id" db:"resource_id"`     // 资源唯一标识
+	ResourceType  string  `json:"resource_type" db:"resource_type"` // Policy/Process/FAQ/Activity
+	OwnerScope    string  `json:"owner_scope" db:"owner_scope"`     // school/college/class
 	OwnerID       string  `json:"owner_id" db:"owner_id"`
-	RoleScope     string  `json:"role_scope" db:"role_scope"`         // JSON 数组：可见角色列表
+	RoleScope     string  `json:"role_scope" db:"role_scope"` // JSON 数组：可见角色列表
 	Version       string  `json:"version" db:"version"`
-	Status        string  `json:"status" db:"status"`                 // draft/pending/published/retired
+	Status        string  `json:"status" db:"status"` // draft/pending/published/retired
 	Title         string  `json:"title" db:"title"`
 	Summary       string  `json:"summary" db:"summary"`
 	Content       string  `json:"content" db:"content"`
@@ -52,10 +57,10 @@ type KBResource struct {
 	SourceVersion string  `json:"source_version" db:"source_version"` // 原文版本
 	EffectiveAt   *string `json:"effective_at" db:"effective_at"`     // 生效时间（可空）
 	ExpiredAt     *string `json:"expired_at" db:"expired_at"`         // 失效时间（可空）
-	Tags          string `json:"tags" db:"tags"`                     // JSON 数组
-	UpdatedBy     string `json:"updated_by" db:"updated_by"`
-	CreatedAt     string `json:"created_at" db:"created_at"`
-	UpdatedAt     string `json:"updated_at" db:"updated_at"`
+	Tags          string  `json:"tags" db:"tags"`                     // JSON 数组
+	UpdatedBy     string  `json:"updated_by" db:"updated_by"`
+	CreatedAt     string  `json:"created_at" db:"created_at"`
+	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
 }
 
 // ProcessStep 流程步骤，对应 process_steps 表
@@ -64,15 +69,15 @@ type ProcessStep struct {
 	ResourceID  string `json:"resource_id" db:"resource_id"`
 	StepOrder   int    `json:"step_order" db:"step_order"` // 步骤序号
 	Title       string `json:"title" db:"title"`
-	Materials   string `json:"materials" db:"materials"`     // JSON 数组：所需材料
-	EntryURL    string `json:"entry_url" db:"entry_url"`     // 办理入口
+	Materials   string `json:"materials" db:"materials"` // JSON 数组：所需材料
+	EntryURL    string `json:"entry_url" db:"entry_url"` // 办理入口
 	Deadline    string `json:"deadline" db:"deadline"`
-	Location    string `json:"location" db:"location"`       // 办理地点
+	Location    string `json:"location" db:"location"` // 办理地点
 	Notes       string `json:"notes" db:"notes"`
-	Contact     string `json:"contact" db:"contact"`         // 联系人
-	Phone       string `json:"phone" db:"phone"`             // 联系电话
+	Contact     string `json:"contact" db:"contact"`           // 联系人
+	Phone       string `json:"phone" db:"phone"`               // 联系电话
 	OfficeHours string `json:"office_hours" db:"office_hours"` // 办公时间
-	FAQ         string `json:"faq" db:"faq"`                 // JSON 数组：[{"q":"…","a":"…"}]
+	FAQ         string `json:"faq" db:"faq"`                   // JSON 数组：[{"q":"…","a":"…"}]
 }
 
 // AuditLog 审计日志，对应 audit_logs 表
@@ -99,11 +104,11 @@ type EmotionLog struct {
 	SessionID      string  `json:"session_id" db:"session_id"`
 	AlertID        string  `json:"alert_id" db:"alert_id"`
 	MessageText    string  `json:"message_text" db:"message_text"`
-	Score          float64 `json:"score" db:"score"`                   // 情感评分 -1.0~1.0
-	RiskLevel      string  `json:"risk_level" db:"risk_level"`         // low/medium/high
-	AnalysisJSON   string  `json:"analysis_json" db:"analysis_json"`   // LLM 分析原始结果
-	Notified       int     `json:"notified" db:"notified"`             // 是否已通知
-	Status         string  `json:"status" db:"status"`                 // pending/acknowledged/resolved
+	Score          float64 `json:"score" db:"score"`                 // 情感评分 -1.0~1.0
+	RiskLevel      string  `json:"risk_level" db:"risk_level"`       // low/medium/high
+	AnalysisJSON   string  `json:"analysis_json" db:"analysis_json"` // LLM 分析原始结果
+	Notified       int     `json:"notified" db:"notified"`           // 是否已通知
+	Status         string  `json:"status" db:"status"`               // pending/acknowledged/resolved
 	AcknowledgedBy string  `json:"acknowledged_by" db:"acknowledged_by"`
 	AcknowledgedAt string  `json:"acknowledged_at" db:"acknowledged_at"`
 	CreatedAt      string  `json:"created_at" db:"created_at"`
@@ -208,7 +213,7 @@ type Agent struct {
 	AgentID       string  `json:"agent_id" db:"agent_id"`
 	Name          string  `json:"name" db:"name"`
 	Description   string  `json:"description" db:"description"`
-	AgentType     string  `json:"agent_type" db:"agent_type"`         // qa / policy / emotion / custom
+	AgentType     string  `json:"agent_type" db:"agent_type"` // qa / policy / emotion / custom
 	SystemPrompt  string  `json:"system_prompt" db:"system_prompt"`
 	ModelProvider string  `json:"model_provider" db:"model_provider"` // deepseek / zhipu
 	ModelName     string  `json:"model_name" db:"model_name"`
@@ -220,59 +225,58 @@ type Agent struct {
 	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
 }
 
-
 // ProcessRecord 办事流程办理记录，对应 process_records 表
 type ProcessRecord struct {
-	ID              int64  `json:"id" db:"id"`
-	RecordID        string `json:"record_id" db:"record_id"`
-	UserID          int64  `json:"user_id" db:"user_id"`
-	FlowType        string `json:"flow_type" db:"flow_type"`             // enrollment / graduation / leave / ...
-	FlowLabel       string `json:"flow_label" db:"flow_label"`           // 显示名称
-	CurrentStep     int    `json:"current_step" db:"current_step"`
-	CompletedSteps  string `json:"completed_steps" db:"completed_steps"` // JSON 数组字符串
-	TotalSteps      int    `json:"total_steps" db:"total_steps"`
-	Status          string `json:"status" db:"status"` // in_progress / completed / abandoned
-	Notes           string `json:"notes" db:"notes"`
-	CreatedAt       string `json:"created_at" db:"created_at"`
-	UpdatedAt       string `json:"updated_at" db:"updated_at"`
+	ID             int64  `json:"id" db:"id"`
+	RecordID       string `json:"record_id" db:"record_id"`
+	UserID         int64  `json:"user_id" db:"user_id"`
+	FlowType       string `json:"flow_type" db:"flow_type"`   // enrollment / graduation / leave / ...
+	FlowLabel      string `json:"flow_label" db:"flow_label"` // 显示名称
+	CurrentStep    int    `json:"current_step" db:"current_step"`
+	CompletedSteps string `json:"completed_steps" db:"completed_steps"` // JSON 数组字符串
+	TotalSteps     int    `json:"total_steps" db:"total_steps"`
+	Status         string `json:"status" db:"status"` // in_progress / completed / abandoned
+	Notes          string `json:"notes" db:"notes"`
+	CreatedAt      string `json:"created_at" db:"created_at"`
+	UpdatedAt      string `json:"updated_at" db:"updated_at"`
 }
 
 // IssueForecast 问题预案，对应 issue_forecasts 表
 type IssueForecast struct {
-	ID                int64   `json:"id" db:"id"`
-	ForecastID        string  `json:"forecast_id" db:"forecast_id"`               // 预案ID（UUID）
-	CollegeID         string  `json:"college_id" db:"college_id"`                 // 学院ID（空=全校）
-	Category          string  `json:"category" db:"category"`                     // 问题分类
-	Subcategory       string  `json:"subcategory" db:"subcategory"`               // 子分类
-	Title             string  `json:"title" db:"title"`                           // 问题标题
-	RiskLevel         string  `json:"risk_level" db:"risk_level"`                 // 风险等级
-	Status            string  `json:"status" db:"status"`                         // 状态
-	AffectedCount     int     `json:"affected_count" db:"affected_count"`         // 影响人数
-	RootCause         string  `json:"root_cause" db:"root_cause"`                 // 原因分析
-	SuggestedActions  string  `json:"suggested_actions" db:"suggested_actions"`   // 建议措施（JSON数组）
-	DataSummary       string  `json:"data_summary" db:"data_summary"`             // 数据摘要（JSON）
-	Sources           string  `json:"sources" db:"sources"`                       // 数据来源（JSON数组）
-	AIAnalysis        string  `json:"ai_analysis" db:"ai_analysis"`               // AI分析结果
-	CreatedBy         *int64  `json:"created_by" db:"created_by"`                 // 创建人ID
-	CreatedAt         string  `json:"created_at" db:"created_at"`
-	UpdatedAt         string  `json:"updated_at" db:"updated_at"`
-	ResolvedAt        *string `json:"resolved_at" db:"resolved_at"`               // 解决时间
-	ResolvedBy        *int64  `json:"resolved_by" db:"resolved_by"`               // 解决人ID
+	ID               int64   `json:"id" db:"id"`
+	ForecastID       string  `json:"forecast_id" db:"forecast_id"`             // 预案ID（UUID）
+	CollegeID        string  `json:"college_id" db:"college_id"`               // 学院ID（空=全校）
+	Category         string  `json:"category" db:"category"`                   // 问题分类
+	Subcategory      string  `json:"subcategory" db:"subcategory"`             // 子分类
+	Title            string  `json:"title" db:"title"`                         // 问题标题
+	RiskLevel        string  `json:"risk_level" db:"risk_level"`               // 风险等级
+	Status           string  `json:"status" db:"status"`                       // 状态
+	AffectedCount    int     `json:"affected_count" db:"affected_count"`       // 影响人数
+	RootCause        string  `json:"root_cause" db:"root_cause"`               // 原因分析
+	SuggestedActions string  `json:"suggested_actions" db:"suggested_actions"` // 建议措施（JSON数组）
+	DataSummary      string  `json:"data_summary" db:"data_summary"`           // 数据摘要（JSON）
+	Sources          string  `json:"sources" db:"sources"`                     // 数据来源（JSON数组）
+	AIAnalysis       string  `json:"ai_analysis" db:"ai_analysis"`             // AI分析结果
+	CreatedBy        *int64  `json:"created_by" db:"created_by"`               // 创建人ID
+	CreatedAt        string  `json:"created_at" db:"created_at"`
+	UpdatedAt        string  `json:"updated_at" db:"updated_at"`
+	ResolvedAt       *string `json:"resolved_at" db:"resolved_at"` // 解决时间
+	ResolvedBy       *int64  `json:"resolved_by" db:"resolved_by"` // 解决人ID
 }
 
 // IssueDetail 问题详情，对应 issue_details 表
 type IssueDetail struct {
 	ID          int64   `json:"id" db:"id"`
 	ForecastID  string  `json:"forecast_id" db:"forecast_id"`
-	UserID      *int64  `json:"user_id" db:"user_id"`           // 用户ID
-	UserType    string  `json:"user_type" db:"user_type"`       // 用户类型
+	UserID      *int64  `json:"user_id" db:"user_id"`     // 用户ID
+	UserType    string  `json:"user_type" db:"user_type"` // 用户类型
 	Username    string  `json:"username" db:"username"`
 	DisplayName string  `json:"display_name" db:"display_name"`
 	College     string  `json:"college" db:"college"`
 	ClassName   string  `json:"class_name" db:"class_name"`
-	DetailType  string  `json:"detail_type" db:"detail_type"`   // 详情类型
-	DetailData  string  `json:"detail_data" db:"detail_data"`   // 详情数据（JSON）
-	RiskScore   float64 `json:"risk_score" db:"risk_score"`     // 风险分数
+	DetailType  string  `json:"detail_type" db:"detail_type"` // 详情类型
+	DetailData  string  `json:"detail_data" db:"detail_data"` // 详情数据（JSON）
+	RiskScore   float64 `json:"risk_score" db:"risk_score"`   // 风险分数
 	CreatedAt   string  `json:"created_at" db:"created_at"`
 }
 
@@ -280,10 +284,10 @@ type IssueDetail struct {
 type IssueForecastHistory struct {
 	ID           int64  `json:"id" db:"id"`
 	ForecastID   string `json:"forecast_id" db:"forecast_id"`
-	Action       string `json:"action" db:"action"`             // 操作类型
-	OperatorID   *int64 `json:"operator_id" db:"operator_id"`   // 操作人ID
+	Action       string `json:"action" db:"action"`           // 操作类型
+	OperatorID   *int64 `json:"operator_id" db:"operator_id"` // 操作人ID
 	OperatorName string `json:"operator_name" db:"operator_name"`
-	Detail       string `json:"detail" db:"detail"`             // 操作详情（JSON）
+	Detail       string `json:"detail" db:"detail"` // 操作详情（JSON）
 	CreatedAt    string `json:"created_at" db:"created_at"`
 }
 
@@ -298,9 +302,9 @@ type ForecastSummary struct {
 
 // ForecastAnalysisResponse 问题预案分析响应
 type ForecastAnalysisResponse struct {
-	Summary ForecastSummary `json:"summary"`
-	Issues  []*IssueForecast `json:"issues"`
-	ReportURL string        `json:"report_url,omitempty"`
+	Summary   ForecastSummary  `json:"summary"`
+	Issues    []*IssueForecast `json:"issues"`
+	ReportURL string           `json:"report_url,omitempty"`
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -382,17 +386,17 @@ type GraduationMilestone struct {
 
 // GraduationProgress 毕设进度
 type GraduationProgress struct {
-	ID             int64  `json:"id"`
-	UserID         int64  `json:"user_id"`
-	TopicID        int64  `json:"topic_id"`
-	MilestoneCode  string `json:"milestone_code"`
-	Status         string `json:"status"`
-	SubmittedAt    string `json:"submitted_at"`
-	CompletedAt    string `json:"completed_at"`
-	Feedback       string `json:"feedback"`
-	Score          int    `json:"score"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
+	ID            int64  `json:"id"`
+	UserID        int64  `json:"user_id"`
+	TopicID       int64  `json:"topic_id"`
+	MilestoneCode string `json:"milestone_code"`
+	Status        string `json:"status"`
+	SubmittedAt   string `json:"submitted_at"`
+	CompletedAt   string `json:"completed_at"`
+	Feedback      string `json:"feedback"`
+	Score         int    `json:"score"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -453,39 +457,39 @@ type CompetitionRegistration struct {
 
 // PlanTemplate 规划模板
 type PlanTemplate struct {
-	ID            int64  `json:"id"`
-	Name          string `json:"name"`
-	Category      string `json:"category"`
-	Description   string `json:"description"`
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	Category       string `json:"category"`
+	Description    string `json:"description"`
 	TargetAudience string `json:"target_audience"`
-	Duration      string `json:"duration"`
-	Goals         string `json:"goals"`
-	Milestones    string `json:"milestones"`
-	SuccessCases  string `json:"success_cases"`
-	AIPrompt      string `json:"ai_prompt"`
-	IsActive      int    `json:"is_active"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	Duration       string `json:"duration"`
+	Goals          string `json:"goals"`
+	Milestones     string `json:"milestones"`
+	SuccessCases   string `json:"success_cases"`
+	AIPrompt       string `json:"ai_prompt"`
+	IsActive       int    `json:"is_active"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 // StudentPlan 学生规划
 type StudentPlan struct {
-	ID               int64   `json:"id"`
-	UserID           int64   `json:"user_id"`
-	TemplateID       int64   `json:"template_id"`
-	TemplateName     string  `json:"template_name,omitempty"`
-	Title            string  `json:"title"`
-	Category         string  `json:"category"`
-	AcademicYear     int     `json:"academic_year"`
-	Semester         int     `json:"semester"`
-	Goals            string  `json:"goals"`
-	Progress         float64 `json:"progress"`
-	Status           string  `json:"status"`
-	ReviewerID       int64   `json:"reviewer_id"`
-	ReviewerComment  string  `json:"reviewer_comment"`
-	ReviewedAt       string  `json:"reviewed_at"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
+	ID              int64   `json:"id"`
+	UserID          int64   `json:"user_id"`
+	TemplateID      int64   `json:"template_id"`
+	TemplateName    string  `json:"template_name,omitempty"`
+	Title           string  `json:"title"`
+	Category        string  `json:"category"`
+	AcademicYear    int     `json:"academic_year"`
+	Semester        int     `json:"semester"`
+	Goals           string  `json:"goals"`
+	Progress        float64 `json:"progress"`
+	Status          string  `json:"status"`
+	ReviewerID      int64   `json:"reviewer_id"`
+	ReviewerComment string  `json:"reviewer_comment"`
+	ReviewedAt      string  `json:"reviewed_at"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 // PlanProgressRecord 规划进度记录
@@ -537,16 +541,16 @@ type PartyProgress struct {
 
 // PartyStudyRecord 学习记录
 type PartyStudyRecord struct {
-	ID         int64  `json:"id"`
-	UserID     int64  `json:"user_id"`
-	StudyType  string `json:"study_type"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	Duration   int    `json:"duration"`
-	StudyDate  string `json:"study_date"`
+	ID          int64  `json:"id"`
+	UserID      int64  `json:"user_id"`
+	StudyType   string `json:"study_type"`
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	Duration    int    `json:"duration"`
+	StudyDate   string `json:"study_date"`
 	Certificate string `json:"certificate"`
-	Status     string `json:"status"`
-	CreatedAt  string `json:"created_at"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -555,18 +559,18 @@ type PartyStudyRecord struct {
 
 // Club 社团
 type Club struct {
-	ID            int64  `json:"id"`
-	Name          string `json:"name"`
-	Category      string `json:"category"`
-	Description   string `json:"description"`
-	Founder       string `json:"founder"`
-	President     string `json:"president"`
-	ContactInfo   string `json:"contact_info"`
-	MemberCount   int    `json:"member_count"`
-	MaxMembers    int    `json:"max_members"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Founder     string `json:"founder"`
+	President   string `json:"president"`
+	ContactInfo string `json:"contact_info"`
+	MemberCount int    `json:"member_count"`
+	MaxMembers  int    `json:"max_members"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 // ClubMember 社团成员
@@ -603,12 +607,12 @@ type ClubActivity struct {
 
 // ClubActivityRegistration 社团活动报名
 type ClubActivityRegistration struct {
-	ID           int64  `json:"id"`
-	ActivityID   int64  `json:"activity_id"`
-	UserID       int64  `json:"user_id"`
-	StudentName  string `json:"student_name"`
-	Status       string `json:"status"`
-	Feedback     string `json:"feedback"`
-	Rating       int    `json:"rating"`
-	CreatedAt    string `json:"created_at"`
+	ID          int64  `json:"id"`
+	ActivityID  int64  `json:"activity_id"`
+	UserID      int64  `json:"user_id"`
+	StudentName string `json:"student_name"`
+	Status      string `json:"status"`
+	Feedback    string `json:"feedback"`
+	Rating      int    `json:"rating"`
+	CreatedAt   string `json:"created_at"`
 }

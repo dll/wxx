@@ -70,7 +70,7 @@ class _ConsentPageState extends State<ConsentPage> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        color: theme.colorScheme.outlineVariant.withOpacity( 0.5),
                       ),
                     ),
                     child: Padding(
@@ -123,7 +123,7 @@ class _ConsentPageState extends State<ConsentPage> {
                   // 数据安全说明
                   Card(
                     elevation: 0,
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    color: theme.colorScheme.primaryContainer.withOpacity( 0.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

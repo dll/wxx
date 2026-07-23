@@ -58,7 +58,7 @@ class _CheckinPageState extends State<CheckinPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: (c?.todayChecked ?? false) ? Colors.green : theme.colorScheme.primary,
-                boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 16, spreadRadius: 2)],
+                boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity( 0.3), blurRadius: 16, spreadRadius: 2)],
               ),
               child: Center(child: _checking
                   ? const CircularProgressIndicator(color: Colors.white)

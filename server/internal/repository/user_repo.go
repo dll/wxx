@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/dll/wxx/server/internal/model"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // UserRepo 用户数据访问
@@ -20,7 +18,9 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 }
 
 // userCols 统一 SELECT 列名
-const userCols = `id, username, display_name, role, owner_scope, owner_id, password_hash, voice_enabled, status, created_at, updated_at`
+const userCols = `id, username, display_name, role, owner_scope, owner_id,
+	college, major, class_name, enrollment_date, enrollment_year,
+	password_hash, voice_enabled, status, created_at, updated_at`
 
 // GetByUsername 根据用户名查询用户
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
@@ -28,7 +28,9 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	err := r.db.QueryRow(
 		`SELECT `+userCols+` FROM users WHERE username = ?`, username,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
-		&user.OwnerScope, &user.OwnerID, &user.PasswordHash, &user.VoiceEnabled,
+		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
+		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
@@ -46,7 +48,9 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 	err := r.db.QueryRow(
 		`SELECT `+userCols+` FROM users WHERE id = ?`, id,
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
-		&user.OwnerScope, &user.OwnerID, &user.PasswordHash, &user.VoiceEnabled,
+		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
+		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
@@ -89,7 +93,9 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 	for rows.Next() {
 		u := &model.User{}
 		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
-			&u.OwnerScope, &u.OwnerID, &u.PasswordHash, &u.VoiceEnabled,
+			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
+			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
+			&u.PasswordHash, &u.VoiceEnabled,
 			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -126,8 +132,8 @@ func (r *UserRepo) Count(role, ownerScope, ownerID string) (int, error) {
 // Update 更新用户角色和归属信息
 func (r *UserRepo) Update(user *model.User) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, updated_at=datetime('now') WHERE id=?`,
-		user.Role, user.OwnerScope, user.OwnerID, user.DisplayName, user.ID,
+		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, updated_at=datetime('now') WHERE id=?`,
+		user.Role, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
 	)
 	return err
 }
@@ -139,9 +145,14 @@ func (r *UserRepo) Create(user *model.User) (int64, error) {
 		status = "active"
 	}
 	result, err := r.db.Exec(
-		`INSERT INTO users (username, display_name, role, owner_scope, owner_id, status)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		user.Username, user.DisplayName, user.Role, user.OwnerScope, user.OwnerID, status,
+		`INSERT INTO users (
+			username, display_name, role, owner_scope, owner_id,
+			college, major, class_name, enrollment_date, enrollment_year,
+			password_hash, status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		user.Username, user.DisplayName, user.Role, user.OwnerScope, user.OwnerID,
+		user.College, user.Major, user.ClassName, user.EnrollmentDate, user.EnrollmentYear,
+		user.PasswordHash, status,
 	)
 	if err != nil {
 		return 0, err
@@ -152,7 +163,7 @@ func (r *UserRepo) Create(user *model.User) (int64, error) {
 // ListPendingGuests 列出待审核游客
 func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 	rows, err := r.db.Query(
-		`SELECT `+userCols+` FROM users WHERE role = 'guest' AND status = 'pending' ORDER BY id ASC`,
+		`SELECT ` + userCols + ` FROM users WHERE role = 'guest' AND status = 'pending' ORDER BY id ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -163,7 +174,9 @@ func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 	for rows.Next() {
 		u := &model.User{}
 		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
-			&u.OwnerScope, &u.OwnerID, &u.PasswordHash, &u.VoiceEnabled,
+			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
+			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
+			&u.PasswordHash, &u.VoiceEnabled,
 			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -216,15 +229,17 @@ func (r *UserRepo) UpdateVoiceEnabled(userID int64, enabled int) error {
 	)
 	return err
 }
+
 // BatchCreateResult 批量创建结果
 type BatchCreateResult struct {
-	Username   string // 用户名
-	DisplayName string // 显示名
-	Success    bool   // 是否成功
-	Error      string // 错误原因（失败时）
+	Username    string `json:"username"`     // 用户名
+	DisplayName string `json:"display_name"` // 显示名
+	Success     bool   `json:"success"`      // 是否成功
+	Error       string `json:"error"`        // 错误原因（失败时）
 }
-// sharedHash 为统一 bcrypt 哈希值（为空则不设统一密码）
-func (r *UserRepo) BatchCreateStudents(students []*model.User, sharedHash string) ([]BatchCreateResult, error) {
+
+// BatchCreateStudents 批量创建学生。PasswordHash 必须由 service 层提前完成 bcrypt 加密。
+func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateResult, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("开始事务失败: %w", err)
@@ -233,8 +248,11 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User, sharedHash string
 
 	results := make([]BatchCreateResult, 0, len(students))
 	stmt, err := tx.Prepare(
-		`INSERT INTO users (username, display_name, role, owner_scope, owner_id, password_hash, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`)
+		`INSERT INTO users (
+			username, display_name, role, owner_scope, owner_id,
+			college, major, class_name, enrollment_date, enrollment_year,
+			password_hash, status
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return nil, fmt.Errorf("预编译语句失败: %w", err)
 	}
@@ -272,27 +290,18 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User, sharedHash string
 			ownerID = "default"
 		}
 
-		// 优先使用用户自带的密码，其次使用统一密码
-		userHash := u.PasswordHash
-		if userHash == "" {
-			userHash = sharedHash
+		if u.PasswordHash == "" {
+			results = append(results, BatchCreateResult{
+				Username: u.Username, DisplayName: u.DisplayName,
+				Success: false, Error: "密码哈希不能为空",
+			})
+			continue
 		}
-		// 如果最终密码非空，需要 bcrypt 加密（只有 raw password 非空才需要）
-		if userHash != "" {
-			// 检查是否已经是 bcrypt hash（以 $2a$ 开头）
-			if len(userHash) < 4 || userHash[:4] != "$2a$" {
-				h, gErr := bcrypt.GenerateFromPassword([]byte(userHash), bcrypt.DefaultCost)
-				if gErr != nil {
-					results = append(results, BatchCreateResult{
-						Username: u.Username, DisplayName: u.DisplayName,
-						Success: false, Error: fmt.Sprintf("密码加密失败: %v", gErr),
-					})
-					continue
-				}
-				userHash = string(h)
-			}
-		}
-		_, err = stmt.Exec(u.Username, u.DisplayName, role, scope, ownerID, userHash, u.Status)
+		_, err = stmt.Exec(
+			u.Username, u.DisplayName, role, scope, ownerID,
+			u.College, u.Major, u.ClassName, u.EnrollmentDate, u.EnrollmentYear,
+			u.PasswordHash, u.Status,
+		)
 		if err != nil {
 			results = append(results, BatchCreateResult{
 				Username: u.Username, DisplayName: u.DisplayName,

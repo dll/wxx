@@ -77,7 +77,7 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: iconSize, color: color.withValues(alpha: 0.6)),
+            Icon(icon, size: iconSize, color: color.withOpacity( 0.6)),
             const SizedBox(height: 12),
             Text(
               message,
@@ -89,7 +89,7 @@ class ErrorView extends StatelessWidget {
               Text(
                 subtitle!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: color.withValues(alpha: 0.6),
+                  color: color.withOpacity( 0.6),
                 ),
                 textAlign: TextAlign.center,
               ),

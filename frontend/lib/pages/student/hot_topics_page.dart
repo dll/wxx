@@ -43,7 +43,7 @@ class _HotTopicsPageState extends State<HotTopicsPage> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         const Text('热点关注', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('AI 实时聚合校园热点话题', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+                        Text('AI 实时聚合校园热点话题', style: TextStyle(color: Colors.white.withOpacity( 0.8), fontSize: 13)),
                       ])),
                     ]),
                   ),
@@ -71,7 +71,7 @@ class _HotTopicsPageState extends State<HotTopicsPage> {
       return Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
-          leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.1), child: Icon(icon, color: color, size: 20)),
+          leading: CircleAvatar(backgroundColor: color.withOpacity( 0.1), child: Icon(icon, color: color, size: 20)),
           title: Text(t['title']!),
           trailing: Text('热度 ${t['heat']}', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ),

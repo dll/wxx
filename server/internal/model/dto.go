@@ -2,15 +2,15 @@ package model
 
 // AnswerCard 统一回答结构，所有问答接口的标准响应格式
 type AnswerCard struct {
-	Conclusion string       `json:"conclusion"`  // 简要结论
-	Steps      []string     `json:"steps"`       // 步骤列表
-	Sources    []Source     `json:"sources"`      // 来源引用
-	Risks      []string     `json:"risks"`       // 注意事项/风险提示
-	FollowUps  []string     `json:"follow_ups"`  // 追问建议
-	Actions    []Action     `json:"actions"`      // 可执行动作
-	TraceID    string       `json:"trace_id"`     // 追踪 ID
-	Confidence float64      `json:"confidence"`   // 置信度 0-1
-	Fallback   bool         `json:"fallback"`     // 是否为兜底回答
+	Conclusion string   `json:"conclusion"` // 简要结论
+	Steps      []string `json:"steps"`      // 步骤列表
+	Sources    []Source `json:"sources"`    // 来源引用
+	Risks      []string `json:"risks"`      // 注意事项/风险提示
+	FollowUps  []string `json:"follow_ups"` // 追问建议
+	Actions    []Action `json:"actions"`    // 可执行动作
+	TraceID    string   `json:"trace_id"`   // 追踪 ID
+	Confidence float64  `json:"confidence"` // 置信度 0-1
+	Fallback   bool     `json:"fallback"`   // 是否为兜底回答
 }
 
 // Source 来源引用
@@ -19,9 +19,9 @@ type Source struct {
 	Title          string  `json:"title"`
 	Version        string  `json:"version"`
 	SourceLink     string  `json:"source_link"`
-	RelevanceScore float64 `json:"relevance_score"` // BM25 相关性分数
+	RelevanceScore float64 `json:"relevance_score"`        // BM25 相关性分数
 	EffectiveAt    *string `json:"effective_at,omitempty"` // 生效时间（可空）
-	Snippet        string  `json:"snippet,omitempty"`       // 段落摘要
+	Snippet        string  `json:"snippet,omitempty"`      // 段落摘要
 }
 
 // Action 可执行动作（如"在线申请"按钮）
@@ -39,10 +39,10 @@ type ChatRequest struct {
 
 // ChatResponse 对话响应（包裹 AnswerCard）
 type ChatResponse struct {
-	Code      int        `json:"code"`       // 状态码：0=成功
-	Message   string     `json:"message"`    // 状态描述
-	Data      *AnswerCard `json:"data"`      // 回答内容
-	SessionID string     `json:"session_id"` // 会话 ID
+	Code      int         `json:"code"`       // 状态码：0=成功
+	Message   string      `json:"message"`    // 状态描述
+	Data      *AnswerCard `json:"data"`       // 回答内容
+	SessionID string      `json:"session_id"` // 会话 ID
 }
 
 // ErrorResponse 统一错误响应
@@ -119,12 +119,12 @@ type KBUpdateRequest struct {
 
 // KBListResponse 知识列表响应
 type KBListResponse struct {
-	Code    int           `json:"code"`
-	Message string        `json:"message"`
-	Data    []*KBResource `json:"data"`
-	Total   int           `json:"total"`    // 总数
-	Page    int           `json:"page"`     // 当前页
-	PageSize int          `json:"page_size"` // 每页数
+	Code     int           `json:"code"`
+	Message  string        `json:"message"`
+	Data     []*KBResource `json:"data"`
+	Total    int           `json:"total"`     // 总数
+	Page     int           `json:"page"`      // 当前页
+	PageSize int           `json:"page_size"` // 每页数
 }
 
 // KBDetailResponse 知识详情响应
@@ -138,21 +138,21 @@ type KBDetailResponse struct {
 
 // KnowledgeCard 知识大厅卡片数据（轻量，不含正文）
 type KnowledgeCard struct {
-	ResourceID   string `json:"resource_id"`    // 资源业务 ID
-	ResourceType string `json:"resource_type"`  // 资源类型：Policy/Process/FAQ/Activity
-	Title        string `json:"title"`          // 标题
-	Summary      string `json:"summary"`        // 摘要（卡片展示用）
-	Tags         string `json:"tags"`           // 标签（JSON 数组字符串）
-	SourceLink   string `json:"source_link"`    // 原文链接
+	ResourceID   string `json:"resource_id"`   // 资源业务 ID
+	ResourceType string `json:"resource_type"` // 资源类型：Policy/Process/FAQ/Activity
+	Title        string `json:"title"`         // 标题
+	Summary      string `json:"summary"`       // 摘要（卡片展示用）
+	Tags         string `json:"tags"`          // 标签（JSON 数组字符串）
+	SourceLink   string `json:"source_link"`   // 原文链接
 }
 
 // KnowledgeBrowseResponse 知识大厅浏览响应（按类型分组，带分页）
 type KnowledgeBrowseResponse struct {
 	Code     int                         `json:"code"`
 	Message  string                      `json:"message"`
-	Data     map[string][]*KnowledgeCard `json:"data"`     // key = resource_type
-	Total    int                         `json:"total"`    // 全部已发布资源数
-	Page     int                         `json:"page"`     // 当前页码
+	Data     map[string][]*KnowledgeCard `json:"data"`      // key = resource_type
+	Total    int                         `json:"total"`     // 全部已发布资源数
+	Page     int                         `json:"page"`      // 当前页码
 	PageSize int                         `json:"page_size"` // 每页数量
 }
 
@@ -181,9 +181,9 @@ type EmotionListResponse struct {
 
 // EmotionStatsResponse 告警统计响应
 type EmotionStatsResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
-	Data    *EmotionStats  `json:"data"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    *EmotionStats `json:"data"`
 }
 
 // EmotionUpdateRequest 更新告警状态请求
@@ -195,28 +195,28 @@ type EmotionUpdateRequest struct {
 
 // AgentCreateRequest 创建智能体请求
 type AgentCreateRequest struct {
-	AgentID       string  `json:"agent_id" binding:"required"`                    // 唯一标识
-	Name          string  `json:"name" binding:"required"`                        // 显示名
-	Description   string  `json:"description"`                                    // 描述
+	AgentID       string  `json:"agent_id" binding:"required"`                                  // 唯一标识
+	Name          string  `json:"name" binding:"required"`                                      // 显示名
+	Description   string  `json:"description"`                                                  // 描述
 	AgentType     string  `json:"agent_type" binding:"required,oneof=qa policy emotion custom"` // 类型
-	SystemPrompt  string  `json:"system_prompt"`                                  // 自定义系统提示词
-	ModelProvider string  `json:"model_provider"`                                 // deepseek / zhipu
-	ModelName     string  `json:"model_name"`                                     // 具体模型
-	Temperature   float64 `json:"temperature"`                                    // 0.0-2.0
-	MaxTokens     int     `json:"max_tokens"`                                     // 最大 token 数
+	SystemPrompt  string  `json:"system_prompt"`                                                // 自定义系统提示词
+	ModelProvider string  `json:"model_provider"`                                               // deepseek / zhipu
+	ModelName     string  `json:"model_name"`                                                   // 具体模型
+	Temperature   float64 `json:"temperature"`                                                  // 0.0-2.0
+	MaxTokens     int     `json:"max_tokens"`                                                   // 最大 token 数
 }
 
 // AgentUpdateRequest 更新智能体请求
 type AgentUpdateRequest struct {
-	Name          *string  `json:"name"`          // 显示名
-	Description   *string  `json:"description"`   // 描述
-	AgentType     *string  `json:"agent_type"`    // 类型
-	SystemPrompt  *string  `json:"system_prompt"` // 自定义系统提示词
-	ModelProvider *string  `json:"model_provider"`// deepseek / zhipu
-	ModelName     *string  `json:"model_name"`    // 具体模型
-	Temperature   *float64 `json:"temperature"`   // 0.0-2.0
-	MaxTokens     *int     `json:"max_tokens"`    // 最大 token 数
-	Status        *string  `json:"status"`        // active / inactive
+	Name          *string  `json:"name"`           // 显示名
+	Description   *string  `json:"description"`    // 描述
+	AgentType     *string  `json:"agent_type"`     // 类型
+	SystemPrompt  *string  `json:"system_prompt"`  // 自定义系统提示词
+	ModelProvider *string  `json:"model_provider"` // deepseek / zhipu
+	ModelName     *string  `json:"model_name"`     // 具体模型
+	Temperature   *float64 `json:"temperature"`    // 0.0-2.0
+	MaxTokens     *int     `json:"max_tokens"`     // 最大 token 数
+	Status        *string  `json:"status"`         // active / inactive
 }
 
 // AgentListResponse 智能体列表响应
@@ -251,13 +251,13 @@ type KBImportResult struct {
 
 // KBImportResponse 导入响应
 type KBImportResponse struct {
-	Code     int               `json:"code"`
-	Message  string            `json:"message"`
-	Data     []*KBImportResult `json:"data"`   // 逐条结果
-	Total    int               `json:"total"`  // 总条数
-	Created  int               `json:"created"` // 新建数
-	Updated  int               `json:"updated"` // 更新数
-	Skipped  int               `json:"skipped"` // 跳过数
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	Data    []*KBImportResult `json:"data"`    // 逐条结果
+	Total   int               `json:"total"`   // 总条数
+	Created int               `json:"created"` // 新建数
+	Updated int               `json:"updated"` // 更新数
+	Skipped int               `json:"skipped"` // 跳过数
 }
 
 // ── 回答导出 DTO ──
@@ -283,8 +283,8 @@ type EmotionTrendPoint struct {
 
 // EmotionTrendReport 情感趋势报告
 type EmotionTrendReport struct {
-	Days   int                  `json:"days"`   // 统计天数
-	Points []*EmotionTrendPoint `json:"points"` // 每日数据点
+	Days    int                  `json:"days"`   // 统计天数
+	Points  []*EmotionTrendPoint `json:"points"` // 每日数据点
 	Summary struct {
 		TotalAnalyses int `json:"total_analyses"` // 周期内总分析次数
 		TotalUrgent   int `json:"total_urgent"`   // 周期内紧急总数
@@ -295,9 +295,9 @@ type EmotionTrendReport struct {
 
 // EmotionTrendResponse 趋势响应
 type EmotionTrendResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
-	Data    *EmotionTrendReport  `json:"data"`
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Data    *EmotionTrendReport `json:"data"`
 }
 
 // ── 管理端 DTO ──
@@ -332,9 +332,11 @@ type UserListResponse struct {
 
 // UserUpdateRequest 修改用户请求
 type UserUpdateRequest struct {
-	Role       *string `json:"role"`
-	OwnerScope *string `json:"owner_scope"`
-	OwnerID    *string `json:"owner_id"`
+	DisplayName *string `json:"display_name"`
+	Role        *string `json:"role" binding:"omitempty,oneof=sys_admin school_admin college_admin counselor teacher assistant student_union student guest"`
+	OwnerScope  *string `json:"owner_scope" binding:"omitempty,oneof=school college class"`
+	OwnerID     *string `json:"owner_id"`
+	Status      *string `json:"status" binding:"omitempty,oneof=active disabled pending rejected"`
 }
 
 // AuditListResponse 审计日志列表响应
@@ -372,7 +374,7 @@ type FeedbackCreateRequest struct {
 
 // FeedbackUpdateRequest 处理反馈请求
 type FeedbackUpdateRequest struct {
-	Status string `json:"status" binding:"required,oneof=resolved dismissed"`
+	Status string `json:"status" binding:"required,oneof=processing resolved dismissed"`
 	Reply  string `json:"reply"` // 管理员回复（可选）
 }
 
@@ -462,12 +464,12 @@ type TokenStatsData struct {
 
 // SubordinateTokenStats 下级用户词元统计条目
 type SubordinateTokenStats struct {
-	UserID        int64  `json:"user_id"`
-	Username      string `json:"username"`
-	DisplayName   string `json:"display_name"`
-	TotalTokens   int64  `json:"total_tokens"`
-	PromptTokens  int64  `json:"prompt_tokens"`
-	OutputTokens  int64  `json:"output_tokens"`
+	UserID       int64  `json:"user_id"`
+	Username     string `json:"username"`
+	DisplayName  string `json:"display_name"`
+	TotalTokens  int64  `json:"total_tokens"`
+	PromptTokens int64  `json:"prompt_tokens"`
+	OutputTokens int64  `json:"output_tokens"`
 }
 
 // SubordinateTokenStatsResponse 下级用户词元统计响应

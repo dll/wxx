@@ -139,7 +139,7 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        selectedColor: _riskColor(value).withValues(alpha: 0.15),
+        selectedColor: _riskColor(value).withOpacity( 0.15),
         side: BorderSide.none,
         showCheckmark: false,
       ),
@@ -161,7 +161,7 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
         selectedColor: Theme.of(context)
             .colorScheme
             .primaryContainer
-            .withValues(alpha: 0.5),
+            .withOpacity( 0.5),
         side: BorderSide.none,
         showCheckmark: false,
       ),
@@ -234,9 +234,9 @@ class _EmotionDashboardPageState extends State<EmotionDashboardPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
+          color: color.withOpacity( 0.06),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
+          border: Border.all(color: color.withOpacity( 0.15)),
         ),
         child: loading
             ? const Center(
@@ -409,7 +409,7 @@ class _AlertCardState extends State<_AlertCard> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: riskColor.withValues(alpha: 0.12),
+                              color: riskColor.withOpacity( 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(alert.riskLabel,
@@ -534,7 +534,7 @@ class _AlertCardState extends State<_AlertCard> {
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.errorContainer
-                                  .withValues(alpha: 0.5),
+                                  .withOpacity( 0.5),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(k,

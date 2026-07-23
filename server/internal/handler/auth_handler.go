@@ -21,14 +21,13 @@ func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
 	return &AuthHandler{authSvc: authSvc}
 }
 
-// loginRequest 登录请求（开发环境简化版）
+// loginRequest 账号密码登录请求。
 type loginRequest struct {
 	Username string `json:"username" binding:"required"`
-	Role     string `json:"role"`     // 可选，新用户创建时的角色，默认 "student"
-	Password string `json:"password"` // 可选，密码（未设置密码的用户可留空）
+	Password string `json:"password" binding:"required"`
 }
 
-// Login 开发环境简化登录
+// Login 账号密码登录。
 // POST /api/v1/auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
@@ -41,11 +40,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authSvc.LoginByUsername(req.Username, req.Role, req.Password)
+	result, err := h.authSvc.LoginByUsername(req.Username, "", req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "登录失败：" + err.Error(),
+		status := http.StatusInternalServerError
+		code := 500
+		message := "登录失败，请稍后重试"
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+			code = 401
+			message = "账号或密码错误"
+		} else if errors.Is(err, service.ErrAccountUnavailable) {
+			status = http.StatusForbidden
+			code = 403
+			message = err.Error()
+		}
+		c.JSON(status, model.ErrorResponse{
+			Code:    code,
+			Message: message,
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

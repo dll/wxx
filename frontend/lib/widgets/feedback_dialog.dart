@@ -116,7 +116,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF6750A4).withValues(alpha: 0.12),
+              color: const Color(0xFF6750A4).withOpacity( 0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.feedback_outlined, color: Color(0xFF6750A4)),
@@ -160,7 +160,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   border: const OutlineInputBorder(),
                   isDense: true,
                   filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.4),
                 ),
                 textInputAction: TextInputAction.newline,
               ),
@@ -191,8 +191,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity( 0.4)),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.3),
       ),
       child: AspectRatio(
         aspectRatio: 16 / 9,
@@ -213,7 +213,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.85),
+                          color: Colors.green.withOpacity( 0.85),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Row(

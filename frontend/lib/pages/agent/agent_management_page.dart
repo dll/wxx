@@ -103,8 +103,8 @@ class _AgentCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: agent.isActive
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.grey.withValues(alpha: 0.1),
+                    ? Colors.green.withOpacity( 0.1)
+                    : Colors.grey.withOpacity( 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(agent.statusLabel,
@@ -387,7 +387,7 @@ class _AgentEditDialogState extends State<_AgentEditDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _type,
+                  value: _type,
                   decoration: const InputDecoration(
                     labelText: '类型',
                     border: OutlineInputBorder(),

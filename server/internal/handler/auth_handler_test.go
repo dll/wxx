@@ -14,6 +14,7 @@ import (
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/dll/wxx/server/internal/testutil"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func setupAuthTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
@@ -29,6 +30,19 @@ func setupAuthTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 	}
 
 	userRepo := repository.NewUserRepo(db)
+	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("生成测试密码失败: %v", err)
+	}
+	for _, username := range []string{"testuser001", "returninguser"} {
+		if _, err := userRepo.Create(&model.User{
+			Username: username, DisplayName: username, Role: "student",
+			OwnerScope: "college", OwnerID: "cs", PasswordHash: string(hash),
+			Status: "active",
+		}); err != nil {
+			t.Fatalf("创建登录测试用户失败: %v", err)
+		}
+	}
 	authSvc := service.NewAuthService(cfg, userRepo)
 	authHandler := NewAuthHandler(authSvc)
 
@@ -47,7 +61,7 @@ func setupAuthTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 func TestAuthHandler_Login_Success(t *testing.T) {
 	r, _ := setupAuthTestRouter(t)
 
-	body := `{"username":"testuser001"}`
+	body := `{"username":"testuser001","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -76,7 +90,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 func TestAuthHandler_Login_EmptyUsername(t *testing.T) {
 	r, _ := setupAuthTestRouter(t)
 
-	body := `{"username":""}`
+	body := `{"username":"","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -121,7 +135,7 @@ func TestAuthHandler_Login_InvalidJSON(t *testing.T) {
 func TestAuthHandler_Login_RepeatedLoginReturnsSameUser(t *testing.T) {
 	r, _ := setupAuthTestRouter(t)
 
-	body := `{"username":"returninguser"}`
+	body := `{"username":"returninguser","password":"password123"}`
 	// 第一次登录
 	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	req1.Header.Set("Content-Type", "application/json")

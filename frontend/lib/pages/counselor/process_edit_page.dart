@@ -55,7 +55,7 @@ class _ProcessEditPageState extends State<ProcessEditPage> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: published ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+          backgroundColor: published ? Colors.green.withOpacity( 0.1) : Colors.grey.withOpacity( 0.1),
           child: Icon(Icons.account_tree, color: published ? Colors.green : Colors.grey),
         ),
         title: Text(name),
@@ -64,7 +64,7 @@ class _ProcessEditPageState extends State<ProcessEditPage> {
           if (published)
             const Chip(label: Text('已发布'))
           else
-            Chip(label: const Text('草稿'), backgroundColor: Colors.orange.withValues(alpha: 0.2)),
+            Chip(label: const Text('草稿'), backgroundColor: Colors.orange.withOpacity( 0.2)),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right),
         ]),

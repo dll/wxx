@@ -114,8 +114,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget>
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: _isPlaying
-              ? theme.colorScheme.primary.withValues(alpha: 0.3)
-              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ? theme.colorScheme.primary.withOpacity( 0.3)
+              : theme.colorScheme.outlineVariant.withOpacity( 0.3),
         ),
       ),
       child: Padding(
@@ -275,7 +275,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget>
                         ? LinearGradient(colors: [Colors.red.shade400, Colors.red.shade600])
                         : LinearGradient(colors: [
                             theme.colorScheme.primary,
-                            theme.colorScheme.primary.withValues(alpha: 0.8),
+                            theme.colorScheme.primary.withOpacity( 0.8),
                           ]),
                   ),
                   child: IconButton(
@@ -385,7 +385,7 @@ class _LyricsScrollingWidgetState extends State<LyricsScrollingWidget> {
       height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.3),
       ),
       child: ListView.builder(
         controller: _scrollCtrl,

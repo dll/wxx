@@ -56,7 +56,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
             gradient: LinearGradient(
               colors: [
                 theme.colorScheme.secondaryContainer,
-                theme.colorScheme.secondaryContainer.withValues(alpha: 0.65),
+                theme.colorScheme.secondaryContainer.withOpacity( 0.65),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -64,7 +64,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: theme.colorScheme.shadow.withValues(alpha: 0.08),
+                color: theme.colorScheme.shadow.withOpacity( 0.08),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -90,7 +90,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                          color: theme.colorScheme.primary.withOpacity( 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(TimeFormatter.weekdayFull(_now.weekday),
@@ -113,7 +113,7 @@ class _DateTimeBannerState extends State<DateTimeBanner> {
                 ),
               ),
               Icon(Icons.chevron_right,
-                  color: theme.colorScheme.onSecondaryContainer.withValues(alpha: 0.6)),
+                  color: theme.colorScheme.onSecondaryContainer.withOpacity( 0.6)),
             ],
           ),
         ),
@@ -247,7 +247,7 @@ class _DayCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isToday
             ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+            : theme.colorScheme.surfaceContainerHighest.withOpacity( 0.45),
         borderRadius: BorderRadius.circular(12),
         border: isToday
             ? Border.all(color: theme.colorScheme.primary, width: 1.5)
@@ -327,7 +327,7 @@ class _TaskRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
+            color: color.withOpacity( 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(task.time,
