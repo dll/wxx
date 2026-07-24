@@ -48,28 +48,32 @@ func (s *DocumentService) ProcessUpload(file *multipart.FileHeader) (*DocumentRe
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 
-	// 保存文件到磁盘
+	// 读取文件内容到内存（避免 Vercel 只读文件系统问题）
 	src, err := file.Open()
 	if err != nil {
 		return nil, fmt.Errorf("打开上传文件失败: %w", err)
 	}
 	defer src.Close()
 
+	fileData, err := io.ReadAll(src)
+	if err != nil {
+		return nil, fmt.Errorf("读取文件内容失败: %w", err)
+	}
+
+	// 尝试保存到磁盘（非关键步骤，失败不影响解析）
+	savePath := ""
 	timestamp := time.Now().UnixMilli()
 	saveName := fmt.Sprintf("%d_%s", timestamp, file.Filename)
-	savePath := filepath.Join(s.uploadDir, saveName)
-
-	dst, err := os.Create(savePath)
-	if err != nil {
-		return nil, fmt.Errorf("保存文件失败: %w", err)
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return nil, fmt.Errorf("写入文件失败: %w", err)
+	savePath = filepath.Join(s.uploadDir, saveName)
+	if dst, err := os.Create(savePath); err == nil {
+		_, _ = dst.Write(fileData)
+		_ = dst.Close()
+	} else {
+		// 保存失败时继续解析，不中断流程
+		savePath = ""
 	}
 
-	// 提取文本
+	// 从内存直接解析文本
 	result := &DocumentResult{
 		FileName: file.Filename,
 		FileType: ext,
@@ -78,18 +82,20 @@ func (s *DocumentService) ProcessUpload(file *multipart.FileHeader) (*DocumentRe
 
 	switch ext {
 	case ".txt":
-		result.TextContent, err = s.readTxt(savePath)
+		result.TextContent = string(fileData)
 	case ".csv":
-		result.TextContent, err = s.readCsv(savePath)
+		result.TextContent, err = s.readCsvFromBytes(fileData)
 	case ".pdf":
-		result.TextContent, result.Pages, err = s.readPdf(savePath)
+		result.TextContent, result.Pages, err = s.readPdfFromBytes(fileData)
 	case ".docx":
-		result.TextContent, err = s.readDocx(savePath)
+		result.TextContent, err = s.readDocxFromBytes(fileData)
 	case ".xlsx":
-		result.TextContent, err = s.readXlsx(savePath)
+		result.TextContent, err = s.readXlsxFromBytes(fileData)
 	case ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp":
 		result.TextContent = fmt.Sprintf("[图片文件] %s (%d KB, %s)", file.Filename, file.Size/1024, ext)
-		result.Images = []string{savePath}
+		if savePath != "" {
+			result.Images = []string{savePath}
+		}
 	case ".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv":
 		result.TextContent = fmt.Sprintf("[视频文件] %s (%d KB, %s)", file.Filename, file.Size/1024, ext)
 	default:
@@ -175,7 +181,6 @@ func (s *DocumentService) readDocx(path string) (string, error) {
 			defer rc.Close()
 			data, _ := io.ReadAll(rc)
 			content := string(data)
-			// 简易 XML 文本提取：取 <w:t> 标签内容
 			text := extractDocxText(content)
 			b.WriteString(text)
 			break
@@ -186,6 +191,88 @@ func (s *DocumentService) readDocx(path string) (string, error) {
 
 func (s *DocumentService) readXlsx(path string) (string, error) {
 	f, err := excelize.OpenFile(path)
+	if err != nil {
+		return "", fmt.Errorf("打开XLSX失败: %w", err)
+	}
+	defer f.Close()
+
+	var b strings.Builder
+	for _, sheet := range f.GetSheetList() {
+		b.WriteString(fmt.Sprintf("\n=== 工作表: %s ===\n", sheet))
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			continue
+		}
+		for i, row := range rows {
+			b.WriteString(fmt.Sprintf("第%d行: %s\n", i+1, strings.Join(row, ", ")))
+		}
+	}
+	return b.String(), nil
+}
+
+// ── 从内存 bytes 解析（兼容 Vercel 只读文件系统）──
+
+func (s *DocumentService) readCsvFromBytes(data []byte) (string, error) {
+	reader := csv.NewReader(bytes.NewReader(data))
+	records, err := reader.ReadAll()
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for i, row := range records {
+		b.WriteString(fmt.Sprintf("第%d行: %s\n", i+1, strings.Join(row, ", ")))
+	}
+	return b.String(), nil
+}
+
+func (s *DocumentService) readPdfFromBytes(data []byte) (string, int, error) {
+	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", 0, fmt.Errorf("打开PDF失败: %w", err)
+	}
+
+	totalPage := r.NumPage()
+	var b strings.Builder
+	for i := 1; i <= totalPage; i++ {
+		p := r.Page(i)
+		if p.V.IsNull() {
+			continue
+		}
+		text, err := p.GetPlainText(nil)
+		if err == nil {
+			b.WriteString(fmt.Sprintf("\n--- 第%d页 ---\n", i))
+			b.WriteString(strings.TrimSpace(text))
+			b.WriteString("\n")
+		}
+	}
+	return b.String(), totalPage, nil
+}
+
+func (s *DocumentService) readDocxFromBytes(data []byte) (string, error) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", fmt.Errorf("打开DOCX失败: %w", err)
+	}
+
+	var b strings.Builder
+	for _, f := range r.File {
+		if f.Name == "word/document.xml" {
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			defer rc.Close()
+			contentData, _ := io.ReadAll(rc)
+			text := extractDocxText(string(contentData))
+			b.WriteString(text)
+			break
+		}
+	}
+	return b.String(), nil
+}
+
+func (s *DocumentService) readXlsxFromBytes(data []byte) (string, error) {
+	f, err := excelize.OpenReader(bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("打开XLSX失败: %w", err)
 	}

@@ -236,10 +236,13 @@ class KnowledgeProvider extends ChangeNotifier {
         fieldName: 'file',
         fields: {'resource_type': resourceType},
       );
-      if (response.data['code'] == 0 || response.statusCode == 200) {
+      if (response.statusCode == 200) {
         return Map<String, dynamic>.from(response.data as Map);
       }
-    } catch (_) {}
+      _resourceError = response.data?['error']?.toString() ?? '上传失败 (${response.statusCode})';
+    } catch (e) {
+      _resourceError = '上传失败: $e';
+    }
     return null;
   }
 

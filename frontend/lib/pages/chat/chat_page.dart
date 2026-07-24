@@ -769,11 +769,20 @@ $printScript
       ),
     );
     if (confirm == true && chat.sessionId != null) {
-      context.read<SessionProvider>().deleteSession(chat.sessionId!);
+      final sessionId = chat.sessionId!;
       chat.newChat();
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('对话已删除')));
+      try {
+        await context.read<SessionProvider>().deleteSession(sessionId);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('对话已删除')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败：$e')),
+          );
+        }
       }
     }
   }

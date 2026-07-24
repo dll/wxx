@@ -486,8 +486,9 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     if (!mounted) return;
     setState(() => _uploading = false);
     if (result == null) {
+      final errMsg = context.read<KnowledgeProvider>().resourceError;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('上传解析失败')));
+          .showSnackBar(SnackBar(content: Text(errMsg.isEmpty ? '上传解析失败' : errMsg)));
       return;
     }
     _titleCtrl.text = (result['title'] ?? _titleCtrl.text).toString();

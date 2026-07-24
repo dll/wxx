@@ -194,6 +194,47 @@ func (r *UserRepo) UpdateStatus(userID int64, status string) error {
 	return err
 }
 
+// UpsertFromContext 根据 JWT 用户上下文 upsert 用户（Vercel 冷启动 JIT 创建）
+// 按 username 匹配：存在则更新显示名/角色等信息，不存在则插入。
+func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
+	existing, err := r.GetByUsername(userCtx.Username)
+	if err != nil {
+		return err
+	}
+
+	if existing != nil {
+		// 用户已存在，同步关键信息（ID 不变）
+		if existing.ID != userCtx.UserID {
+			// ID 不一致时以数据库为准，更新 context 中的 ID
+			userCtx.UserID = existing.ID
+		}
+		_, err = r.db.Exec(
+			`UPDATE users SET display_name=?, role=?, owner_scope=?, owner_id=?,
+			 status=COALESCE(NULLIF(status,''), 'active'), updated_at=datetime('now')
+			 WHERE id=?`,
+			userCtx.DisplayName, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
+			existing.ID,
+		)
+		return err
+	}
+
+	// 用户不存在，插入新用户
+	status := "active"
+	result, err := r.db.Exec(
+		`INSERT INTO users (
+			username, display_name, role, owner_scope, owner_id, status
+		) VALUES (?, ?, ?, ?, ?, ?)`,
+		userCtx.Username, userCtx.DisplayName, userCtx.Role,
+		userCtx.OwnerScope, userCtx.OwnerID, status,
+	)
+	if err != nil {
+		return err
+	}
+	newID, _ := result.LastInsertId()
+	userCtx.UserID = newID
+	return nil
+}
+
 // UpdateRole 更新用户角色
 func (r *UserRepo) UpdateRole(userID int64, role string) error {
 	_, err := r.db.Exec(

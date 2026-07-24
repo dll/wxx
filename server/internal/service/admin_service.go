@@ -318,10 +318,11 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 		hasUsername := false
 		hasDisplayName := false
 		for _, value := range rows[i] {
-			switch strings.TrimSpace(strings.TrimPrefix(value, "\ufeff")) {
-			case "学号":
+			v := strings.TrimSpace(strings.TrimPrefix(value, "\ufeff"))
+			if v == "学号" || strings.HasPrefix(v, "学号") {
 				hasUsername = true
-			case "姓名":
+			}
+			if v == "姓名" || strings.HasPrefix(v, "姓名") {
 				hasDisplayName = true
 			}
 		}
@@ -337,22 +338,22 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 
 	colMap := make(map[string]string)
 	for col, name := range header {
-		switch strings.TrimSpace(strings.TrimPrefix(name, "\ufeff")) {
-		case "学号":
+		v := strings.TrimSpace(strings.TrimPrefix(name, "\ufeff"))
+		if v == "学号" || strings.HasPrefix(v, "学号") {
 			colMap["username"] = col
-		case "姓名":
+		} else if v == "姓名" || strings.HasPrefix(v, "姓名") {
 			colMap["display_name"] = col
-		case "院系":
+		} else if v == "院系" || strings.HasPrefix(v, "院系") {
 			colMap["college"] = col
-		case "专业":
+		} else if v == "专业" || strings.HasPrefix(v, "专业") {
 			colMap["major"] = col
-		case "班级":
+		} else if v == "班级" || strings.HasPrefix(v, "班级") {
 			colMap["class_name"] = col
-		case "入学时间", "入学日期":
+		} else if v == "入学时间" || v == "入学日期" || strings.HasPrefix(v, "入学时间") || strings.HasPrefix(v, "入学日期") {
 			colMap["enrollment_date"] = col
-		case "入学年份":
+		} else if v == "入学年份" || strings.HasPrefix(v, "入学年份") {
 			colMap["enrollment_year"] = col
-		case "角色":
+		} else if v == "角色" || strings.HasPrefix(v, "角色") {
 			colMap["role"] = col
 		}
 	}
