@@ -97,7 +97,7 @@ flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
 
 # ---- Vercel 前端部署 ----
-.PHONY: deploy-web deploy-web-prebuilt
+.PHONY: deploy-web deploy-web-prebuilt deploy-release
 
 # 标准部署：把 build/web 同步到 frontend/.vercel/output/static 后通过 prebuilt 推送到 wxx-frontend 项目
 # 域名: https://wxx.pydaydayup.xyz （详见 docs/deployment.md）
@@ -110,6 +110,13 @@ deploy-web: flutter-build-web
 deploy-web-prebuilt:
 	cd $(FLUTTER_DIR) && npx --yes vercel deploy --prebuilt --prod
 	@echo "=== 已部署到 https://wxx.pydaydayup.xyz ==="
+
+# 发布 Web + APK：版本号 patch 自动 +1，APK 注入 build/web/downloads 后部署网站。
+deploy-release:
+	pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1
+	cp -rf $(FLUTTER_DIR)/build/web/* $(FLUTTER_DIR)/.vercel/output/static/
+	cd $(FLUTTER_DIR) && npx --yes vercel deploy --prebuilt --prod
+	@echo "=== 已发布 Web + APK 到 https://wxx.pydaydayup.xyz ==="
 
 # ---- 前端全量构建 ----
 # 顺序构建 Web + APK（调用 PowerShell 7 脚本）

@@ -11,7 +11,7 @@
 |------|------|-----|
 | Android | `android:label` (`AndroidManifest.xml`) | 蔚小芯 |
 | Android | APK 输出（Gradle `outputFileName`） | `蔚小芯-release.apk` / `蔚小芯-debug.apk` |
-| Android | 最终分发文件（`build/app/outputs/flutter-apk/`） | `蔚小芯.apk` |
+| Android | 最终分发文件（Web 下载） | `蔚小芯-v版本号.apk` |
 | Web | `<title>` (`web/index.html`) | 蔚小芯 |
 | Web | `meta description` | 蔚小芯 — 滁州学院计算机学院智慧学工 AI 助手 |
 | Web | `apple-mobile-web-app-title` | 蔚小芯 |
@@ -53,9 +53,27 @@ make flutter-build-apk-safe   # 路径含中文（推荐，复制到 ASCII 临�
 |------|------|
 | `frontend/build/app/outputs/apk/release/蔚小芯-release.apk` | Gradle 直出（中文名由 `app/build.gradle.kts` 的 `outputFileName` 控制） |
 | `frontend/build/app/outputs/flutter-apk/app-release.apk` | Flutter SDK 内部固定名（保留备份） |
-| `frontend/build/app/outputs/flutter-apk/蔚小芯.apk` | **对外分发文件**，由 Makefile 自动复制 |
+| `frontend/build/app/outputs/flutter-apk/weixiaoxin-release.apk` | ASCII 备份文件，便于脚本处理 |
+| `frontend/build/web/downloads/蔚小芯-v版本号.apk` | **Web 对外分发文件**，首页二维码指向此路径 |
+| `frontend/build/web/downloads/release.json` | Web 发布清单 |
 
-> Gradle 改名后 Flutter SDK 仍会生成 `app-release.apk`（来自其内部硬编码逻辑）。Makefile 在构建结束后会自动把中文 APK 复制到 `flutter-apk/蔚小芯.apk`，分发请使用此文件。
+首发版本：`蔚小芯-v0.0.1.apk`，版本号 `0.0.1+1`，发布日期 `2026-07-20`。
+
+发布构建命令：
+
+```bash
+make deploy-release
+```
+
+该 target 会自动递增 `frontend/pubspec.yaml` 的 patch 版本和 build number，例如 `0.0.1+1` -> `0.0.2+2`，同步更新 `frontend/lib/config/release_config.dart`，构建 Web + APK，将 APK 注入 `build/web/downloads/`，再部署网站。
+
+如果只是重建当前版本（首发或排查构建问题），使用：
+
+```bash
+pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1 -NoVersionBump
+```
+
+`-NoVersionBump` 不用于常规发布；常规发布必须使用 `make deploy-release` 自动递增版本。
 
 ## Vercel 前端部署（强制流程）
 
@@ -77,6 +95,12 @@ make deploy-web
 2. 同步到 `frontend/.vercel/output/static/`
 3. 通过 `vercel deploy --prebuilt --prod --cwd frontend` 部署到 `wxx-frontend` 项目
 
+Web + APK 联合发布请使用：
+
+```bash
+make deploy-release
+```
+
 ### 仅推送已构建产物
 
 ```bash
@@ -96,6 +120,8 @@ npx --yes vercel deploy --prebuilt --prod
 
 ```bash
 curl -s https://wxx.pydaydayup.xyz/ | grep -o "蔚小芯"   # 必须有输出
+curl -I https://wxx.pydaydayup.xyz/downloads/蔚小芯-v0.0.1.apk
+curl -s https://wxx.pydaydayup.xyz/downloads/release.json
 curl -s https://api.pydaydayup.xyz/health                # 必须 200，service=蔚小芯
 ```
 

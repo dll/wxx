@@ -1,7 +1,6 @@
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// 校园服务入口 — 高德地图 / VR全景 / 学校首页 / 招生抖音
 class CampusMapPage extends StatefulWidget {
@@ -20,14 +19,24 @@ class _CampusTabInfo {
   final Color color;
   final String url;
   final String subtitle;
-  const _CampusTabInfo(this.tab, this.label, this.icon, this.color, this.url, this.subtitle);
+  const _CampusTabInfo(
+      this.tab, this.label, this.icon, this.color, this.url, this.subtitle);
 }
 
 const _tabs = [
-  _CampusTabInfo(_CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
-  _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2), 'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
-  _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0), 'https://www.chzu.edu.cn', '滁州学院官方网站'),
-  _CampusTabInfo(_CampusTab.douyin, '抖音', Icons.music_note, Color(0xFFC62828), 'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2', '搜索滁州学院官方抖音'),
+  _CampusTabInfo(
+      _CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
+  _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2),
+      'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
+  _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0),
+      'https://www.chzu.edu.cn', '滁州学院官方网站'),
+  _CampusTabInfo(
+      _CampusTab.douyin,
+      '抖音',
+      Icons.music_note,
+      Color(0xFFC62828),
+      'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2',
+      '搜索滁州学院官方抖音'),
 ];
 
 class _CampusMapPageState extends State<CampusMapPage> {
@@ -64,14 +73,22 @@ class _CampusMapPageState extends State<CampusMapPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(t.icon, size: 16, color: selected ? t.color : theme.colorScheme.onSurfaceVariant),
+                          Icon(t.icon,
+                              size: 16,
+                              color: selected
+                                  ? t.color
+                                  : theme.colorScheme.onSurfaceVariant),
                           const SizedBox(width: 4),
                           Text(
                             t.label,
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                              color: selected ? t.color : theme.colorScheme.onSurfaceVariant,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: selected
+                                  ? t.color
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -84,7 +101,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ),
         ),
       ),
-      body: _currentTab == _CampusTab.map ? _buildMapTab(theme) : _buildServiceTab(theme),
+      body: _currentTab == _CampusTab.map
+          ? _buildMapTab(theme)
+          : _buildServiceTab(theme),
     );
   }
 
@@ -107,14 +126,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1677FF).withOpacity( 0.1),
+                    color: const Color(0xFF1677FF).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(40),
                   ),
-                  child: const Icon(Icons.map_outlined, size: 40, color: Color(0xFF1677FF)),
+                  child: const Icon(Icons.map_outlined,
+                      size: 40, color: Color(0xFF1677FF)),
                 ),
                 const SizedBox(height: 16),
                 Text('滁州学院（会峰校区）',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -129,13 +150,15 @@ class _CampusMapPageState extends State<CampusMapPage> {
                       icon: const Icon(Icons.copy, size: 16),
                       tooltip: '复制地址',
                       onPressed: () {
-                        Clipboard.setData(const ClipboardData(text: '安徽省滁州市会峰西路1号 滁州学院'));
+                        Clipboard.setData(
+                            const ClipboardData(text: '安徽省滁州市会峰西路1号 滁州学院'));
                         setState(() => _copiedText = '地址已复制');
                         Future.delayed(const Duration(seconds: 2), () {
                           if (mounted) setState(() => _copiedText = '');
                         });
                       },
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
                       padding: EdgeInsets.zero,
                     ),
                   ],
@@ -150,7 +173,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(_copiedText,
-                        style: const TextStyle(fontSize: 12, color: Colors.green)),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.green)),
                   ),
               ],
             ),
@@ -164,16 +188,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => html.window.open(
+                  onPressed: () => _openUrl(
                     'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode',
-                    '_blank',
                   ),
                   icon: const Icon(Icons.directions_car, size: 18),
                   label: const Text('高德地图导航'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1677FF),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -187,16 +211,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => html.window.open(
+                  onPressed: () => _openUrl(
                     'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988',
-                    '_blank',
                   ),
                   icon: const Icon(Icons.map, size: 18),
                   label: const Text('腾讯地图导航'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF07C160),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -211,9 +235,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => html.window.open(
-                    'assets/campus_navigation.html',
-                    '_blank',
+                  onPressed: () => _openUrl(
+                    'https://wxx.pydaydayup.xyz/assets/campus_navigation.html',
                   ),
                   icon: const Icon(Icons.explore, size: 18),
                   label: const Text('校园报到导航'),
@@ -235,8 +258,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
         // 路线说明
         Card(
           elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -244,17 +268,21 @@ class _CampusMapPageState extends State<CampusMapPage> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
+                    Icon(Icons.info_outline,
+                        size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 6),
                     Text('交通指南', style: theme.textTheme.titleSmall),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildTransportItem(theme, Icons.directions_bus, '公交', '乘坐 4路、15路、18路、101路 到「滁州学院」站'),
+                _buildTransportItem(theme, Icons.directions_bus, '公交',
+                    '乘坐 4路、15路、18路、101路 到「滁州学院」站'),
                 const SizedBox(height: 6),
-                _buildTransportItem(theme, Icons.train, '高铁', '滁州站 → 乘 18路/101路 到滁州学院（约30分钟）'),
+                _buildTransportItem(
+                    theme, Icons.train, '高铁', '滁州站 → 乘 18路/101路 到滁州学院（约30分钟）'),
                 const SizedBox(height: 6),
-                _buildTransportItem(theme, Icons.local_taxi, '自驾', '导航至「滁州学院会峰校区」（会峰西路1号）'),
+                _buildTransportItem(
+                    theme, Icons.local_taxi, '自驾', '导航至「滁州学院会峰校区」（会峰西路1号）'),
               ],
             ),
           ),
@@ -263,14 +291,19 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildTransportItem(ThemeData theme, IconData icon, String label, String desc) {
+  Widget _buildTransportItem(
+      ThemeData theme, IconData icon, String label, String desc) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: theme.colorScheme.primary),
         const SizedBox(width: 8),
-        Text('$label：', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        Expanded(child: Text(desc, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant))),
+        Text('$label：',
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+        Expanded(
+            child: Text(desc,
+                style: TextStyle(
+                    fontSize: 13, color: theme.colorScheme.onSurfaceVariant))),
       ],
     );
   }
@@ -289,10 +322,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.map_outlined, size: 20, color: const Color(0xFF1677FF)),
+                const Icon(Icons.map_outlined,
+                    size: 20, color: Color(0xFF1677FF)),
                 const SizedBox(width: 8),
                 Text('新生入学流程地图',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.fullscreen, size: 20),
@@ -326,7 +361,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
                               size: 40, color: theme.colorScheme.outline),
                           const SizedBox(height: 8),
                           Text('图片未加载',
-                              style: TextStyle(color: theme.colorScheme.outline)),
+                              style:
+                                  TextStyle(color: theme.colorScheme.outline)),
                         ],
                       ),
                     ),
@@ -406,8 +442,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 'assets/images/会峰校区2003新生报到交通指示图01.png',
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Text('图片未加载',
-                      style: TextStyle(color: Colors.white)),
+                  child: Text('图片未加载', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ),
@@ -429,15 +464,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: tab.color.withOpacity( 0.1),
+                color: tab.color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Icon(tab.icon, size: 48, color: tab.color),
             ),
             const SizedBox(height: 24),
-            Text(tab.label, style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            )),
+            Text(tab.label,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                )),
             const SizedBox(height: 8),
             Text(tab.subtitle,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -456,14 +492,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () => html.window.open(tab.url, '_blank'),
+                onPressed: () => _openUrl(tab.url),
                 icon: const Icon(Icons.open_in_new, size: 20),
                 label: Text('打开 ${tab.label}'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: tab.color,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -475,13 +513,15 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: tab.url));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('链接已复制'), duration: Duration(seconds: 1)),
+                    const SnackBar(
+                        content: Text('链接已复制'), duration: Duration(seconds: 1)),
                   );
                 },
                 icon: const Icon(Icons.copy, size: 18),
                 label: const Text('复制链接'),
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -489,5 +529,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }

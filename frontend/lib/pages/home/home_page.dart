@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../config/release_config.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
@@ -25,9 +27,11 @@ class _FeatureCard {
 
 const _studentFeatures = [
   _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation'),
-  _FeatureCard(Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
+  _FeatureCard(
+      Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
   _FeatureCard(Icons.calendar_today, '大学规划', Color(0xFF2E7D32), '/plan'),
-  _FeatureCard(Icons.flag_outlined, '入党教育', Color(0xFFC62828), '/party-education'),
+  _FeatureCard(
+      Icons.flag_outlined, '入党教育', Color(0xFFC62828), '/party-education'),
   _FeatureCard(Icons.groups_outlined, '社团生活', Color(0xFF7B1FA2), '/club'),
 ];
 
@@ -105,6 +109,8 @@ class _HomePageState extends State<HomePage> {
             // 日期时间 + 校历入口
             const DateTimeBanner(),
             const SizedBox(height: 20),
+            _buildApkDownloadCard(theme),
+            const SizedBox(height: 20),
             // 辅导员及以上：告警概览
             if (_canAccessAlerts(role)) ...[
               _buildAlertOverview(theme),
@@ -122,7 +128,9 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
             ],
             // 管理专区（college_admin+）
-            if (role == 'college_admin' || role == 'school_admin' || role == 'sys_admin') ...[
+            if (role == 'college_admin' ||
+                role == 'school_admin' ||
+                role == 'sys_admin') ...[
               _buildAdminFeatures(theme),
               const SizedBox(height: 20),
             ],
@@ -134,15 +142,187 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// 安卓应用下载二维码
+  Widget _buildApkDownloadCard(ThemeData theme) {
+    final qrData = Uri.encodeComponent(ReleaseConfig.apkDownloadUrl);
+    final qrUrl =
+        'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$qrData&margin=10';
+    final muted = theme.colorScheme.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black
+                .withOpacity(theme.brightness == Brightness.dark ? 0.25 : 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final qr = _buildApkQr(theme, qrUrl);
+          final info = _buildApkDownloadInfo(theme, muted);
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                info,
+                const SizedBox(height: 16),
+                Center(child: qr),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: 18),
+              qr,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildApkDownloadInfo(ThemeData theme, Color muted) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child:
+                  const Icon(Icons.android, color: Color(0xFF2E7D32), size: 28),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('安卓应用下载',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('手机扫码下载、安装并使用蔚小芯',
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildReleaseChip(theme, '版本 v${ReleaseConfig.version}'),
+            _buildReleaseChip(theme, '构建号 ${ReleaseConfig.buildNumber}'),
+            _buildReleaseChip(theme, '发布 ${ReleaseConfig.releaseDate}'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(ReleaseConfig.apkFileName,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            FilledButton.icon(
+              onPressed: _openApkDownload,
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('下载 APK'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => context.go('/login'),
+              icon: const Icon(Icons.login, size: 18),
+              label: const Text('登录 Web 版'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildApkQr(ThemeData theme, String qrUrl) {
+    return Container(
+      width: 156,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              qrUrl,
+              width: 132,
+              height: 132,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox(
+                width: 132,
+                height: 132,
+                child: Icon(Icons.qr_code_2, size: 96, color: Colors.black54),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text('扫码安装',
+              style: TextStyle(
+                  color: Colors.black87, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReleaseChip(ThemeData theme, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label,
+          style: theme.textTheme.labelMedium
+              ?.copyWith(color: theme.colorScheme.primary)),
+    );
+  }
+
+  Future<void> _openApkDownload() async {
+    final uri = Uri.parse(ReleaseConfig.apkDownloadUrl);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   /// 滁州学院快讯（游客横幅）
   Widget _buildGuestBanner(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            const Color(0xFF1565C0),
-            const Color(0xFF7B1FA2),
+            Color(0xFF1565C0),
+            Color(0xFF7B1FA2),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -154,12 +334,13 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Icon(Icons.school, color: Colors.white.withOpacity( 0.9), size: 28),
+              Icon(Icons.school,
+                  color: Colors.white.withOpacity(0.9), size: 28),
               const SizedBox(width: 8),
               Text(
                 '滁州学院 · 公开快讯',
                 style: TextStyle(
-                  color: Colors.white.withOpacity( 0.9),
+                  color: Colors.white.withOpacity(0.9),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -167,7 +348,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             '欢迎来到滁州学院 👋',
             style: TextStyle(
               color: Colors.white,
@@ -179,7 +360,7 @@ class _HomePageState extends State<HomePage> {
           Text(
             '26 级新生 · 学生家长 · 中学教师 · 社会访客',
             style: TextStyle(
-              color: Colors.white.withOpacity( 0.85),
+              color: Colors.white.withOpacity(0.85),
               fontSize: 13,
             ),
           ),
@@ -209,7 +390,7 @@ class _HomePageState extends State<HomePage> {
                   label: const Text('直接浏览'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity( 0.6)),
+                    side: BorderSide(color: Colors.white.withOpacity(0.6)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
@@ -244,7 +425,7 @@ class _HomePageState extends State<HomePage> {
         gradient: LinearGradient(
           colors: [
             theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity( 0.7),
+            theme.colorScheme.primary.withOpacity(0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -266,7 +447,7 @@ class _HomePageState extends State<HomePage> {
           Text(
             '我是蔚小芯，你的学工智能助手',
             style: TextStyle(
-              color: theme.colorScheme.onPrimary.withOpacity( 0.85),
+              color: theme.colorScheme.onPrimary.withOpacity(0.85),
               fontSize: 14,
             ),
           ),
@@ -357,9 +538,9 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity( 0.08),
+          color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity( 0.2)),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           children: [
@@ -441,7 +622,7 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: Material(
-        color: color.withOpacity( 0.06),
+        color: color.withOpacity(0.06),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -568,8 +749,7 @@ class _HomePageState extends State<HomePage> {
               color: const Color(0xFFC62828),
               onTap: () => context.go('/forecast'),
             ),
-            for (final _ in [1, 2, 3])
-              const Expanded(child: SizedBox.shrink()),
+            for (final _ in [1, 2, 3]) const Expanded(child: SizedBox.shrink()),
           ],
         ),
       ],
@@ -604,7 +784,7 @@ class _HomePageState extends State<HomePage> {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: ErrorView.empty(
@@ -616,9 +796,11 @@ class _HomePageState extends State<HomePage> {
         else
           ...sessions.take(3).map((s) => ListTile(
                 leading: const Icon(Icons.chat_bubble_outline, size: 20),
-                title: Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                title:
+                    Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text(TimeFormatter.relative(s.updatedAt),
-                    style: TextStyle(fontSize: 12, color: theme.colorScheme.outline)),
+                    style: TextStyle(
+                        fontSize: 12, color: theme.colorScheme.outline)),
                 trailing: const Icon(Icons.chevron_right, size: 18),
                 onTap: () {
                   // 加载该会话的历史消息并跳转到对话页
@@ -626,7 +808,8 @@ class _HomePageState extends State<HomePage> {
                   context.go('/chat');
                 },
                 dense: true,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               )),
       ],
     );

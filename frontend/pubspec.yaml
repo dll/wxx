@@ -17,7 +17,6 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 version: 0.0.1+1
-
 environment:
   sdk: ^3.4.0
 
@@ -76,6 +75,11 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+
+dependency_overrides:
+  # record 5.x 在当前 Flutter/Dart 工具链下会解出过旧的 record_linux，
+  # Android AOT 编译扫描 federated 插件时会因缺少 startStream 实现失败。
+  record_linux: ^1.1.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
