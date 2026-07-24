@@ -249,11 +249,12 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.download_rounded, size: 18),
               label: const Text('下载 APK'),
             ),
-            OutlinedButton.icon(
-              onPressed: () => context.go('/login'),
-              icon: const Icon(Icons.login, size: 18),
-              label: const Text('登录 Web 版'),
-            ),
+            if (!Storage.isLoggedIn)
+              OutlinedButton.icon(
+                onPressed: () => context.go('/login'),
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('登录 Web 版'),
+              ),
           ],
         ),
       ],

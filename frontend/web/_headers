@@ -7,5 +7,12 @@
 /flutter_bootstrap.js
   Cache-Control: no-cache, must-revalidate
 
+/flutter_service_worker.js
+  Cache-Control: no-cache, must-revalidate
+  Service-Worker-Allowed: /
+
 /main.dart.js
+  Cache-Control: no-cache, must-revalidate
+
+/*.js
   Cache-Control: no-cache, must-revalidate

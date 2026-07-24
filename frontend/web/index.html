@@ -30,29 +30,44 @@
 
   <title>蔚小芯</title>
   <link rel="manifest" href="manifest.json">
-  <script>
-    // 清除旧 Service Worker 与缓存，避免继续加载历史登录页。
-    if ('serviceWorker' in navigator) {
-      Promise.all([
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          return Promise.all(regs.map(function(reg) { return reg.unregister(); }));
-        }),
-        'caches' in self
-          ? caches.keys().then(function(keys) {
-              return Promise.all(keys.map(function(key) { return caches.delete(key); }));
-            })
-          : Promise.resolve()
-      ]).then(function() {
-        if (navigator.serviceWorker.controller &&
-            !sessionStorage.getItem('wxx-cache-refreshed')) {
-          sessionStorage.setItem('wxx-cache-refreshed', '1');
-          location.reload();
-        }
-      });
-    }
-  </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // 清除旧 Service Worker 与缓存 → 再动态加载 Flutter 入口
+    // 避免旧 SW 拦截新资源导致 "Failed to fetch" 错误
+    (function() {
+      var scriptLoaded = false;
+
+      function loadFlutter() {
+        if (scriptLoaded) return;
+        scriptLoaded = true;
+        var el = document.createElement('script');
+        el.src = 'flutter_bootstrap.js';
+        document.body.appendChild(el);
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          var hadOld = regs.length > 0;
+          var jobs = regs.map(function(reg) { return reg.unregister(); });
+          if ('caches' in self) {
+            jobs.push(caches.keys().then(function(keys) {
+              return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+            }));
+          }
+          return Promise.all(jobs).then(function() {
+            if (hadOld && !sessionStorage.getItem('wxx-cache-refreshed')) {
+              sessionStorage.setItem('wxx-cache-refreshed', '1');
+              location.reload();
+            } else {
+              loadFlutter();
+            }
+          });
+        }, loadFlutter);
+        return;
+      }
+      loadFlutter();
+    })();
+  </script>
 </body>
 </html>
