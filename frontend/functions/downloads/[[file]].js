@@ -1,5 +1,5 @@
-const APK_FILE = '蔚小芯-v0.0.3.apk';
-const APK_URL = 'https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.3.apk';
+const APK_FILE = '蔚小芯-v0.0.4.apk';
+const APK_URL = 'https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.4.apk';
 
 export async function onRequest(context) {
   const { request, params } = context;
@@ -14,9 +14,9 @@ export async function onRequest(context) {
       app: '蔚小芯',
       release_date: '2026-07-20',
       apk_url: APK_URL,
-      build_number: 3,
+      build_number: 4,
       apk_file: APK_FILE,
-      version: '0.0.3',
+      version: '0.0.4',
     });
   }
 
