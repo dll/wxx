@@ -96,14 +96,17 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":         "上传成功",
-		"file":            result.FileName,
-		"file_type":       result.FileType,
-		"file_size":       service.BytesToContentSize(result.FileSize),
-		"content_preview": service.GetTextPreview(result.TextContent, 200),
-		"pages":           result.Pages,
+		"message":           "上传成功",
+		"file":              result.FileName,
+		"file_type":         result.FileType,
+		"file_size":         service.BytesToContentSize(result.FileSize),
+		"content_preview":   service.GetTextPreview(result.TextContent, 200),
+		"content":           result.TextContent,
+		"title":             strings.TrimSuffix(result.FileName, filepath.Ext(result.FileName)),
+		"summary":           fmt.Sprintf("上传文档：%s（%s, %s）", result.FileName, result.FileType, service.BytesToContentSize(result.FileSize)),
+		"pages":             result.Pages,
 		"in_knowledge_base": saveErr == nil,
-		"resource_id":     resourceID,
+		"resource_id":       resourceID,
 	})
 }
 

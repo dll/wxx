@@ -798,7 +798,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/notifications/webhook-status", auth.RequireCapability(auth.CounselorNotify), notificationH.WebhookStatus)
 
 			// ── 文档上传与知识入库 ──
-			secured.POST("/kb/upload", auth.RequireCapability(auth.CounselorKBWrite), uploadH.Upload)
+			secured.POST("/kb/upload", auth.RequireCapability(auth.UnionKBSubmit), uploadH.Upload)
 			secured.GET("/kb/formats", uploadH.SupportedFormats)
 
 			// ── 教师 AI 功能 ──

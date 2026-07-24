@@ -70,7 +70,12 @@ class KnowledgeProvider extends ChangeNotifier {
   }
 
   /// 类型顺序（Policy → Process → FAQ → Activity）
-  static const List<String> typeOrder = ['Policy', 'Process', 'FAQ', 'Activity'];
+  static const List<String> typeOrder = [
+    'Policy',
+    'Process',
+    'FAQ',
+    'Activity'
+  ];
 
   // ── 知识管理（counselor+）──
 
@@ -187,6 +192,17 @@ class KnowledgeProvider extends ChangeNotifier {
     }
   }
 
+  Future<KnowledgeCard?> getResource(String resourceId) async {
+    try {
+      final response = await _api.get(ApiConfig.kbResource(resourceId));
+      final data = response.data['data'];
+      if (response.data['code'] == 0 && data is Map<String, dynamic>) {
+        return KnowledgeCard.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<bool> createResource(Map<String, dynamic> data) async {
     try {
       final response = await _api.post(ApiConfig.kbResources, data: data);
@@ -194,6 +210,37 @@ class KnowledgeProvider extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<bool> updateResource(
+      String resourceId, Map<String, dynamic> data) async {
+    try {
+      final response =
+          await _api.put(ApiConfig.kbResource(resourceId), data: data);
+      return response.data['code'] == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> uploadKnowledgeDocument({
+    required List<int> bytes,
+    required String filename,
+    required String resourceType,
+  }) async {
+    try {
+      final response = await _api.uploadBytes(
+        ApiConfig.kbUpload,
+        bytes: bytes,
+        filename: filename,
+        fieldName: 'file',
+        fields: {'resource_type': resourceType},
+      );
+      if (response.data['code'] == 0 || response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// 按固定顺序返回分类列表

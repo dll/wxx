@@ -94,8 +94,8 @@ func (h *StudentHandler) mockLearningDiary(c *gin.Context) {
 		"quiz": []gin.H{
 			{"question": "二叉树前序遍历的顺序是？", "options": []string{"根左右", "左根右", "左右根", "右根左"}, "correct_index": 0, "explanation": "前序遍历先访问根节点，再递归左子树，最后右子树"},
 		},
-		"tomorrow_plan":  "复习操作系统第5章，完成数据结构实验",
-		"encouragement":  "今天学习了3小时05分钟，比昨天多了20分钟，继续保持！",
+		"tomorrow_plan": "复习操作系统第5章，完成数据结构实验",
+		"encouragement": "今天学习了3小时05分钟，比昨天多了20分钟，继续保持！",
 	})
 }
 
@@ -365,29 +365,29 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 						materials = s.Materials
 					}
 				}
-			// 解析 FAQ JSON
-			var faqList []gin.H
-			if s.FAQ != "" && s.FAQ != "[]" {
-				if err := json.Unmarshal([]byte(s.FAQ), &faqList); err != nil {
+				// 解析 FAQ JSON
+				var faqList []gin.H
+				if s.FAQ != "" && s.FAQ != "[]" {
+					if err := json.Unmarshal([]byte(s.FAQ), &faqList); err != nil {
+						faqList = []gin.H{}
+					}
+				} else {
 					faqList = []gin.H{}
 				}
-			} else {
-				faqList = []gin.H{}
-			}
-			steps = append(steps, gin.H{
-				"step":         s.StepOrder,
-				"title":        s.Title,
-				"status":       "pending",
-				"materials":    materials,
-				"entry_url":    s.EntryURL,
-				"deadline":     s.Deadline,
-				"location":     s.Location,
-				"notes":        s.Notes,
-				"contact":      s.Contact,
-				"phone":        s.Phone,
-				"office_hours": s.OfficeHours,
-				"faq":          faqList,
-			})
+				steps = append(steps, gin.H{
+					"step":         s.StepOrder,
+					"title":        s.Title,
+					"status":       "pending",
+					"materials":    materials,
+					"entry_url":    s.EntryURL,
+					"deadline":     s.Deadline,
+					"location":     s.Location,
+					"notes":        s.Notes,
+					"contact":      s.Contact,
+					"phone":        s.Phone,
+					"office_hours": s.OfficeHours,
+					"faq":          faqList,
+				})
 			}
 		}
 	}
@@ -415,8 +415,8 @@ func mapFlowToResource(flowType string) (resourceID string, defaultTitle string)
 	switch flowType {
 	case "graduation":
 		return "process-graduation-2026", "毕业生离校流程"
-	case "major-transfer", "major_transfer":
-		return "process-major-transfer-2026", "转专业流程"
+	case "major-transfer", "major_transfer", "major_change":
+		return "process-major-change-2026", "转专业流程"
 	case "student-loan", "student_loan":
 		return "process-student-loan-2026", "助学贷款申请流程"
 	default:
@@ -441,19 +441,19 @@ func (h *StudentHandler) GenericAI(feature string) gin.HandlerFunc {
 
 		// 兜底 mock
 		responses := map[string]gin.H{
-			"freshman-plan":      {"content": "大一规划建议", "response": "建议重点关注数学和编程基础课程，积极参加社团活动拓展视野。", "data_source": "fallback"},
-			"growth-path":        {"content": "成长路径分析", "response": "你目前处于大二下学期，建议本学期提升算法能力，暑假寻找实习机会。", "data_source": "fallback"},
-			"political-study":    {"content": "政治学习", "response": "本周学习主题：习近平新时代中国特色社会主义思想。已整理学习要点。", "data_source": "fallback"},
-			"ideological-record": {"content": "思想档案", "response": "思想政治表现良好，建议继续保持对时事的关注，多参与志愿服务。", "data_source": "fallback"},
-			"party-progress":     {"content": "入党进度", "response": "当前阶段：入党积极分子。下一步参加组织考察，建议积极参与志愿服务。", "data_source": "fallback"},
-			"campus-life":        {"content": "校园生活", "response": "本周推荐：周三技术沙龙、周五篮球赛、周末志愿者活动。", "data_source": "fallback"},
-			"schedule":           {"content": "日程管理", "response": "今日：上午2节课，下午1节课，晚上建议复习数据结构。", "data_source": "fallback"},
-			"competition-match":  {"content": "竞赛推荐", "response": "推荐：ACM程序设计竞赛(95%)、数学建模(80%)、创新创业大赛(70%)。", "data_source": "fallback"},
-			"study-buddy":        {"content": "学伴匹配", "response": "推荐3位学伴：张三(数据结构)、李四(算法练习)、王五(英语口语)。", "data_source": "fallback"},
-			"mental-health":      {"content": "心理健康", "response": "整体心理状态良好。建议保持规律作息，适当运动放松。", "data_source": "fallback"},
-			"digital-mentor":     {"content": "AI导师", "response": "本周建议重点关注数据结构中图的相关算法，这是目前的薄弱环节。", "data_source": "fallback"},
-		"classroom-extension": {"content": "课堂延伸", "response": "课后要点：1.理解核心概念 2.掌握典型例题 3.思考实际应用。建议用思维导图整理知识结构。", "data_source": "fallback"},
-		"values-guidance":     {"content": "价值观引导", "response": "诚信、责任、奉献、感恩是大学生应具备的核心价值观。建议从日常生活小事做起。", "data_source": "fallback"},
+			"freshman-plan":       {"content": "大一规划建议", "response": "建议重点关注数学和编程基础课程，积极参加社团活动拓展视野。", "data_source": "fallback"},
+			"growth-path":         {"content": "成长路径分析", "response": "你目前处于大二下学期，建议本学期提升算法能力，暑假寻找实习机会。", "data_source": "fallback"},
+			"political-study":     {"content": "政治学习", "response": "本周学习主题：习近平新时代中国特色社会主义思想。已整理学习要点。", "data_source": "fallback"},
+			"ideological-record":  {"content": "思想档案", "response": "思想政治表现良好，建议继续保持对时事的关注，多参与志愿服务。", "data_source": "fallback"},
+			"party-progress":      {"content": "入党进度", "response": "当前阶段：入党积极分子。下一步参加组织考察，建议积极参与志愿服务。", "data_source": "fallback"},
+			"campus-life":         {"content": "校园生活", "response": "本周推荐：周三技术沙龙、周五篮球赛、周末志愿者活动。", "data_source": "fallback"},
+			"schedule":            {"content": "日程管理", "response": "今日：上午2节课，下午1节课，晚上建议复习数据结构。", "data_source": "fallback"},
+			"competition-match":   {"content": "竞赛推荐", "response": "推荐：ACM程序设计竞赛(95%)、数学建模(80%)、创新创业大赛(70%)。", "data_source": "fallback"},
+			"study-buddy":         {"content": "学伴匹配", "response": "推荐3位学伴：张三(数据结构)、李四(算法练习)、王五(英语口语)。", "data_source": "fallback"},
+			"mental-health":       {"content": "心理健康", "response": "整体心理状态良好。建议保持规律作息，适当运动放松。", "data_source": "fallback"},
+			"digital-mentor":      {"content": "AI导师", "response": "本周建议重点关注数据结构中图的相关算法，这是目前的薄弱环节。", "data_source": "fallback"},
+			"classroom-extension": {"content": "课堂延伸", "response": "课后要点：1.理解核心概念 2.掌握典型例题 3.思考实际应用。建议用思维导图整理知识结构。", "data_source": "fallback"},
+			"values-guidance":     {"content": "价值观引导", "response": "诚信、责任、奉献、感恩是大学生应具备的核心价值观。建议从日常生活小事做起。", "data_source": "fallback"},
 		}
 		if resp, ok := responses[feature]; ok {
 			c.JSON(http.StatusOK, resp)
@@ -498,9 +498,9 @@ func (h *StudentHandler) Resume(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"template":     "modern",
-		"sections":     []string{"个人信息", "教育背景", "项目经历", "技能特长", "荣誉奖项"},
-		"data_source":  "fallback",
+		"template":    "modern",
+		"sections":    []string{"个人信息", "教育背景", "项目经历", "技能特长", "荣誉奖项"},
+		"data_source": "fallback",
 	})
 }
 
@@ -628,8 +628,8 @@ func (h *StudentHandler) EnhancedCareerSim(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"career_path":  careerPath,
-		"stages":       []string{"在校期", "应届生", "3年经验", "5年+"},
-		"data_source":  "fallback",
+		"career_path": careerPath,
+		"stages":      []string{"在校期", "应届生", "3年经验", "5年+"},
+		"data_source": "fallback",
 	})
 }

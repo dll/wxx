@@ -70,6 +70,7 @@ class ApiConfig {
 
   // ── 知识管理 ──
   static const String kbResources = '$apiPrefix/kb/resources';
+  static const String kbUpload = '$apiPrefix/kb/upload';
   static String kbResource(String id) => '$apiPrefix/kb/resources/$id';
   static String kbApprove(String id) => '$apiPrefix/kb/resources/$id/approve';
   static String kbReject(String id) => '$apiPrefix/kb/resources/$id/reject';

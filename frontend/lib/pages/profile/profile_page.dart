@@ -9,6 +9,18 @@ import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 
+class _ProfileFeature {
+  final String key;
+  final String category;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  const _ProfileFeature(this.key, this.category, this.icon, this.title,
+      this.subtitle, this.route);
+}
+
 /// 个人中心页
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -18,9 +30,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  late Set<String> _listedFeatures;
+  late Set<String> _enabledFeatures;
+
   @override
   void initState() {
     super.initState();
+    _listedFeatures = Storage.listedFeatures.toSet();
+    _enabledFeatures = Storage.enabledFeatures.toSet();
     // 加载用户资料
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<AuthProvider>().fetchProfile();
@@ -123,225 +140,233 @@ class _ProfilePageState extends State<ProfilePage> {
 
         const SizedBox(height: 16),
 
+        _buildFeatureTabs(context, profile?.role),
+
+        const SizedBox(height: 16),
+
         // 智能体管理入口（管理员可访问）
-        if (_canAccessAgents(profile?.role))
-          _buildMenuCard(context, Icons.smart_toy_outlined, '智能体管理',
-              '管理 AI 智能体的注册、配置和状态', '/agents'),
+        if (profile?.role == '__legacy_flat_menu__') ...[
+          if (_canAccessAgents(profile?.role))
+            _buildMenuCard(context, Icons.smart_toy_outlined, '智能体管理',
+                '管理 AI 智能体的注册、配置和状态', '/agents'),
 
-        // 质量看板（college_admin 及以上）
-        if (_canAccessAdmin(profile?.role))
-          _buildMenuCard(context, Icons.dashboard_outlined, '质量看板',
-              '查看系统问答质量指标', '/admin/metrics'),
+          // 质量看板（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.dashboard_outlined, '质量看板',
+                '查看系统问答质量指标', '/admin/metrics'),
 
-        // 用户管理：非学生组织角色可导入，管理员可继续维护账号。
-        if (_canAccessUserManagement())
+          // 用户管理：非学生组织角色可导入，管理员可继续维护账号。
+          if (_canAccessUserManagement())
+            _buildMenuCard(
+              context,
+              Icons.people_outline,
+              '用户管理',
+              CapabilityUtils.has(Capability.collegeUserRead)
+                  ? '导入学生并管理账号、角色和状态'
+                  : '通过 Excel 批量导入学生账号',
+              '/admin/users',
+            ),
+
+          // 审计日志（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(
+                context, Icons.history, '审计日志', '查看系统操作记录', '/admin/audit'),
+
+          // 系统配置（sys_admin 独占）
+          if (profile?.role == 'sys_admin')
+            _buildMenuCard(context, Icons.settings_outlined, '系统配置', '管理系统运行参数',
+                '/admin/settings'),
+
+          // 问题预案（sys_admin、college_admin 可访问）
+          if (profile?.role == 'sys_admin' || profile?.role == 'college_admin')
+            _buildMenuCard(context, Icons.warning_amber_rounded, '问题预案',
+                '查看和处理系统预警问题', '/forecast'),
+
+          // 游客审核（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.person_search_outlined, '游客审核',
+                '审核待处理的游客注册申请', '/admin/guests'),
+
+          // 知识审核（counselor 及以上）
+          if (_canAccessEmotion(profile?.role))
+            _buildMenuCard(context, Icons.rate_review_outlined, '知识审核',
+                '审核待发布的知识资源', '/review'),
+
+          // 我的提交（student_union 及以上）
+          if (_canSubmitKB(profile?.role))
+            _buildMenuCard(context, Icons.note_add_outlined, '知识提交',
+                '创建和管理知识资源', '/my-submissions'),
+
+          // 词元统计（所有角色可访问自己的统计）
           _buildMenuCard(
-            context,
-            Icons.people_outline,
-            '用户管理',
-            CapabilityUtils.has(Capability.collegeUserRead)
-                ? '导入学生并管理账号、角色和状态'
-                : '通过 Excel 批量导入学生账号',
-            '/admin/users',
-          ),
+              context, Icons.bar_chart, '词元统计', '查看 AI 词元消耗统计', '/token-stats'),
 
-        // 审计日志（college_admin 及以上）
-        if (_canAccessAdmin(profile?.role))
+          // 我的收藏（所有角色可访问）
           _buildMenuCard(
-              context, Icons.history, '审计日志', '查看系统操作记录', '/admin/audit'),
+              context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
 
-        // 系统配置（sys_admin 独占）
-        if (profile?.role == 'sys_admin')
-          _buildMenuCard(context, Icons.settings_outlined, '系统配置', '管理系统运行参数',
-              '/admin/settings'),
+          // 我的反馈（所有角色可访问，查看自己提交的反馈与处理结果）
+          _buildMenuCard(context, Icons.rate_review, '我的反馈', '查看自己提交的反馈与处理状态',
+              '/my-feedbacks'),
 
-        // 问题预案（sys_admin、college_admin 可访问）
-        if (profile?.role == 'sys_admin' || profile?.role == 'college_admin')
-          _buildMenuCard(context, Icons.warning_amber_rounded, '问题预案',
-              '查看和处理系统预警问题', '/forecast'),
+          // 我的办事记录（所有角色可访问，查看自己的办事流程进度）
+          _buildMenuCard(context, Icons.assignment_turned_in_outlined, '我的办事记录',
+              '查看入学/离校等流程办理进度', '/my-records'),
 
-        // 游客审核（college_admin 及以上）
-        if (_canAccessAdmin(profile?.role))
-          _buildMenuCard(context, Icons.person_search_outlined, '游客审核',
-              '审核待处理的游客注册申请', '/admin/guests'),
+          // AI 模型配置（所有角色可访问）
+          _buildMenuCard(context, Icons.tune, 'AI 模型配置',
+              '配置 DeepSeek / 智谱 / 讯飞星火模型参数', '/profile/model-config'),
 
-        // 知识审核（counselor 及以上）
-        if (_canAccessEmotion(profile?.role))
-          _buildMenuCard(context, Icons.rate_review_outlined, '知识审核',
-              '审核待发布的知识资源', '/review'),
+          // ── 校园文化智能体（全员可见）──
+          _buildMenuCard(context, Icons.music_note, '校歌曲库', '校歌、院歌与经典曲目',
+              '/culture/anthems'),
+          _buildMenuCard(
+              context, Icons.podcasts, '校园广播', '直播节目单与往期回放', '/culture/radio'),
+          _buildMenuCard(context, Icons.school_outlined, '学术讲座', '即将开始的讲座与回放',
+              '/culture/lectures'),
+          _buildMenuCard(context, Icons.celebration_outlined, '校园活动',
+              '活动报名与个性推送', '/culture/events'),
+          _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐',
+              '/culture/volunteer'),
 
-        // 我的提交（student_union 及以上）
-        if (_canSubmitKB(profile?.role))
-          _buildMenuCard(context, Icons.note_add_outlined, '知识提交', '创建和管理知识资源',
-              '/my-submissions'),
+          // 反馈管理（student_union 及以上）
+          if (_canSubmitKB(profile?.role))
+            _buildMenuCard(context, Icons.feedback_outlined, '反馈管理',
+                '查看和处理用户反馈', '/feedback'),
 
-        // 词元统计（所有角色可访问自己的统计）
-        _buildMenuCard(
-            context, Icons.bar_chart, '词元统计', '查看 AI 词元消耗统计', '/token-stats'),
+          // ── 角色 AI 功能入口 ──
+          // 学生 AI 功能
+          if (profile?.role == 'student' ||
+              profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.wb_sunny_outlined, '今日速览',
+                'AI 每日学习概览', '/student/daily-briefing'),
+            _buildMenuCard(context, Icons.auto_stories, '学习日记', 'AI 自动生成学习日记',
+                '/student/learning-diary'),
+            _buildMenuCard(context, Icons.check_circle_outline, '每日打卡',
+                '学习打卡与连续记录', '/student/checkin'),
+            _buildMenuCard(context, Icons.person_pin, '数字孪生', '我的数字画像',
+                '/student/digital-twin'),
+            _buildMenuCard(context, Icons.psychology_outlined, '性格洞察',
+                'AI 性格分析', '/student/personality'),
+            _buildMenuCard(context, Icons.emoji_events_outlined, '积分成就',
+                '学习积分与成就', '/student/achievements'),
+            _buildMenuCard(context, Icons.map_outlined, '课程地图', '课程学习路径',
+                '/student/course-map'),
+            _buildMenuCard(context, Icons.analytics_outlined, '课程学情', '课程学习分析',
+                '/student/course-analytics'),
+            _buildMenuCard(context, Icons.summarize_outlined, '学习周报',
+                'AI 周度学习总结', '/student/weekly-report'),
+            _buildMenuCard(context, Icons.forum_outlined, '问答广场', '校园问答社区',
+                '/student/qa-plaza'),
+            _buildMenuCard(context, Icons.local_fire_department, '热点关注',
+                '校园热点话题', '/student/hot-topics'),
+            _buildMenuCard(context, Icons.leaderboard_outlined, '问答排行',
+                '问答贡献排行榜', '/student/qa-leaderboard'),
+            _buildMenuCard(context, Icons.chat_outlined, '站内私聊', 'AI 学伴私信',
+                '/student/private-chat'),
+            _buildMenuCard(context, Icons.account_tree_outlined, 'AI 办事流程',
+                '智能流程引导', '/student/process-enhanced'),
+          ],
 
-        // 我的收藏（所有角色可访问）
-        _buildMenuCard(
-            context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
+          // ── 学生功能模块（毕设选题/学科竞赛/大学规划/入党教育/社团生活）──
+          if (profile?.role == 'student' ||
+              profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.topic_outlined, '毕设选题', '毕业设计选题与导师选择',
+                '/graduation'),
+            _buildMenuCard(context, Icons.emoji_events_outlined, '学科竞赛',
+                '竞赛报名与作品提交', '/competition'),
+            _buildMenuCard(
+                context, Icons.calendar_today, '大学规划', '四年学业与职业规划', '/plan'),
+            _buildMenuCard(context, Icons.flag_outlined, '入党教育', '入党流程进度与学习',
+                '/party-education'),
+            _buildMenuCard(
+                context, Icons.groups_outlined, '社团生活', '社团加入与活动参与', '/club'),
+          ],
 
-        // 我的反馈（所有角色可访问，查看自己提交的反馈与处理结果）
-        _buildMenuCard(context, Icons.rate_review, '我的反馈', '查看自己提交的反馈与处理状态',
-            '/my-feedbacks'),
+          // 辅导员 AI 功能
+          if (profile?.role == 'counselor') ...[
+            _buildMenuCard(context, Icons.visibility_outlined, 'AI 今日关注',
+                '重点关注学生提醒', '/counselor/daily-focus'),
+            _buildMenuCard(context, Icons.assessment_outlined, '班级学情日报',
+                '班级每日学情分析', '/counselor/class-report'),
+            _buildMenuCard(context, Icons.dashboard_outlined, '数字孪生看板',
+                '学生数字画像看板', '/counselor/twin-board'),
+            _buildMenuCard(context, Icons.warning_outlined, '预测性预警', 'AI 风险预测',
+                '/counselor/prediction'),
+            _buildMenuCard(context, Icons.auto_fix_high, 'AI 干预方案', '智能干预方案生成',
+                '/counselor/intervention'),
+            _buildMenuCard(context, Icons.record_voice_over, '谈心谈话', '谈话记录管理',
+                '/counselor/talk-record'),
+            _buildMenuCard(context, Icons.tips_and_updates_outlined, '话术推荐',
+                'AI 谈话话术', '/counselor/talk-tips'),
+            _buildMenuCard(context, Icons.psychology, '思想档案', '学生思想动态',
+                '/counselor/ideological'),
+            _buildMenuCard(context, Icons.groups_outlined, '班级画像', '班级性格画像',
+                '/counselor/class-profile'),
+            _buildMenuCard(context, Icons.admin_panel_settings, '社区管理',
+                '问答社区内容管理', '/counselor/community-manage'),
+            _buildMenuCard(context, Icons.trending_up, '热点感知', '校园舆情热点感知',
+                '/counselor/hot-topic-sense'),
+            _buildMenuCard(context, Icons.edit_note, '流程编辑', '办事流程编辑管理',
+                '/counselor/process-edit'),
+            _buildMenuCard(context, Icons.people_alt_outlined, '学生列表',
+                '查看管理学生名单', '/counselor/student-list'),
+          ],
 
-        // 我的办事记录（所有角色可访问，查看自己的办事流程进度）
-        _buildMenuCard(context, Icons.assignment_turned_in_outlined, '我的办事记录',
-            '查看入学/离校等流程办理进度', '/my-records'),
+          // 教师 AI 功能
+          if (profile?.role == 'teacher') ...[
+            _buildMenuCard(context, Icons.school_outlined, '今日授课', 'AI 授课概览',
+                '/teacher/daily-overview'),
+            _buildMenuCard(context, Icons.auto_awesome, 'AI 备课', '智能备课助手',
+                '/teacher/lesson-prep'),
+            _buildMenuCard(context, Icons.quiz_outlined, 'AI 出题', '智能考试出题',
+                '/teacher/exam-gen'),
+            _buildMenuCard(context, Icons.live_help_outlined, '课堂互动', 'AI 课堂互动',
+                '/teacher/class-interact'),
+            _buildMenuCard(
+                context, Icons.grading, 'AI 批改', '智能作业批改', '/teacher/grading'),
+            _buildMenuCard(
+                context, Icons.grid_on, '学情热力图', '班级学情可视化', '/teacher/heatmap'),
+            _buildMenuCard(context, Icons.self_improvement, '教学反思', 'AI 教学反思',
+                '/teacher/reflection'),
+            _buildMenuCard(context, Icons.pie_chart_outline, '学习风格', '学生学习风格分布',
+                '/teacher/style-dist'),
+            _buildMenuCard(context, Icons.question_answer_outlined, '社区问答',
+                '教师社区答疑', '/teacher/community-qa'),
+          ],
 
-        // AI 模型配置（所有角色可访问）
-        _buildMenuCard(context, Icons.tune, 'AI 模型配置',
-            '配置 DeepSeek / 智谱 / 讯飞星火模型参数', '/profile/model-config'),
+          // 教辅 AI 功能
+          if (profile?.role == 'assistant') ...[
+            _buildMenuCard(context, Icons.event_busy, '排课检测', '排课冲突检测',
+                '/assistant/schedule-check'),
+            _buildMenuCard(context, Icons.school, '毕业审核', '毕业资格审核',
+                '/assistant/grad-audit'),
+            _buildMenuCard(context, Icons.event_note, '考试编排', '考试安排管理',
+                '/assistant/exam-arrange'),
+          ],
 
-        // ── 校园文化智能体（全员可见）──
-        _buildMenuCard(context, Icons.music_note, '校歌曲库', '校歌、院歌与经典曲目',
-            '/culture/anthems'),
-        _buildMenuCard(
-            context, Icons.podcasts, '校园广播', '直播节目单与往期回放', '/culture/radio'),
-        _buildMenuCard(context, Icons.school_outlined, '学术讲座', '即将开始的讲座与回放',
-            '/culture/lectures'),
-        _buildMenuCard(context, Icons.celebration_outlined, '校园活动', '活动报名与个性推送',
-            '/culture/events'),
-        _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐',
-            '/culture/volunteer'),
+          // 学生会 AI 功能
+          if (profile?.role == 'student_union') ...[
+            _buildMenuCard(context, Icons.event, 'AI 活动策划', '智能活动方案生成',
+                '/union/event-plan'),
+            _buildMenuCard(context, Icons.brush, 'AI 海报文案', '智能海报文案生成',
+                '/union/poster-gen'),
+          ],
 
-        // 反馈管理（student_union 及以上）
-        if (_canSubmitKB(profile?.role))
-          _buildMenuCard(context, Icons.feedback_outlined, '反馈管理', '查看和处理用户反馈',
-              '/feedback'),
+          // 学院管理员 AI 功能
+          if (_canAccessAdmin(profile?.role)) ...[
+            _buildMenuCard(context, Icons.dashboard, '数字孪生大屏', '学院全景数据',
+                '/college/twin-screen'),
+            _buildMenuCard(context, Icons.analytics, '数据分析', '学院数据分析报告',
+                '/college/data-analysis'),
+          ],
 
-        // ── 角色 AI 功能入口 ──
-        // 学生 AI 功能
-        if (profile?.role == 'student' || profile?.role == 'student_union') ...[
-          _buildMenuCard(context, Icons.wb_sunny_outlined, '今日速览', 'AI 每日学习概览',
-              '/student/daily-briefing'),
-          _buildMenuCard(context, Icons.auto_stories, '学习日记', 'AI 自动生成学习日记',
-              '/student/learning-diary'),
-          _buildMenuCard(context, Icons.check_circle_outline, '每日打卡',
-              '学习打卡与连续记录', '/student/checkin'),
-          _buildMenuCard(context, Icons.person_pin, '数字孪生', '我的数字画像',
-              '/student/digital-twin'),
-          _buildMenuCard(context, Icons.psychology_outlined, '性格洞察', 'AI 性格分析',
-              '/student/personality'),
-          _buildMenuCard(context, Icons.emoji_events_outlined, '积分成就',
-              '学习积分与成就', '/student/achievements'),
-          _buildMenuCard(context, Icons.map_outlined, '课程地图', '课程学习路径',
-              '/student/course-map'),
-          _buildMenuCard(context, Icons.analytics_outlined, '课程学情', '课程学习分析',
-              '/student/course-analytics'),
-          _buildMenuCard(context, Icons.summarize_outlined, '学习周报', 'AI 周度学习总结',
-              '/student/weekly-report'),
-          _buildMenuCard(context, Icons.forum_outlined, '问答广场', '校园问答社区',
-              '/student/qa-plaza'),
-          _buildMenuCard(context, Icons.local_fire_department, '热点关注', '校园热点话题',
-              '/student/hot-topics'),
-          _buildMenuCard(context, Icons.leaderboard_outlined, '问答排行', '问答贡献排行榜',
-              '/student/qa-leaderboard'),
-          _buildMenuCard(context, Icons.chat_outlined, '站内私聊', 'AI 学伴私信',
-              '/student/private-chat'),
-          _buildMenuCard(context, Icons.account_tree_outlined, 'AI 办事流程',
-              '智能流程引导', '/student/process-enhanced'),
+          // 情感预警入口（辅导员及以上角色可访问）
+          if (_canAccessEmotion(profile?.role))
+            _buildMenuCard(context, Icons.warning_amber_rounded, '情感预警',
+                '查看和管理学生情感告警', '/emotion',
+                iconColor: theme.colorScheme.error),
         ],
-
-        // ── 学生功能模块（毕设选题/学科竞赛/大学规划/入党教育/社团生活）──
-        if (profile?.role == 'student' || profile?.role == 'student_union') ...[
-          _buildMenuCard(context, Icons.topic_outlined, '毕设选题', '毕业设计选题与导师选择',
-              '/graduation'),
-          _buildMenuCard(context, Icons.emoji_events_outlined, '学科竞赛',
-              '竞赛报名与作品提交', '/competition'),
-          _buildMenuCard(
-              context, Icons.calendar_today, '大学规划', '四年学业与职业规划', '/plan'),
-          _buildMenuCard(context, Icons.flag_outlined, '入党教育', '入党流程进度与学习',
-              '/party-education'),
-          _buildMenuCard(
-              context, Icons.groups_outlined, '社团生活', '社团加入与活动参与', '/club'),
-        ],
-
-        // 辅导员 AI 功能
-        if (profile?.role == 'counselor') ...[
-          _buildMenuCard(context, Icons.visibility_outlined, 'AI 今日关注',
-              '重点关注学生提醒', '/counselor/daily-focus'),
-          _buildMenuCard(context, Icons.assessment_outlined, '班级学情日报',
-              '班级每日学情分析', '/counselor/class-report'),
-          _buildMenuCard(context, Icons.dashboard_outlined, '数字孪生看板',
-              '学生数字画像看板', '/counselor/twin-board'),
-          _buildMenuCard(context, Icons.warning_outlined, '预测性预警', 'AI 风险预测',
-              '/counselor/prediction'),
-          _buildMenuCard(context, Icons.auto_fix_high, 'AI 干预方案', '智能干预方案生成',
-              '/counselor/intervention'),
-          _buildMenuCard(context, Icons.record_voice_over, '谈心谈话', '谈话记录管理',
-              '/counselor/talk-record'),
-          _buildMenuCard(context, Icons.tips_and_updates_outlined, '话术推荐',
-              'AI 谈话话术', '/counselor/talk-tips'),
-          _buildMenuCard(context, Icons.psychology, '思想档案', '学生思想动态',
-              '/counselor/ideological'),
-          _buildMenuCard(context, Icons.groups_outlined, '班级画像', '班级性格画像',
-              '/counselor/class-profile'),
-          _buildMenuCard(context, Icons.admin_panel_settings, '社区管理',
-              '问答社区内容管理', '/counselor/community-manage'),
-          _buildMenuCard(context, Icons.trending_up, '热点感知', '校园舆情热点感知',
-              '/counselor/hot-topic-sense'),
-          _buildMenuCard(context, Icons.edit_note, '流程编辑', '办事流程编辑管理',
-              '/counselor/process-edit'),
-          _buildMenuCard(context, Icons.people_alt_outlined, '学生列表', '查看管理学生名单',
-              '/counselor/student-list'),
-        ],
-
-        // 教师 AI 功能
-        if (profile?.role == 'teacher') ...[
-          _buildMenuCard(context, Icons.school_outlined, '今日授课', 'AI 授课概览',
-              '/teacher/daily-overview'),
-          _buildMenuCard(context, Icons.auto_awesome, 'AI 备课', '智能备课助手',
-              '/teacher/lesson-prep'),
-          _buildMenuCard(context, Icons.quiz_outlined, 'AI 出题', '智能考试出题',
-              '/teacher/exam-gen'),
-          _buildMenuCard(context, Icons.live_help_outlined, '课堂互动', 'AI 课堂互动',
-              '/teacher/class-interact'),
-          _buildMenuCard(
-              context, Icons.grading, 'AI 批改', '智能作业批改', '/teacher/grading'),
-          _buildMenuCard(
-              context, Icons.grid_on, '学情热力图', '班级学情可视化', '/teacher/heatmap'),
-          _buildMenuCard(context, Icons.self_improvement, '教学反思', 'AI 教学反思',
-              '/teacher/reflection'),
-          _buildMenuCard(context, Icons.pie_chart_outline, '学习风格', '学生学习风格分布',
-              '/teacher/style-dist'),
-          _buildMenuCard(context, Icons.question_answer_outlined, '社区问答',
-              '教师社区答疑', '/teacher/community-qa'),
-        ],
-
-        // 教辅 AI 功能
-        if (profile?.role == 'assistant') ...[
-          _buildMenuCard(context, Icons.event_busy, '排课检测', '排课冲突检测',
-              '/assistant/schedule-check'),
-          _buildMenuCard(
-              context, Icons.school, '毕业审核', '毕业资格审核', '/assistant/grad-audit'),
-          _buildMenuCard(context, Icons.event_note, '考试编排', '考试安排管理',
-              '/assistant/exam-arrange'),
-        ],
-
-        // 学生会 AI 功能
-        if (profile?.role == 'student_union') ...[
-          _buildMenuCard(
-              context, Icons.event, 'AI 活动策划', '智能活动方案生成', '/union/event-plan'),
-          _buildMenuCard(
-              context, Icons.brush, 'AI 海报文案', '智能海报文案生成', '/union/poster-gen'),
-        ],
-
-        // 学院管理员 AI 功能
-        if (_canAccessAdmin(profile?.role)) ...[
-          _buildMenuCard(context, Icons.dashboard, '数字孪生大屏', '学院全景数据',
-              '/college/twin-screen'),
-          _buildMenuCard(context, Icons.analytics, '数据分析', '学院数据分析报告',
-              '/college/data-analysis'),
-        ],
-
-        // 情感预警入口（辅导员及以上角色可访问）
-        if (_canAccessEmotion(profile?.role))
-          _buildMenuCard(context, Icons.warning_amber_rounded, '情感预警',
-              '查看和管理学生情感告警', '/emotion',
-              iconColor: theme.colorScheme.error),
 
         const SizedBox(height: 16),
 
@@ -398,6 +423,157 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  List<_ProfileFeature> _featuresFor(String? role) => [
+        _ProfileFeature('token', '常用', Icons.bar_chart, '词元统计', '查看 AI 词元消耗统计',
+            '/token-stats'),
+        _ProfileFeature('bookmarks', '常用', Icons.star_outline, '我的收藏',
+            '查看已收藏的问答记录', '/bookmarks'),
+        _ProfileFeature('feedback_mine', '常用', Icons.rate_review, '我的反馈',
+            '查看自己提交的反馈与处理状态', '/my-feedbacks'),
+        _ProfileFeature('records', '办事服务', Icons.assignment_turned_in_outlined,
+            '我的办事记录', '查看入学/离校等流程办理进度', '/my-records'),
+        _ProfileFeature('model', '常用', Icons.tune, 'AI 模型配置', '配置模型参数',
+            '/profile/model-config'),
+        _ProfileFeature('culture_anthems', '校园文化', Icons.music_note, '校歌曲库',
+            '校歌、院歌与经典曲目', '/culture/anthems'),
+        _ProfileFeature('culture_radio', '校园文化', Icons.podcasts, '校园广播',
+            '直播节目单与往期回放', '/culture/radio'),
+        _ProfileFeature('culture_lectures', '校园文化', Icons.school_outlined,
+            '学术讲座', '即将开始的讲座与回放', '/culture/lectures'),
+        _ProfileFeature('culture_events', '校园文化', Icons.celebration_outlined,
+            '校园活动', '活动报名与个性推送', '/culture/events'),
+        _ProfileFeature('culture_volunteer', '校园文化', Icons.volunteer_activism,
+            '志愿服务', '志愿时长与项目推荐', '/culture/volunteer'),
+        if (role == 'student' || role == 'student_union') ...[
+          _ProfileFeature('daily', '学生服务', Icons.wb_sunny_outlined, '今日速览',
+              'AI 每日学习概览', '/student/daily-briefing'),
+          _ProfileFeature('diary', '学生服务', Icons.auto_stories, '学习日记',
+              'AI 自动生成学习日记', '/student/learning-diary'),
+          _ProfileFeature('checkin', '学生服务', Icons.check_circle_outline, '每日打卡',
+              '学习打卡与连续记录', '/student/checkin'),
+          _ProfileFeature('graduation', '学生服务', Icons.topic_outlined, '毕设选题',
+              '毕业设计选题与导师选择', '/graduation'),
+          _ProfileFeature('competition', '学生服务', Icons.emoji_events_outlined,
+              '学科竞赛', '竞赛报名与作品提交', '/competition'),
+          _ProfileFeature('plan', '学生服务', Icons.calendar_today, '大学规划',
+              '四年学业与职业规划', '/plan'),
+        ],
+        if (_canSubmitKB(role))
+          _ProfileFeature('kb_submit', '知识治理', Icons.note_add_outlined, '知识提交',
+              '创建和管理知识资源', '/my-submissions'),
+        if (_canAccessEmotion(role))
+          _ProfileFeature('kb_review', '知识治理', Icons.rate_review_outlined,
+              '知识审核', '审核待发布的知识资源', '/review'),
+        if (_canAccessEmotion(role))
+          _ProfileFeature('emotion', '管理服务', Icons.warning_amber_rounded,
+              '情感预警', '查看和管理学生情感告警', '/emotion'),
+        if (_canAccessUserManagement())
+          _ProfileFeature('users', '管理服务', Icons.people_outline, '用户管理',
+              '导入学生并管理账号、角色和状态', '/admin/users'),
+        if (_canAccessAdmin(role))
+          _ProfileFeature('metrics', '管理服务', Icons.dashboard_outlined, '质量看板',
+              '查看系统问答质量指标', '/admin/metrics'),
+        if (_canAccessAdmin(role))
+          _ProfileFeature('audit', '管理服务', Icons.history, '审计日志', '查看系统操作记录',
+              '/admin/audit'),
+        if (role == 'sys_admin')
+          _ProfileFeature('settings', '管理服务', Icons.settings_outlined, '系统配置',
+              '管理系统运行参数', '/admin/settings'),
+      ];
+
+  Widget _buildFeatureTabs(BuildContext context, String? role) {
+    final all = _featuresFor(role);
+    if (_listedFeatures.isEmpty)
+      _listedFeatures = all.map((e) => e.key).toSet();
+    if (_enabledFeatures.isEmpty)
+      _enabledFeatures = all.map((e) => e.key).toSet();
+    final visible = all
+        .where((f) =>
+            _listedFeatures.contains(f.key) && _enabledFeatures.contains(f.key))
+        .toList();
+    final categories = ['常用', '学生服务', '办事服务', '知识治理', '校园文化', '管理服务'];
+    final adminCanManage = role == 'sys_admin' || role == 'college_admin';
+    final tabs = [
+      ...categories.where((c) => visible.any((f) => f.category == c)),
+      if (adminCanManage) '功能开关'
+    ];
+    if (tabs.isEmpty) return const SizedBox.shrink();
+    return DefaultTabController(
+      length: tabs.length,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant)),
+        child: Column(
+          children: [
+            TabBar(
+                isScrollable: true, tabs: [for (final t in tabs) Tab(text: t)]),
+            SizedBox(
+              height: 430,
+              child: TabBarView(
+                children: [
+                  for (final t in tabs)
+                    t == '功能开关'
+                        ? _buildFeatureSwitches(all, role)
+                        : _buildFeatureGrid(
+                            visible.where((f) => f.category == t).toList()),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureGrid(List<_ProfileFeature> features) {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        for (final f in features)
+          _buildMenuCard(context, f.icon, f.title, f.subtitle, f.route)
+      ],
+    );
+  }
+
+  Widget _buildFeatureSwitches(List<_ProfileFeature> features, String? role) {
+    final sys = role == 'sys_admin';
+    final college = role == 'college_admin';
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        Text(sys ? '系统管理员：控制应用模块是否上架' : '学院管理员：控制本学院是否启用',
+            style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        for (final f in features)
+          SwitchListTile(
+            secondary: Icon(f.icon),
+            title: Text(f.title),
+            subtitle: Text('${f.category} · ${f.subtitle}'),
+            value: sys
+                ? _listedFeatures.contains(f.key)
+                : _enabledFeatures.contains(f.key),
+            onChanged: (v) async {
+              setState(() {
+                final target = sys ? _listedFeatures : _enabledFeatures;
+                if (v) {
+                  target.add(f.key);
+                } else {
+                  target.remove(f.key);
+                }
+              });
+              if (sys)
+                await Storage.setListedFeatures(_listedFeatures.toList());
+              if (college)
+                await Storage.setEnabledFeatures(_enabledFeatures.toList());
+            },
+          ),
       ],
     );
   }

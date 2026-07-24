@@ -351,6 +351,8 @@ class KnowledgeCard {
   final String resourceType;
   final String title;
   final String summary;
+  final String content;
+  final String status;
   final List<String> tags;
   final String sourceLink;
 
@@ -359,6 +361,8 @@ class KnowledgeCard {
     required this.resourceType,
     required this.title,
     this.summary = '',
+    this.content = '',
+    this.status = '',
     this.tags = const [],
     this.sourceLink = '',
   });
@@ -369,6 +373,8 @@ class KnowledgeCard {
       resourceType: json['resource_type'] ?? '',
       title: json['title'] ?? '',
       summary: json['summary'] ?? '',
+      content: json['content'] ?? '',
+      status: json['status'] ?? '',
       tags: _parseTags(json['tags']),
       sourceLink: json['source_link'] ?? '',
     );

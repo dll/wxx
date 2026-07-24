@@ -11,6 +11,8 @@ class Storage {
   static const String _keyFirstLaunch = 'first_launch_done';
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyCapabilities = 'capabilities';
+  static const String _keyListedFeatures = 'listed_features';
+  static const String _keyEnabledFeatures = 'enabled_features';
 
   static late SharedPreferences _prefs;
 
@@ -21,7 +23,8 @@ class Storage {
 
   // ── Token ──
   static String? get token => _prefs.getString(_keyToken);
-  static Future<void> setToken(String token) => _prefs.setString(_keyToken, token);
+  static Future<void> setToken(String token) =>
+      _prefs.setString(_keyToken, token);
   static Future<void> clearToken() => _prefs.remove(_keyToken);
   static bool get isLoggedIn => token != null && token!.isNotEmpty;
 
@@ -57,6 +60,16 @@ class Storage {
 
   static Future<void> setCapabilities(List<String> caps) =>
       _prefs.setStringList(_keyCapabilities, caps);
+
+  static List<String> get listedFeatures =>
+      _prefs.getStringList(_keyListedFeatures) ?? const [];
+  static Future<void> setListedFeatures(List<String> keys) =>
+      _prefs.setStringList(_keyListedFeatures, keys);
+
+  static List<String> get enabledFeatures =>
+      _prefs.getStringList(_keyEnabledFeatures) ?? const [];
+  static Future<void> setEnabledFeatures(List<String> keys) =>
+      _prefs.setStringList(_keyEnabledFeatures, keys);
 
   /// 清除所有登录信息
   static Future<void> clearAll() async {

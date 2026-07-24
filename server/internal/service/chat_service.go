@@ -61,9 +61,9 @@ type ChatService struct {
 	kbRepo         ports.KBRepository
 	agentRepo      ports.AgentRepository
 	llmClient      llm.ChatClient
-	temporalClient *temporal.Client           // 可选：Temporal 工作流客户端
-	orchestrator   ports.AgentOrchestrator    // 多智能体编排器（agentID 为空时启用，可选注入）
-	tokenStatsSvc  *TokenStatsService         // 可选：词元统计服务
+	temporalClient *temporal.Client        // 可选：Temporal 工作流客户端
+	orchestrator   ports.AgentOrchestrator // 多智能体编排器（agentID 为空时启用，可选注入）
+	tokenStatsSvc  *TokenStatsService      // 可选：词元统计服务
 }
 
 // NewChatService 创建问答服务（依赖通过 Outbound Port 接口注入）
@@ -393,8 +393,26 @@ func (s *ChatService) fallbackAnswer(traceID string, question string) *model.Ans
 
 // fallbackAnswerWithSources 构造兜底回答（保留搜索到的 sources）
 func (s *ChatService) fallbackAnswerWithSources(traceID string, question string, results []*repository.SearchResult) *model.AnswerCard {
+	conclusion := "我已根据知识库资料为您整理如下："
+	if len(results) > 0 {
+		var b strings.Builder
+		b.WriteString("我已根据知识库资料为您整理如下：\n\n")
+		for i, r := range results {
+			if i >= 3 {
+				break
+			}
+			b.WriteString(fmt.Sprintf("%d. %s\n", i+1, r.Resource.Title))
+			if r.Resource.Summary != "" {
+				b.WriteString(r.Resource.Summary)
+			} else {
+				b.WriteString(truncateContent(r.Resource.Content, 260))
+			}
+			b.WriteString("\n\n")
+		}
+		conclusion = strings.TrimSpace(b.String())
+	}
 	card := &model.AnswerCard{
-		Conclusion: "抱歉，AI 服务暂时不可用，但我为您找到了以下相关资料，请查阅：",
+		Conclusion: conclusion,
 		TraceID:    traceID,
 		Confidence: 0.5, // 有搜索结果，置信度提高
 		Fallback:   true,
