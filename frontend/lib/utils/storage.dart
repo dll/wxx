@@ -81,8 +81,8 @@ class Storage {
   }
 
   // ── 主题模式 ──
-  /// 返回存储的主题模式：'light' / 'dark' / 'system'，默认 'system'
-  static String get themeMode => _prefs.getString(_keyThemeMode) ?? 'system';
+  /// 返回存储的主题模式：'light' / 'dark' / 'system'，默认 'light'
+  static String get themeMode => _prefs.getString(_keyThemeMode) ?? 'light';
   static Future<void> setThemeMode(String mode) =>
       _prefs.setString(_keyThemeMode, mode);
 }

@@ -9,6 +9,8 @@ import '../../models/models.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/feedback_provider.dart';
+import '../../providers/knowledge_provider.dart';
+import '../../providers/session_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
 import '../../utils/screenshot_capture.dart';
@@ -230,6 +232,12 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: const Text('蔚小芯'),
         actions: [
+          if (chat.sessionId != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '删除对话',
+              onPressed: () => _confirmDeleteSession(chat),
+            ),
           IconButton(
             icon: const Icon(Icons.add_comment_outlined),
             tooltip: '新对话',
@@ -485,61 +493,64 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildAssistantMessage(Message msg, int msgIndex) {
     final chat = context.read<ChatProvider>();
-    final bookmarkProv = context.read<BookmarkProvider>();
     final isPlayingThis = chat.isPlaying && chat.playingIndex == msgIndex;
     final theme = Theme.of(context);
 
     // 找到此回答对应的用户提问
     final question = _findQuestionFor(msgIndex);
-    final isMarked = bookmarkProv.isBookmarked(msg.content);
 
-    // 操作栏：朗读 + 复制 + PDF + 收藏
+    // 操作栏：朗读 + 复制 + PDF + 收藏 + 保存到知识库
     Widget actionBar = Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 朗读按钮
-          _ActionChip(
-            icon: isPlayingThis ? Icons.stop_circle_outlined : Icons.volume_up,
-            label: isPlayingThis ? '停止' : '朗读',
-            onTap: () => chat.playTTS(msgIndex),
-          ),
-          const SizedBox(width: 4),
-          // 复制按钮
-          _ActionChip(
-            icon: Icons.content_copy,
-            label: '复制',
-            onTap: () => _copyAnswer(msg),
-          ),
-          const SizedBox(width: 4),
-          // 多格式导出按钮
-          _ActionChip(
-            icon: Icons.download,
-            label: '导出',
-            onTap: () => _showExportDialog(question, msg),
-          ),
-          const SizedBox(width: 4),
-          // 纠错反馈按钮
-          _ActionChip(
-            icon: Icons.feedback_outlined,
-            label: '纠错',
-            onTap: () => _showFeedbackDialog(msg),
-          ),
-          const SizedBox(width: 4),
-          // 收藏按钮
-          _ActionChip(
-            icon: isMarked ? Icons.star : Icons.star_outline,
-            label: isMarked ? '已收藏' : '收藏',
-            onTap: () => bookmarkProv.toggle(
-              question: question,
-              conclusion: msg.content,
-              sources:
-                  msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
-              followUps: msg.answerCard?.followUps ?? [],
-            ),
-          ),
-        ],
+      child: Consumer<BookmarkProvider>(
+        builder: (_, bm, __) {
+          final isMarked = bm.isBookmarked(msg.content);
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ActionChip(
+                icon: isPlayingThis ? Icons.stop_circle_outlined : Icons.volume_up,
+                label: isPlayingThis ? '停止' : '朗读',
+                onTap: () => chat.playTTS(msgIndex),
+              ),
+              const SizedBox(width: 4),
+              _ActionChip(
+                icon: Icons.content_copy,
+                label: '复制',
+                onTap: () => _copyAnswer(msg),
+              ),
+              const SizedBox(width: 4),
+              _ActionChip(
+                icon: Icons.download,
+                label: '导出',
+                onTap: () => _showExportDialog(question, msg),
+              ),
+              const SizedBox(width: 4),
+              _ActionChip(
+                icon: Icons.feedback_outlined,
+                label: '纠错',
+                onTap: () => _showFeedbackDialog(msg),
+              ),
+              const SizedBox(width: 4),
+              _ActionChip(
+                icon: isMarked ? Icons.star : Icons.star_outline,
+                label: isMarked ? '已收藏' : '收藏',
+                onTap: () => bm.toggle(
+                  question: question,
+                  conclusion: msg.content,
+                  sources: msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
+                  followUps: msg.answerCard?.followUps ?? [],
+                ),
+              ),
+              const SizedBox(width: 4),
+              _ActionChip(
+                icon: Icons.save_outlined,
+                label: '保存',
+                onTap: () => _saveToKnowledgeBase(question, msg),
+              ),
+            ],
+          );
+        },
       ),
     );
 
@@ -736,6 +747,60 @@ $printScript
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Markdown 已复制到剪贴板'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
+
+  /// 确认删除当前对话
+  Future<void> _confirmDeleteSession(ChatProvider chat) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除对话'),
+        content: const Text('确定删除当前对话吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirm == true && chat.sessionId != null) {
+      context.read<SessionProvider>().deleteSession(chat.sessionId!);
+      chat.newChat();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('对话已删除')));
+      }
+    }
+  }
+
+  /// 保存问答对到知识库
+  Future<void> _saveToKnowledgeBase(String question, Message msg) async {
+    if (!mounted) return;
+    final kb = context.read<KnowledgeProvider>();
+    final title = question.length > 50
+        ? '${question.substring(0, 50)}...'
+        : question;
+    final content = '问：$question\n\n答：${msg.content}';
+
+    final ok = await kb.createResource({
+      'title': title,
+      'summary': question,
+      'content': content,
+      'resource_type': 'FAQ',
+      'owner_scope': 'school',
+      'owner_id': '',
+      'role_scope': '["student","counselor","student_union","college_admin"]',
+      'tags': '["用户收藏","问答"]',
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '已保存到知识库' : '保存失败，请重试')),
       );
     }
   }
