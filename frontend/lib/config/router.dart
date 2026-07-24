@@ -103,6 +103,9 @@ import '../pages/student/study/study_page.dart';
 import '../pages/student/study/course_detail_page.dart';
 import '../pages/student/study/grades_page.dart';
 import '../pages/student/study/resource_detail_page.dart';
+import '../pages/student/study_plan/study_plan_page.dart';
+import '../pages/student/study_plan/plan_detail_page.dart';
+import '../pages/student/study_plan/timetable_page.dart';
 import '../pages/student/mental/mental_page.dart';
 import '../pages/student/mental/scale_detail_page.dart';
 import '../pages/student/mental/counseling_page.dart';
@@ -286,6 +289,21 @@ final GoRouter appRouter = GoRouter(
           builder: (_, state) => ResourceDetailPage(
             resourceId: state.pathParameters['id'] ?? '',
           ),
+        ),
+        // ── 学习计划与校历课表 ──
+        GoRoute(
+          path: '/student/study-plan',
+          builder: (_, __) => const StudyPlanPage(),
+        ),
+        GoRoute(
+          path: '/student/study-plan/:id',
+          builder: (_, state) => PlanDetailPage(
+            planId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/student/timetable',
+          builder: (_, __) => const TimetablePage(),
         ),
         GoRoute(path: '/student/mental', builder: (_, __) => const MentalPage()),
         GoRoute(

@@ -38,6 +38,7 @@ const _studentFeatures = [
 const _educationFeatures = [
   _FeatureCard(Icons.work_outline, '就业服务', Color(0xFFE65100), '/student/career'),
   _FeatureCard(Icons.menu_book_outlined, '学业服务', Color(0xFF1565C0), '/student/study'),
+  _FeatureCard(Icons.checklist_rtl, '学习计划', Color(0xFF00695C), '/student/study-plan'),
   _FeatureCard(Icons.favorite_outline, '心理健康', Color(0xFFC62828), '/student/mental'),
 ];
 
@@ -740,7 +741,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 教育三大模块 — 就业/学业/心理
+  /// 教育三大模块 — 就业/学业/学习计划/心理
   Widget _buildEducationFeatures(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,8 +758,6 @@ class _HomePageState extends State<HomePage> {
                 color: f.color,
                 onTap: () => context.go(f.route),
               ),
-            // 第 4 个位置留空保持对齐
-            const Expanded(child: SizedBox.shrink()),
           ],
         ),
       ],

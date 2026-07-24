@@ -291,6 +291,17 @@ class ApiConfig {
   static const String studyResources = '$apiPrefix/study/resources';
   static const String studyExams = '$apiPrefix/study/exams';
 
+  // ── 学习计划与校历课表 ──
+  static const String studyCalendarCurrent = '$apiPrefix/study/calendar/current';
+  static String studyCalendar(String code) => '$apiPrefix/study/calendar/$code';
+  static const String studyTimetable = '$apiPrefix/study/timetable';
+  static const String studyPlans = '$apiPrefix/study/plans';
+  static String studyPlanDetail(String id) => '$apiPrefix/study/plans/$id';
+  static const String studyPlansOverview = '$apiPrefix/study/plans/overview';
+  static const String studyPlanAIGenerate = '$apiPrefix/study/plans/ai-generate';
+  static String studyPlanTask(String planId, String taskId) =>
+      '$apiPrefix/study/plans/$planId/tasks/$taskId';
+
   // ── 心理模块 ──
   static const String mentalScales = '$apiPrefix/mental/scales';
   static const String mentalAssessments = '$apiPrefix/mental/assessments';
