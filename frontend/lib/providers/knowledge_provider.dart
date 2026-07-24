@@ -85,13 +85,43 @@ class KnowledgeProvider extends ChangeNotifier {
   int _resourceTotal = 0;
   String _resourceError = '';
 
+  // 高级筛选条件
+  String _keyword = '';
+  String _resourceTypeFilter = '';
+  String _statusFilter = '';
+  String _ownerScopeFilter = '';
+  String _sortBy = 'updated_at';
+  String _sortOrder = 'desc';
+
+  // 字典值
+  List<String> _resourceTypeList = [];
+  List<String> _statusList = [];
+  List<String> _ownerScopeList = [];
+
+  // 批量选择
+  final Set<String> _selectedResourceIds = {};
+
+  // 统计数据
+  Map<String, dynamic>? _kbStats;
+
   List<KnowledgeCard> get resources => _resources;
   bool get resourcesLoading => _resourcesLoading;
   int get resourceTotal => _resourceTotal;
   String get resourceError => _resourceError;
+  String get keyword => _keyword;
+  String get resourceTypeFilter => _resourceTypeFilter;
+  String get statusFilter => _statusFilter;
+  String get ownerScopeFilter => _ownerScopeFilter;
+  List<String> get resourceTypeList => _resourceTypeList;
+  List<String> get statusList => _statusList;
+  List<String> get ownerScopeList => _ownerScopeList;
+  Set<String> get selectedResourceIds => _selectedResourceIds;
+  int get selectedCount => _selectedResourceIds.length;
+  Map<String, dynamic>? get kbStats => _kbStats;
 
-  Future<void> listResources({bool refresh = false}) async {
-    if (_resourcesLoading) return;
+  /// 搜索知识资源（高级查询，分页刷新）
+  Future<void> searchResources({bool refresh = false}) async {
+    if (_resourcesLoading && !refresh) return;
     if (!CapabilityUtils.has(Capability.counselorKbWrite)) {
       _resourceError = '当前角色无权访问知识资源管理';
       notifyListeners();
@@ -100,14 +130,30 @@ class KnowledgeProvider extends ChangeNotifier {
     if (refresh) {
       _resourcePage = 1;
       _resources.clear();
+      _selectedResourceIds.clear();
     }
-    _resourcesLoading = true;
     _resourceError = '';
+    _resourcesLoading = true;
     notifyListeners();
 
     try {
-      final response = await _api.get(ApiConfig.kbResources,
-          params: {'page': _resourcePage, 'page_size': 20});
+      final params = <String, dynamic>{
+        'page': _resourcePage,
+        'page_size': 20,
+      };
+      if (_keyword.isNotEmpty) params['keyword'] = _keyword;
+      if (_resourceTypeFilter.isNotEmpty) {
+        params['resource_type'] = _resourceTypeFilter;
+      }
+      if (_statusFilter.isNotEmpty) params['status'] = _statusFilter;
+      if (_ownerScopeFilter.isNotEmpty) {
+        params['owner_scope'] = _ownerScopeFilter;
+      }
+      params['sort_by'] = _sortBy;
+      params['sort_order'] = _sortOrder;
+
+      final response = await _api.get(ApiConfig.kbResourcesAdvanced,
+          params: params);
       if (response.data['code'] == 0) {
         final list = (response.data['data'] as List?)
                 ?.map((e) => KnowledgeCard.fromJson(e as Map<String, dynamic>))
@@ -122,6 +168,203 @@ class KnowledgeProvider extends ChangeNotifier {
     } finally {
       _resourcesLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// 旧方法兼容
+  Future<void> listResources({bool refresh = false}) async {
+    await searchResources(refresh: refresh);
+  }
+
+  /// 设置搜索关键词
+  void setKeyword(String value) {
+    _keyword = value.trim();
+    searchResources(refresh: true);
+  }
+
+  /// 设置筛选条件
+  void setResourceFilter({
+    String? resourceType,
+    String? status,
+    String? ownerScope,
+    String? sortBy,
+    String? sortOrder,
+  }) {
+    if (resourceType != null) _resourceTypeFilter = resourceType;
+    if (status != null) _statusFilter = status;
+    if (ownerScope != null) _ownerScopeFilter = ownerScope;
+    if (sortBy != null) _sortBy = sortBy;
+    if (sortOrder != null) _sortOrder = sortOrder;
+    searchResources(refresh: true);
+  }
+
+  /// 重置筛选条件
+  void resetResourceFilters() {
+    _keyword = '';
+    _resourceTypeFilter = '';
+    _statusFilter = '';
+    _ownerScopeFilter = '';
+    _sortBy = 'updated_at';
+    _sortOrder = 'desc';
+    searchResources(refresh: true);
+  }
+
+  /// 获取字典值
+  Future<List<String>> fetchDictValues(String column) async {
+    try {
+      final response = await _api.get(ApiConfig.kbDict, params: {'column': column});
+      if (response.data['code'] == 0 && response.data['data'] != null) {
+        final list = (response.data['data'] as List)
+            .map((e) => e.toString())
+            .toList();
+        switch (column) {
+          case 'resource_type':
+            _resourceTypeList = list;
+            break;
+          case 'status':
+            _statusList = list;
+            break;
+          case 'owner_scope':
+            _ownerScopeList = list;
+            break;
+        }
+        notifyListeners();
+        return list;
+      }
+      return [];
+    } catch (e) {
+      _resourceError = '获取字典值失败: $e';
+      return [];
+    }
+  }
+
+  /// 获取统计数据
+  Future<void> fetchStats() async {
+    try {
+      final response = await _api.get(ApiConfig.kbStats);
+      if (response.data['code'] == 0 && response.data['data'] != null) {
+        _kbStats = Map<String, dynamic>.from(response.data['data'] as Map);
+        notifyListeners();
+      }
+    } catch (e) {
+      // 忽略统计获取失败
+    }
+  }
+
+  // ── 批量选择 ──
+
+  void toggleSelectResource(String resourceId) {
+    if (_selectedResourceIds.contains(resourceId)) {
+      _selectedResourceIds.remove(resourceId);
+    } else {
+      _selectedResourceIds.add(resourceId);
+    }
+    notifyListeners();
+  }
+
+  void selectAllVisibleResources() {
+    for (final r in _resources) {
+      _selectedResourceIds.add(r.resourceId);
+    }
+    notifyListeners();
+  }
+
+  void deselectAllResources() {
+    _selectedResourceIds.clear();
+    notifyListeners();
+  }
+
+  // ── 批量操作 ──
+
+  Future<bool> batchApprove() async {
+    if (_selectedResourceIds.isEmpty) return false;
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchApprove,
+        data: {'ids': _selectedResourceIds.toList()},
+      );
+      if (response.data['code'] == 0) {
+        _selectedResourceIds.clear();
+        await searchResources(refresh: true);
+        fetchStats();
+        return true;
+      }
+      _resourceError = response.data['message'] ?? '操作失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> batchReject() async {
+    if (_selectedResourceIds.isEmpty) return false;
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchReject,
+        data: {'ids': _selectedResourceIds.toList()},
+      );
+      if (response.data['code'] == 0) {
+        _selectedResourceIds.clear();
+        await searchResources(refresh: true);
+        fetchStats();
+        return true;
+      }
+      _resourceError = response.data['message'] ?? '操作失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> batchRetire() async {
+    if (_selectedResourceIds.isEmpty) return false;
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchRetire,
+        data: {'ids': _selectedResourceIds.toList()},
+      );
+      if (response.data['code'] == 0) {
+        _selectedResourceIds.clear();
+        await searchResources(refresh: true);
+        fetchStats();
+        return true;
+      }
+      _resourceError = response.data['message'] ?? '操作失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> batchDelete() async {
+    if (_selectedResourceIds.isEmpty) return false;
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchDelete,
+        data: {'ids': _selectedResourceIds.toList()},
+      );
+      if (response.data['code'] == 0) {
+        _selectedResourceIds.clear();
+        await searchResources(refresh: true);
+        fetchStats();
+        return true;
+      }
+      _resourceError = response.data['message'] ?? '删除失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return false;
     }
   }
 

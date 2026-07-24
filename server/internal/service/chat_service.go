@@ -171,8 +171,11 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
 		log.Printf("知识检索失败 [trace=%s]: %v", traceID, err)
-		// 检索失败不中断链路，走兜底
 	}
+
+	// ── 3.5 相关性预检 ──
+	// 对检索结果做相关性打分，过滤掉低质量结果，避免误导 LLM
+	searchResults = filterLowRelevanceResults(searchResults, question)
 
 	// ── 4. 拼装 LLM 上下文 ──
 	// 发送给 LLM 前对用户问题进行 PII 脱敏
@@ -306,15 +309,19 @@ func (s *ChatService) getSystemPrompt(agentID string) string {
 		}
 	}
 
-	// 默认系统提示词
-	return `你是"蔚小芯"，一个高校智慧学工 AI 助手。请严格基于以下知识库内容回答用户问题。
+	// 默认系统提示词（强精准约束版）
+	return `你是"蔚小芯"，一个高校智慧学工 AI 助手。你必须严格基于知识库中与用户问题【直接相关】的内容回答。
 
-规则：
-1. 只使用知识库中的信息回答，不要编造内容
-2. 涉及政策、条件、数字时必须原文引用
-3. 如果知识库中没有相关内容，明确告知用户你无法回答并建议联系辅导员
-4. 回答要简洁、准确、有条理
-5. 如果涉及流程，按步骤列出`
+【核心规则——违反任何一条都是严重错误】
+1. 只回答知识库中【明确存在且直接相关】的内容。绝对不能根据不相关的资料进行推测、联想或编造。
+2. 判断相关性的标准：知识库资料的标题、摘要或核心内容必须与用户问题的主题高度一致。
+3. 如果检索到的资料与用户问题不相关（例如问"请假"但资料是"入党"），视为未找到相关信息。
+4. 如果没有足够相关的知识库内容，必须明确说"知识库中暂未找到相关信息"，并建议联系辅导员或相关部门确认。
+5. 绝不能因为某个字相同就把不相关的内容当作答案。例如问"请假流程"不能用"入党流程"回答。
+6. 涉及政策、条件、数字、时间时必须原文引用，不能含糊。
+7. 回答要简洁、准确、有条理；流程类按步骤列出。
+
+【请记住】：回答错误比不回答更糟糕。不确定就说不知道。`
 }
 
 // buildAnswerCard 从 LLM 回复和检索结果构造 AnswerCard
@@ -830,4 +837,114 @@ func runeSet(s string) map[rune]struct{} {
 		m[r] = struct{}{}
 	}
 	return m
+}
+
+// filterLowRelevanceResults 过滤低相关性检索结果
+// 综合使用：标题二元词组匹配、Jaccard 相似度、关键词覆盖率
+// 目的：在送入 LLM 前就把明显不相关的内容过滤掉，避免误导
+func filterLowRelevanceResults(results []*repository.SearchResult, question string) []*repository.SearchResult {
+	if len(results) == 0 {
+		return results
+	}
+
+	q := strings.TrimSpace(question)
+	if q == "" {
+		return results
+	}
+
+	// 提取问题中的中文二元词组（核心语义单元）
+	qBigrams := extractChineseBigramsFromQuestion(q)
+	if len(qBigrams) == 0 {
+		// 问题太短，不做过滤
+		return results
+	}
+
+	var filtered []*repository.SearchResult
+	for _, r := range results {
+		// 计算相关性得分
+		score := calcRelevanceScore(r.Resource.Title, r.Resource.Summary, r.Resource.Content, q, qBigrams)
+
+		// 阈值：至少 0.15 分才认为相关
+		if score >= 0.15 {
+			filtered = append(filtered, r)
+		} else {
+			log.Printf("过滤低相关性结果: title=%q score=%.3f question=%q",
+				truncateContent(r.Resource.Title, 30), score, truncateContent(q, 30))
+		}
+	}
+
+	// 如果全部被过滤了，保留分数最高的1条（避免完全无结果，但 LLM 会根据提示词判断是否使用）
+	if len(filtered) == 0 && len(results) > 0 {
+		bestIdx := 0
+		bestScore := -1.0
+		for i, r := range results {
+			s := calcRelevanceScore(r.Resource.Title, r.Resource.Summary, r.Resource.Content, q, qBigrams)
+			if s > bestScore {
+				bestScore = s
+				bestIdx = i
+			}
+		}
+		filtered = append(filtered, results[bestIdx])
+		log.Printf("所有结果相关性均较低，保留最佳: title=%q score=%.3f",
+			truncateContent(results[bestIdx].Resource.Title, 30), bestScore)
+	}
+
+	return filtered
+}
+
+// calcRelevanceScore 计算文档与问题的相关性得分（0-1）
+// 权重：标题60% + 摘要25% + 全文15%
+func calcRelevanceScore(title, summary, content, question string, qBigrams []string) float64 {
+	titleScore := bigramMatchRatio(title, qBigrams)
+	summaryScore := bigramMatchRatio(summary, qBigrams)
+	contentScore := bigramMatchRatio(content, qBigrams)
+
+	// 标题中精确匹配整个问题，额外加分
+	if strings.Contains(title, question) {
+		titleScore = 1.0
+	}
+
+	return titleScore*0.6 + summaryScore*0.25 + contentScore*0.15
+}
+
+// bigramMatchRatio 计算文本中匹配的二元词组比例
+func bigramMatchRatio(text string, bigrams []string) float64 {
+	if len(bigrams) == 0 {
+		return 0
+	}
+	matched := 0
+	for _, bg := range bigrams {
+		if strings.Contains(text, bg) {
+			matched++
+		}
+	}
+	return float64(matched) / float64(len(bigrams))
+}
+
+// extractChineseBigramsFromQuestion 从问题中提取中文二元词组（去停用词后）
+func extractChineseBigramsFromQuestion(q string) []string {
+	// 先去除常见停用词和疑问词
+	stopWords := []string{"什么", "怎么", "如何", "为什么", "哪", "哪里", "哪个",
+		"吗", "呢", "啊", "吧", "了", "的", "是", "有", "在", "我", "你", "他",
+		"要", "需要", "可以", "能", "能够", "请问", "麻烦", "一下"}
+	cleaned := q
+	for _, sw := range stopWords {
+		cleaned = strings.ReplaceAll(cleaned, sw, "")
+	}
+	cleaned = strings.TrimSpace(cleaned)
+
+	runes := []rune(cleaned)
+	var bigrams []string
+	seen := make(map[string]bool)
+	for i := 0; i < len(runes)-1; i++ {
+		if runes[i] >= 0x4E00 && runes[i] <= 0x9FFF &&
+			runes[i+1] >= 0x4E00 && runes[i+1] <= 0x9FFF {
+			bg := string(runes[i : i+2])
+			if !seen[bg] {
+				seen[bg] = true
+				bigrams = append(bigrams, bg)
+			}
+		}
+	}
+	return bigrams
 }

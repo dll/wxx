@@ -8,6 +8,7 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -494,5 +495,246 @@ func (h *KBHandler) RetireResource(c *gin.Context) {
 		Code:    0,
 		Message: "已下架",
 		Data:    kb,
+	})
+}
+
+// ════════ 高级查询与批量操作 ════════
+
+// ListResourcesAdvanced 高级知识资源查询
+// GET /api/v1/kb/resources/advanced
+func (h *KBHandler) ListResourcesAdvanced(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	q := &repository.KBQuery{
+		Keyword:      c.Query("keyword"),
+		ResourceType: c.Query("resource_type"),
+		Status:       c.Query("status"),
+		OwnerScope:   c.Query("owner_scope"),
+		OwnerID:      c.Query("owner_id"),
+		UpdatedBy:    c.Query("updated_by"),
+		Tag:          c.Query("tag"),
+		SortBy:       c.Query("sort_by"),
+		SortOrder:    c.Query("sort_order"),
+		Page:         page,
+		PageSize:     pageSize,
+	}
+
+	list, total, err := h.kbSvc.ListAdvanced(q)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询知识资源失败，请稍后重试",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KBListResponse{
+		Code:     0,
+		Message:  "success",
+		Data:     list,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
+// GetDictValues 获取字典值（用于筛选下拉）
+// GET /api/v1/kb/dict?column=resource_type
+func (h *KBHandler) GetDictValues(c *gin.Context) {
+	column := c.Query("column")
+	if column == "" {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "column 参数不能为空",
+		})
+		return
+	}
+
+	values, err := h.kbSvc.GetDictValues(column)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取字典值失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    values,
+	})
+}
+
+// batchIDsRequest 批量操作请求体
+type batchIDsRequest struct {
+	IDs []string `json:"ids"`
+}
+
+// BatchApprove 批量审核通过
+// POST /api/v1/kb/batch/approve
+func (h *KBHandler) BatchApprove(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	var req batchIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败：ids 不能为空",
+		})
+		return
+	}
+
+	count, err := h.kbSvc.BatchApprove(req.IDs, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "批量审核通过成功",
+		"data":    gin.H{"count": count},
+	})
+}
+
+// BatchReject 批量驳回
+// POST /api/v1/kb/batch/reject
+func (h *KBHandler) BatchReject(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	var req batchIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败：ids 不能为空",
+		})
+		return
+	}
+
+	count, err := h.kbSvc.BatchReject(req.IDs, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "批量驳回成功",
+		"data":    gin.H{"count": count},
+	})
+}
+
+// BatchRetire 批量下架
+// POST /api/v1/kb/batch/retire
+func (h *KBHandler) BatchRetire(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	var req batchIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败：ids 不能为空",
+		})
+		return
+	}
+
+	count, err := h.kbSvc.BatchRetire(req.IDs, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "批量下架成功",
+		"data":    gin.H{"count": count},
+	})
+}
+
+// BatchDelete 批量删除
+// POST /api/v1/kb/batch/delete
+func (h *KBHandler) BatchDelete(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	var req batchIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败：ids 不能为空",
+		})
+		return
+	}
+
+	count, err := h.kbSvc.BatchDelete(req.IDs, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "批量删除成功",
+		"data":    gin.H{"count": count},
+	})
+}
+
+// GetStats 获取知识资源统计
+// GET /api/v1/kb/stats
+func (h *KBHandler) GetStats(c *gin.Context) {
+	stats, err := h.kbSvc.GetStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取统计数据失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    stats,
 	})
 }

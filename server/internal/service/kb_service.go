@@ -11,6 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// validStatuses 合法的知识资源状态
+var validStatuses = map[string]bool{
+	"draft": true, "pending": true, "published": true, "retired": true,
+}
+
 // KBService 知识库管理业务服务
 // 注：ImportResources 不通过 Temporal 调度（活动通过函数字段注入，避免循环依赖），
 // 由调用方控制重试策略。
@@ -370,4 +375,80 @@ func (s *KBService) ListPending(page, pageSize int) ([]*model.KBResource, int, e
 func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
 	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历
 	return s.kbRepo.ListSince(resourceType, sinceCursor, 5000)
+}
+
+// ════════ 高级查询与批量操作 ════════
+
+// ListAdvanced 高级知识资源查询（搜索+多条件筛选+排序+分页）
+func (s *KBService) ListAdvanced(q *repository.KBQuery) ([]*model.KBResource, int, error) {
+	if q == nil {
+		q = &repository.KBQuery{}
+	}
+	list, total, err := s.kbRepo.ListAdvanced(q)
+	if err != nil {
+		return nil, 0, fmt.Errorf("高级查询知识资源失败: %w", err)
+	}
+	return list, total, nil
+}
+
+// GetDictValues 获取字典值（用于筛选下拉）
+func (s *KBService) GetDictValues(column string) ([]string, error) {
+	values, err := s.kbRepo.GetDistinctValues(column)
+	if err != nil {
+		return nil, fmt.Errorf("获取字典值失败: %w", err)
+	}
+	return values, nil
+}
+
+// BatchUpdateStatus 批量更新知识资源状态
+func (s *KBService) BatchUpdateStatus(resourceIDs []string, status string, operator string) (int64, error) {
+	if len(resourceIDs) == 0 {
+		return 0, fmt.Errorf("资源ID列表不能为空")
+	}
+	if !validStatuses[status] {
+		return 0, fmt.Errorf("无效的状态值: %s", status)
+	}
+	count, err := s.kbRepo.BatchUpdateStatus(resourceIDs, status, operator)
+	if err != nil {
+		return 0, fmt.Errorf("批量更新状态失败: %w", err)
+	}
+	log.Printf("批量更新知识资源状态 count=%d status=%s by=%s", count, status, operator)
+	return count, nil
+}
+
+// BatchDelete 批量删除知识资源
+func (s *KBService) BatchDelete(resourceIDs []string, operator string) (int64, error) {
+	if len(resourceIDs) == 0 {
+		return 0, fmt.Errorf("资源ID列表不能为空")
+	}
+	count, err := s.kbRepo.BatchDelete(resourceIDs)
+	if err != nil {
+		return 0, fmt.Errorf("批量删除失败: %w", err)
+	}
+	log.Printf("批量删除知识资源 count=%d by=%s", count, operator)
+	return count, nil
+}
+
+// BatchApprove 批量审核通过
+func (s *KBService) BatchApprove(resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(resourceIDs, "published", operator)
+}
+
+// BatchReject 批量驳回
+func (s *KBService) BatchReject(resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(resourceIDs, "draft", operator)
+}
+
+// BatchRetire 批量下架
+func (s *KBService) BatchRetire(resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(resourceIDs, "retired", operator)
+}
+
+// GetStats 获取知识资源统计
+func (s *KBService) GetStats() (*repository.KBStats, error) {
+	stats, err := s.kbRepo.GetStats()
+	if err != nil {
+		return nil, fmt.Errorf("获取统计数据失败: %w", err)
+	}
+	return stats, nil
 }
