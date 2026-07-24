@@ -104,6 +104,7 @@ func (c *XfyunClient) ASR(ctx context.Context, audioBytes []byte) (string, error
 	}
 
 	// 读取识别结果
+	var resultText string
 	for {
 		select {
 		case <-ctx.Done():
@@ -125,14 +126,14 @@ func (c *XfyunClient) ASR(ctx context.Context, audioBytes []byte) (string, error
 			return fullText.String(), fmt.Errorf("解析 ASR 结果失败: %w", err)
 		}
 		if text != "" {
-			fullText.WriteString(text)
+			resultText = text
 		}
 		if done {
 			break
 		}
 	}
 
-	result := fullText.String()
+	result := resultText
 	if result == "" {
 		return "", fmt.Errorf("未识别到语音内容")
 	}

@@ -102,18 +102,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationService := service.NewGraduationService(graduationRepo)
 	studentFeaturesService := service.NewStudentFeaturesService(studentFeaturesRepo)
 
-	// LLM 客户端（DeepSeek 优先，失败时自动切换智谱）
+	// LLM 客户端（优先 DeepSeek，备选智谱）
 	var llmClient llm.ChatClient
-	var llmClients []llm.ChatClient
 	if cfg.DeepSeekAPIKey != "" {
-		llmClients = append(llmClients, llm.NewDeepSeekClient(cfg))
-	}
-	if cfg.ZhipuAPIKey != "" {
-		llmClients = append(llmClients, llm.NewZhipuClient(cfg))
-	}
-	if len(llmClients) > 0 {
-		llmClient = llm.NewChainClient(llmClients...)
-		log.Printf("LLM 客户端已启用: %s", llmClient.Name())
+		llmClient = llm.NewDeepSeekClient(cfg)
+		log.Println("LLM 客户端: DeepSeek")
+	} else if cfg.ZhipuAPIKey != "" {
+		llmClient = llm.NewZhipuClient(cfg)
+		log.Println("LLM 客户端: 智谱清言")
 	} else {
 		log.Println("警告：未配置任何 LLM API Key，问答功能不可用")
 	}
@@ -159,7 +155,12 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
 	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)
-	docSvc := service.NewDocumentService("./data/uploads", 50)
+	uploadDir := "./data/uploads"
+	if os.Getenv("VERCEL") != "" {
+		uploadDir = "/tmp/uploads"
+		log.Printf("Vercel 环境：上传目录 %s", uploadDir)
+	}
+	docSvc := service.NewDocumentService(uploadDir, 50)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
@@ -258,7 +259,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
 
 	// ── 5. 构建路由 ──
-	router := setupRouter(cfg, db, authHandler, sessionHandler, chatHandler, kbHandler,
+	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
@@ -423,6 +424,7 @@ func splitSQL(content string) []string {
 
 // setupRouter 构建 Gin 路由树
 func setupRouter(cfg *config.Config, db *sql.DB,
+	userRepo *repository.UserRepo,
 	authH *handler.AuthHandler,
 	sessionH *handler.SessionHandler,
 	chatH *handler.ChatHandler,
@@ -495,6 +497,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		// 需要 JWT 认证
 		secured := v1.Group("/")
 		secured.Use(middleware.JWTAuth(cfg))
+		secured.Use(middleware.EnsureUserExists(userRepo))
 		{
 			// ── AI 对话（self.chat）──
 			secured.POST("/chat", auth.RequireCapability(auth.SelfChat), chatH.Ask)
