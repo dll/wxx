@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS courses (
     syllabus TEXT DEFAULT '',
     prerequisites TEXT DEFAULT '[]',
     textbook TEXT DEFAULT '',
-    references TEXT DEFAULT '[]',
+    "references" TEXT DEFAULT '[]',
     semester TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

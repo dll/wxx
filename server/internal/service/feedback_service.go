@@ -13,16 +13,17 @@ import (
 
 // FeedbackService 用户反馈业务服务
 type FeedbackService struct {
-	feedbackRepo *repository.FeedbackRepo
-	userRepo     *repository.UserRepo
+	feedbackRepo   *repository.FeedbackRepo
+	userRepo       *repository.UserRepo
+	screenshotRepo *repository.FeedbackScreenshotRepo
 	// 可选：用户反馈"回答有误"时回调（用于失效 FAQ 缓存等）
 	// messageID 是用户在前端记录的消息 id，由调用方决定如何用它定位原问题
 	onAnswerError func(messageID, content string)
 }
 
 // NewFeedbackService 创建反馈服务
-func NewFeedbackService(feedbackRepo *repository.FeedbackRepo, userRepo *repository.UserRepo) *FeedbackService {
-	return &FeedbackService{feedbackRepo: feedbackRepo, userRepo: userRepo}
+func NewFeedbackService(feedbackRepo *repository.FeedbackRepo, userRepo *repository.UserRepo, screenshotRepo *repository.FeedbackScreenshotRepo) *FeedbackService {
+	return &FeedbackService{feedbackRepo: feedbackRepo, userRepo: userRepo, screenshotRepo: screenshotRepo}
 }
 
 // SetAnswerErrorHook 注入"回答有误"反馈钩子（如失效 FAQ 缓存）
@@ -152,4 +153,14 @@ func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status, reply string) 
 	log.Printf("反馈已处理 feedback_id=%s status=%s reply=%s by=%s",
 		feedbackID, status, reply, resolvedBy)
 	return fb, nil
+}
+
+// SaveScreenshot 保存截图数据
+func (s *FeedbackService) SaveScreenshot(filename, mime, encoded, uploader string, size int64) error {
+	return s.screenshotRepo.Save(filename, mime, encoded, uploader, size)
+}
+
+// GetScreenshot 按文件名获取截图
+func (s *FeedbackService) GetScreenshot(filename string) (dataB64, mime string, err error) {
+	return s.screenshotRepo.GetByFilename(filename)
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,16 +17,12 @@ import (
 
 // FeedbackHandler 用户反馈 HTTP handler
 type FeedbackHandler struct {
-	feedbackSvc    *service.FeedbackService
-	screenshotRepo *repository.FeedbackScreenshotRepo
+	feedbackSvc *service.FeedbackService
 }
 
 // NewFeedbackHandler 创建反馈 handler
-func NewFeedbackHandler(feedbackSvc *service.FeedbackService, screenshotRepo *repository.FeedbackScreenshotRepo) *FeedbackHandler {
-	return &FeedbackHandler{
-		feedbackSvc:    feedbackSvc,
-		screenshotRepo: screenshotRepo,
-	}
+func NewFeedbackHandler(feedbackSvc *service.FeedbackService) *FeedbackHandler {
+	return &FeedbackHandler{feedbackSvc: feedbackSvc}
 }
 
 // Submit 提交反馈 POST /api/v1/feedback
@@ -36,7 +31,7 @@ func (h *FeedbackHandler) Submit(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -62,7 +57,7 @@ func (h *FeedbackHandler) Submit(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "提交反馈失败: " + err.Error(),
+			Message: "提交反馈失败",
 		})
 		return
 	}
@@ -84,7 +79,7 @@ func (h *FeedbackHandler) List(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询反馈列表失败: " + err.Error(),
+			Message: "查询反馈列表失败",
 		})
 		return
 	}
@@ -119,7 +114,7 @@ func (h *FeedbackHandler) Mine(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询我的反馈失败: " + err.Error(),
+			Message: "查询我的反馈失败",
 		})
 		return
 	}
@@ -142,7 +137,7 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -160,7 +155,7 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "处理反馈失败",
 		})
 		return
 	}
@@ -179,7 +174,7 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "未获取到上传文件: " + err.Error(),
+			Message: "未获取到上传文件",
 		})
 		return
 	}
@@ -206,7 +201,7 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "读取文件失败: " + err.Error(),
+			Message: "读取文件失败",
 		})
 		return
 	}
@@ -230,10 +225,10 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 		uploader = u.Username
 	}
 
-	if err := h.screenshotRepo.Save(filename, mime, encoded, uploader, header.Size); err != nil {
+	if err := h.feedbackSvc.SaveScreenshot(filename, mime, encoded, uploader, header.Size); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "保存截图失败: " + err.Error(),
+			Message: "保存截图失败",
 		})
 		return
 	}
@@ -257,7 +252,7 @@ func (h *FeedbackHandler) ServeScreenshot(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
-	dataB64, mime, err := h.screenshotRepo.GetByFilename(filename)
+	dataB64, mime, err := h.feedbackSvc.GetScreenshot(filename)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		return

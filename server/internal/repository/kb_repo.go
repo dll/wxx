@@ -121,11 +121,11 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			 JOIN kb_resources kb ON kb_fts.rowid = kb.id
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
-			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = ? AND kb.owner_id = ?))
-			   AND kb.role_scope LIKE ?
+			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
+			   AND (kb.role_scope = '' OR json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))
 			 ORDER BY score
 			 LIMIT ?`,
-		ftsQuery, ownerScope, ownerID, "%"+role+"%", limit,
+		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -325,7 +325,7 @@ func sortResultsByScore(results []*SearchResult) {
 // SearchFAQ 仅在 resource_type='FAQ' 中检索（用于持久化问答缓存命中）
 // 返回按 BM25 排序的命中（score 越小越相关）。
 // 使用与 Search 相同的三阶段检索策略，确保 FAQ 匹配精准
-func (r *KBRepo) SearchFAQ(query string, role string, limit int) ([]*SearchResult, error) {
+func (r *KBRepo) SearchFAQ(query string, ownerScope string, ownerID string, role string, limit int) ([]*SearchResult, error) {
 	if limit <= 0 {
 		limit = 1
 	}
@@ -336,21 +336,21 @@ func (r *KBRepo) SearchFAQ(query string, role string, limit int) ([]*SearchResul
 
 	// 阶段一：短语精确匹配
 	phraseQ := buildPhraseQuery(query)
-	phraseR, _ := r.searchFAQWithQuery(phraseQ, role, limit)
+	phraseR, _ := r.searchFAQWithQuery(phraseQ, ownerScope, ownerID, role, limit)
 	for _, r := range phraseR {
 		r.Score -= 5.0
 	}
 
 	// 阶段二：NEAR 邻近匹配
 	nearQ := buildNearQuery(query)
-	nearR, _ := r.searchFAQWithQuery(nearQ, role, limit)
+	nearR, _ := r.searchFAQWithQuery(nearQ, ownerScope, ownerID, role, limit)
 	for _, r := range nearR {
 		r.Score -= 2.0
 	}
 
 	// 阶段三：宽松 OR 匹配
 	looseQ := buildLooseQuery(query)
-	looseR, err := r.searchFAQWithQuery(looseQ, role, limit*2)
+	looseR, err := r.searchFAQWithQuery(looseQ, ownerScope, ownerID, role, limit*2)
 	if err != nil && len(phraseR) == 0 && len(nearR) == 0 {
 		return nil, fmt.Errorf("FAQ FTS 搜索失败: %w", err)
 	}
@@ -367,7 +367,7 @@ func (r *KBRepo) SearchFAQ(query string, role string, limit int) ([]*SearchResul
 }
 
 // searchFAQWithQuery 在 FAQ 资源中执行指定 FTS 查询
-func (r *KBRepo) searchFAQWithQuery(ftsQuery string, role string, limit int) ([]*SearchResult, error) {
+func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID string, role string, limit int) ([]*SearchResult, error) {
 	if ftsQuery == "" {
 		return nil, nil
 	}
@@ -384,10 +384,11 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, role string, limit int) ([]
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
 			   AND kb.resource_type = 'FAQ'
-			   AND (kb.role_scope = '' OR kb.role_scope LIKE ?)
+			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
+			   AND (kb.role_scope = '' OR json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))
 			 ORDER BY score
 			 LIMIT ?`,
-		ftsQuery, "%"+role+"%", limit,
+		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -725,10 +726,10 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 // 返回值: 按 resource_type 分组的卡片映射、全部符合条件的资源总数
 func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string, limit, offset int) (map[string][]*model.KnowledgeCard, int, error) {
 	whereClause := ` WHERE status = 'published'
-		   AND (owner_scope = 'school' OR (owner_scope = ? AND owner_id = ?))
-		   AND role_scope LIKE ?`
-	countArgs := []interface{}{ownerScope, ownerID, "%" + role + "%"}
-	queryArgs := []interface{}{ownerScope, ownerID, "%" + role + "%"}
+		   AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?)) OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
+		   AND (role_scope = '' OR json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))`
+	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
+	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
 
 	if resourceType != "" {
 		whereClause += ` AND resource_type = ?`

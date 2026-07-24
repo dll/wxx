@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// mockVoiceClient 实现 voiceClient 接口用于测试
+// mockVoiceClient 实现 voiceService 接口用于测试
 type mockVoiceClient struct {
 	asrText  string
 	asrErr   error
@@ -41,7 +41,7 @@ func TestNewVoiceHandler(t *testing.T) {
 	}
 }
 
-func setupVoiceTestRouter(mockClient voiceClient) (*gin.Engine, *config.Config) {
+func setupVoiceTestRouter(mockSvc voiceService) (*gin.Engine, *config.Config) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{
@@ -49,7 +49,7 @@ func setupVoiceTestRouter(mockClient voiceClient) (*gin.Engine, *config.Config) 
 		JWTExpireHours: 2,
 	}
 
-	voiceH := &VoiceHandler{xfClient: mockClient}
+	voiceH := &VoiceHandler{voiceSvc: mockSvc}
 
 	r := gin.New()
 	r.Use(middleware.TraceID())

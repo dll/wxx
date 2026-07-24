@@ -7,34 +7,29 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	voiceASRTimeout = 18 * time.Second
-	voiceTTSTimeout = 15 * time.Second
-	maxVoiceBytes   = 8 << 20
-)
+const maxVoiceBytes = 8 << 20
 
-// voiceClient 语音客户端接口（ASR + TTS），*llm.XfyunClient 已实现
-type voiceClient interface {
+// voiceService 语音服务接口（用于测试 mock）
+type voiceService interface {
 	ASR(ctx context.Context, audioBytes []byte) (string, error)
 	TTS(ctx context.Context, text string, voiceName string) ([]byte, error)
 }
 
 // VoiceHandler 语音处理 handler（ASR 语音识别 + TTS 语音合成）
 type VoiceHandler struct {
-	xfClient voiceClient
+	voiceSvc voiceService
 }
 
 // NewVoiceHandler 创建语音 handler
-func NewVoiceHandler(xfClient *llm.XfyunClient) *VoiceHandler {
-	return &VoiceHandler{xfClient: xfClient}
+func NewVoiceHandler(voiceSvc *service.VoiceService) *VoiceHandler {
+	return &VoiceHandler{voiceSvc: voiceSvc}
 }
 
 // ASR 语音识别接口
@@ -91,9 +86,7 @@ func (h *VoiceHandler) ASR(c *gin.Context) {
 	}
 
 	// 调用讯飞 ASR
-	ctx, cancel := context.WithTimeout(c.Request.Context(), voiceASRTimeout)
-	defer cancel()
-	text, err := h.xfClient.ASR(ctx, pcmBytes)
+	text, err := h.voiceSvc.ASR(c.Request.Context(), pcmBytes)
 	if err != nil {
 		status := http.StatusInternalServerError
 		message := "语音识别失败，请稍后重试"
@@ -139,11 +132,8 @@ func (h *VoiceHandler) TTS(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), voiceTTSTimeout)
-	defer cancel()
-
 	// 调用讯飞 TTS
-	audioData, err := h.xfClient.TTS(ctx, req.Text, req.Voice)
+	audioData, err := h.voiceSvc.TTS(c.Request.Context(), req.Text, req.Voice)
 	if err != nil {
 		status := http.StatusInternalServerError
 		message := "语音合成失败，请稍后重试"

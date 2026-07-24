@@ -729,7 +729,7 @@ func (s *ChatService) faqLookup(question string, userCtx *model.UserContext) *mo
 	if s.kbRepo == nil {
 		return nil
 	}
-	results, err := s.kbRepo.SearchFAQ(question, userCtx.Role, 1)
+	results, err := s.kbRepo.SearchFAQ(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 1)
 	if err != nil || len(results) == 0 {
 		return nil
 	}

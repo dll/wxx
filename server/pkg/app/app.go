@@ -150,7 +150,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
-	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo)
+	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, feedbackScreenshotRepo)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
@@ -192,7 +192,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 	var voiceHandler *handler.VoiceHandler
 	if xfyunClient != nil {
-		voiceHandler = handler.NewVoiceHandler(xfyunClient)
+		voiceSvc := service.NewVoiceService(xfyunClient)
+		voiceHandler = handler.NewVoiceHandler(voiceSvc)
 	}
 
 	var emotionHandler *handler.EmotionHandler
@@ -207,7 +208,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
-	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc, feedbackScreenshotRepo)
+	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
@@ -258,13 +259,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationHandler := handler.NewGraduationHandler(graduationService)
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
 	educationHandler := handler.NewEducationHandler(db)
+	studyPlanHandler := handler.NewStudyPlanHandler(db, llmClient)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, educationHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, educationHandler, studyPlanHandler)
 
 	return router, nil
 }
@@ -456,6 +458,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	notificationH *handler.NotificationHandler,
 	uploadH *handler.UploadHandler,
 	educationH *handler.EducationHandler,
+	studyPlanH *handler.StudyPlanHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -913,6 +916,26 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				study.GET("/grades/summary", auth.RequireCapability(auth.SelfStudyRead), educationH.GetGradeSummary)
 				study.GET("/resources", auth.RequireCapability(auth.SelfStudyRead), educationH.ListLearningResources)
 				study.GET("/exams", auth.RequireCapability(auth.SelfStudyRead), educationH.ListExamSchedules)
+
+				// ── 校历 / 课表 / 学习计划（study_plan_handler）──
+				// 校历
+				study.GET("/calendar/current", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.GetCurrentCalendar)
+				study.GET("/calendar/:semester_code", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.GetCalendarBySemester)
+				// 课表
+				study.GET("/timetable", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.GetMyTimetable)
+				// 学习计划概览（用于多 Tab 首页）
+				study.GET("/plans/overview", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.GetPlansOverview)
+				// AI 生成学习计划
+				study.POST("/plans/ai-generate", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.AIGeneratePlan)
+				// 学习计划 CRUD
+				study.GET("/plans", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.ListMyPlans)
+				study.POST("/plans", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.CreatePlan)
+				study.GET("/plans/:id", auth.RequireCapability(auth.SelfStudyRead), studyPlanH.GetPlan)
+				study.PUT("/plans/:id", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.UpdatePlan)
+				study.DELETE("/plans/:id", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.DeletePlan)
+				// 计划任务
+				study.POST("/plans/:id/tasks", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.AddTask)
+				study.PUT("/plans/:id/tasks/:task_id", auth.RequireCapability(auth.SelfStudyWrite), studyPlanH.UpdateTask)
 			}
 
 			// ── 心理健康模块（全员可见）──
