@@ -3,7 +3,7 @@ export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
   const backendPath = url.pathname === '/api/health' ? '/health' : url.pathname;
-  const targetUrl = 'https://api.pydaydayup.xyz' + backendPath + url.search;
+  const targetUrl = 'https://wxx-server.vercel.app' + backendPath + url.search;
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -13,7 +13,7 @@ export async function onRequest(context) {
   }
 
   const headers = new Headers(request.headers);
-  headers.set('Host', 'api.pydaydayup.xyz');
+  headers.set('Host', 'wxx-server.vercel.app');
 
   const init = { method: request.method, headers };
   let requestBody;
