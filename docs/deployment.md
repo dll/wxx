@@ -30,7 +30,7 @@
 ### Flutter Web
 
 ```bash
-cd frontend && flutter build web --release --web-renderer html
+cd frontend && flutter build web --release
 ```
 
 产物：`frontend/build/web/`。验证标题是否为「蔚小芯」：
@@ -111,7 +111,7 @@ make deploy-web-prebuilt
 
 ```bash
 cd frontend
-flutter build web --release --web-renderer html
+flutter build web --release
 cp -rf build/web/* .vercel/output/static/
 npx --yes vercel deploy --prebuilt --prod
 ```

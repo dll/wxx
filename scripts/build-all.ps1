@@ -85,7 +85,7 @@ Write-Output ""
 Write-Output ">>> [1/2] 构建 Web..."
 $env:FLUTTER_STORAGE_BASE_URL = "https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com"
 Set-Location $frontend
-flutter build web --release --web-renderer html *>> $buildLog
+flutter build web --release *>> $buildLog
 $webOk = $LASTEXITCODE -eq 0
 
 if ($webOk) {
