@@ -58,7 +58,7 @@ type Config struct {
 	WeiyuanImportURL  string
 
 	// 通知推送 Webhook（QQ群/微信群）
-	QQWebhookURL    string // QQ 群机器人 Webhook URL
+	QQWebhookURL     string // QQ 群机器人 Webhook URL
 	WechatWebhookURL string // 企业微信机器人 Webhook URL
 
 	// Temporal 工作流引擎

@@ -130,11 +130,11 @@ func (h *TeacherHandler) ClassInteract(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"question":      "请解释为什么中序遍历二叉搜索树可以得到有序序列？",
-		"difficulty":     "medium",
-		"expected_time":  3,
-		"hints":          []string{"思考BST的性质", "左子树所有节点小于根", "递归思考"},
-		"follow_up":      "如果要得到降序序列，应该如何修改遍历顺序？",
-		"data_source":    "fallback",
+		"difficulty":    "medium",
+		"expected_time": 3,
+		"hints":         []string{"思考BST的性质", "左子树所有节点小于根", "递归思考"},
+		"follow_up":     "如果要得到降序序列，应该如何修改遍历顺序？",
+		"data_source":   "fallback",
 	})
 }
 
@@ -214,9 +214,9 @@ func (h *TeacherHandler) Reflection(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"period": "2026年第8周",
-		"strengths": []string{"课堂互动积极", "实验完成率提升"},
-		"weaknesses": []string{"图论部分讲解节奏偏快"},
+		"period":      "2026年第8周",
+		"strengths":   []string{"课堂互动积极", "实验完成率提升"},
+		"weaknesses":  []string{"图论部分讲解节奏偏快"},
 		"suggestions": []string{"下周增加一次习题课", "增加课堂编程演示"},
 		"data_source": "fallback",
 	})
@@ -320,11 +320,11 @@ func (h *TeacherHandler) KnowledgeCoverage(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"course":          courseName,
-		"coverage_rate":   0.85,
-		"uncovered":       []string{"红黑树删除", "并查集优化"},
-		"suggestions":     []string{"建议在期末前补充红黑树内容"},
-		"data_source":     "fallback",
+		"course":        courseName,
+		"coverage_rate": 0.85,
+		"uncovered":     []string{"红黑树删除", "并查集优化"},
+		"suggestions":   []string{"建议在期末前补充红黑树内容"},
+		"data_source":   "fallback",
 	})
 }
 
@@ -339,9 +339,9 @@ func (h *TeacherHandler) IdeologicalSuggestions(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"course":       courseName,
-		"elements":     []gin.H{{"type": "科学精神", "point": "算法设计的严谨性与批判思维", "material": "图灵奖得主故事"}},
-		"data_source":  "fallback",
+		"course":      courseName,
+		"elements":    []gin.H{{"type": "科学精神", "point": "算法设计的严谨性与批判思维", "material": "图灵奖得主故事"}},
+		"data_source": "fallback",
 	})
 }
 

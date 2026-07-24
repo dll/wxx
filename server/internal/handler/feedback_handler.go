@@ -18,8 +18,8 @@ import (
 
 // FeedbackHandler 用户反馈 HTTP handler
 type FeedbackHandler struct {
-	feedbackSvc      *service.FeedbackService
-	screenshotRepo   *repository.FeedbackScreenshotRepo
+	feedbackSvc    *service.FeedbackService
+	screenshotRepo *repository.FeedbackScreenshotRepo
 }
 
 // NewFeedbackHandler 创建反馈 handler

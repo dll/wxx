@@ -6,8 +6,8 @@ import (
 
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/testutil"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/testutil"
 )
 
 func TestChatService_Ask_NewSession(t *testing.T) {

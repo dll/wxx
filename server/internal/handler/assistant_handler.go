@@ -46,9 +46,9 @@ func (h *AssistantHandler) GradAudit(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"student_name": "示例学生", "total_credits": 168, "required_credits": 175,
-		"passed_items": []string{"公共必修课", "专业必修课", "毕业论文"},
+		"passed_items":  []string{"公共必修课", "专业必修课", "毕业论文"},
 		"pending_items": []string{"公共选修课差2学分", "创新创业学分差2分"},
-		"can_graduate": false,
+		"can_graduate":  false,
 	})
 }
 
@@ -88,10 +88,10 @@ func (h *AssistantHandler) Notification(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"channel":      req.Channel,
-		"topic":        req.Topic,
-		"draft":        "【通知】各位同学，" + req.Topic + "，请及时查看。",
-		"data_source":  "fallback",
+		"channel":     req.Channel,
+		"topic":       req.Topic,
+		"draft":       "【通知】各位同学，" + req.Topic + "，请及时查看。",
+		"data_source": "fallback",
 	})
 }
 

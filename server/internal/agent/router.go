@@ -8,12 +8,12 @@ import (
 type Intent int
 
 const (
-	IntentUnknown   Intent = iota // 未知（走默认 QA Agent）
-	IntentPolicy                  // 政策条款解释
-	IntentProcess                 // 办事流程指引
-	IntentActivity                 // 活动通知
-	IntentFAQ                     // 常见问答
-	IntentEmotion                 // 心理/情感
+	IntentUnknown  Intent = iota // 未知（走默认 QA Agent）
+	IntentPolicy                 // 政策条款解释
+	IntentProcess                // 办事流程指引
+	IntentActivity               // 活动通知
+	IntentFAQ                    // 常见问答
+	IntentEmotion                // 心理/情感
 )
 
 // domainKeywords 业务域关键词映射（规则路由）

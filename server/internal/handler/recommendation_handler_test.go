@@ -35,16 +35,16 @@ func setupRecTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 	// 插入种子数据
 	for i := 0; i < 10; i++ {
 		kbRepo.Create(&model.KBResource{
-			ResourceID: "rec-test-" + string(rune('0'+i%10)),
+			ResourceID:   "rec-test-" + string(rune('0'+i%10)),
 			ResourceType: "Policy",
-			OwnerScope: "school",
-			RoleScope: "student",
-			Version: "1.0",
-			Status: "published",
-			Title: "测试政策文档",
-			Summary: "包含奖学金和入学信息",
-			Content: "详细政策内容",
-			UpdatedBy: "test",
+			OwnerScope:   "school",
+			RoleScope:    "student",
+			Version:      "1.0",
+			Status:       "published",
+			Title:        "测试政策文档",
+			Summary:      "包含奖学金和入学信息",
+			Content:      "详细政策内容",
+			UpdatedBy:    "test",
 		})
 	}
 
@@ -75,10 +75,10 @@ func TestRecHandler_GetRecommendations_Success(t *testing.T) {
 	}
 
 	var resp struct {
-		Code    int                    `json:"code"`
-		Message string                 `json:"message"`
+		Code    int                     `json:"code"`
+		Message string                  `json:"message"`
 		Data    []service.RecommendItem `json:"data"`
-		Total   int                    `json:"total"`
+		Total   int                     `json:"total"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("JSON 解析失败: %v", err)
@@ -122,10 +122,10 @@ func TestRecHandler_GetRecommendations_DefaultLimit(t *testing.T) {
 	}
 
 	var resp struct {
-		Code    int                    `json:"code"`
-		Message string                 `json:"message"`
+		Code    int                     `json:"code"`
+		Message string                  `json:"message"`
 		Data    []service.RecommendItem `json:"data"`
-		Total   int                    `json:"total"`
+		Total   int                     `json:"total"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("JSON 解析失败: %v", err)
@@ -152,10 +152,10 @@ func TestRecHandler_GetRecommendations_InvalidLimit(t *testing.T) {
 	}
 
 	var resp struct {
-		Code    int                    `json:"code"`
-		Message string                 `json:"message"`
+		Code    int                     `json:"code"`
+		Message string                  `json:"message"`
 		Data    []service.RecommendItem `json:"data"`
-		Total   int                    `json:"total"`
+		Total   int                     `json:"total"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("JSON 解析失败: %v", err)

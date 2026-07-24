@@ -43,13 +43,13 @@ type FocusedStudent struct {
 
 // DailyFocus 今日关注响应
 type DailyFocus struct {
-	Date             string                 `json:"date"`
-	ClassHealthScore float64                `json:"class_health_score"`
-	TopStudents      []*FocusedStudent      `json:"top_students"`
-	Overview         map[string]int         `json:"overview"`
-	AINarrative      string                 `json:"ai_narrative"`
-	DataSource       string                 `json:"data_source"` // ai/fallback/db
-	Stats            *model.EmotionStats    `json:"stats,omitempty"`
+	Date             string              `json:"date"`
+	ClassHealthScore float64             `json:"class_health_score"`
+	TopStudents      []*FocusedStudent   `json:"top_students"`
+	Overview         map[string]int      `json:"overview"`
+	AINarrative      string              `json:"ai_narrative"`
+	DataSource       string              `json:"data_source"` // ai/fallback/db
+	Stats            *model.EmotionStats `json:"stats,omitempty"`
 }
 
 // GenerateDailyFocus 基于辅导员所辖学生的真实情感数据生成今日关注
@@ -75,11 +75,11 @@ func (s *CounselorService) GenerateDailyFocus(ctx context.Context, counselor *mo
 	topStudents := buildFocusedStudents(alerts, 5)
 
 	overview := map[string]int{
-		"pending":   stats.Pending,
-		"urgent":    stats.Urgent,
-		"high":      stats.High,
-		"medium":    stats.Medium,
-		"low":       stats.Low,
+		"pending": stats.Pending,
+		"urgent":  stats.Urgent,
+		"high":    stats.High,
+		"medium":  stats.Medium,
+		"low":     stats.Low,
 	}
 
 	healthScore := calcClassHealthScore(stats)
@@ -210,15 +210,15 @@ func (s *CounselorService) generateNarrative(ctx context.Context, counselor *mod
 
 // TalkRecord 谈心谈话记录
 type TalkRecord struct {
-	ID        int64  `json:"id"`
+	ID          int64  `json:"id"`
 	StudentName string `json:"student_name"`
-	Topic     string `json:"topic"`
-	Emotion   string `json:"emotion"`
-	Demand    string `json:"demand"`
-	Promise   string `json:"promise"`
-	FollowUp  string `json:"follow_up"`
-	Summary   string `json:"summary"`
-	CreatedAt string `json:"created_at"`
+	Topic       string `json:"topic"`
+	Emotion     string `json:"emotion"`
+	Demand      string `json:"demand"`
+	Promise     string `json:"promise"`
+	FollowUp    string `json:"follow_up"`
+	Summary     string `json:"summary"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // TalkRecordRequest 创建谈心记录请求
@@ -645,12 +645,12 @@ func (s *CounselorService) GenerateMonthlyBrief(ctx context.Context, scope, owne
 
 // SessionInsight 会话洞察
 type SessionInsight struct {
-	StudentName   string   `json:"student_name"`
-	MainTopics    []string `json:"main_topics"`
-	EmotionTrend  string   `json:"emotion_trend"`
-	KeyConcerns   []string `json:"key_concerns"`
-	Suggestions   []string `json:"suggestions"`
-	DataSource    string   `json:"data_source"`
+	StudentName  string   `json:"student_name"`
+	MainTopics   []string `json:"main_topics"`
+	EmotionTrend string   `json:"emotion_trend"`
+	KeyConcerns  []string `json:"key_concerns"`
+	Suggestions  []string `json:"suggestions"`
+	DataSource   string   `json:"data_source"`
 }
 
 func (s *CounselorService) GenerateSessionInsight(ctx context.Context, studentName string, messages []string) *SessionInsight {
@@ -689,11 +689,11 @@ func minStrLen(a, b int) int {
 
 // FollowUpReminder 谈话跟进提醒
 type FollowUpReminder struct {
-	Tasks       []map[string]interface{} `json:"tasks"`
-	OverdueCount int                     `json:"overdue_count"`
-	PendingCount int                     `json:"pending_count"`
-	Suggestion  string                   `json:"suggestion"`
-	DataSource  string                   `json:"data_source"`
+	Tasks        []map[string]interface{} `json:"tasks"`
+	OverdueCount int                      `json:"overdue_count"`
+	PendingCount int                      `json:"pending_count"`
+	Suggestion   string                   `json:"suggestion"`
+	DataSource   string                   `json:"data_source"`
 }
 
 func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, scope, ownerID string) *FollowUpReminder {
@@ -728,9 +728,9 @@ func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, scope,
 
 // SmartNotification 智能群发
 type SmartNotification struct {
-	OriginalContent string                   `json:"original_content"`
-	Variants        []map[string]string      `json:"variants"`
-	DataSource      string                   `json:"data_source"`
+	OriginalContent string              `json:"original_content"`
+	Variants        []map[string]string `json:"variants"`
+	DataSource      string              `json:"data_source"`
 }
 
 func (s *CounselorService) GenerateSmartNotification(ctx context.Context, content string, audienceTypes []string) *SmartNotification {
@@ -763,13 +763,13 @@ func (s *CounselorService) GenerateSmartNotification(ctx context.Context, conten
 
 // CheckinStats 班级打卡统计
 type CheckinStats struct {
-	ClassName       string                   `json:"class_name"`
-	TotalStudents   int                      `json:"total_students"`
-	TodayRate       float64                  `json:"today_rate"`
-	StreakDistribution map[string]int        `json:"streak_distribution"`
-	DeclineStudents []map[string]interface{} `json:"decline_students"`
-	AIAnalysis      string                   `json:"ai_analysis"`
-	DataSource      string                   `json:"data_source"`
+	ClassName          string                   `json:"class_name"`
+	TotalStudents      int                      `json:"total_students"`
+	TodayRate          float64                  `json:"today_rate"`
+	StreakDistribution map[string]int           `json:"streak_distribution"`
+	DeclineStudents    []map[string]interface{} `json:"decline_students"`
+	AIAnalysis         string                   `json:"ai_analysis"`
+	DataSource         string                   `json:"data_source"`
 }
 
 func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className string) *CheckinStats {
@@ -788,8 +788,8 @@ func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className s
 			{"name": "张明", "prev_streak": 5, "curr_streak": 0, "risk": "medium"},
 			{"name": "李华", "prev_streak": 3, "curr_streak": 0, "risk": "low"},
 		},
-		AIAnalysis:  "班级整体打卡率93%，3人今日未打卡。张明同学连续打卡中断，建议关注其近期状态。",
-		DataSource:  "mock",
+		AIAnalysis: "班级整体打卡率93%，3人今日未打卡。张明同学连续打卡中断，建议关注其近期状态。",
+		DataSource: "mock",
 	}
 }
 

@@ -30,9 +30,9 @@ type AnalysisRequest struct {
 
 // AnalysisResponse 分析响应
 type AnalysisResponse struct {
-	Code    int                            `json:"code"`
-	Message string                         `json:"message"`
-	Data    *service.AnalysisResponse      `json:"data,omitempty"`
+	Code    int                       `json:"code"`
+	Message string                    `json:"message"`
+	Data    *service.AnalysisResponse `json:"data,omitempty"`
 }
 
 // Analyze 执行问题分析
@@ -148,11 +148,11 @@ func (h *ForecastHandler) ListForecasts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data":    forecasts,
-		"total":   total,
-		"page":    page,
+		"code":      0,
+		"message":   "success",
+		"data":      forecasts,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }

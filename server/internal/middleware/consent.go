@@ -26,10 +26,10 @@ func RequireConsent() gin.HandlerFunc {
 				"code":    403,
 				"message": "请先阅读并同意隐私政策与用户协议",
 				"data": gin.H{
-					"required":  true,
-					"action":    "show_consent",
-					"privacyUrl":   "/docs/privacy-policy",
-					"termsUrl":     "/docs/user-agreement",
+					"required":   true,
+					"action":     "show_consent",
+					"privacyUrl": "/docs/privacy-policy",
+					"termsUrl":   "/docs/user-agreement",
 				},
 			})
 			return

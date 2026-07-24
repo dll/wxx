@@ -92,7 +92,7 @@ const (
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
 	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
 	CounselorImportStudent     Capability = "counselor.import.student" // 导入学生（学生会及以上角色继承）
-	CounselorNotify            Capability = "counselor.notify"          // 通知管理（创建/发布/删除）
+	CounselorNotify            Capability = "counselor.notify"         // 通知管理（创建/发布/删除）
 )
 
 // 教师能力
@@ -151,7 +151,8 @@ type roleNode struct {
 // roles 角色继承图（线性 + 例外多父）
 //
 // 继承链：
-//   sys_admin → school_admin → college_admin → {counselor, teacher, assistant} → student_union → student
+//
+//	sys_admin → school_admin → college_admin → {counselor, teacher, assistant} → student_union → student
 //
 // counselor、teacher、assistant 三者平级（互不继承），但 college_admin 同时继承三者
 //

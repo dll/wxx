@@ -46,7 +46,7 @@ func (h *ExternalAppHandler) GetApp(c *gin.Context) {
 		"data": model.ExternalApp{
 			ID: 1, AppKey: appKey, Name: "智慧图书馆",
 			Description: "馆藏查询、座位预约、借阅记录",
-			AppURL: "https://lib.chzu.edu.cn", Mode: "external_link",
+			AppURL:      "https://lib.chzu.edu.cn", Mode: "external_link",
 			Category: "学习", Status: "active",
 		},
 	})

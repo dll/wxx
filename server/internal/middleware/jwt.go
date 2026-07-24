@@ -42,7 +42,7 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		OwnerScope:  user.OwnerScope,
 		OwnerID:     user.OwnerID,
 		DisplayName: user.DisplayName,
-			Consented:   true, // 登录即视为已同意（首次使用由前端弹窗处理）
+		Consented:   true, // 登录即视为已同意（首次使用由前端弹窗处理）
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),

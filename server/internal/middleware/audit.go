@@ -42,9 +42,9 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 				userID,
 				username,
 				role,
-				c.Request.Method,         // action
-				c.FullPath(),             // resource（路由模板，如 /api/v1/chat）
-				c.Request.URL.Path,       // detail（实际路径）
+				c.Request.Method,   // action
+				c.FullPath(),       // resource（路由模板，如 /api/v1/chat）
+				c.Request.URL.Path, // detail（实际路径）
 				traceStr,
 				c.ClientIP(),
 				duration,

@@ -160,12 +160,12 @@ func (s *CollegeService) AnalyzeTeacherEfficiency(ctx context.Context, teacherNa
 
 // CourseQualityData 课程质量评估
 type CourseQualityData struct {
-	CourseName string                   `json:"course_name"`
-	Grade      string                   `json:"grade"` // A/B/C/D
-	Metrics    map[string]float64       `json:"metrics"`
-	Strengths  []string                 `json:"strengths"`
-	Warnings   []string                 `json:"warnings"`
-	DataSource string                   `json:"data_source"`
+	CourseName string             `json:"course_name"`
+	Grade      string             `json:"grade"` // A/B/C/D
+	Metrics    map[string]float64 `json:"metrics"`
+	Strengths  []string           `json:"strengths"`
+	Warnings   []string           `json:"warnings"`
+	DataSource string             `json:"data_source"`
 }
 
 func (s *CollegeService) EvaluateCourseQuality(ctx context.Context, courseName string) *CourseQualityData {

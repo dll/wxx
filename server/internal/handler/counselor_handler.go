@@ -69,7 +69,7 @@ func (h *CounselorHandler) ClassReport(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"date": time.Now().Format("2006-01-02"), "class_name": "计科2301班",
 		"active_rate": 0.87, "absent_count": 3, "homework_rate": 0.92, "emotion_alert_count": 2, "checkin_rate": 0.93,
-		"anomalies": []string{"张明连续缺勤", "李华作业未交"},
+		"anomalies":    []string{"张明连续缺勤", "李华作业未交"},
 		"ai_narrative": "班级整体状态良好。需关注张明同学连续缺勤情况。",
 	})
 }
@@ -270,7 +270,7 @@ func (h *CounselorHandler) HotTopicSense(c *gin.Context) {
 			{"title": "实习招聘信息", "heat": 78, "sentiment": "neutral", "affected_students": 22, "suggestion": "可组织就业指导讲座"},
 			{"title": "宿舍空调报修", "heat": 65, "sentiment": "negative", "affected_students": 8, "suggestion": "已反馈后勤处，预计3天内解决"},
 		},
-		"keywords":    []string{"考试", "实习", "焦虑", "空调", "选课"},
+		"keywords":     []string{"考试", "实习", "焦虑", "空调", "选课"},
 		"alert_topics": []gin.H{{"title": "期中考试焦虑", "reason": "多名学生表达负面情绪，需关注心理状态"}},
 		"data_source":  "fallback",
 	})
@@ -364,18 +364,18 @@ func (h *CounselorHandler) CheckinStats(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"class_name":      className,
-		"total_students":  45,
-		"today_rate":      0.93,
+		"class_name":          className,
+		"total_students":      45,
+		"today_rate":          0.93,
 		"streak_distribution": gin.H{"连续7天+": 18, "连续3-6天": 15, "连续1-2天": 7, "今日未打卡": 3},
-		"data_source":     "fallback",
+		"data_source":         "fallback",
 	})
 }
 
 // SmartNotify 智能群发助手
 func (h *CounselorHandler) SmartNotify(c *gin.Context) {
 	var req struct {
-		Content      string   `json:"content" binding:"required"`
+		Content       string   `json:"content" binding:"required"`
 		AudienceTypes []string `json:"audience_types"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -438,10 +438,10 @@ func (h *CounselorHandler) SessionInsight(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"student":      studentName,
-		"emotion":      "中性偏积极",
-		"key_topics":   []string{"学业规划", "人际关系"},
-		"concerns":     []string{"对期末考试成绩有些担忧"},
-		"data_source":  "fallback",
+		"student":     studentName,
+		"emotion":     "中性偏积极",
+		"key_topics":  []string{"学业规划", "人际关系"},
+		"concerns":    []string{"对期末考试成绩有些担忧"},
+		"data_source": "fallback",
 	})
 }

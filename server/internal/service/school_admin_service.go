@@ -42,7 +42,7 @@ func (s *SchoolAdminService) GenerateSchoolPanorama(ctx context.Context) *School
 			{"name": "理学院", "students": 800, "health": 79.0, "risk": 15, "trend": "down"},
 		},
 		Trends: map[string][]float64{
-			"health":  {78, 79, 80, 81, 82, 82.5},
+			"health":   {78, 79, 80, 81, 82, 82.5},
 			"academic": {72, 73, 74, 75, 76, 77},
 			"emotion":  {80, 79, 81, 80, 82, 81},
 		},
@@ -66,32 +66,32 @@ func (s *SchoolAdminService) GenerateSchoolPanorama(ctx context.Context) *School
 
 // PolicySimulation 政策影响模拟
 type PolicySimulation struct {
-	Policy         string                   `json:"policy"`
-	Adjustment     string                   `json:"adjustment"`
-	BeneficiaryChange string                `json:"beneficiary_change"`
-	RiskPrediction string                   `json:"risk_prediction"`
-	ResourceNeeds  []string                 `json:"resource_needs"`
-	DataSource     string                   `json:"data_source"`
+	Policy            string   `json:"policy"`
+	Adjustment        string   `json:"adjustment"`
+	BeneficiaryChange string   `json:"beneficiary_change"`
+	RiskPrediction    string   `json:"risk_prediction"`
+	ResourceNeeds     []string `json:"resource_needs"`
+	DataSource        string   `json:"data_source"`
 }
 
 func (s *SchoolAdminService) SimulatePolicy(ctx context.Context, policy, adjustment string) *PolicySimulation {
 	return &PolicySimulation{
-		Policy:           policy,
-		Adjustment:       adjustment,
+		Policy:            policy,
+		Adjustment:        adjustment,
 		BeneficiaryChange: "预计受益学生从1200人增加至1500人(+25%)",
-		RiskPrediction:   "可能存在经费缺口约5万元，建议分两期实施",
-		ResourceNeeds:    []string{"新增2名辅导教师", "扩充心理咨询室1间", "开发线上申请系统模块"},
-		DataSource:       "mock",
+		RiskPrediction:    "可能存在经费缺口约5万元，建议分两期实施",
+		ResourceNeeds:     []string{"新增2名辅导教师", "扩充心理咨询室1间", "开发线上申请系统模块"},
+		DataSource:        "mock",
 	}
 }
 
 // CrossCollegeComparison 跨学院对比分析
 type CrossCollegeComparison struct {
-	Metric       string                   `json:"metric"`
-	Rankings     []map[string]interface{} `json:"rankings"`
-	Anomalies    []map[string]interface{} `json:"anomalies"`
-	Suggestions  []string                 `json:"suggestions"`
-	DataSource   string                   `json:"data_source"`
+	Metric      string                   `json:"metric"`
+	Rankings    []map[string]interface{} `json:"rankings"`
+	Anomalies   []map[string]interface{} `json:"anomalies"`
+	Suggestions []string                 `json:"suggestions"`
+	DataSource  string                   `json:"data_source"`
 }
 
 func (s *SchoolAdminService) CompareColleges(ctx context.Context, metric string) *CrossCollegeComparison {

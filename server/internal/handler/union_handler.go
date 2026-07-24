@@ -38,8 +38,8 @@ func (h *UnionHandler) EventPlan(c *gin.Context) {
 			{"phase": "筹备期", "tasks": "宣传制作、物资采购"},
 			{"phase": "执行期", "tasks": "活动执行、现场协调"},
 		},
-		"promotion":    "微信公众号推文 + 校园海报 + 班级群通知",
-		"data_source":  "fallback",
+		"promotion":   "微信公众号推文 + 校园海报 + 班级群通知",
+		"data_source": "fallback",
 	})
 }
 
@@ -57,13 +57,13 @@ func (h *UnionHandler) PosterGen(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"style":       style,
-		"title":       title,
-		"subtitle":    "滁州学院计算机学院",
-		"copy":        "诚邀您的参与！",
+		"style":        style,
+		"title":        title,
+		"subtitle":     "滁州学院计算机学院",
+		"copy":         "诚邀您的参与！",
 		"color_scheme": "蓝色系",
-		"layout":      "科技风格排版",
-		"data_source": "fallback",
+		"layout":       "科技风格排版",
+		"data_source":  "fallback",
 	})
 }
 
@@ -80,9 +80,9 @@ func (h *UnionHandler) Recruitment(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"plan":           dept + "招新方案",
-		"stages":         []string{"宣传期", "报名期", "面试期"},
-		"data_source":    "fallback",
+		"plan":        dept + "招新方案",
+		"stages":      []string{"宣传期", "报名期", "面试期"},
+		"data_source": "fallback",
 	})
 }
 
@@ -144,9 +144,9 @@ func (h *UnionHandler) ActivityAnalysis(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"event_name":   eventName,
-		"reg_rate":     0.85,
-		"attend_rate":  0.72,
-		"data_source":  "fallback",
+		"event_name":  eventName,
+		"reg_rate":    0.85,
+		"attend_rate": 0.72,
+		"data_source": "fallback",
 	})
 }

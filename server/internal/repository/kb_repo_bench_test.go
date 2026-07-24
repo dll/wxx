@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 

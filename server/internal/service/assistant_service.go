@@ -28,11 +28,11 @@ type ScheduleConflict struct {
 
 // ScheduleCheckResult 排课冲突检测结果
 type ScheduleCheckResult struct {
-	TotalCourses   int                `json:"total_courses"`
-	ConflictsFound int                `json:"conflicts_found"`
+	TotalCourses   int                 `json:"total_courses"`
+	ConflictsFound int                 `json:"conflicts_found"`
 	Conflicts      []*ScheduleConflict `json:"conflicts"`
-	Summary        string             `json:"summary"`
-	DataSource     string             `json:"data_source"`
+	Summary        string              `json:"summary"`
+	DataSource     string              `json:"data_source"`
 }
 
 func (s *AssistantService) CheckSchedule(ctx context.Context) *ScheduleCheckResult {
@@ -68,14 +68,14 @@ func (s *AssistantService) CheckSchedule(ctx context.Context) *ScheduleCheckResu
 
 // GraduationAuditResult 毕业资格审核结果
 type GraduationAuditResult struct {
-	StudentName    string   `json:"student_name"`
-	TotalCredits   float64  `json:"total_credits"`
-	RequiredCredits float64 `json:"required_credits"`
-	PassedItems    []string `json:"passed_items"`
-	PendingItems   []string `json:"pending_items"`
-	CanGraduate    bool     `json:"can_graduate"`
-	Summary        string   `json:"summary"`
-	DataSource     string   `json:"data_source"`
+	StudentName     string   `json:"student_name"`
+	TotalCredits    float64  `json:"total_credits"`
+	RequiredCredits float64  `json:"required_credits"`
+	PassedItems     []string `json:"passed_items"`
+	PendingItems    []string `json:"pending_items"`
+	CanGraduate     bool     `json:"can_graduate"`
+	Summary         string   `json:"summary"`
+	DataSource      string   `json:"data_source"`
 }
 
 func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string) *GraduationAuditResult {
@@ -98,12 +98,12 @@ func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string
 
 // ExamArrangement 考试安排
 type ExamArrangement struct {
-	TotalExams    int      `json:"total_exams"`
-	TotalRooms    int      `json:"total_rooms"`
-	TotalInvigilators int  `json:"total_invigilators"`
-	Schedule      []map[string]interface{} `json:"schedule"`
-	Conflicts     []string `json:"conflicts"`
-	DataSource    string   `json:"data_source"`
+	TotalExams        int                      `json:"total_exams"`
+	TotalRooms        int                      `json:"total_rooms"`
+	TotalInvigilators int                      `json:"total_invigilators"`
+	Schedule          []map[string]interface{} `json:"schedule"`
+	Conflicts         []string                 `json:"conflicts"`
+	DataSource        string                   `json:"data_source"`
 }
 
 func (s *AssistantService) ArrangeExams(ctx context.Context, semester string) *ExamArrangement {
@@ -147,10 +147,10 @@ func (s *AssistantService) GenerateNotification(ctx context.Context, channel, to
 
 // TeachingCalendar 教学日历
 type TeachingCalendar struct {
-	Semester   string                   `json:"semester"`
-	KeyDates   []map[string]interface{} `json:"key_dates"`
-	Suggestions []string                `json:"suggestions"`
-	DataSource string                   `json:"data_source"`
+	Semester    string                   `json:"semester"`
+	KeyDates    []map[string]interface{} `json:"key_dates"`
+	Suggestions []string                 `json:"suggestions"`
+	DataSource  string                   `json:"data_source"`
 }
 
 func (s *AssistantService) GenerateTeachingCalendar(ctx context.Context, semester string) *TeachingCalendar {

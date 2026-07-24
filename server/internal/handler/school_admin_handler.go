@@ -64,8 +64,8 @@ func (h *SchoolAdminHandler) CollegeComparison(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"metric":     metric,
-		"rankings":   []gin.H{{"rank": 1, "college": "文学院", "score": 88.0}},
+		"metric":      metric,
+		"rankings":    []gin.H{{"rank": 1, "college": "文学院", "score": 88.0}},
 		"data_source": "fallback",
 	})
 }
@@ -80,8 +80,8 @@ func (h *SchoolAdminHandler) AcademicOverview(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"date":            "2026-05-18",
+		"date":             "2026-05-18",
 		"college_rankings": []gin.H{{"college": "计算机学院", "health": 85.2}},
-		"data_source":     "fallback",
+		"data_source":      "fallback",
 	})
 }

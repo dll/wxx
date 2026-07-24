@@ -27,26 +27,26 @@ type Notification struct {
 }
 
 type WebhookConfig struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Channel     string `json:"channel"`
-	WebhookURL  string `json:"webhook_url"`
-	IsActive    bool   `json:"is_active"`
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Channel    string `json:"channel"`
+	WebhookURL string `json:"webhook_url"`
+	IsActive   bool   `json:"is_active"`
 }
 
 type NotificationService struct {
-	db          *sql.DB
-	qqWebhook   string
+	db            *sql.DB
+	qqWebhook     string
 	wechatWebhook string
-	httpClient  *http.Client
+	httpClient    *http.Client
 }
 
 func NewNotificationService(db *sql.DB, qqWebhook, wechatWebhook string) *NotificationService {
 	return &NotificationService{
-		db:          db,
-		qqWebhook:   qqWebhook,
+		db:            db,
+		qqWebhook:     qqWebhook,
 		wechatWebhook: wechatWebhook,
-		httpClient:  &http.Client{Timeout: 10 * time.Second},
+		httpClient:    &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -219,8 +219,6 @@ func (s *NotificationService) pushToWebhook(webhookURL, title, content, channel 
 	}
 	return fmt.Sprintf("推送成功 (%d)", resp.StatusCode), nil
 }
-
-
 
 func maskURL(url string) string {
 	if url == "" || url == "${QQ_WEBHOOK_URL}" || url == "${WECHAT_WEBHOOK_URL}" {

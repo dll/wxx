@@ -182,14 +182,14 @@ func TestCategoryFallbackResponses(t *testing.T) {
 func TestEvalBaseline(t *testing.T) {
 	// 评测各功能 feature key 的兜底回复覆盖率
 	features := map[string][]string{
-		"政策": {"freshman-plan", "growth-path"},
-		"流程": {"competition-match"},
-		"学业": {"schedule", "digital-mentor"},
-		"心理": {"mental-health"},
-		"校园": {"campus-life"},
-		"思政": {"political-study", "ideological-record", "party-progress"},
-		"就业": {"values-guidance"},
-		"FAQ":  {"classroom-extension"},
+		"政策":  {"freshman-plan", "growth-path"},
+		"流程":  {"competition-match"},
+		"学业":  {"schedule", "digital-mentor"},
+		"心理":  {"mental-health"},
+		"校园":  {"campus-life"},
+		"思政":  {"political-study", "ideological-record", "party-progress"},
+		"就业":  {"values-guidance"},
+		"FAQ": {"classroom-extension"},
 	}
 
 	totalFeatures := 0

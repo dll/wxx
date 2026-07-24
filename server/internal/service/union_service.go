@@ -19,14 +19,14 @@ func NewUnionService(llmClient llm.ChatClient) *UnionService {
 
 // EventPlan 活动策划方案
 type EventPlan struct {
-	Title        string   `json:"title"`
-	Goal         string   `json:"goal"`
-	Budget       string   `json:"budget"`
-	Timeline     []map[string]string `json:"timeline"`
-	Promotion    string   `json:"promotion"`
-	PosterCopy   string   `json:"poster_copy"`
-	RiskAssessment []string `json:"risk_assessment"`
-	DataSource   string   `json:"data_source"`
+	Title          string              `json:"title"`
+	Goal           string              `json:"goal"`
+	Budget         string              `json:"budget"`
+	Timeline       []map[string]string `json:"timeline"`
+	Promotion      string              `json:"promotion"`
+	PosterCopy     string              `json:"poster_copy"`
+	RiskAssessment []string            `json:"risk_assessment"`
+	DataSource     string              `json:"data_source"`
 }
 
 func (s *UnionService) GenerateEventPlan(ctx context.Context, eventType, eventName string) *EventPlan {
@@ -35,9 +35,9 @@ func (s *UnionService) GenerateEventPlan(ctx context.Context, eventType, eventNa
 	}
 
 	plan := &EventPlan{
-		Title:      eventName,
-		Goal:       "丰富校园文化生活，提升学生综合素质",
-		Budget:     "预估经费：3000元（场地布置1000元 + 宣传物料500元 + 奖品1500元）",
+		Title:  eventName,
+		Goal:   "丰富校园文化生活，提升学生综合素质",
+		Budget: "预估经费：3000元（场地布置1000元 + 宣传物料500元 + 奖品1500元）",
 		Timeline: []map[string]string{
 			{"phase": "策划期（D-14天）", "tasks": "确定方案、申请场地、组建工作组"},
 			{"phase": "筹备期（D-7天）", "tasks": "宣传物料制作、物资采购、节目排练"},
@@ -77,10 +77,10 @@ type PosterDesign struct {
 }
 
 var posterStyles = map[string]map[string]string{
-	"科技":   {"colors": "蓝色系 #1565C0 + #42A5F5", "layout": "左侧科技图案 + 右侧文字排版"},
-	"文艺":   {"colors": "暖色系 #E65100 + #FFB74D", "layout": "居中对称 + 艺术字体"},
-	"简约":   {"colors": "黑白灰 #333 + #F5F5F5", "layout": "极简排版 + 大标题"},
-	"学术":   {"colors": "深蓝紫 #283593 + #7E57C2", "layout": "上标题 + 中内容 + 下信息"},
+	"科技": {"colors": "蓝色系 #1565C0 + #42A5F5", "layout": "左侧科技图案 + 右侧文字排版"},
+	"文艺": {"colors": "暖色系 #E65100 + #FFB74D", "layout": "居中对称 + 艺术字体"},
+	"简约": {"colors": "黑白灰 #333 + #F5F5F5", "layout": "极简排版 + 大标题"},
+	"学术": {"colors": "深蓝紫 #283593 + #7E57C2", "layout": "上标题 + 中内容 + 下信息"},
 }
 
 func (s *UnionService) GeneratePoster(ctx context.Context, title, style string) *PosterDesign {
@@ -177,9 +177,9 @@ func (s *UnionService) GenerateQuestionnaire(ctx context.Context, topic string) 
 
 // HotTopicTrackData 热点追踪
 type HotTopicTrackData struct {
-	Topics     []map[string]interface{} `json:"topics"`
-	Suggestions []string                `json:"suggestions"`
-	DataSource string                   `json:"data_source"`
+	Topics      []map[string]interface{} `json:"topics"`
+	Suggestions []string                 `json:"suggestions"`
+	DataSource  string                   `json:"data_source"`
 }
 
 func (s *UnionService) TrackHotTopics(ctx context.Context) *HotTopicTrackData {
@@ -195,24 +195,24 @@ func (s *UnionService) TrackHotTopics(ctx context.Context) *HotTopicTrackData {
 
 // ActivityAnalysisData 活动数据分析
 type ActivityAnalysisData struct {
-	EventName    string                   `json:"event_name"`
-	RegRate      float64                  `json:"reg_rate"`
-	AttendRate   float64                  `json:"attend_rate"`
-	Feedback     float64                  `json:"feedback_score"`
-	Demographic  map[string]interface{}   `json:"demographic"`
-	Report       string                   `json:"report"`
-	Suggestions  []string                 `json:"suggestions"`
-	DataSource   string                   `json:"data_source"`
+	EventName   string                 `json:"event_name"`
+	RegRate     float64                `json:"reg_rate"`
+	AttendRate  float64                `json:"attend_rate"`
+	Feedback    float64                `json:"feedback_score"`
+	Demographic map[string]interface{} `json:"demographic"`
+	Report      string                 `json:"report"`
+	Suggestions []string               `json:"suggestions"`
+	DataSource  string                 `json:"data_source"`
 }
 
 func (s *UnionService) AnalyzeActivity(ctx context.Context, eventName string) *ActivityAnalysisData {
 	return &ActivityAnalysisData{
-		EventName:  eventName,
-		RegRate:    0.85,
+		EventName:   eventName,
+		RegRate:     0.85,
 		AttendRate:  0.72,
-		Feedback:   4.2,
+		Feedback:    4.2,
 		Demographic: map[string]interface{}{"大一": 40, "大二": 35, "大三": 20, "大四": 5},
-		Report:     fmt.Sprintf("%s活动整体参与度良好，报名率达85%%，到场率72%%。大一大二学生为主要参与群体。建议优化活动时间安排以提升到场率。", eventName),
+		Report:      fmt.Sprintf("%s活动整体参与度良好，报名率达85%%，到场率72%%。大一大二学生为主要参与群体。建议优化活动时间安排以提升到场率。", eventName),
 		Suggestions: []string{"优化时间安排，避开考试周", "增加线上参与渠道", "提前一周加大宣传力度"},
 		DataSource:  "mock",
 	}

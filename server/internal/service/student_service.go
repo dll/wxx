@@ -51,7 +51,7 @@ type DailyBriefing struct {
 	Deadlines       []map[string]interface{} `json:"deadlines"`
 	Activities      []map[string]interface{} `json:"activities"`
 	Weather         string                   `json:"weather"`
-	Motto           string                   `json:"motto"` // LLM 生成的个性化激励语
+	Motto           string                   `json:"motto"`       // LLM 生成的个性化激励语
 	DataSource      string                   `json:"data_source"` // ai/fallback
 }
 
@@ -398,15 +398,15 @@ func (s *StudentService) GenerateAIResponse(ctx context.Context, feature string,
 	}
 
 	prompts := map[string]string{
-		"campus-life":       fmt.Sprintf("你是校园生活助手。请为%s推荐今天校内的食堂特色菜品、图书馆空位情况、校车时刻和生活小贴士。约100字。", userName),
-		"schedule":          fmt.Sprintf("你是日程管理助手。请为%s根据典型大学生课表生成今日日程安排建议，含课程提醒和空闲时段推荐。约80字。", userName),
-		"mental-health":     fmt.Sprintf("你是心理健康关怀助手。请为%s提供一段温暖的心理关怀语和今日放松小建议。语气要温和、不judging。约80字。", userName),
-		"competition-match": fmt.Sprintf("你是竞赛推荐助手。请为%s根据计算机学院学生画像，推荐3个适合参加的竞赛并给出匹配度。约100字。", userName),
-		"freshman-plan":     fmt.Sprintf("你是大学规划顾问。请为%s生成大一四阶段（适应/探索/提升/冲刺）的学习生活规划路线图。约120字。", userName),
-		"growth-path":       fmt.Sprintf("你是成长路径规划师。请为%s分析当前学业阶段并给出学期里程碑和能力提升建议。约100字。", userName),
-		"political-study":   fmt.Sprintf("你是思政学习助手。请为%s生成今日思政学习卡片，含当日学习主题和简短解读。约80字。", userName),
-		"ideological-record": fmt.Sprintf("你是思想档案助手。请为%s生成一段思想成长记录摘要，包含理论学习、志愿服务等方面。约80字。", userName),
-		"party-progress":    fmt.Sprintf("你是入党进度追踪助手。请为%s说明入党全流程（申请书→积极分子→发展对象→预备党员→转正）的当前阶段和后续步骤。约100字。", userName),
+		"campus-life":         fmt.Sprintf("你是校园生活助手。请为%s推荐今天校内的食堂特色菜品、图书馆空位情况、校车时刻和生活小贴士。约100字。", userName),
+		"schedule":            fmt.Sprintf("你是日程管理助手。请为%s根据典型大学生课表生成今日日程安排建议，含课程提醒和空闲时段推荐。约80字。", userName),
+		"mental-health":       fmt.Sprintf("你是心理健康关怀助手。请为%s提供一段温暖的心理关怀语和今日放松小建议。语气要温和、不judging。约80字。", userName),
+		"competition-match":   fmt.Sprintf("你是竞赛推荐助手。请为%s根据计算机学院学生画像，推荐3个适合参加的竞赛并给出匹配度。约100字。", userName),
+		"freshman-plan":       fmt.Sprintf("你是大学规划顾问。请为%s生成大一四阶段（适应/探索/提升/冲刺）的学习生活规划路线图。约120字。", userName),
+		"growth-path":         fmt.Sprintf("你是成长路径规划师。请为%s分析当前学业阶段并给出学期里程碑和能力提升建议。约100字。", userName),
+		"political-study":     fmt.Sprintf("你是思政学习助手。请为%s生成今日思政学习卡片，含当日学习主题和简短解读。约80字。", userName),
+		"ideological-record":  fmt.Sprintf("你是思想档案助手。请为%s生成一段思想成长记录摘要，包含理论学习、志愿服务等方面。约80字。", userName),
+		"party-progress":      fmt.Sprintf("你是入党进度追踪助手。请为%s说明入党全流程（申请书→积极分子→发展对象→预备党员→转正）的当前阶段和后续步骤。约100字。", userName),
 		"classroom-extension": fmt.Sprintf("你是教学延伸助手。请为%s总结最近课堂的核心要点、生成复习提纲、推荐扩展阅读材料。约100字。", userName),
 		"values-guidance":     fmt.Sprintf("你是价值观引导助手。请为%s生成一段自然融入正向价值观（诚信/责任/奉献/感恩）的引导语和建议。约100字。", userName),
 	}
@@ -446,8 +446,8 @@ func fallbackAIResponse(feature string) map[string]interface{} {
 		"ideological-record":  "思想成长摘要：本学期积极参与志愿服务活动2次，按时完成青年大学习，关注时事政治。整体表现良好，建议继续保持对时事的关注度，增加社会实践经历。",
 		"party-progress":      "入党全流程追踪：\n1️⃣申请书已提交✅\n2️⃣确定为入党积极分子（当前阶段）→需完成：参加党校培训、定期思想汇报、志愿服务20小时\n3️⃣确定为发展对象→即将\n4️⃣接收为预备党员→待定\n5️⃣预备党员转正→待定",
 		"digital-mentor":      "本周学习建议：重点突破数据结构的图论算法（最短路径、最小生成树）。这是目前你的薄弱环节，也是后续算法竞赛的基础。建议每天刷2道LeetCode图论题巩固。",
-	"classroom-extension":  "课后复习提纲：1.梳理本节课核心知识点和关键公式 2.完成课后习题并对比答案 3.标记不理解的内容，下次课前向老师提问。扩展推荐：《算法导论》对应章节和MIT公开课对应视频。",
-	"values-guidance":      "价值观引导：诚信是做人之本，按时完成任务、考试不作弊是基本底线；责任是成长之基，主动承担班级和团队任务能锻炼能力；奉献是人生之乐，志愿服务让我们在帮助他人中成长；感恩是幸福之源，记住每一次来自师长和同学的帮助。",
+		"classroom-extension": "课后复习提纲：1.梳理本节课核心知识点和关键公式 2.完成课后习题并对比答案 3.标记不理解的内容，下次课前向老师提问。扩展推荐：《算法导论》对应章节和MIT公开课对应视频。",
+		"values-guidance":     "价值观引导：诚信是做人之本，按时完成任务、考试不作弊是基本底线；责任是成长之基，主动承担班级和团队任务能锻炼能力；奉献是人生之乐，志愿服务让我们在帮助他人中成长；感恩是幸福之源，记住每一次来自师长和同学的帮助。",
 	}
 	if resp, ok := responses[feature]; ok {
 		return map[string]interface{}{"content": feature, "response": resp, "data_source": "fallback"}
@@ -459,13 +459,13 @@ func fallbackAIResponse(feature string) map[string]interface{} {
 
 // AcademicWarning 学业预警结果
 type AcademicWarning struct {
-	StudentName    string   `json:"student_name"`
-	RiskLevel      string   `json:"risk_level"` // high/medium/low
-	RiskScore      float64  `json:"risk_score"`
-	Factors        []string `json:"factors"`
-	Suggestions    []string `json:"suggestions"`
-	Resources      []string `json:"resources"`
-	DataSource     string   `json:"data_source"`
+	StudentName string   `json:"student_name"`
+	RiskLevel   string   `json:"risk_level"` // high/medium/low
+	RiskScore   float64  `json:"risk_score"`
+	Factors     []string `json:"factors"`
+	Suggestions []string `json:"suggestions"`
+	Resources   []string `json:"resources"`
+	DataSource  string   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateAcademicWarning(ctx context.Context, userID int64) *AcademicWarning {
@@ -502,11 +502,11 @@ func (s *StudentService) GenerateAcademicWarning(ctx context.Context, userID int
 
 // MockInterview AI 模拟面试
 type MockInterview struct {
-	Position     string   `json:"position"`
-	Questions    []map[string]interface{} `json:"questions"`
-	Tips         []string `json:"tips"`
-	Score        float64  `json:"score"`
-	DataSource   string   `json:"data_source"`
+	Position   string                   `json:"position"`
+	Questions  []map[string]interface{} `json:"questions"`
+	Tips       []string                 `json:"tips"`
+	Score      float64                  `json:"score"`
+	DataSource string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateMockInterview(ctx context.Context, position string) *MockInterview {
@@ -545,9 +545,9 @@ func (s *StudentService) GenerateMockInterview(ctx context.Context, position str
 
 // StudyBuddyMatch 学友匹配结果
 type StudyBuddyMatch struct {
-	Matches      []map[string]interface{} `json:"matches"`
-	MatchReason  string                   `json:"match_reason"`
-	DataSource   string                   `json:"data_source"`
+	Matches     []map[string]interface{} `json:"matches"`
+	MatchReason string                   `json:"match_reason"`
+	DataSource  string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID int64) *StudyBuddyMatch {
@@ -686,19 +686,19 @@ func (s *StudentService) GenerateKnowledgeGraph(ctx context.Context, courseName 
 
 // NoteAssistant 笔记助手结果
 type NoteAssistant struct {
-	Title       string                   `json:"title"`
-	KeyPoints   []string                 `json:"key_points"`
-	MindMap     string                   `json:"mind_map"`
-	KeyConcepts []string                 `json:"key_concepts"`
+	Title         string                   `json:"title"`
+	KeyPoints     []string                 `json:"key_points"`
+	MindMap       string                   `json:"mind_map"`
+	KeyConcepts   []string                 `json:"key_concepts"`
 	QuizQuestions []map[string]interface{} `json:"quiz_questions"`
-	DataSource  string                   `json:"data_source"`
+	DataSource    string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateNoteAssistant(ctx context.Context, content string) *NoteAssistant {
 	result := &NoteAssistant{
-		Title:      "学习笔记",
-		KeyPoints:  []string{"核心概念理解", "算法步骤梳理", "典型应用场景"},
-		MindMap:    "中心主题 → 子概念1 → 子概念2",
+		Title:       "学习笔记",
+		KeyPoints:   []string{"核心概念理解", "算法步骤梳理", "典型应用场景"},
+		MindMap:     "中心主题 → 子概念1 → 子概念2",
 		KeyConcepts: []string{"定义", "性质", "算法", "应用"},
 		QuizQuestions: []map[string]interface{}{
 			{"q": "请简述核心概念的定义", "a": "核心概念是..."},
@@ -761,12 +761,12 @@ func (s *StudentService) GenerateResume(ctx context.Context, userID int64, posit
 
 // CareerSimulation 职业模拟器
 type CareerSimulation struct {
-	CareerPath string                   `json:"career_path"`
-	ThreeYear  string                   `json:"three_year"`
-	FiveYear   string                   `json:"five_year"`
-	Skills     []string                 `json:"skills_needed"`
+	CareerPath  string                   `json:"career_path"`
+	ThreeYear   string                   `json:"three_year"`
+	FiveYear    string                   `json:"five_year"`
+	Skills      []string                 `json:"skills_needed"`
 	SalaryTrend []map[string]interface{} `json:"salary_trend"`
-	DataSource string                   `json:"data_source"`
+	DataSource  string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateCareerSimulation(ctx context.Context, careerPath string) *CareerSimulation {
@@ -790,9 +790,9 @@ func (s *StudentService) GenerateCareerSimulation(ctx context.Context, careerPat
 
 // AlumniMatch 前辈连线匹配
 type AlumniMatch struct {
-	Matches    []map[string]interface{} `json:"matches"`
-	SuggestQuestions []string           `json:"suggest_questions"`
-	DataSource string                   `json:"data_source"`
+	Matches          []map[string]interface{} `json:"matches"`
+	SuggestQuestions []string                 `json:"suggest_questions"`
+	DataSource       string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateAlumniMatch(ctx context.Context, userID int64) *AlumniMatch {
@@ -815,30 +815,30 @@ func (s *StudentService) GenerateAlumniMatch(ctx context.Context, userID int64) 
 
 // WeeklyReportData AI 学习周报
 type WeeklyReportData struct {
-	Week             string                     `json:"week"`
-	TotalHours       float64                    `json:"total_hours"`
-	CoursesCount     int                        `json:"courses_count"`
-	Assignments      int                        `json:"assignments"`
-	RankChange       int                        `json:"rank_change"`
-	Highlights       []string                   `json:"highlights"`
-	Improvements     []string                   `json:"improvements"`
-	NextWeekGoals    []string                   `json:"next_week_goals"`
-	TimeDistribution map[string]float64         `json:"time_distribution"`
-	KnowledgeChanges []map[string]interface{}   `json:"knowledge_changes"`
-	Attribution      string                     `json:"attribution"`
-	DataSource       string                     `json:"data_source"`
+	Week             string                   `json:"week"`
+	TotalHours       float64                  `json:"total_hours"`
+	CoursesCount     int                      `json:"courses_count"`
+	Assignments      int                      `json:"assignments"`
+	RankChange       int                      `json:"rank_change"`
+	Highlights       []string                 `json:"highlights"`
+	Improvements     []string                 `json:"improvements"`
+	NextWeekGoals    []string                 `json:"next_week_goals"`
+	TimeDistribution map[string]float64       `json:"time_distribution"`
+	KnowledgeChanges []map[string]interface{} `json:"knowledge_changes"`
+	Attribution      string                   `json:"attribution"`
+	DataSource       string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateWeeklyReport(ctx context.Context, userID int64) *WeeklyReportData {
 	weekNum := int(time.Now().YearDay()/7) + 1
 	data := &WeeklyReportData{
-		Week:         fmt.Sprintf("第%d周", weekNum),
-		TotalHours:   22.5,
-		CoursesCount: 5,
-		Assignments:  3,
-		RankChange:   2,
-		Highlights:   []string{"数据结构实验满分", "英语演讲获得A"},
-		Improvements: []string{"操作系统作业需加强", "体育锻炼不足"},
+		Week:          fmt.Sprintf("第%d周", weekNum),
+		TotalHours:    22.5,
+		CoursesCount:  5,
+		Assignments:   3,
+		RankChange:    2,
+		Highlights:    []string{"数据结构实验满分", "英语演讲获得A"},
+		Improvements:  []string{"操作系统作业需加强", "体育锻炼不足"},
 		NextWeekGoals: []string{"完成算法作业", "准备期中考试"},
 		TimeDistribution: map[string]float64{
 			"上课": 15.0, "自习": 4.5, "实验": 2.0, "运动": 1.0,
@@ -964,15 +964,15 @@ func (s *StudentService) GeneratePrivateChat(ctx context.Context) *PrivateChatDa
 
 // DynamicMentorData 数字人导师（动态形象增强版）
 type DynamicMentorData struct {
-	Name           string                   `json:"name"`
-	AvatarStyle    string                   `json:"avatar_style"`
-	Personality    string                   `json:"personality"`
-	MemoryContext  []map[string]interface{} `json:"memory_context"`
-	CurrentMood    string                   `json:"current_mood"`
-	Greeting       string                   `json:"greeting"`
-	Suggestions    []string                 `json:"suggestions"`
-	InteractionTips []string                `json:"interaction_tips"`
-	DataSource     string                   `json:"data_source"`
+	Name            string                   `json:"name"`
+	AvatarStyle     string                   `json:"avatar_style"`
+	Personality     string                   `json:"personality"`
+	MemoryContext   []map[string]interface{} `json:"memory_context"`
+	CurrentMood     string                   `json:"current_mood"`
+	Greeting        string                   `json:"greeting"`
+	Suggestions     []string                 `json:"suggestions"`
+	InteractionTips []string                 `json:"interaction_tips"`
+	DataSource      string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateDynamicMentor(ctx context.Context, userID int64, style string) *DynamicMentorData {
@@ -1024,14 +1024,14 @@ func (s *StudentService) GenerateDynamicMentor(ctx context.Context, userID int64
 
 // EnhancedCareerSimulation 职业模拟器增强版（数据驱动仿真）
 type EnhancedCareerSimulation struct {
-	CareerPath     string                   `json:"career_path"`
-	CurrentStage   string                   `json:"current_stage"`
-	Stages         []map[string]interface{} `json:"stages"`
-	SkillsGap      []map[string]interface{} `json:"skills_gap"`
-	SalaryProjection []map[string]interface{} `json:"salary_projection"`
-	MarketTrends   []string                 `json:"market_trends"`
-	AlternativePathways []string            `json:"alternative_pathways"`
-	DataSource     string                   `json:"data_source"`
+	CareerPath          string                   `json:"career_path"`
+	CurrentStage        string                   `json:"current_stage"`
+	Stages              []map[string]interface{} `json:"stages"`
+	SkillsGap           []map[string]interface{} `json:"skills_gap"`
+	SalaryProjection    []map[string]interface{} `json:"salary_projection"`
+	MarketTrends        []string                 `json:"market_trends"`
+	AlternativePathways []string                 `json:"alternative_pathways"`
+	DataSource          string                   `json:"data_source"`
 }
 
 func (s *StudentService) GenerateEnhancedCareerSimulation(ctx context.Context, careerPath string) *EnhancedCareerSimulation {

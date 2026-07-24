@@ -130,11 +130,11 @@ func (r *ForecastRepo) ListForecasts(collegeID string, category string, riskLeve
 		forecasts = append(forecasts, f)
 	}
 
-		if err := rows.Err(); err != nil {
-			return nil, 0, fmt.Errorf("遍历问题预案列表失败: %w", err)
-		}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历问题预案列表失败: %w", err)
+	}
 
-		return forecasts, total, nil
+	return forecasts, total, nil
 }
 
 // UpdateForecastStatus 更新问题预案状态
@@ -225,11 +225,11 @@ func (r *ForecastRepo) ListIssueDetails(forecastID string, detailType string, pa
 		details = append(details, d)
 	}
 
-		if err := rows.Err(); err != nil {
-			return nil, 0, fmt.Errorf("遍历问题详情列表失败: %w", err)
-		}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("遍历问题详情列表失败: %w", err)
+	}
 
-		return details, total, nil
+	return details, total, nil
 }
 
 // GetRiskDistribution 获取风险等级分布

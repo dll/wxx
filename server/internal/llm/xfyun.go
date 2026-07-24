@@ -294,12 +294,12 @@ func (c *XfyunClient) buildTTSFrame(text string, voiceName string) ([]byte, erro
 		AppID string `json:"app_id"`
 	}
 	type ttsBusiness struct {
-		Aue   string `json:"aue"`
-		Vcn   string `json:"vcn"`
-		Pitch int    `json:"pitch"`
-		Speed int    `json:"speed"`
-		Volume int   `json:"volume"`
-		Tte   string `json:"tte"`
+		Aue    string `json:"aue"`
+		Vcn    string `json:"vcn"`
+		Pitch  int    `json:"pitch"`
+		Speed  int    `json:"speed"`
+		Volume int    `json:"volume"`
+		Tte    string `json:"tte"`
 	}
 	type ttsData struct {
 		Status int    `json:"status"`
@@ -313,12 +313,12 @@ func (c *XfyunClient) buildTTSFrame(text string, voiceName string) ([]byte, erro
 	}{
 		Common: ttsCommon{AppID: c.appID},
 		Business: ttsBusiness{
-			Aue:   "lame",  // MP3 格式
-			Vcn:   voiceName,
-			Pitch: 50,
-			Speed: 50,
+			Aue:    "lame", // MP3 格式
+			Vcn:    voiceName,
+			Pitch:  50,
+			Speed:  50,
 			Volume: 50,
-			Tte:   "utf8",
+			Tte:    "utf8",
 		},
 		Data: ttsData{
 			Status: 2, // 一次性发送全部文本

@@ -61,10 +61,10 @@ func (h *SysAdminHandler) UserBehavior(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"period":        "2026年5月",
-		"active_users":  3200,
-		"dau":           450,
+		"period":         "2026年5月",
+		"active_users":   3200,
+		"dau":            450,
 		"retention_rate": 0.68,
-		"data_source":   "fallback",
+		"data_source":    "fallback",
 	})
 }

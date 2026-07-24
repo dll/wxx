@@ -39,8 +39,8 @@ var (
 // ── 延迟统计 ──
 
 type latStats struct {
-	mu     sync.Mutex
-	times  []time.Duration
+	mu      sync.Mutex
+	times   []time.Duration
 	lastErr string
 }
 
@@ -240,15 +240,15 @@ func run(name, method, url, token, body string, dur time.Duration) result {
 	elapsed := time.Since(deadline) + dur
 
 	r := result{
-		name:        name,
-		total:       total,
-		success:     success.Load(),
-		fail:        fail.Load(),
-		avg:         stats.avg(),
-		p50:         stats.pct(50),
-		p95:         stats.pct(95),
-		p99:         stats.pct(99),
-		qps:         float64(total) / elapsed.Seconds(),
+		name:    name,
+		total:   total,
+		success: success.Load(),
+		fail:    fail.Load(),
+		avg:     stats.avg(),
+		p50:     stats.pct(50),
+		p95:     stats.pct(95),
+		p99:     stats.pct(99),
+		qps:     float64(total) / elapsed.Seconds(),
 	}
 	if total > 0 {
 		r.successRate = float64(success.Load()) / float64(total) * 100

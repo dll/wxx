@@ -28,7 +28,7 @@ type EvalEntry struct {
 
 // ChatResponse 问答接口响应格式
 type ChatResponse struct {
-	Code    int `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
 		Conclusion string `json:"conclusion"`
@@ -45,36 +45,36 @@ type ChatResponse struct {
 
 // EvalResult 单条评测结果
 type EvalResult struct {
-	Index             int     `json:"index"`
-	Question          string  `json:"question"`
-	Category          string  `json:"category"`
-	ExpectedIntent    string  `json:"expected_intent"`
-	Passed            bool    `json:"passed"`
-	SourcesOK         bool    `json:"sources_ok"`
-	SourcesGot        int     `json:"sources_got"`
-	SourcesExpected   int     `json:"sources_expected"`
-	ConfidenceOK      bool    `json:"confidence_ok"`
-	ConfidenceGot     float64 `json:"confidence_got"`
-	MinConfidence     float64 `json:"min_confidence"`
-	FallbackOK        bool    `json:"fallback_ok"`
-	FallbackGot       bool    `json:"fallback_got"`
-	AcceptableFallback bool  `json:"acceptable_fallback"`
-	ResponseEmpty     bool    `json:"response_empty"`
-	Error             string  `json:"error,omitempty"`
-	DurationMs        int64   `json:"duration_ms"`
+	Index              int     `json:"index"`
+	Question           string  `json:"question"`
+	Category           string  `json:"category"`
+	ExpectedIntent     string  `json:"expected_intent"`
+	Passed             bool    `json:"passed"`
+	SourcesOK          bool    `json:"sources_ok"`
+	SourcesGot         int     `json:"sources_got"`
+	SourcesExpected    int     `json:"sources_expected"`
+	ConfidenceOK       bool    `json:"confidence_ok"`
+	ConfidenceGot      float64 `json:"confidence_got"`
+	MinConfidence      float64 `json:"min_confidence"`
+	FallbackOK         bool    `json:"fallback_ok"`
+	FallbackGot        bool    `json:"fallback_got"`
+	AcceptableFallback bool    `json:"acceptable_fallback"`
+	ResponseEmpty      bool    `json:"response_empty"`
+	Error              string  `json:"error,omitempty"`
+	DurationMs         int64   `json:"duration_ms"`
 }
 
 // EvalReport 最终评测报告
 type EvalReport struct {
-	Total          int     `json:"total"`
-	Passed         int     `json:"passed"`
-	PassRate       float64 `json:"pass_rate"`
-	AvgConfidence  float64 `json:"avg_confidence"`
-	AvgSources     float64 `json:"avg_sources"`
-	AvgDurationMs  int64   `json:"avg_duration_ms"`
-	SourcePassRate float64 `json:"source_pass_rate"`
-	ConfPassRate   float64 `json:"conf_pass_rate"`
-	FallbackRate   float64 `json:"fallback_rate"`
+	Total          int                        `json:"total"`
+	Passed         int                        `json:"passed"`
+	PassRate       float64                    `json:"pass_rate"`
+	AvgConfidence  float64                    `json:"avg_confidence"`
+	AvgSources     float64                    `json:"avg_sources"`
+	AvgDurationMs  int64                      `json:"avg_duration_ms"`
+	SourcePassRate float64                    `json:"source_pass_rate"`
+	ConfPassRate   float64                    `json:"conf_pass_rate"`
+	FallbackRate   float64                    `json:"fallback_rate"`
 	ByCategory     map[string]*CategoryReport `json:"by_category"`
 }
 
@@ -172,15 +172,15 @@ func runEval(baseURL, token string, entries []EvalEntry, concurrency int) []Eval
 
 func evalSingle(baseURL, token string, index int, entry EvalEntry) EvalResult {
 	result := EvalResult{
-		Index:             index,
-		Question:          entry.Question,
-		Category:          entry.Category,
-		ExpectedIntent:    entry.ExpectedIntent,
-		SourcesOK:         true,
-		ConfidenceOK:      true,
-		FallbackOK:        true,
-		SourcesExpected:   entry.ExpectedSourcesMin,
-		MinConfidence:     entry.MinConfidence,
+		Index:              index,
+		Question:           entry.Question,
+		Category:           entry.Category,
+		ExpectedIntent:     entry.ExpectedIntent,
+		SourcesOK:          true,
+		ConfidenceOK:       true,
+		FallbackOK:         true,
+		SourcesExpected:    entry.ExpectedSourcesMin,
+		MinConfidence:      entry.MinConfidence,
 		AcceptableFallback: entry.AcceptableFallback,
 	}
 

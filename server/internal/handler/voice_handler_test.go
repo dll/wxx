@@ -18,10 +18,10 @@ import (
 
 // mockVoiceClient 实现 voiceClient 接口用于测试
 type mockVoiceClient struct {
-	asrText    string
-	asrErr     error
-	ttsAudio   []byte
-	ttsErr     error
+	asrText  string
+	asrErr   error
+	ttsAudio []byte
+	ttsErr   error
 }
 
 func (m *mockVoiceClient) ASR(_ context.Context, _ []byte) (string, error) {

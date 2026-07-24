@@ -16,11 +16,11 @@ import (
 
 // ForecastService 问题预案业务服务
 type ForecastService struct {
-	forecastRepo   *repository.ForecastRepo
-	emotionRepo    *repository.EmotionRepo
-	feedbackRepo   *repository.FeedbackRepo
-	llmClient      llm.ChatClient
-	db             *sql.DB
+	forecastRepo *repository.ForecastRepo
+	emotionRepo  *repository.EmotionRepo
+	feedbackRepo *repository.FeedbackRepo
+	llmClient    llm.ChatClient
+	db           *sql.DB
 }
 
 // NewForecastService 创建问题预案服务
@@ -43,16 +43,16 @@ func NewForecastService(
 // AnalysisRequest 分析请求
 type AnalysisRequest struct {
 	CollegeID    string   `json:"college_id"`
-	TimeRange    string   `json:"time_range"`     // last_7_days, last_30_days, last_90_days
-	AnalysisType string   `json:"analysis_type"`  // comprehensive, emotion, academic, attendance, complaint, discipline
-	DataSources  []string `json:"data_sources"`   // 可选，指定数据源
+	TimeRange    string   `json:"time_range"`    // last_7_days, last_30_days, last_90_days
+	AnalysisType string   `json:"analysis_type"` // comprehensive, emotion, academic, attendance, complaint, discipline
+	DataSources  []string `json:"data_sources"`  // 可选，指定数据源
 }
 
 // AnalysisResponse 分析响应
 type AnalysisResponse struct {
-	Summary    *model.ForecastSummary `json:"summary"`
-	Issues     []*model.IssueForecast `json:"issues"`
-	ReportURL  string                 `json:"report_url,omitempty"`
+	Summary   *model.ForecastSummary `json:"summary"`
+	Issues    []*model.IssueForecast `json:"issues"`
+	ReportURL string                 `json:"report_url,omitempty"`
 }
 
 // Analyze 执行问题分析
@@ -407,18 +407,18 @@ func (s *ForecastService) analyzeWithRules(dataSummary map[string]interface{}, c
 	if emotionData, ok := dataSummary["emotion"].(map[string]interface{}); ok {
 		if highRisk, ok := emotionData["high_risk_count"].(int); ok && highRisk > 5 {
 			issue := &model.IssueForecast{
-				ForecastID:    "forecast-" + uuid.New().String()[:8],
-				CollegeID:     collegeID,
-				Category:      "emotion",
-				Subcategory:   "high_risk_alerts",
-				Title:         fmt.Sprintf("近期高风险情感预警较多（%d条）", highRisk),
-				RiskLevel:     "high",
-				Status:        "pending",
-				AffectedCount: highRisk,
-				RootCause:     "可能存在学生心理问题集中爆发的情况",
+				ForecastID:       "forecast-" + uuid.New().String()[:8],
+				CollegeID:        collegeID,
+				Category:         "emotion",
+				Subcategory:      "high_risk_alerts",
+				Title:            fmt.Sprintf("近期高风险情感预警较多（%d条）", highRisk),
+				RiskLevel:        "high",
+				Status:           "pending",
+				AffectedCount:    highRisk,
+				RootCause:        "可能存在学生心理问题集中爆发的情况",
 				SuggestedActions: `["加强心理辅导资源投入","开展心理健康普查","组织心理健康主题活动"]`,
-				Sources:       `["情感预警系统"]`,
-				CreatedBy:     &operatorID,
+				Sources:          `["情感预警系统"]`,
+				CreatedBy:        &operatorID,
 			}
 			issues = append(issues, issue)
 		}
@@ -428,18 +428,18 @@ func (s *ForecastService) analyzeWithRules(dataSummary map[string]interface{}, c
 	if feedbackData, ok := dataSummary["feedback"].(map[string]interface{}); ok {
 		if pendingCount, ok := feedbackData["pending_count"].(int); ok && pendingCount > 10 {
 			issue := &model.IssueForecast{
-				ForecastID:    "forecast-" + uuid.New().String()[:8],
-				CollegeID:     collegeID,
-				Category:      "complaint",
-				Subcategory:   "pending_feedback",
-				Title:         fmt.Sprintf("待处理反馈积压（%d条）", pendingCount),
-				RiskLevel:     "medium",
-				Status:        "pending",
-				AffectedCount: pendingCount,
-				RootCause:     "反馈处理机制可能需要优化",
+				ForecastID:       "forecast-" + uuid.New().String()[:8],
+				CollegeID:        collegeID,
+				Category:         "complaint",
+				Subcategory:      "pending_feedback",
+				Title:            fmt.Sprintf("待处理反馈积压（%d条）", pendingCount),
+				RiskLevel:        "medium",
+				Status:           "pending",
+				AffectedCount:    pendingCount,
+				RootCause:        "反馈处理机制可能需要优化",
 				SuggestedActions: `["加快反馈处理流程","增加反馈处理人员","优化反馈分类机制"]`,
-				Sources:       `["反馈投诉系统"]`,
-				CreatedBy:     &operatorID,
+				Sources:          `["反馈投诉系统"]`,
+				CreatedBy:        &operatorID,
 			}
 			issues = append(issues, issue)
 		}
@@ -449,18 +449,18 @@ func (s *ForecastService) analyzeWithRules(dataSummary map[string]interface{}, c
 	if processData, ok := dataSummary["process"].(map[string]interface{}); ok {
 		if failedCount, ok := processData["failed_count"].(int); ok && failedCount > 3 {
 			issue := &model.IssueForecast{
-				ForecastID:    "forecast-" + uuid.New().String()[:8],
-				CollegeID:     collegeID,
-				Category:      "process",
-				Subcategory:   "failed_processes",
-				Title:         fmt.Sprintf("办事流程失败率偏高（%d条）", failedCount),
-				RiskLevel:     "medium",
-				Status:        "pending",
-				AffectedCount: failedCount,
-				RootCause:     "可能存在流程设计不合理或指引不清晰的情况",
+				ForecastID:       "forecast-" + uuid.New().String()[:8],
+				CollegeID:        collegeID,
+				Category:         "process",
+				Subcategory:      "failed_processes",
+				Title:            fmt.Sprintf("办事流程失败率偏高（%d条）", failedCount),
+				RiskLevel:        "medium",
+				Status:           "pending",
+				AffectedCount:    failedCount,
+				RootCause:        "可能存在流程设计不合理或指引不清晰的情况",
 				SuggestedActions: `["优化办事流程设计","完善流程指引文档","加强流程咨询服务"]`,
-				Sources:       `["办事流程系统"]`,
-				CreatedBy:     &operatorID,
+				Sources:          `["办事流程系统"]`,
+				CreatedBy:        &operatorID,
 			}
 			issues = append(issues, issue)
 		}

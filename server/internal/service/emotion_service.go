@@ -40,12 +40,12 @@ func (s *EmotionService) SetTemporalClient(tc *temporal.Client) {
 
 // emotionAnalysisResult LLM 情感分析结果结构
 type emotionAnalysisResult struct {
-	Score       float64  `json:"score"`        // -1.0 ~ 1.0
-	RiskLevel   string   `json:"risk_level"`   // low / medium / high / urgent
-	Emotions    []string `json:"emotions"`     // 检测到的情绪
-	Keywords    []string `json:"keywords"`     // 高风险关键词
-	Reasoning   string   `json:"reasoning"`    // 分析理由
-	NeedFollowUp bool   `json:"need_follow_up"` // 是否需要跟进
+	Score        float64  `json:"score"`          // -1.0 ~ 1.0
+	RiskLevel    string   `json:"risk_level"`     // low / medium / high / urgent
+	Emotions     []string `json:"emotions"`       // 检测到的情绪
+	Keywords     []string `json:"keywords"`       // 高风险关键词
+	Reasoning    string   `json:"reasoning"`      // 分析理由
+	NeedFollowUp bool     `json:"need_follow_up"` // 是否需要跟进
 }
 
 // AnalyzeAndLog 分析文本情感并记录

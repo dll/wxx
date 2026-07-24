@@ -99,14 +99,14 @@ func (s *SysAdminService) EvaluateKnowledgeQuality(ctx context.Context) *Knowled
 
 // UserBehaviorAnalysis 用户行为分析
 type UserBehaviorAnalysis struct {
-	Period          string                   `json:"period"`
-	ActiveUsers     int                      `json:"active_users"`
-	DAU             int                      `json:"dau"`
-	RetentionRate   float64                  `json:"retention_rate"`
-	TopFeatures     []map[string]interface{} `json:"top_features"`
-	UserJourneys    []string                 `json:"user_journeys"`
-	Suggestions     []string                 `json:"suggestions"`
-	DataSource      string                   `json:"data_source"`
+	Period        string                   `json:"period"`
+	ActiveUsers   int                      `json:"active_users"`
+	DAU           int                      `json:"dau"`
+	RetentionRate float64                  `json:"retention_rate"`
+	TopFeatures   []map[string]interface{} `json:"top_features"`
+	UserJourneys  []string                 `json:"user_journeys"`
+	Suggestions   []string                 `json:"suggestions"`
+	DataSource    string                   `json:"data_source"`
 }
 
 func (s *SysAdminService) AnalyzeUserBehavior(ctx context.Context) *UserBehaviorAnalysis {

@@ -33,8 +33,8 @@ type RecommendItem struct {
 	Summary      string  `json:"summary"`
 	Tags         string  `json:"tags"`
 	SourceLink   string  `json:"source_link"`
-	Reason       string  `json:"reason"`  // 推荐理由
-	Score        float64 `json:"score"`   // 推荐分数
+	Reason       string  `json:"reason"` // 推荐理由
+	Score        float64 `json:"score"`  // 推荐分数
 }
 
 // roleTypeWeights 角色对各资源类型的偏好权重

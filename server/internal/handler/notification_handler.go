@@ -18,11 +18,11 @@ func NewNotificationHandler(svc *service.NotificationService) *NotificationHandl
 }
 
 type createNotificationReq struct {
-	Title       string   `json:"title" binding:"required"`
-	Content     string   `json:"content" binding:"required"`
-	AudienceType string  `json:"audience_type"`
-	PushQQ      bool     `json:"push_qq"`
-	PushWechat  bool     `json:"push_wechat"`
+	Title        string `json:"title" binding:"required"`
+	Content      string `json:"content" binding:"required"`
+	AudienceType string `json:"audience_type"`
+	PushQQ       bool   `json:"push_qq"`
+	PushWechat   bool   `json:"push_wechat"`
 }
 
 func (h *NotificationHandler) Create(c *gin.Context) {

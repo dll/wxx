@@ -56,18 +56,18 @@ func TestEmotionAgent_KeyAndName(t *testing.T) {
 // TestRouterMatchesAgentKey 验证路由返回的 Key 与所有 Agent 的 Key 对齐（防止再次出现 key 不匹配 bug）
 func TestRouterMatchesAgentKey(t *testing.T) {
 	registered := map[string]bool{
-		(&QAAgent{}).Key():      true,
-		(&PolicyAgent{}).Key():  true,
-		(&ProcessAgent{}).Key(): true,
+		(&QAAgent{}).Key():           true,
+		(&PolicyAgent{}).Key():       true,
+		(&ProcessAgent{}).Key():      true,
 		(NewEmotionAgent(nil)).Key(): true,
 	}
 
 	router := NewRouter()
 	for _, q := range []string{
 		"奖学金的申请政策是什么", // policy
-		"如何办理休学",       // process
-		"焦虑睡不好",        // emotion
-		"你好",           // qa-default
+		"如何办理休学",      // process
+		"焦虑睡不好",       // emotion
+		"你好",          // qa-default
 	} {
 		names := router.Route(q)
 		for _, n := range names {

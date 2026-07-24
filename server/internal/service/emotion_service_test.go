@@ -52,7 +52,7 @@ func TestEmotionService_AnalyzeAndLog_LowRisk(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": 0.3, "risk_level": "low", "emotions": ["平静"], "keywords": [], "reasoning": "正常交流", "need_follow_up": false}`,
+			Content:      `{"score": 0.3, "risk_level": "low", "emotions": ["平静"], "keywords": [], "reasoning": "正常交流", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -81,7 +81,7 @@ func TestEmotionService_AnalyzeAndLog_HighRisk(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.9, "risk_level": "high", "emotions": ["绝望", "焦虑"], "keywords": ["不想活了"], "reasoning": "学生表达了严重负面情绪", "need_follow_up": true}`,
+			Content:      `{"score": -0.9, "risk_level": "high", "emotions": ["绝望", "焦虑"], "keywords": ["不想活了"], "reasoning": "学生表达了严重负面情绪", "need_follow_up": true}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -104,7 +104,7 @@ func TestEmotionService_AnalyzeAndLog_UrgentRisk(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -1.0, "risk_level": "urgent", "emotions": ["绝望"], "keywords": ["自杀"], "reasoning": "紧急情况", "need_follow_up": true}`,
+			Content:      `{"score": -1.0, "risk_level": "urgent", "emotions": ["绝望"], "keywords": ["自杀"], "reasoning": "紧急情况", "need_follow_up": true}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -150,7 +150,7 @@ func TestEmotionService_ListAlerts(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.5, "risk_level": "medium", "emotions": ["焦虑"], "keywords": [], "reasoning": "压力", "need_follow_up": false}`,
+			Content:      `{"score": -0.5, "risk_level": "medium", "emotions": ["焦虑"], "keywords": [], "reasoning": "压力", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -176,7 +176,7 @@ func TestEmotionService_ListAlerts_FilterByRisk(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.9, "risk_level": "high", "emotions": ["愤怒"], "keywords": [], "reasoning": "高风险", "need_follow_up": true}`,
+			Content:      `{"score": -0.9, "risk_level": "high", "emotions": ["愤怒"], "keywords": [], "reasoning": "高风险", "need_follow_up": true}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -184,7 +184,7 @@ func TestEmotionService_ListAlerts_FilterByRisk(t *testing.T) {
 
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": 0.5, "risk_level": "low", "emotions": ["开心"], "keywords": [], "reasoning": "积极", "need_follow_up": false}`,
+			Content:      `{"score": 0.5, "risk_level": "low", "emotions": ["开心"], "keywords": [], "reasoning": "积极", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -215,7 +215,7 @@ func TestEmotionService_GetStats(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -1.0, "risk_level": "urgent", "emotions": ["绝望"], "keywords": [], "reasoning": "紧急", "need_follow_up": true}`,
+			Content:      `{"score": -1.0, "risk_level": "urgent", "emotions": ["绝望"], "keywords": [], "reasoning": "紧急", "need_follow_up": true}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -223,7 +223,7 @@ func TestEmotionService_GetStats(t *testing.T) {
 
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.7, "risk_level": "high", "emotions": ["焦虑"], "keywords": [], "reasoning": "高", "need_follow_up": true}`,
+			Content:      `{"score": -0.7, "risk_level": "high", "emotions": ["焦虑"], "keywords": [], "reasoning": "高", "need_follow_up": true}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -231,7 +231,7 @@ func TestEmotionService_GetStats(t *testing.T) {
 
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.4, "risk_level": "medium", "emotions": [], "keywords": [], "reasoning": "中", "need_follow_up": false}`,
+			Content:      `{"score": -0.4, "risk_level": "medium", "emotions": [], "keywords": [], "reasoning": "中", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -261,7 +261,7 @@ func TestEmotionService_GetTrendReport(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.6, "risk_level": "medium", "emotions": ["焦虑"], "keywords": [], "reasoning": "测试", "need_follow_up": false}`,
+			Content:      `{"score": -0.6, "risk_level": "medium", "emotions": ["焦虑"], "keywords": [], "reasoning": "测试", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
@@ -301,7 +301,7 @@ func TestEmotionService_UpdateAlertStatus(t *testing.T) {
 	mockLLM := svc.llmClient.(*llm.MockClient)
 	mockLLM.ChatFunc = func(ctx context.Context, req *llm.ChatRequest) (*llm.ChatResponse, error) {
 		return &llm.ChatResponse{
-			Content: `{"score": -0.5, "risk_level": "medium", "emotions": [], "keywords": [], "reasoning": "测试", "need_follow_up": false}`,
+			Content:      `{"score": -0.5, "risk_level": "medium", "emotions": [], "keywords": [], "reasoning": "测试", "need_follow_up": false}`,
 			FinishReason: "stop",
 		}, nil
 	}
