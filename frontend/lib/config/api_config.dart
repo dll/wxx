@@ -66,12 +66,24 @@ class ApiConfig {
   static const String adminUsers = '$apiPrefix/admin/users';
   static String adminUserUpdate(String id) => '$apiPrefix/admin/users/$id';
   static String adminUserDelete(String id) => '$apiPrefix/admin/users/$id';
+  static const String adminUsersAdvanced = '$apiPrefix/admin/users/advanced';
+  static const String adminUsersDict = '$apiPrefix/admin/users/dict';
+  static const String adminUsersBatchStatus = '$apiPrefix/admin/users/batch/status';
+  static const String adminUsersBatchPassword = '$apiPrefix/admin/users/batch/password';
+  static const String adminUsersBatchDelete = '$apiPrefix/admin/users/batch/delete';
   static const String adminAudit = '$apiPrefix/admin/audit';
   static const String adminSettings = '$apiPrefix/admin/settings';
 
   // ── 知识管理 ──
   static const String kbResources = '$apiPrefix/kb/resources';
   static const String kbUpload = '$apiPrefix/kb/upload';
+  static const String kbResourcesAdvanced = '$apiPrefix/kb/resources/advanced';
+  static const String kbDict = '$apiPrefix/kb/dict';
+  static const String kbStats = '$apiPrefix/kb/stats';
+  static const String kbBatchApprove = '$apiPrefix/kb/batch/approve';
+  static const String kbBatchReject = '$apiPrefix/kb/batch/reject';
+  static const String kbBatchRetire = '$apiPrefix/kb/batch/retire';
+  static const String kbBatchDelete = '$apiPrefix/kb/batch/delete';
   static String kbResource(String id) => '$apiPrefix/kb/resources/$id';
   static String kbApprove(String id) => '$apiPrefix/kb/resources/$id/approve';
   static String kbReject(String id) => '$apiPrefix/kb/resources/$id/reject';
@@ -265,4 +277,26 @@ class ApiConfig {
 
   // ── 学生导入（除学生和游客外的组织角色）──
   static const String importStudents = '$apiPrefix/admin/users/import';
+
+  // ── 就业模块 ──
+  static const String careerPolicies = '$apiPrefix/career/policies';
+  static const String careerJobs = '$apiPrefix/career/jobs';
+  static const String careerSessions = '$apiPrefix/career/sessions';
+  static const String careerInterviewQuestions = '$apiPrefix/career/interview/questions';
+
+  // ── 学业模块 ──
+  static const String studyCourses = '$apiPrefix/study/courses';
+  static const String studyGrades = '$apiPrefix/study/grades';
+  static const String studyGradesSummary = '$apiPrefix/study/grades/summary';
+  static const String studyResources = '$apiPrefix/study/resources';
+  static const String studyExams = '$apiPrefix/study/exams';
+
+  // ── 心理模块 ──
+  static const String mentalScales = '$apiPrefix/mental/scales';
+  static const String mentalAssessments = '$apiPrefix/mental/assessments';
+  static const String mentalCounselors = '$apiPrefix/mental/counselors';
+  static const String mentalAppointments = '$apiPrefix/mental/appointments';
+  static const String mentalArticles = '$apiPrefix/mental/articles';
+  static const String mentalHotlines = '$apiPrefix/mental/hotlines';
+  static const String mentalMood = '$apiPrefix/mental/mood';
 }

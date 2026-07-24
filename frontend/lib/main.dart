@@ -22,6 +22,7 @@ import 'providers/token_stats_provider.dart';
 import 'providers/forecast_provider.dart';
 import 'providers/student_new_features_provider.dart';
 import 'providers/guest_provider.dart';
+import 'providers/education_provider.dart';
 import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
 
@@ -93,6 +94,9 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ForecastProvider()),
         ChangeNotifierProvider(create: (_) => StudentNewFeaturesProvider()),
         ChangeNotifierProvider(create: (_) => GuestProvider()),
+        ChangeNotifierProvider(create: (_) => CareerProvider()),
+        ChangeNotifierProvider(create: (_) => StudyProvider()),
+        ChangeNotifierProvider(create: (_) => MentalProvider()),
         ChangeNotifierProvider(create: (_) => ThemeNotifier()),
       ],
       child: Consumer<ThemeNotifier>(

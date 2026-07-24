@@ -95,6 +95,19 @@ import '../pages/student/competition_page.dart';
 import '../pages/student/plan_page.dart';
 import '../pages/student/party_education_page.dart';
 import '../pages/student/club_page.dart';
+// ── 学生三大教育模块页面 ──
+import '../pages/student/career/career_page.dart';
+import '../pages/student/career/job_detail_page.dart';
+import '../pages/student/career/policy_detail_page.dart';
+import '../pages/student/study/study_page.dart';
+import '../pages/student/study/course_detail_page.dart';
+import '../pages/student/study/grades_page.dart';
+import '../pages/student/study/resource_detail_page.dart';
+import '../pages/student/mental/mental_page.dart';
+import '../pages/student/mental/scale_detail_page.dart';
+import '../pages/student/mental/counseling_page.dart';
+import '../pages/student/mental/article_detail_page.dart';
+import '../pages/student/mental/mood_diary_page.dart';
 import '../utils/screenshot_capture.dart';
 import '../widgets/fab_menu.dart';
 
@@ -212,7 +225,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/my-submissions',
-          builder: (context, state) => const MySubmissionsPage(),
+          builder: (context, state) => const KnowledgeGovernancePage(),
         ),
         GoRoute(
           path: '/feedback',
@@ -246,6 +259,49 @@ final GoRouter appRouter = GoRouter(
           path: '/club',
           builder: (context, state) => const ClubPage(),
         ),
+        // ── 学生三大教育模块路由 ──
+        GoRoute(path: '/student/career', builder: (_, __) => const CareerPage()),
+        GoRoute(
+          path: '/student/career/job/:id',
+          builder: (_, state) => JobDetailPage(
+            jobId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/student/career/policy/:id',
+          builder: (_, state) => PolicyDetailPage(
+            policyId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(path: '/student/study', builder: (_, __) => const StudyPage()),
+        GoRoute(
+          path: '/student/study/course/:id',
+          builder: (_, state) => CourseDetailPage(
+            courseId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(path: '/student/study/grades', builder: (_, __) => const GradesPage()),
+        GoRoute(
+          path: '/student/study/resource/:id',
+          builder: (_, state) => ResourceDetailPage(
+            resourceId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(path: '/student/mental', builder: (_, __) => const MentalPage()),
+        GoRoute(
+          path: '/student/mental/scale/:id',
+          builder: (_, state) => ScaleDetailPage(
+            scaleId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(path: '/student/mental/counseling', builder: (_, __) => const CounselingPage()),
+        GoRoute(
+          path: '/student/mental/article/:id',
+          builder: (_, state) => ArticleDetailPage(
+            articleId: state.pathParameters['id'] ?? '',
+          ),
+        ),
+        GoRoute(path: '/student/mental/mood', builder: (_, __) => const MoodDiaryPage()),
         GoRoute(
           path: '/my-feedbacks',
           builder: (context, state) => const MyFeedbacksPage(),

@@ -35,6 +35,12 @@ const _studentFeatures = [
   _FeatureCard(Icons.groups_outlined, '社团生活', Color(0xFF7B1FA2), '/club'),
 ];
 
+const _educationFeatures = [
+  _FeatureCard(Icons.work_outline, '就业服务', Color(0xFFE65100), '/student/career'),
+  _FeatureCard(Icons.menu_book_outlined, '学业服务', Color(0xFF1565C0), '/student/study'),
+  _FeatureCard(Icons.favorite_outline, '心理健康', Color(0xFFC62828), '/student/mental'),
+];
+
 /// 首页仪表盘 — 按角色自适应布局
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -123,6 +129,8 @@ class _HomePageState extends State<HomePage> {
             // 学生专区（student/student_union）
             if (role == 'student' || role == 'student_union') ...[
               _buildStudentFeatures(theme),
+              const SizedBox(height: 20),
+              _buildEducationFeatures(theme),
               const SizedBox(height: 20),
             ],
             // 管理专区（college_admin+）
@@ -725,6 +733,31 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => context.go(f.route),
               ),
             // 第 3 个位置留空保持对齐
+            const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 教育三大模块 — 就业/学业/心理
+  Widget _buildEducationFeatures(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('教育服务', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (final f in _educationFeatures)
+              _buildKnowledgeCard(
+                theme,
+                icon: f.icon,
+                label: f.label,
+                color: f.color,
+                onTap: () => context.go(f.route),
+              ),
+            // 第 4 个位置留空保持对齐
             const Expanded(child: SizedBox.shrink()),
           ],
         ),
