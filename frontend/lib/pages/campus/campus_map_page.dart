@@ -10,7 +10,7 @@ class CampusMapPage extends StatefulWidget {
   State<CampusMapPage> createState() => _CampusMapPageState();
 }
 
-enum _CampusTab { map, vr, home, douyin }
+enum _CampusTab { map, vr, home, yxwz, douyin }
 
 enum _MapProvider { amap, baidu, tencent }
 
@@ -81,6 +81,8 @@ const _tabs = [
       'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
   _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0),
       'https://www.chzu.edu.cn', '滁州学院官方网站'),
+  _CampusTabInfo(_CampusTab.yxwz, '迎新网站', Icons.how_to_reg_outlined,
+      Color(0xFF00897B), 'https://xgpt.chzu.edu.cn/yxwz', '滁州学院迎新服务入口'),
   _CampusTabInfo(
       _CampusTab.douyin,
       '抖音',
@@ -263,7 +265,7 @@ const _campuses = [
 
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
-  _MapProvider _provider = _MapProvider.amap;
+  _MapProvider _provider = _MapProvider.baidu;
   _MapMode _mode = _MapMode.twoD;
   int _campusIndex = 0;
   int _currentStep = 0;
@@ -379,14 +381,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           Expanded(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: CampusMapEmbed(
-                    key: ValueKey(
-                        '${_campus.id}-${_provider.name}-${_mode.name}-$_currentStep'),
-                    url: _mapUrl,
-                    title: _providerLabel,
-                  ),
-                ),
+                Positioned.fill(child: _buildCampusMapCanvas(theme)),
                 Positioned(left: 16, top: 16, child: _buildMapBadge(theme)),
                 Positioned(
                     left: 16,
@@ -454,8 +449,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
       children: [
         SegmentedButton<_MapProvider>(
           segments: const [
-            ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
             ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
+            ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
             ButtonSegment(value: _MapProvider.tencent, label: Text('腾讯')),
           ],
           selected: {_provider},
@@ -470,6 +465,109 @@ class _CampusMapPageState extends State<CampusMapPage> {
           onSelectionChanged: (v) => setState(() => _mode = v.first),
         ),
       ],
+    );
+  }
+
+  Widget _buildCampusMapCanvas(ThemeData theme) {
+    if (_mode == _MapMode.threeD) {
+      return const CampusMapEmbed(
+        key: ValueKey('campus-vr'),
+        url: 'https://www.chzu.edu.cn/vr/index.html',
+        title: '滁州学院 VR 全景',
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFFE7F4EC),
+                theme.colorScheme.primaryContainer.withOpacity(0.38),
+                const Color(0xFFEAF2FF),
+              ],
+            ),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                  child: CustomPaint(
+                      painter: _CampusMapPainter(
+                          theme, _steps, _currentStep, _completed))),
+              Positioned(
+                right: 14,
+                top: 14,
+                child: _buildMapMiniCard(theme),
+              ),
+              Positioned(
+                left: 18,
+                top: constraints.maxHeight * 0.36,
+                child: _buildCampusGateLabel(theme),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMapMiniCard(ThemeData theme) {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.94),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 16)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.map, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text('校园范围',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${_campus.name}\n默认使用百度地图导航，页面内不要求登录地图账号。',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampusGateLabel(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.flag_outlined, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(_campus.entrance, style: theme.textTheme.labelMedium),
+        ],
+      ),
     );
   }
 
@@ -862,29 +960,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
     }
   }
 
-  String get _mapUrl {
-    if (_mode == _MapMode.threeD) {
-      return 'https://www.chzu.edu.cn/vr/index.html';
-    }
-    final step = _steps[_currentStep];
-    final encodedName = Uri.encodeComponent('${_campus.name} ${step.title}');
-    final encodedLocation = Uri.encodeComponent(step.location);
-    switch (_provider) {
-      case _MapProvider.baidu:
-        return 'https://api.map.baidu.com/marker?location=${step.lat},${step.lng}&title=$encodedName&content=$encodedLocation&output=html';
-      case _MapProvider.tencent:
-        return 'https://apis.map.qq.com/uri/v1/marker?marker=coord:${step.lat},${step.lng};title:$encodedName;addr:$encodedLocation&referer=wxx';
-      case _MapProvider.amap:
-        return 'https://uri.amap.com/marker?position=${step.lng},${step.lat}&name=$encodedName&coordinate=gaode';
-    }
-  }
-
   String get _routeUrl {
     final step = _steps[_currentStep];
     final encodedName = Uri.encodeComponent('${_campus.name} ${step.title}');
     switch (_provider) {
       case _MapProvider.baidu:
-        return 'https://api.map.baidu.com/direction?destination=latlng:${step.lat},${step.lng}|name:$encodedName&mode=walking&output=html';
+        return 'https://api.map.baidu.com/direction?destination=latlng:${step.lat},${step.lng}|name:$encodedName&mode=walking&output=html&coord_type=wgs84';
       case _MapProvider.tencent:
         return 'https://apis.map.qq.com/uri/v1/routeplan?type=walk&to=$encodedName&tolat=${step.lat}&tolng=${step.lng}&referer=wxx';
       case _MapProvider.amap:
@@ -895,5 +976,125 @@ class _CampusMapPageState extends State<CampusMapPage> {
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _CampusMapPainter extends CustomPainter {
+  final ThemeData theme;
+  final List<_CheckinStep> steps;
+  final int currentStep;
+  final Set<int> completed;
+
+  _CampusMapPainter(this.theme, this.steps, this.currentStep, this.completed);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final campusPaint = Paint()
+      ..color = theme.colorScheme.surface.withOpacity(0.62)
+      ..style = PaintingStyle.fill;
+    final campusBorder = Paint()
+      ..color = theme.colorScheme.primary.withOpacity(0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final roadPaint = Paint()
+      ..color = Colors.white.withOpacity(0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 18;
+    final roadLinePaint = Paint()
+      ..color = theme.colorScheme.primary.withOpacity(0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2;
+    final routePaint = Paint()
+      ..color = theme.colorScheme.primary
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4;
+
+    final campus = Path()
+      ..moveTo(size.width * 0.14, size.height * 0.18)
+      ..quadraticBezierTo(size.width * 0.45, size.height * 0.04,
+          size.width * 0.84, size.height * 0.18)
+      ..quadraticBezierTo(size.width * 0.95, size.height * 0.48,
+          size.width * 0.80, size.height * 0.82)
+      ..quadraticBezierTo(size.width * 0.46, size.height * 0.95,
+          size.width * 0.16, size.height * 0.78)
+      ..quadraticBezierTo(size.width * 0.05, size.height * 0.45,
+          size.width * 0.14, size.height * 0.18)
+      ..close();
+    canvas.drawPath(campus, campusPaint);
+    canvas.drawPath(campus, campusBorder);
+
+    final road = Path()
+      ..moveTo(size.width * 0.16, size.height * 0.70)
+      ..cubicTo(size.width * 0.32, size.height * 0.58, size.width * 0.40,
+          size.height * 0.45, size.width * 0.52, size.height * 0.48)
+      ..cubicTo(size.width * 0.68, size.height * 0.52, size.width * 0.72,
+          size.height * 0.34, size.width * 0.83, size.height * 0.25);
+    canvas.drawPath(road, roadPaint);
+    canvas.drawPath(road, roadLinePaint);
+
+    final route = Path();
+    final points = _points(size);
+    for (var i = 0; i < points.length; i++) {
+      if (i == 0) {
+        route.moveTo(points[i].dx, points[i].dy);
+      } else {
+        route.lineTo(points[i].dx, points[i].dy);
+      }
+    }
+    canvas.drawPath(route, routePaint);
+
+    for (var i = 0; i < points.length; i++) {
+      final active = i == currentStep;
+      final done = completed.contains(i);
+      final color = done
+          ? const Color(0xFF2E7D32)
+          : active
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outline;
+      final outer = Paint()..color = color.withOpacity(active ? 0.24 : 0.14);
+      final inner = Paint()..color = color;
+      canvas.drawCircle(points[i], active ? 18 : 14, outer);
+      canvas.drawCircle(points[i], active ? 8 : 6, inner);
+      _drawText(canvas, '${i + 1}', points[i] + const Offset(13, -27), color,
+          active ? 14 : 12, FontWeight.bold);
+      _drawText(canvas, steps[i].location, points[i] + const Offset(13, -8),
+          theme.colorScheme.onSurface, 12, FontWeight.w600);
+    }
+  }
+
+  List<Offset> _points(Size size) {
+    const anchors = [
+      Offset(0.18, 0.70),
+      Offset(0.36, 0.56),
+      Offset(0.52, 0.48),
+      Offset(0.70, 0.58),
+      Offset(0.64, 0.34),
+      Offset(0.82, 0.26),
+    ];
+    return List.generate(steps.length, (i) {
+      final a = anchors[i.clamp(0, anchors.length - 1)];
+      return Offset(size.width * a.dx, size.height * a.dy);
+    });
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset, Color color,
+      double fontSize, FontWeight weight) {
+    final span = TextSpan(
+        text: text,
+        style: TextStyle(color: color, fontSize: fontSize, fontWeight: weight));
+    final painter =
+        TextPainter(text: span, maxLines: 1, textDirection: TextDirection.ltr)
+          ..layout(maxWidth: 140);
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CampusMapPainter oldDelegate) {
+    return oldDelegate.currentStep != currentStep ||
+        oldDelegate.completed.length != completed.length ||
+        oldDelegate.steps != steps;
   }
 }

@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -25,7 +26,8 @@ class _VoiceDialog extends StatefulWidget {
   State<_VoiceDialog> createState() => _VoiceDialogState();
 }
 
-class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderStateMixin {
+class _VoiceDialogState extends State<_VoiceDialog>
+    with SingleTickerProviderStateMixin {
   // 模式：navigation（导航）/ assistant（AI助手）
   String _mode = 'navigation';
   // 状态：waking | listening | processing | thinking | speaking | done
@@ -39,6 +41,7 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
   late final WebSpeechRecognizer _recognizer;
   late final AnimationController _pulseCtrl;
   bool _disposed = false;
+  bool _mobileRecording = false;
   Timer? _restartTimer;
 
   static const _commands = <String, String>{
@@ -87,6 +90,13 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
     _pulseCtrl.dispose();
     _recognizer.dispose();
 
+    if (_mobileRecording) {
+      try {
+        context.read<ChatProvider>().voice.stopRecording();
+      } catch (_) {}
+      _mobileRecording = false;
+    }
+
     // 停止 TTS（避免对话框关闭后还在朗读）
     if (mounted) {
       try {
@@ -104,7 +114,7 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
     });
   }
 
-  void _startListening() {
+  Future<void> _startListening() async {
     if (_disposed) return;
     setState(() {
       _status = 'listening';
@@ -112,6 +122,26 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
       _final = '';
     });
     _pulseCtrl.repeat(reverse: true);
+
+    if (!kIsWeb) {
+      try {
+        await context.read<ChatProvider>().voice.startRecording();
+        if (_disposed || !mounted) return;
+        _mobileRecording = true;
+        setState(() => _hint = '正在录音，点击“停止并识别”完成输入');
+      } catch (e) {
+        _mobileRecording = false;
+        _pulseCtrl.stop();
+        if (!_disposed && mounted) {
+          setState(() {
+            _status = 'paused';
+            _hint = '无法访问麦克风，请检查系统权限';
+          });
+        }
+      }
+      return;
+    }
+
     _recognizer.start(continuous: false);
   }
 
@@ -144,7 +174,10 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
     _pulseCtrl.stop();
     _restartTimer?.cancel();
     _restartTimer = Timer(const Duration(milliseconds: 600), () {
-      if (!_disposed && _status != 'thinking' && _status != 'speaking' && _status != 'done') {
+      if (!_disposed &&
+          _status != 'thinking' &&
+          _status != 'speaking' &&
+          _status != 'done') {
         _startListening();
       }
     });
@@ -152,7 +185,7 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
 
   Future<void> _processInput(String text) async {
     if (_disposed) return;
-    _recognizer.stop();
+    if (kIsWeb) _recognizer.stop();
     _pulseCtrl.stop();
     setState(() => _status = 'processing');
 
@@ -250,7 +283,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
     return '${text.substring(0, cut)}...';
   }
 
-  Map<String, String>? _matchCommand(String text) {    for (final entry in _commands.entries) {
+  Map<String, String>? _matchCommand(String text) {
+    for (final entry in _commands.entries) {
       if (text.contains(entry.key)) {
         return {'label': entry.key, 'route': entry.value};
       }
@@ -284,9 +318,10 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
               Row(
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE65100).withOpacity( 0.12),
+                      color: const Color(0xFFE65100).withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.mic, color: Color(0xFFE65100)),
@@ -307,8 +342,14 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
               // 模式切换
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'navigation', label: Text('语音导航'), icon: Icon(Icons.explore_outlined, size: 16)),
-                  ButtonSegment(value: 'assistant', label: Text('AI 对话'), icon: Icon(Icons.chat_outlined, size: 16)),
+                  ButtonSegment(
+                      value: 'navigation',
+                      label: Text('语音导航'),
+                      icon: Icon(Icons.explore_outlined, size: 16)),
+                  ButtonSegment(
+                      value: 'assistant',
+                      label: Text('AI 对话'),
+                      icon: Icon(Icons.chat_outlined, size: 16)),
                 ],
                 selected: {_mode},
                 onSelectionChanged: (v) {
@@ -324,7 +365,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                   _setHint();
                   _recognizer.stop();
                   _restartTimer?.cancel();
-                  _restartTimer = Timer(const Duration(milliseconds: 200), _startListening);
+                  _restartTimer =
+                      Timer(const Duration(milliseconds: 200), _startListening);
                 },
                 style: const ButtonStyle(
                   visualDensity: VisualDensity.compact,
@@ -340,16 +382,19 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                     animation: _pulseCtrl,
                     builder: (_, __) {
                       final isActive = _status == 'listening';
-                      final scale = isActive ? 1.0 + 0.15 * _pulseCtrl.value : 1.0;
+                      final scale =
+                          isActive ? 1.0 + 0.15 * _pulseCtrl.value : 1.0;
                       final color = _modeColor();
                       return Transform.scale(
                         scale: scale,
                         child: Container(
-                          width: 72, height: 72,
+                          width: 72,
+                          height: 72,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isActive ? color : color.withOpacity( 0.18),
-                            border: Border.all(color: color.withOpacity( 0.5), width: 2),
+                            color: isActive ? color : color.withOpacity(0.18),
+                            border: Border.all(
+                                color: color.withOpacity(0.5), width: 2),
                           ),
                           child: Icon(
                             _statusIcon(),
@@ -363,14 +408,17 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                 ),
               ),
               const SizedBox(height: 8),
-              Text(_statusText(), style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              )),
+              Text(_statusText(),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  )),
               const SizedBox(height: 4),
-              Text(_hint, textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-              )),
+              Text(_hint,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  )),
               const SizedBox(height: 12),
 
               // 实时识别 / AI 对话区域
@@ -379,7 +427,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.4),
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withOpacity(0.4),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: _mode == 'assistant' && _turns.isNotEmpty
@@ -394,9 +443,17 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _stopAll,
-                      icon: const Icon(Icons.pause_circle_outline, size: 18),
-                      label: const Text('暂停聆听'),
+                      onPressed: !kIsWeb && _status == 'listening'
+                          ? _finishMobileRecording
+                          : _stopAll,
+                      icon: Icon(
+                        !kIsWeb && _status == 'listening'
+                            ? Icons.check_circle_outline
+                            : Icons.pause_circle_outline,
+                        size: 18,
+                      ),
+                      label: Text(
+                          !kIsWeb && _status == 'listening' ? '停止并识别' : '暂停聆听'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -405,7 +462,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
                       onPressed: _restartListening,
                       icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('重新聆听'),
-                      style: FilledButton.styleFrom(backgroundColor: _modeColor()),
+                      style:
+                          FilledButton.styleFrom(backgroundColor: _modeColor()),
                     ),
                   ),
                 ],
@@ -434,14 +492,16 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_final.isNotEmpty)
-            Text(_final, style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-            )),
+            Text(_final,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                )),
           if (_interim.isNotEmpty)
-            Text(_interim, style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
-              fontStyle: FontStyle.italic,
-            )),
+            Text(_interim,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontStyle: FontStyle.italic,
+                )),
         ],
       ),
     );
@@ -449,7 +509,8 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
 
   Widget _buildConversation(ThemeData theme) {
     return ListView.separated(
-      itemCount: _turns.length + ((_interim.isNotEmpty || _final.isNotEmpty) ? 1 : 0),
+      itemCount:
+          _turns.length + ((_interim.isNotEmpty || _final.isNotEmpty) ? 1 : 0),
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         if (index == _turns.length) {
@@ -484,17 +545,20 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
         constraints: const BoxConstraints(maxWidth: 320),
         decoration: BoxDecoration(
           color: isUser
-              ? theme.colorScheme.primary.withOpacity( isInterim ? 0.4 : 1.0)
+              ? theme.colorScheme.primary.withOpacity(isInterim ? 0.4 : 1.0)
               : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: !isUser
-              ? Border.all(color: theme.colorScheme.outlineVariant.withOpacity( 0.4))
+              ? Border.all(
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.4))
               : null,
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isUser ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+            color: isUser
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
             fontSize: 14,
             fontStyle: isInterim ? FontStyle.italic : FontStyle.normal,
           ),
@@ -504,7 +568,12 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
   }
 
   void _stopAll() {
-    _recognizer.abort();
+    if (kIsWeb) {
+      _recognizer.abort();
+    } else if (_mobileRecording) {
+      context.read<ChatProvider>().voice.stopRecording();
+      _mobileRecording = false;
+    }
     _restartTimer?.cancel();
     _pulseCtrl.stop();
     setState(() {
@@ -514,7 +583,12 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
   }
 
   void _restartListening() {
-    _recognizer.abort();
+    if (kIsWeb) {
+      _recognizer.abort();
+    } else if (_mobileRecording) {
+      context.read<ChatProvider>().voice.stopRecording();
+      _mobileRecording = false;
+    }
     _restartTimer?.cancel();
     setState(() {
       _interim = '';
@@ -524,9 +598,38 @@ class _VoiceDialogState extends State<_VoiceDialog> with SingleTickerProviderSta
     _startListening();
   }
 
-  Color _modeColor() => _mode == 'navigation'
-      ? const Color(0xFFE65100)
-      : const Color(0xFF6750A4);
+  Future<void> _finishMobileRecording() async {
+    if (!_mobileRecording || _disposed) return;
+    _mobileRecording = false;
+    _pulseCtrl.stop();
+    setState(() {
+      _status = 'processing';
+      _hint = '正在识别语音...';
+    });
+
+    final chat = context.read<ChatProvider>();
+    final audioData = await chat.voice.stopRecording();
+    if (_disposed || !mounted) return;
+    if (audioData == null || audioData.isEmpty) {
+      setState(() => _hint = '录音为空，请重新尝试');
+      _scheduleRestart();
+      return;
+    }
+
+    final text = await chat.voice.speechToText(audioData);
+    if (_disposed || !mounted) return;
+    if (text == null || text.trim().isEmpty) {
+      setState(() => _hint = '未识别到语音内容，请重试');
+      _scheduleRestart();
+      return;
+    }
+
+    setState(() => _final = text.trim());
+    await _processInput(text.trim());
+  }
+
+  Color _modeColor() =>
+      _mode == 'navigation' ? const Color(0xFFE65100) : const Color(0xFF6750A4);
 
   IconData _statusIcon() {
     switch (_status) {

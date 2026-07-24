@@ -120,7 +120,8 @@ class _ChatPageState extends State<ChatPage> {
         final current = _inputCtrl.text;
         final separator = current.isEmpty || current.endsWith(' ') ? '' : ' ';
         _inputCtrl.text = '$current$separator$finalText'.trim();
-        _inputCtrl.selection = TextSelection.collapsed(offset: _inputCtrl.text.length);
+        _inputCtrl.selection =
+            TextSelection.collapsed(offset: _inputCtrl.text.length);
         _interimText = '';
       } else {
         _interimText = interim;
@@ -132,7 +133,8 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) return;
     setState(() => _isListening = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('语音识别错误：$error'), duration: const Duration(seconds: 2)),
+      SnackBar(
+          content: Text('语音识别错误：$error'), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -161,8 +163,14 @@ class _ChatPageState extends State<ChatPage> {
   /// 移动端录音：使用旧的 MediaRecorder + 后端 ASR
   Future<void> _startMobileRecording() async {
     final chat = context.read<ChatProvider>();
-    setState(() => _isListening = true);
     await chat.startRecording();
+    if (!mounted) return;
+    setState(() => _isListening = chat.isRecording);
+    if (!chat.isRecording) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法开始录音，请检查麦克风权限')),
+      );
+    }
   }
 
   /// 移动端语音录制结果：先检查导航指令，否则作为聊天消息发送
@@ -263,10 +271,13 @@ class _ChatPageState extends State<ChatPage> {
                     key: const ValueKey('error-banner'),
                     width: double.infinity,
                     color: theme.colorScheme.errorContainer,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       chat.error!,
-                      style: TextStyle(color: theme.colorScheme.onErrorContainer, fontSize: 13),
+                      style: TextStyle(
+                          color: theme.colorScheme.onErrorContainer,
+                          fontSize: 13),
                     ),
                   )
                 : const SizedBox.shrink(key: ValueKey('no-error')),
@@ -290,7 +301,7 @@ class _ChatPageState extends State<ChatPage> {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity( 0.3),
+            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
           ),
         ),
       ),
@@ -340,7 +351,8 @@ class _ChatPageState extends State<ChatPage> {
       case 'policy':
         return const Icon(Icons.gavel, size: 14, color: Color(0xFFE65100));
       case 'emotion':
-        return const Icon(Icons.favorite_border, size: 14, color: Color(0xFFC62828));
+        return const Icon(Icons.favorite_border,
+            size: 14, color: Color(0xFFC62828));
       default:
         return const Icon(Icons.smart_toy, size: 14, color: Color(0xFF7B1FA2));
     }
@@ -351,7 +363,8 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.school, size: 64, color: theme.colorScheme.primary.withOpacity( 0.3)),
+          Icon(Icons.school,
+              size: 64, color: theme.colorScheme.primary.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text(
             '你好！我是蔚小芯',
@@ -376,13 +389,15 @@ class _ChatPageState extends State<ChatPage> {
               '国家奖学金怎么申请？',
               '请假需要什么流程？',
               '助学贷款的条件是什么？',
-            ].map((q) => ActionChip(
-              label: Text(q, style: const TextStyle(fontSize: 13)),
-              onPressed: () {
-                _inputCtrl.text = q;
-                _send();
-              },
-            )).toList(),
+            ]
+                .map((q) => ActionChip(
+                      label: Text(q, style: const TextStyle(fontSize: 13)),
+                      onPressed: () {
+                        _inputCtrl.text = q;
+                        _send();
+                      },
+                    ))
+                .toList(),
           ),
         ],
       ),
@@ -413,7 +428,8 @@ class _ChatPageState extends State<ChatPage> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
-                  final index = context.read<ChatProvider>().messages.indexOf(msg);
+                  final index =
+                      context.read<ChatProvider>().messages.indexOf(msg);
                   if (index >= 0) {
                     context.read<ChatProvider>().resendMessage(index);
                   }
@@ -518,7 +534,8 @@ class _ChatPageState extends State<ChatPage> {
             onTap: () => bookmarkProv.toggle(
               question: question,
               conclusion: msg.content,
-              sources: msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
+              sources:
+                  msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
               followUps: msg.answerCard?.followUps ?? [],
             ),
           ),
@@ -634,7 +651,8 @@ class _ChatPageState extends State<ChatPage> {
     openHtmlInNewTab(body);
   }
 
-  String _buildExportHtml(String question, Message msg, {bool forPrint = false, bool forPng = false}) {
+  String _buildExportHtml(String question, Message msg,
+      {bool forPrint = false, bool forPng = false}) {
     final esc = _htmlEscaper.convert;
     final sources = msg.answerCard?.sources ?? [];
     final pngExtra = forPng ? ' width: 600px; margin: 0 auto;' : '';
@@ -643,13 +661,17 @@ class _ChatPageState extends State<ChatPage> {
     String sourceHtml = '';
     if (sources.isNotEmpty) {
       if (forPng) {
-        sourceHtml = '<div class="source"><strong>来源：</strong>${esc(sources.map((s) => s.title).join(', '))}</div>';
+        sourceHtml =
+            '<div class="source"><strong>来源：</strong>${esc(sources.map((s) => s.title).join(', '))}</div>';
       } else {
-        sourceHtml = '<div class="source"><strong>信息来源：</strong><ul>${sources.map((s) => '<li>${esc(s.title)}</li>').join()}</ul></div>';
+        sourceHtml =
+            '<div class="source"><strong>信息来源：</strong><ul>${sources.map((s) => '<li>${esc(s.title)}</li>').join()}</ul></div>';
       }
     }
 
-    final printScript = forPrint ? '<script>window.onload = () => window.print();</script>' : '';
+    final printScript = forPrint
+        ? '<script>window.onload = () => window.print();</script>'
+        : '';
     final tipHtml = forPng ? '<div class="tip">长按保存图片 · 蔚小芯 AI 学工助手</div>' : '';
 
     return '''
@@ -693,7 +715,8 @@ $printScript
 
   /// 导出为 Markdown
   void _exportMarkdown(String question, Message msg) {
-    final sources = msg.answerCard?.sources.map((s) => '- ${s.title}').join('\n') ?? '';
+    final sources =
+        msg.answerCard?.sources.map((s) => '- ${s.title}').join('\n') ?? '';
     final md = StringBuffer();
     md.writeln('# 蔚小芯 · 问答记录\n');
     md.writeln('## 问题\n');
@@ -705,12 +728,14 @@ $printScript
       md.writeln('$sources\n');
     }
     md.writeln('---\n');
-    md.writeln('> 导出时间：${DateTime.now().toString().substring(0, 19)} · 蔚小芯 AI 学工助手');
+    md.writeln(
+        '> 导出时间：${DateTime.now().toString().substring(0, 19)} · 蔚小芯 AI 学工助手');
 
     Clipboard.setData(ClipboardData(text: md.toString()));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Markdown 已复制到剪贴板'), duration: Duration(seconds: 2)),
+        const SnackBar(
+            content: Text('Markdown 已复制到剪贴板'), duration: Duration(seconds: 2)),
       );
     }
   }
@@ -743,7 +768,11 @@ $printScript
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity( 0.4)),
+                        border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withOpacity(0.4)),
                       ),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
@@ -754,19 +783,25 @@ $printScript
                             children: [
                               Image.memory(screenshotBytes!, fit: BoxFit.cover),
                               Positioned(
-                                top: 8, right: 8,
+                                top: 8,
+                                right: 8,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity( 0.85),
+                                    color: Colors.green.withOpacity(0.85),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.check, color: Colors.white, size: 14),
+                                      Icon(Icons.check,
+                                          color: Colors.white, size: 14),
                                       SizedBox(width: 4),
-                                      Text('已截屏', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                      Text('已截屏',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11)),
                                     ],
                                   ),
                                 ),
@@ -781,19 +816,31 @@ $printScript
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity( 0.3),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withOpacity(0.3),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.screenshot_outlined, size: 20, color: Theme.of(context).colorScheme.error),
+                          Icon(Icons.screenshot_outlined,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.error),
                           const SizedBox(width: 8),
-                          Text(shot.error ?? '截图不可用', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.error)),
+                          Text(shot.error ?? '截图不可用',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.error)),
                         ],
                       ),
                     ),
                   if (screenshotBytes != null) const SizedBox(height: 16),
 
-                  const Text('反馈类型', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const Text('反馈类型',
+                      style: TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
                   SegmentedButton<String>(
                     segments: const [
@@ -802,7 +849,8 @@ $printScript
                       ButtonSegment(value: 'other', label: Text('其他')),
                     ],
                     selected: {category},
-                    onSelectionChanged: (v) => setState(() => category = v.first),
+                    onSelectionChanged: (v) =>
+                        setState(() => category = v.first),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -836,10 +884,12 @@ $printScript
                 String screenshotUrl = '';
                 bool uploadFailed = false;
                 if (screenshotBytes != null && screenshotBytes!.isNotEmpty) {
-                  final url = await context.read<FeedbackProvider>().uploadScreenshotBytes(
-                    screenshotBytes!,
-                    'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
-                  );
+                  final url = await context
+                      .read<FeedbackProvider>()
+                      .uploadScreenshotBytes(
+                        screenshotBytes!,
+                        'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
+                      );
                   if (url != null) {
                     screenshotUrl = url;
                   } else {
@@ -849,12 +899,13 @@ $printScript
 
                 if (!mounted) return;
 
-                final ok = await context.read<FeedbackProvider>().submitFeedback(
-                  category: category,
-                  content: text,
-                  messageId: msg.id ?? '',
-                  screenshotUrl: screenshotUrl,
-                );
+                final ok =
+                    await context.read<FeedbackProvider>().submitFeedback(
+                          category: category,
+                          content: text,
+                          messageId: msg.id ?? '',
+                          screenshotUrl: screenshotUrl,
+                        );
                 if (mounted) {
                   final fbError = context.read<FeedbackProvider>().error;
                   if (ok && uploadFailed) {
@@ -874,7 +925,8 @@ $printScript
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(fbError.isNotEmpty ? '提交失败：$fbError' : '提交失败，请重试'),
+                        content: Text(
+                            fbError.isNotEmpty ? '提交失败：$fbError' : '提交失败，请重试'),
                         duration: const Duration(seconds: 4),
                       ),
                     );
@@ -888,7 +940,6 @@ $printScript
       ),
     );
   }
-
 
   Widget _buildLoadingBubble(ThemeData theme) {
     return Align(
@@ -904,7 +955,8 @@ $printScript
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 16, height: 16,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: theme.colorScheme.primary,
@@ -925,7 +977,8 @@ $printScript
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        border:
+            Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
       ),
       child: SafeArea(
         top: false,
@@ -937,17 +990,19 @@ $printScript
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer.withOpacity( 0.4),
+                  color: theme.colorScheme.errorContainer.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.colorScheme.error.withOpacity( 0.3),
+                    color: theme.colorScheme.error.withOpacity(0.3),
                   ),
                 ),
                 child: Row(
                   children: [
-                    _PulseIcon(icon: Icons.graphic_eq, color: theme.colorScheme.error),
+                    _PulseIcon(
+                        icon: Icons.graphic_eq, color: theme.colorScheme.error),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1033,7 +1088,8 @@ $printScript
                       ),
                       filled: true,
                       fillColor: theme.colorScheme.surfaceContainerHighest,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                     ),
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
@@ -1042,7 +1098,11 @@ $printScript
                 const SizedBox(width: 8),
                 // 发送按钮
                 IconButton.filled(
-                  onPressed: sending ? null : (isListening ? () => _stopVoiceInput(autoSend: true) : _send),
+                  onPressed: sending
+                      ? null
+                      : (isListening
+                          ? () => _stopVoiceInput(autoSend: true)
+                          : _send),
                   icon: const Icon(Icons.send),
                   tooltip: isListening ? '停止并发送' : '发送',
                 ),
@@ -1106,7 +1166,8 @@ class _ActionChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ActionChip({required this.icon, required this.label, required this.onTap});
+  const _ActionChip(
+      {required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1125,7 +1186,8 @@ class _ActionChip extends StatelessWidget {
               const SizedBox(width: 2),
               Text(
                 label,
-                style: TextStyle(fontSize: 11, color: theme.colorScheme.outline),
+                style:
+                    TextStyle(fontSize: 11, color: theme.colorScheme.outline),
               ),
             ],
           ),
@@ -1145,7 +1207,8 @@ class _PulseIcon extends StatefulWidget {
   State<_PulseIcon> createState() => _PulseIconState();
 }
 
-class _PulseIconState extends State<_PulseIcon> with SingleTickerProviderStateMixin {
+class _PulseIconState extends State<_PulseIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 

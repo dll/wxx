@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'voice_dialog.dart';
@@ -192,7 +192,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             ),
             boxShadow: [
               BoxShadow(
-                color: activeColor.withOpacity( 0.45),
+                color: activeColor.withOpacity(0.45),
                 blurRadius: 14,
                 offset: const Offset(0, 5),
                 spreadRadius: 1,
@@ -226,9 +226,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _openNavigation(BuildContext context) async {
-    const url = 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode';
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  void _openNavigation(BuildContext context) {
+    context.go('/campus');
   }
 }
 
@@ -264,7 +263,7 @@ class _PillLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity( 0.12),
+            color: Colors.black.withOpacity(0.12),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -298,7 +297,7 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity( 0.4),
+            color: color.withOpacity(0.4),
             blurRadius: 10,
             offset: const Offset(0, 3),
             spreadRadius: 1,

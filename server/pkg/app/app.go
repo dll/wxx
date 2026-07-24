@@ -102,14 +102,18 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationService := service.NewGraduationService(graduationRepo)
 	studentFeaturesService := service.NewStudentFeaturesService(studentFeaturesRepo)
 
-	// LLM 客户端（优先 DeepSeek，备选智谱）
+	// LLM 客户端（DeepSeek 优先，失败时自动切换智谱）
 	var llmClient llm.ChatClient
+	var llmClients []llm.ChatClient
 	if cfg.DeepSeekAPIKey != "" {
-		llmClient = llm.NewDeepSeekClient(cfg)
-		log.Println("LLM 客户端: DeepSeek")
-	} else if cfg.ZhipuAPIKey != "" {
-		llmClient = llm.NewZhipuClient(cfg)
-		log.Println("LLM 客户端: 智谱清言")
+		llmClients = append(llmClients, llm.NewDeepSeekClient(cfg))
+	}
+	if cfg.ZhipuAPIKey != "" {
+		llmClients = append(llmClients, llm.NewZhipuClient(cfg))
+	}
+	if len(llmClients) > 0 {
+		llmClient = llm.NewChainClient(llmClients...)
+		log.Printf("LLM 客户端已启用: %s", llmClient.Name())
 	} else {
 		log.Println("警告：未配置任何 LLM API Key，问答功能不可用")
 	}

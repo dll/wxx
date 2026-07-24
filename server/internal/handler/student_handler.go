@@ -329,7 +329,7 @@ func (h *StudentHandler) PrivateChat(c *gin.Context) {
 }
 
 // ProcessEnhanced AI 办事流程增强 — 按 type 参数从 KB + process_steps 拼装真实数据
-// type: enrollment（入学）/ graduation（离校）/ major-transfer（转专业）/ student-loan（助学贷款）
+// type: enrollment（入学）/ graduation（离校）/ major_change（转专业）/ student_loan（助学贷款）/ leave（请假）/ scholarship（奖学金）
 func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 	flowType := c.DefaultQuery("type", "enrollment")
 	resourceID, flowTitle := mapFlowToResource(flowType)
@@ -444,6 +444,21 @@ func fallbackProcessSteps(flowType string) []gin.H {
 			processStep(3, "现场签订合同", "[\"身份证\",\"录取通知书/学生证\",\"户口簿\"]", "", "7月-9月", "县区学生资助中心", "学生和共同借款人到场办理"),
 			processStep(4, "学校回执录入", "[\"受理证明\"]", "", "开学后一周内", "学校学生资助中心", "提交回执并等待贷款发放"),
 		}
+	case "leave":
+		return []gin.H{
+			processStep(1, "提交请假申请", "[\"请假事由说明\",\"证明材料（如病假证明）\"]", "", "离校前提交", "辅导员/学院线上表单", "说明请假时间、去向和联系方式"),
+			processStep(2, "辅导员审核", "[]", "", "提交后1个工作日内", "辅导员办公室", "辅导员核实请假原因和安全去向"),
+			processStep(3, "学院审批", "[\"请假申请表\"]", "", "按学院要求", "学院学生工作办公室", "超过规定天数需学院审批"),
+			processStep(4, "销假返校", "[]", "", "返校当日", "辅导员/班级群", "返校后及时销假并更新在校状态"),
+		}
+	case "scholarship":
+		return []gin.H{
+			processStep(1, "查看评选通知", "[]", "", "每学年评选期", "学院官网/班级群", "确认奖项类别、名额和申请条件"),
+			processStep(2, "准备申请材料", "[\"申请表\",\"成绩单\",\"荣誉证明\",\"综测材料\"]", "", "通知规定时间内", "所在学院", "按奖项要求准备纸质或电子材料"),
+			processStep(3, "班级评议与学院审核", "[\"完整申请材料\"]", "", "学院评审期", "班级/学院学生工作办公室", "完成民主评议、学院初审和排序"),
+			processStep(4, "公示与学校审定", "[]", "", "公示期", "学院/学校官网", "公示无异议后报学校审定"),
+			processStep(5, "发放与归档", "[\"银行卡信息\"]", "", "学校审定后", "财务处/学院", "奖助资金发放并完成材料归档"),
+		}
 	default:
 		return []gin.H{
 			processStep(1, "线上预报到", "[\"录取通知书\",\"身份证\"]", "https://yx.chzu.edu.cn", "报到前完成", "迎新系统", "完成个人信息确认和到校信息登记"),
@@ -481,6 +496,10 @@ func mapFlowToResource(flowType string) (resourceID string, defaultTitle string)
 		return "process-major-change-2026", "转专业流程"
 	case "student-loan", "student_loan":
 		return "process-student-loan-2026", "助学贷款申请流程"
+	case "leave":
+		return "process-leave-2026", "学生请假办理流程"
+	case "scholarship":
+		return "process-scholarship-2026", "奖学金申请流程"
 	default:
 		return "process-registration-2026", "新生入学报到流程"
 	}

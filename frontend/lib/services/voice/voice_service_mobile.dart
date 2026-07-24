@@ -108,10 +108,12 @@ class VoiceService {
         ),
       });
 
-      final response = await ApiService().post(
-        ApiConfig.voiceAsr,
-        data: formData,
-      );
+      final response = await ApiService()
+          .post(
+            ApiConfig.voiceAsr,
+            data: formData,
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200 && response.data['code'] == 0) {
         return response.data['data']['text'] as String?;
@@ -128,7 +130,7 @@ class VoiceService {
       final response = await ApiService().postBytes(
         ApiConfig.voiceTts,
         data: {'text': text, 'voice': 'x_xiaoyan'},
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Uint8List) {
@@ -150,7 +152,8 @@ class VoiceService {
 
     // 写入临时文件供 audioplayers 播放
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/tts_play_${DateTime.now().millisecondsSinceEpoch}.mp3';
+    final path =
+        '${dir.path}/tts_play_${DateTime.now().millisecondsSinceEpoch}.mp3';
     final file = File(path);
     await file.writeAsBytes(audioData);
 

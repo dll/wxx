@@ -44,55 +44,38 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   Widget _buildFlowSwitch(EnrollmentProvider prov, ThemeData theme) {
+    const flows = [
+      _FlowOption('enrollment', '入学流程', Icons.school),
+      _FlowOption('graduation', '离校流程', Icons.celebration),
+      _FlowOption('major_change', '转专业', Icons.swap_horiz),
+      _FlowOption('student_loan', '助学贷款', Icons.account_balance),
+      _FlowOption('leave', '请假办理', Icons.event_busy_outlined),
+      _FlowOption('scholarship', '奖学金', Icons.emoji_events_outlined),
+    ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: theme.colorScheme.surface,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth >= 760
+              ? (constraints.maxWidth - 40) / 6
+              : (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: flows.map((flow) {
+              return SizedBox(
+                width: itemWidth,
                 child: _buildFlowChip(
-                  label: '入学流程',
-                  icon: Icons.school,
-                  active: prov.flowType == 'enrollment',
-                  onTap: () => prov.setFlowType('enrollment'),
+                  label: flow.label,
+                  icon: flow.icon,
+                  active: prov.flowType == flow.type,
+                  onTap: () => prov.setFlowType(flow.type),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFlowChip(
-                  label: '离校流程',
-                  icon: Icons.celebration,
-                  active: prov.flowType == 'graduation',
-                  onTap: () => prov.setFlowType('graduation'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFlowChip(
-                  label: '转专业',
-                  icon: Icons.swap_horiz,
-                  active: prov.flowType == 'major_change',
-                  onTap: () => prov.setFlowType('major_change'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildFlowChip(
-                  label: '助学贷款',
-                  icon: Icons.account_balance,
-                  active: prov.flowType == 'student_loan',
-                  onTap: () => prov.setFlowType('student_loan'),
-                ),
-              ),
-            ],
-          ),
-        ],
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
@@ -110,7 +93,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: active ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+          color: active
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           border: active
               ? Border.all(color: theme.colorScheme.primary, width: 1.5)
@@ -119,13 +104,19 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.outline),
+            Icon(icon,
+                size: 18,
+                color: active
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.outline),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
                 fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                color: active ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                color: active
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -175,9 +166,12 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, size: 20, color: theme.colorScheme.primary),
+                        Icon(Icons.info_outline,
+                            size: 20, color: theme.colorScheme.primary),
                         const SizedBox(width: 8),
-                        Text('流程概览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        Text('流程概览',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -211,12 +205,14 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
           // 步骤列表
           if (prov.steps.isNotEmpty) ...[
-            Text('办理步骤', style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            )),
+            Text('办理步骤',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                )),
             const SizedBox(height: 8),
-            ...List.generate(prov.steps.length, (i) => _buildStepCard(prov, theme, i)),
+            ...List.generate(
+                prov.steps.length, (i) => _buildStepCard(prov, theme, i)),
             const SizedBox(height: 16),
           ],
 
@@ -226,7 +222,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: prov.completedCount == prov.totalSteps ? null : prov.completeAll,
+                    onPressed: prov.completedCount == prov.totalSteps
+                        ? null
+                        : prov.completeAll,
                     icon: const Icon(Icons.done_all, size: 18),
                     label: const Text('全部完成'),
                   ),
@@ -234,7 +232,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: prov.completedSteps.isEmpty ? null : prov.resetProgress,
+                    onPressed:
+                        prov.completedSteps.isEmpty ? null : prov.resetProgress,
                     icon: const Icon(Icons.restart_alt, size: 18),
                     label: const Text('重置进度'),
                   ),
@@ -246,10 +245,11 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
           // 来源引用
           if (card.sources.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text('参考来源', style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            )),
+            Text('参考来源',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                )),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -271,7 +271,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withOpacity( 0.3),
+                color: theme.colorScheme.errorContainer.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -279,19 +279,21 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber, size: 18, color: theme.colorScheme.error),
+                      Icon(Icons.warning_amber,
+                          size: 18, color: theme.colorScheme.error),
                       const SizedBox(width: 6),
-                      Text('注意事项', style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.error,
-                      )),
+                      Text('注意事项',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.error,
+                          )),
                     ],
                   ),
                   const SizedBox(height: 6),
                   ...card.risks.map((r) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('- $r', style: theme.textTheme.bodySmall),
-                  )),
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('- $r', style: theme.textTheme.bodySmall),
+                      )),
                 ],
               ),
             ),
@@ -332,7 +334,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 ),
                 Text(
                   '${(progress * 100).round()}%',
-                  style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -343,13 +346,16 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 children: [
                   Text(
                     '已完成 ${prov.completedCount} / ${prov.totalSteps} 步',
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   LinearProgressIndicator(
                     value: progress,
                     backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    color: progress == 1.0 ? Colors.green : theme.colorScheme.primary,
+                    color: progress == 1.0
+                        ? Colors.green
+                        : theme.colorScheme.primary,
                   ),
                 ],
               ),
@@ -379,12 +385,14 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               padding: const EdgeInsets.only(left: 8, bottom: 12),
               child: Row(
                 children: [
-                  Icon(Icons.account_tree_outlined, size: 18, color: theme.colorScheme.primary),
+                  Icon(Icons.account_tree_outlined,
+                      size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 6),
-                  Text('流程全景', style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  )),
+                  Text('流程全景',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      )),
                 ],
               ),
             ),
@@ -413,13 +421,15 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                               border: Border.all(
                                 color: isCompleted
                                     ? Colors.green
-                                    : theme.colorScheme.primary.withOpacity( 0.4),
+                                    : theme.colorScheme.primary
+                                        .withOpacity(0.4),
                                 width: 2,
                               ),
                             ),
                             child: Center(
                               child: isCompleted
-                                  ? const Icon(Icons.check, size: 20, color: Colors.white)
+                                  ? const Icon(Icons.check,
+                                      size: 20, color: Colors.white)
                                   : Text(
                                       '${i + 1}',
                                       style: TextStyle(
@@ -443,7 +453,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                                 color: isCompleted
                                     ? theme.colorScheme.outline
                                     : theme.colorScheme.onSurfaceVariant,
-                                fontWeight: isCompleted ? FontWeight.normal : FontWeight.w500,
+                                fontWeight: isCompleted
+                                    ? FontWeight.normal
+                                    : FontWeight.w500,
                               ),
                             ),
                           ),
@@ -457,7 +469,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                             Icons.arrow_forward_ios,
                             size: 12,
                             color: isCompleted
-                                ? Colors.green.withOpacity( 0.5)
+                                ? Colors.green.withOpacity(0.5)
                                 : theme.colorScheme.outlineVariant,
                           ),
                         ),
@@ -475,11 +487,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   Widget _buildStepCard(EnrollmentProvider prov, ThemeData theme, int index) {
     final isCompleted = prov.completedSteps.contains(index);
     final isLast = index == prov.totalSteps - 1;
-    final hasRichSteps = prov.stepDetails.isNotEmpty && index < prov.stepDetails.length;
+    final hasRichSteps =
+        prov.stepDetails.isNotEmpty && index < prov.stepDetails.length;
 
     // 富文本步骤详情
     final detail = hasRichSteps ? prov.stepDetails[index] : null;
-    final stepText = index < prov.steps.length ? prov.steps[index] : (detail?.title ?? '');
+    final stepText =
+        index < prov.steps.length ? prov.steps[index] : (detail?.title ?? '');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,10 +510,14 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isCompleted ? Colors.green : theme.colorScheme.surfaceContainerHighest,
+                    color: isCompleted
+                        ? Colors.green
+                        : theme.colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isCompleted ? Colors.green : theme.colorScheme.outlineVariant,
+                      color: isCompleted
+                          ? Colors.green
+                          : theme.colorScheme.outlineVariant,
                       width: 2,
                     ),
                   ),
@@ -522,7 +540,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   width: 2,
                   height: detail != null ? 100 : 48,
                   color: isCompleted
-                      ? Colors.green.withOpacity( 0.5)
+                      ? Colors.green.withOpacity(0.5)
                       : theme.colorScheme.outlineVariant,
                 ),
             ],
@@ -538,12 +556,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isCompleted
-                    ? Colors.green.withOpacity( 0.05)
-                    : theme.colorScheme.surfaceContainerHighest.withOpacity( 0.5),
+                    ? Colors.green.withOpacity(0.05)
+                    : theme.colorScheme.surfaceContainerHighest
+                        .withOpacity(0.5),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isCompleted
-                      ? Colors.green.withOpacity( 0.3)
+                      ? Colors.green.withOpacity(0.3)
                       : Colors.transparent,
                 ),
               ),
@@ -559,15 +578,21 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: isCompleted ? theme.colorScheme.outline : null,
-                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            color:
+                                isCompleted ? theme.colorScheme.outline : null,
+                            decoration:
+                                isCompleted ? TextDecoration.lineThrough : null,
                           ),
                         ),
                       ),
                       Icon(
-                        isCompleted ? Icons.check_circle : Icons.circle_outlined,
+                        isCompleted
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
                         size: 20,
-                        color: isCompleted ? Colors.green : theme.colorScheme.outlineVariant,
+                        color: isCompleted
+                            ? Colors.green
+                            : theme.colorScheme.outlineVariant,
                       ),
                     ],
                   ),
@@ -581,7 +606,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     // 联系人 + 电话
                     if (detail.contact.isNotEmpty) ...[
                       _buildDetailRow(
-                        theme, Icons.person_outline, detail.contact, detail.phone,
+                        theme,
+                        Icons.person_outline,
+                        detail.contact,
+                        detail.phone,
                       ),
                       const SizedBox(height: 4),
                     ],
@@ -589,7 +617,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     // 办理地点
                     if (detail.location.isNotEmpty) ...[
                       _buildDetailRow(
-                        theme, Icons.location_on_outlined, detail.location, detail.officeHours,
+                        theme,
+                        Icons.location_on_outlined,
+                        detail.location,
+                        detail.officeHours,
                       ),
                       const SizedBox(height: 4),
                     ],
@@ -597,7 +628,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     // 所需材料
                     if (detail.materials.isNotEmpty) ...[
                       _buildDetailRow(
-                        theme, Icons.description_outlined, detail.materials, '',
+                        theme,
+                        Icons.description_outlined,
+                        detail.materials,
+                        '',
                       ),
                       const SizedBox(height: 4),
                     ],
@@ -605,7 +639,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     // 办理入口
                     if (detail.entryUrl.isNotEmpty) ...[
                       _buildDetailRow(
-                        theme, Icons.open_in_new, detail.entryUrl, '',
+                        theme,
+                        Icons.open_in_new,
+                        detail.entryUrl,
+                        '',
                       ),
                       const SizedBox(height: 4),
                     ],
@@ -613,7 +650,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     // 截止时间
                     if (detail.deadline.isNotEmpty) ...[
                       _buildDetailRow(
-                        theme, Icons.schedule, '截止时间：${detail.deadline}', '',
+                        theme,
+                        Icons.schedule,
+                        '截止时间：${detail.deadline}',
+                        '',
                       ),
                       const SizedBox(height: 4),
                     ],
@@ -622,28 +662,29 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     if (detail.faq.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       ...detail.faq.map((f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          dense: true,
-                          title: Text(
-                            f.q,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
-                          children: [
-                            Text(
-                              f.a,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              dense: true,
+                              title: Text(
+                                f.q,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
+                              childrenPadding:
+                                  const EdgeInsets.only(left: 12, bottom: 8),
+                              children: [
+                                Text(
+                                  f.a,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      )),
+                          )),
                     ],
                   ],
                 ],
@@ -656,7 +697,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   /// 构建详情行（图标 + 文本1 + 文本2）
-  Widget _buildDetailRow(ThemeData theme, IconData icon, String text1, String text2) {
+  Widget _buildDetailRow(
+      ThemeData theme, IconData icon, String text1, String text2) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -686,4 +728,12 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       ],
     );
   }
+}
+
+class _FlowOption {
+  final String type;
+  final String label;
+  final IconData icon;
+
+  const _FlowOption(this.type, this.label, this.icon);
 }

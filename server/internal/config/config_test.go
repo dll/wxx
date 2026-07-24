@@ -128,8 +128,8 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.DeepSeekBaseURL != "https://api.deepseek.com/chat/completions" {
 		t.Errorf("DeepSeekBaseURL 默认值错误: %s", cfg.DeepSeekBaseURL)
 	}
-	if cfg.DeepSeekModel != "deepseek-v4-pro" {
-		t.Errorf("期望 DeepSeekModel=deepseek-v4-pro，得到 %s", cfg.DeepSeekModel)
+	if cfg.DeepSeekModel != "deepseek-chat" {
+		t.Errorf("期望 DeepSeekModel=deepseek-chat，得到 %s", cfg.DeepSeekModel)
 	}
 	if cfg.XfyunSpeechURL != "https://iat-api.xfyun.cn/v2/iat" {
 		t.Errorf("XfyunSpeechURL 默认值错误: %s", cfg.XfyunSpeechURL)

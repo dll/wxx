@@ -64,6 +64,9 @@ func (c *XfyunClient) ASR(ctx context.Context, audioBytes []byte) (string, error
 		return "", fmt.Errorf("连接讯飞 ASR WebSocket 失败: %w", err)
 	}
 	defer conn.Close()
+	done := make(chan struct{})
+	defer close(done)
+	go closeWebSocketOnCancel(ctx, conn, done)
 
 	// 分片参数：1280 字节 = 80ms @ 16kHz 16-bit
 	const chunkSize = 1280
@@ -239,6 +242,9 @@ func (c *XfyunClient) TTS(ctx context.Context, text string, voiceName string) ([
 		return nil, fmt.Errorf("连接讯飞 TTS WebSocket 失败: %w", err)
 	}
 	defer conn.Close()
+	done := make(chan struct{})
+	defer close(done)
+	go closeWebSocketOnCancel(ctx, conn, done)
 
 	// 构造并发送 TTS 请求帧
 	frame, err := c.buildTTSFrame(text, voiceName)
@@ -284,6 +290,14 @@ func (c *XfyunClient) TTS(ctx context.Context, text string, voiceName string) ([
 	}
 
 	return audioBuf, nil
+}
+
+func closeWebSocketOnCancel(ctx context.Context, conn *websocket.Conn, done <-chan struct{}) {
+	select {
+	case <-ctx.Done():
+		_ = conn.Close()
+	case <-done:
+	}
 }
 
 // buildTTSFrame 构造 TTS 请求帧（JSON）

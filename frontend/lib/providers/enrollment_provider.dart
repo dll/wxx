@@ -8,7 +8,7 @@ import '../services/api_service.dart';
 class EnrollmentProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
 
-  String _flowType = 'enrollment'; // enrollment | graduation
+  String _flowType = 'enrollment';
   bool _loading = false;
   String? _error;
   AnswerCard? _answerCard;
@@ -22,7 +22,16 @@ class EnrollmentProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
   AnswerCard? get answerCard => _answerCard;
-  List<String> get steps => _answerCard?.steps ?? [];
+  List<String> get steps {
+    if (_stepDetails.isNotEmpty) {
+      return _stepDetails
+          .map((s) => s.title)
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    return _answerCard?.steps ?? [];
+  }
+
   List<ProcessStepDetail> get stepDetails => _stepDetails;
   Set<int> get completedSteps => Set.unmodifiable(_completedSteps);
   String get recordId => _recordId;
@@ -67,6 +76,14 @@ class EnrollmentProvider extends ChangeNotifier {
         case 'student_loan':
           processType = 'student_loan';
           fallbackQuestion = '助学贷款申请流程及所需材料';
+          break;
+        case 'leave':
+          processType = 'leave';
+          fallbackQuestion = '学生请假办理流程及所需材料';
+          break;
+        case 'scholarship':
+          processType = 'scholarship';
+          fallbackQuestion = '奖学金申请流程及所需材料';
           break;
         case 'graduation':
           processType = 'graduation';
@@ -153,11 +170,14 @@ class EnrollmentProvider extends ChangeNotifier {
   Future<void> _restoreFromBackend() async {
     try {
       final flowLabel = {
-        'enrollment': '新生入学',
-        'graduation': '毕业离校',
-        'major_change': '转专业',
-        'student_loan': '助学贷款',
-      }[_flowType] ?? '办事流程';
+            'enrollment': '新生入学',
+            'graduation': '毕业离校',
+            'major_change': '转专业',
+            'student_loan': '助学贷款',
+            'leave': '请假办理',
+            'scholarship': '奖学金申请',
+          }[_flowType] ??
+          '办事流程';
       final resp = await _api.post(
         ApiConfig.processRecordStart(_flowType),
         data: {
@@ -183,7 +203,9 @@ class EnrollmentProvider extends ChangeNotifier {
       await _api.post(
         ApiConfig.processRecordProgress(_flowType),
         data: {
-          'current_step': _completedSteps.isEmpty ? 0 : (_completedSteps.reduce((a, b) => a > b ? a : b) + 1),
+          'current_step': _completedSteps.isEmpty
+              ? 0
+              : (_completedSteps.reduce((a, b) => a > b ? a : b) + 1),
           'completed_steps': _completedSteps.toList()..sort(),
         },
       );

@@ -27,6 +27,8 @@ var flowLabels = map[string]string{
 	"graduation":   "毕业离校",
 	"leave":        "请假办理",
 	"major_change": "转专业",
+	"student_loan": "助学贷款",
+	"student-loan": "助学贷款",
 	"scholarship":  "奖学金申请",
 }
 
@@ -56,15 +58,15 @@ func (s *ProcessRecordService) StartOrResume(userID int64, flowType, flowLabel s
 	if err != nil {
 		return nil, fmt.Errorf("查询流程记录失败: %w", err)
 	}
-	if existing != nil && existing.Status == "in_progress" {
+	if existing != nil {
 		// 已有进行中记录，更新 totalSteps 并返回
 		if totalSteps > 0 && existing.TotalSteps != totalSteps {
 			existing.TotalSteps = totalSteps
-			if flowLabel != "" {
-				existing.FlowLabel = flowLabel
-			}
-			_ = s.repo.Update(existing)
 		}
+		if flowLabel != "" && existing.FlowLabel != flowLabel {
+			existing.FlowLabel = flowLabel
+		}
+		_ = s.repo.Update(existing)
 		return existing, nil
 	}
 
@@ -144,10 +146,14 @@ func flowTypeToResourceID(flowType string) string {
 	switch flowType {
 	case "graduation":
 		return "process-graduation-2026"
-	case "major-transfer", "major_transfer":
-		return "process-major-transfer-2026"
+	case "major-transfer", "major_transfer", "major_change":
+		return "process-major-change-2026"
 	case "student-loan", "student_loan":
 		return "process-student-loan-2026"
+	case "leave":
+		return "process-leave-2026"
+	case "scholarship":
+		return "process-scholarship-2026"
 	case "enrollment":
 		return "process-registration-2026"
 	default:
