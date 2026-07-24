@@ -19,6 +19,7 @@ func NewTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("打开内存数据库失败: %v", err)
 	}
+	db.SetMaxOpenConns(1)
 
 	// 执行 001_init.sql 迁移（基础 schema）
 	migrationPath := resolveMigrationPath(t, "001_init.sql")
@@ -44,13 +45,11 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"017_session_title.sql",
 		"018_process_records.sql",
 		"019_feedback_screenshot_blob.sql",
-		"020_seed_graduation_process.sql",
 		"021_add_step_contact_fields.sql",
 		"022_issue_forecasts.sql",
 		"023_graduation_topics.sql",
 		"024_student_features.sql",
 		"025_add_user_status.sql",
-		"026_seed_additional_processes.sql",
 		"027_add_guest_role.sql",
 		"029_student_user_import.sql",
 	} {
@@ -182,13 +181,13 @@ func truncateSQL(s string, maxLen int) string {
 const embeddedTestSeedSQL = `
 INSERT INTO kb_resources (resource_id, resource_type, owner_scope, owner_id, role_scope, version, status, title, summary, content, source_link, effective_at, tags, updated_by)
 VALUES
-('policy-scholarship-test', 'Policy', 'school', '', '["student","counselor","teacher"]', 'test', 'published', '奖学金评选测试资料', '国家奖学金用于奖励特别优秀的全日制本科学生。', '申请条件包括热爱祖国、遵守校规、诚实守信、学习成绩优异。评选流程为学生申请、班级评议、学院审核、学校评审、公示。', '', '2026-09-01 00:00:00', '["test"]', 'test'),
-('process-major-transfer-test', 'Process', 'school', '', '["student","counselor"]', 'test', 'published', '转专业办理测试流程', '符合条件的学生可按学校通知申请转专业。', '流程包括在线申请、转出学院审核、转入学院考核、教务处审批、公示、办理学籍异动。', '', '2026-06-01 00:00:00', '["test"]', 'test'),
-('faq-graduation-test', 'FAQ', 'school', '', '["student"]', 'test', 'published', '离校手续测试 FAQ', '毕业生离校需办理图书馆、宿舍、财务、学院等环节。', '离校手续通常包括归还图书、宿舍退宿、财务结算、档案确认和证书领取。具体要求以学校当年通知为准。', '', '2026-06-01 00:00:00', '["test"]', 'test');
+('policy-scholarship-2026', 'Policy', 'school', '', '["student","counselor","teacher"]', 'test', 'published', '2026年度国家奖学金评选办法', '国家奖学金用于奖励特别优秀的全日制本专科学生，奖励标准为每人每年8000元。', '申请条件包括热爱祖国、遵守校规、诚实守信、学习成绩优异，上一学年平均学分绩点 GPA 排名在本专业前10%且无不及格科目。评选流程为学生申请、班级评议、学院审核、学校评审、公示。', '', '2026-09-01 00:00:00', '["test"]', 'test'),
+('process-major-transfer-2026', 'Process', 'school', '', '["student","counselor"]', 'test', 'published', '本科生转专业办理流程', '符合条件的学生可按学校通知申请转专业，平均学分绩点 GPA 应达到转入专业要求。', '流程包括在线申请、转出学院审核、转入学院考核、教务处审批、公示、办理学籍异动。', '', '2026-06-01 00:00:00', '["test"]', 'test'),
+('faq-graduation-2026', 'FAQ', 'school', '', '["student"]', 'test', 'published', '毕业生离校手续常见问题', '毕业生离校需办理图书馆、宿舍、财务、学院等环节。', '离校手续通常包括归还图书、宿舍退宿、财务结算、档案确认和证书领取。具体要求以学校当年通知为准。', '', '2026-06-01 00:00:00', '["test"]', 'test');
 
 INSERT INTO process_steps (resource_id, step_order, title, materials, entry_url, deadline, location, notes)
 VALUES
-('process-major-transfer-test', 1, '在线申请', '[]', '', '学校通知时间内', '教务系统', '填写转专业申请'),
-('process-major-transfer-test', 2, '学院审核', '["成绩单"]', '', '提交后审核', '学院教学办公室', '完成转出与转入学院审核'),
-('process-major-transfer-test', 3, '教务处审批', '[]', '', '学院审核后', '教务处', '完成公示和学籍异动');
+('process-major-transfer-2026', 1, '在线申请', '[]', '', '学校通知时间内', '教务系统', '填写转专业申请'),
+('process-major-transfer-2026', 2, '学院审核', '["成绩单"]', '', '提交后审核', '学院教学办公室', '完成转出与转入学院审核'),
+('process-major-transfer-2026', 3, '教务处审批', '[]', '', '学院审核后', '教务处', '完成公示和学籍异动');
 `

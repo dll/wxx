@@ -105,7 +105,7 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	traceID := uuid.New().String()
 
 	// │ ❶ 缓存检查 ── 入学/离校等固定流程问题命中缓存即返回
-	if agentID == "" && sessionID == "" {
+	if agentID == "" && sessionID == "" && isProcessCacheableQuestion(question) {
 		if card := s.cacheGet(question); card != nil {
 			log.Printf("问答缓存命中 [trace=%s] question_hash=%s", traceID, cacheKeyForQuestion(question))
 			return card, "", nil
@@ -489,6 +489,20 @@ func cacheKeyForQuestion(q string) string {
 	h := fnv.New64a()
 	h.Write([]byte(normalized))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func isProcessCacheableQuestion(question string) bool {
+	q := strings.TrimSpace(question)
+	if q == "" {
+		return false
+	}
+	keywords := []string{"入学", "迎新", "报到", "离校", "毕业", "转专业", "助学贷款", "流程"}
+	for _, keyword := range keywords {
+		if strings.Contains(q, keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // cacheGet 从缓存读取（仅限无 agentID 且无 sessionID 的固定流程问题）

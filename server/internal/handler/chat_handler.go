@@ -55,6 +55,7 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 	// 调用 service 层
 	card, sessionID, err := h.chatSvc.Ask(c.Request.Context(), userCtx, req.SessionID, req.Question, req.AgentID)
 	if err != nil {
+		log.Printf("问答处理失败 trace=%s user=%s session=%s err=%v", middleware.GetTraceID(c), userCtx.Username, req.SessionID, err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "问答处理失败：" + err.Error(),

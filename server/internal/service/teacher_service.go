@@ -129,24 +129,24 @@ func (s *TeacherService) fallbackPlan(topic string) *LessonPlan {
 
 // DailyOverview 今日授课概览
 type DailyOverview struct {
-	Date          string `json:"date"`
-	Greeting      string `json:"greeting"`
-	CourseName    string `json:"course_name"`
-	ClassName     string `json:"class_name"`
-	StudentCount  int    `json:"student_count"`
-	LastReflection string `json:"last_reflection"`
-	KeyKnowledge  []string `json:"key_knowledge"`
-	DataSource    string `json:"data_source"`
+	Date           string   `json:"date"`
+	Greeting       string   `json:"greeting"`
+	CourseName     string   `json:"course_name"`
+	ClassName      string   `json:"class_name"`
+	StudentCount   int      `json:"student_count"`
+	LastReflection string   `json:"last_reflection"`
+	KeyKnowledge   []string `json:"key_knowledge"`
+	DataSource     string   `json:"data_source"`
 }
 
 // ExamPaper AI 考试出题结果
 type ExamPaper struct {
-	Title          string                   `json:"title"`
-	TotalScore     int                      `json:"total_score"`
-	Duration       int                      `json:"duration"`
-	Sections       []map[string]interface{} `json:"sections"`
+	Title           string                   `json:"title"`
+	TotalScore      int                      `json:"total_score"`
+	Duration        int                      `json:"duration"`
+	Sections        []map[string]interface{} `json:"sections"`
 	SampleQuestions []map[string]interface{} `json:"sample_questions"`
-	DataSource     string                   `json:"data_source"`
+	DataSource      string                   `json:"data_source"`
 }
 
 // GenerateExam 用 LLM 生成考试试卷
@@ -205,13 +205,13 @@ func (s *TeacherService) fallbackExam(courseName string) *ExamPaper {
 
 // GradingResult AI 作业批改结果
 type GradingResult struct {
-	TotalSubmissions int                      `json:"total_submissions"`
-	Graded           int                      `json:"graded"`
-	AverageScore     float64                  `json:"average_score"`
-	Distribution     map[string]int           `json:"distribution"`
-	CommonIssues     []string                 `json:"common_issues"`
-	ExcellentWorks   []string                 `json:"excellent_works"`
-	DataSource       string                   `json:"data_source"`
+	TotalSubmissions int            `json:"total_submissions"`
+	Graded           int            `json:"graded"`
+	AverageScore     float64        `json:"average_score"`
+	Distribution     map[string]int `json:"distribution"`
+	CommonIssues     []string       `json:"common_issues"`
+	ExcellentWorks   []string       `json:"excellent_works"`
+	DataSource       string         `json:"data_source"`
 }
 
 // GradeAssignments 用 LLM 分析作业批改情况
@@ -322,14 +322,14 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 	}
 
 	return &DailyOverview{
-		Date:          today,
-		Greeting:      greeting,
-		CourseName:    "数据结构",
-		ClassName:     "计科221",
-		StudentCount:  42,
+		Date:           today,
+		Greeting:       greeting,
+		CourseName:     "数据结构",
+		ClassName:      "计科221",
+		StudentCount:   42,
 		LastReflection: "上次课程学生对递归的理解较好，但动态规划部分还需加强练习。",
-		KeyKnowledge:  []string{"二叉树遍历算法", "树的递归定义", "遍历的非递归实现"},
-		DataSource:    "mock",
+		KeyKnowledge:   []string{"二叉树遍历算法", "树的递归定义", "遍历的非递归实现"},
+		DataSource:     "mock",
 	}
 }
 
@@ -337,14 +337,14 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 
 // KnowledgeCoverage 知识点覆盖检查
 type KnowledgeCoverage struct {
-	CourseName       string   `json:"course_name"`
-	SyllabusPoints   int      `json:"syllabus_points"`
-	ExamPoints       int      `json:"exam_points"`
-	TaughtPoints     int      `json:"taught_points"`
-	CoverageRate     float64  `json:"coverage_rate"`
-	Gaps             []string `json:"gaps"`
-	Suggestion       string   `json:"suggestion"`
-	DataSource       string   `json:"data_source"`
+	CourseName     string   `json:"course_name"`
+	SyllabusPoints int      `json:"syllabus_points"`
+	ExamPoints     int      `json:"exam_points"`
+	TaughtPoints   int      `json:"taught_points"`
+	CoverageRate   float64  `json:"coverage_rate"`
+	Gaps           []string `json:"gaps"`
+	Suggestion     string   `json:"suggestion"`
+	DataSource     string   `json:"data_source"`
 }
 
 func (s *TeacherService) CheckKnowledgeCoverage(ctx context.Context, courseName string) *KnowledgeCoverage {
@@ -380,10 +380,10 @@ func (s *TeacherService) CheckKnowledgeCoverage(ctx context.Context, courseName 
 
 // IdeologicalSuggestion 课程思政建议
 type IdeologicalSuggestion struct {
-	CourseName string   `json:"course_name"`
+	CourseName string              `json:"course_name"`
 	Topics     []map[string]string `json:"topics"`
-	Materials  []string `json:"materials"`
-	DataSource string   `json:"data_source"`
+	Materials  []string            `json:"materials"`
+	DataSource string              `json:"data_source"`
 }
 
 func (s *TeacherService) GenerateIdeologicalSuggestions(ctx context.Context, courseName string) *IdeologicalSuggestion {
@@ -438,12 +438,12 @@ func (s *TeacherService) GenerateStudentTwinTeaching(ctx context.Context, course
 
 // FAQKnowledgeBase 答疑知识库管理
 type FAQKnowledgeBase struct {
-	CourseName  string                   `json:"course_name"`
-	TotalFAQs   int                      `json:"total_faqs"`
+	CourseName   string                   `json:"course_name"`
+	TotalFAQs    int                      `json:"total_faqs"`
 	NewQuestions []map[string]interface{} `json:"new_questions"`
-	PopularFAQs []map[string]interface{} `json:"popular_faqs"`
-	Suggestion  string                   `json:"suggestion"`
-	DataSource  string                   `json:"data_source"`
+	PopularFAQs  []map[string]interface{} `json:"popular_faqs"`
+	Suggestion   string                   `json:"suggestion"`
+	DataSource   string                   `json:"data_source"`
 }
 
 func (s *TeacherService) ManageFAQKnowledge(ctx context.Context, courseName string) *FAQKnowledgeBase {
@@ -470,12 +470,12 @@ func (s *TeacherService) ManageFAQKnowledge(ctx context.Context, courseName stri
 
 // PersonalizedTeaching 个性化教学建议
 type PersonalizedTeaching struct {
-	StudentName    string   `json:"student_name"`
-	LearningStyle  string   `json:"learning_style"`
-	WeakPoints     []string `json:"weak_points"`
-	Strategy       string   `json:"strategy"`
-	Resources      []string `json:"resources"`
-	DataSource     string   `json:"data_source"`
+	StudentName   string   `json:"student_name"`
+	LearningStyle string   `json:"learning_style"`
+	WeakPoints    []string `json:"weak_points"`
+	Strategy      string   `json:"strategy"`
+	Resources     []string `json:"resources"`
+	DataSource    string   `json:"data_source"`
 }
 
 func (s *TeacherService) GeneratePersonalizedTeaching(ctx context.Context, studentName string) *PersonalizedTeaching {
@@ -483,7 +483,7 @@ func (s *TeacherService) GeneratePersonalizedTeaching(ctx context.Context, stude
 		studentName = "张明"
 	}
 
-	return &PersonalizedTeaching{
+	data := &PersonalizedTeaching{
 		StudentName:   studentName,
 		LearningStyle: "动手实践型",
 		WeakPoints:    []string{"递归思想", "动态规划", "图论算法"},
@@ -505,23 +505,13 @@ func (s *TeacherService) GeneratePersonalizedTeaching(ctx context.Context, stude
 		if err == nil && resp != nil && resp.Content != "" {
 			refined := strings.TrimSpace(resp.Content)
 			if len(refined) > 0 {
-				_ = refined // AI建议可用于后续优化
+				data.Strategy = refined
+				data.DataSource = "ai"
 			}
 		}
 	}
 
-	return &PersonalizedTeaching{
-		StudentName:   studentName,
-		LearningStyle: "动手实践型",
-		WeakPoints:    []string{"递归思想", "动态规划", "图论算法"},
-		Strategy:      "建议增加编程练习量，用可视化工具辅助理解抽象概念。每学完一个算法立即用代码实现，对比不同解法的复杂度。",
-		Resources: []string{
-			"LeetCode 热题100",
-			"《算法导论》动态规划章节",
-			"VisuAlgo 可视化学习平台",
-		},
-		DataSource: "mock",
-	}
+	return data
 }
 
 // ======================== P1 剩余方法 ========================
