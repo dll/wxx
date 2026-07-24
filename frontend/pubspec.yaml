@@ -94,7 +94,6 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/campus_navigation.html
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -122,4 +121,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
 

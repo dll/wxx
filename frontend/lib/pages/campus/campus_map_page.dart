@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/campus_map_embed.dart';
 
-/// 校园服务入口 — 高德地图 / VR全景 / 学校首页 / 招生抖音
 class CampusMapPage extends StatefulWidget {
   const CampusMapPage({super.key});
 
@@ -12,6 +12,10 @@ class CampusMapPage extends StatefulWidget {
 
 enum _CampusTab { map, vr, home, douyin }
 
+enum _MapProvider { amap, baidu, tencent }
+
+enum _MapMode { twoD, threeD }
+
 class _CampusTabInfo {
   final _CampusTab tab;
   final String label;
@@ -19,13 +23,36 @@ class _CampusTabInfo {
   final Color color;
   final String url;
   final String subtitle;
+
   const _CampusTabInfo(
       this.tab, this.label, this.icon, this.color, this.url, this.subtitle);
 }
 
+class _CheckinStep {
+  final String title;
+  final String location;
+  final String duration;
+  final String task;
+  final String materials;
+  final String contact;
+  final String note;
+  final IconData icon;
+
+  const _CheckinStep({
+    required this.title,
+    required this.location,
+    required this.duration,
+    required this.task,
+    required this.materials,
+    required this.contact,
+    required this.note,
+    required this.icon,
+  });
+}
+
 const _tabs = [
-  _CampusTabInfo(
-      _CampusTab.map, '地图', Icons.map_outlined, Color(0xFF1677FF), '', '导航到校'),
+  _CampusTabInfo(_CampusTab.map, '报到导航', Icons.route_outlined,
+      Color(0xFF1677FF), '', '从当前位置进入校园，按报到顺序逐步办理'),
   _CampusTabInfo(_CampusTab.vr, 'VR全景', Icons.view_in_ar, Color(0xFF7B1FA2),
       'https://www.chzu.edu.cn/vr/index.html', '足不出户漫游校园'),
   _CampusTabInfo(_CampusTab.home, '官网', Icons.school, Color(0xFF1565C0),
@@ -39,10 +66,76 @@ const _tabs = [
       '搜索滁州学院官方抖音'),
 ];
 
+const _steps = [
+  _CheckinStep(
+    title: '校门入校核验',
+    location: '会峰校区南门',
+    duration: '约 5 分钟',
+    task: '核验录取通知书、身份证，按学院引导进入校园。',
+    materials: '录取通知书、身份证',
+    contact: '迎新志愿者 / 保卫处 0550-3510110',
+    note: '建议提前准备证件，车辆服从现场引导。',
+    icon: Icons.login,
+  ),
+  _CheckinStep(
+    title: '学院报到',
+    location: '计算机学院报到点',
+    duration: '约 15 分钟',
+    task: '领取班级信息、辅导员联系方式、报到流程单。',
+    materials: '录取通知书、身份证、档案袋',
+    contact: '学院辅导员，见班级群通知',
+    note: '这是后续宿舍、体检等流程的起点。',
+    icon: Icons.account_balance,
+  ),
+  _CheckinStep(
+    title: '缴费与绿色通道',
+    location: '财务缴费点 / 绿色通道',
+    duration: '约 10-20 分钟',
+    task: '完成学杂费确认，助学贷款或缓缴学生办理绿色通道。',
+    materials: '缴费凭证、贷款受理证明（如有）',
+    contact: '财务处 0550-3510033',
+    note: '已线上缴费的学生现场只需核验状态。',
+    icon: Icons.payments_outlined,
+  ),
+  _CheckinStep(
+    title: '宿舍入住',
+    location: '学生公寓楼值班室',
+    duration: '约 15 分钟',
+    task: '确认宿舍信息，领取钥匙，办理入住。',
+    materials: '校园卡或身份证',
+    contact: '公寓值班室 0550-3510088',
+    note: '入住后请检查床位、门锁、水电设施。',
+    icon: Icons.bed_outlined,
+  ),
+  _CheckinStep(
+    title: '校园卡与网络',
+    location: '一卡通/信息服务点',
+    duration: '约 10 分钟',
+    task: '领取或激活校园卡，开通校园网账号。',
+    materials: '身份证、学号信息',
+    contact: '信息中心 0550-3510999',
+    note: '校园卡用于门禁、食堂、图书馆等场景。',
+    icon: Icons.credit_card,
+  ),
+  _CheckinStep(
+    title: '入学体检与学籍核验',
+    location: '校医院 / 教务处学籍点',
+    duration: '约 30-45 分钟',
+    task: '按学院批次完成体检、照片采集和学籍信息核验。',
+    materials: '身份证、体检表、录取通知书',
+    contact: '校医院 0550-3510120 / 教务处 0550-3510015',
+    note: '抽血项目一般需空腹，请按学院通知批次办理。',
+    icon: Icons.health_and_safety_outlined,
+  ),
+];
+
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
+  _MapProvider _provider = _MapProvider.amap;
+  _MapMode _mode = _MapMode.twoD;
+  int _currentStep = 0;
+  final Set<int> _completed = {};
   String _copiedText = '';
-  double _imageScale = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -102,310 +195,196 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ),
       ),
       body: _currentTab == _CampusTab.map
-          ? _buildMapTab(theme)
+          ? _buildCheckinNavigator(theme)
           : _buildServiceTab(theme),
     );
   }
 
-  Widget _buildMapTab(ThemeData theme) {
-    return ListView(
+  Widget _buildCheckinNavigator(ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 980;
+        final map = _buildMapPanel(theme, desktop);
+        final steps = _buildStepsPanel(theme);
+        if (desktop) {
+          return Row(
+            children: [
+              Expanded(flex: 7, child: map),
+              VerticalDivider(
+                  width: 1, color: theme.colorScheme.outlineVariant),
+              SizedBox(width: 390, child: steps),
+            ],
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            SizedBox(height: 460, child: map),
+            const SizedBox(height: 12),
+            SizedBox(height: 640, child: steps),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMapPanel(ThemeData theme, bool desktop) {
+    return Padding(
       padding: const EdgeInsets.all(16),
-      children: [
-        // 地址卡片
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(theme),
+          const SizedBox(height: 12),
+          _buildControls(theme),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Stack(
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1677FF).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(40),
+                Positioned.fill(
+                  child: CampusMapEmbed(
+                    key: ValueKey(
+                        '${_provider.name}-${_mode.name}-$_currentStep'),
+                    url: _mapUrl,
+                    title: _providerLabel,
                   ),
-                  child: const Icon(Icons.map_outlined,
-                      size: 40, color: Color(0xFF1677FF)),
                 ),
-                const SizedBox(height: 16),
-                Text('滁州学院（会峰校区）',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.red),
-                    const SizedBox(width: 4),
-                    Text('安徽省滁州市会峰西路1号',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )),
-                    IconButton(
-                      icon: const Icon(Icons.copy, size: 16),
-                      tooltip: '复制地址',
-                      onPressed: () {
-                        Clipboard.setData(
-                            const ClipboardData(text: '安徽省滁州市会峰西路1号 滁州学院'));
-                        setState(() => _copiedText = '地址已复制');
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (mounted) setState(() => _copiedText = '');
-                        });
-                      },
-                      constraints:
-                          const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text('118.2988, 32.2921',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                      fontFamily: 'monospace',
-                    )),
-                if (_copiedText.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(_copiedText,
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.green)),
-                  ),
+                Positioned(left: 16, top: 16, child: _buildMapBadge(theme)),
+                Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: _buildCurrentStepOverlay(theme)),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        // 导航按钮
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => _openUrl(
-                    'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&mode=car&coordinate=gaode',
-                  ),
-                  icon: const Icon(Icons.directions_car, size: 18),
-                  label: const Text('高德地图导航'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1677FF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => _openUrl(
-                    'https://apis.map.qq.com/uri/v1/routeplan?type=drive&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&tolat=32.2921&tolng=118.2988',
-                  ),
-                  icon: const Icon(Icons.map, size: 18),
-                  label: const Text('腾讯地图导航'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF07C160),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // ── 校园报到导航按钮 ──
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => _openUrl(
-                    'https://wxx.pydaydayup.xyz/assets/campus_navigation.html',
-                  ),
-                  icon: const Icon(Icons.explore, size: 18),
-                  label: const Text('校园报到导航'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE65100),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildEnrollmentMapCard(theme),
-        const SizedBox(height: 12),
-        // 路线说明
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 16, color: theme.colorScheme.primary),
-                    const SizedBox(width: 6),
-                    Text('交通指南', style: theme.textTheme.titleSmall),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _buildTransportItem(theme, Icons.directions_bus, '公交',
-                    '乘坐 4路、15路、18路、101路 到「滁州学院」站'),
-                const SizedBox(height: 6),
-                _buildTransportItem(
-                    theme, Icons.train, '高铁', '滁州站 → 乘 18路/101路 到滁州学院（约30分钟）'),
-                const SizedBox(height: 6),
-                _buildTransportItem(
-                    theme, Icons.local_taxi, '自驾', '导航至「滁州学院会峰校区」（会峰西路1号）'),
-              ],
-            ),
-          ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          _buildNavigationButtons(theme),
+        ],
+      ),
     );
   }
 
-  Widget _buildTransportItem(
-      ThemeData theme, IconData icon, String label, String desc) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: theme.colorScheme.primary),
-        const SizedBox(width: 8),
-        Text('$label：',
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        Expanded(
-            child: Text(desc,
-                style: TextStyle(
-                    fontSize: 13, color: theme.colorScheme.onSurfaceVariant))),
-      ],
-    );
-  }
-
-  Widget _buildEnrollmentMapCard(ThemeData theme) {
+  Widget _buildHeader(ThemeData theme) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.map_outlined,
-                    size: 20, color: Color(0xFF1677FF)),
-                const SizedBox(width: 8),
-                Text('新生入学流程地图',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.fullscreen, size: 20),
-                  tooltip: '全屏查看',
-                  onPressed: () => _showFullscreenMap(theme),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(Icons.route, color: theme.colorScheme.primary),
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: Image.asset(
-                  'assets/images/会峰校区2003新生报到交通指示图01.png',
-                  height: 200 * _imageScale,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image_not_supported,
-                              size: 40, color: theme.colorScheme.outline),
-                          const SizedBox(height: 8),
-                          Text('图片未加载',
-                              style:
-                                  TextStyle(color: theme.colorScheme.outline)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('新生报到实时导航',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('当前位置 → 会峰校区 → 按报到顺序逐站办理',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant)),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.photo_size_select_small,
-                    size: 16, color: theme.colorScheme.outline),
-                Expanded(
-                  child: Slider(
-                    value: _imageScale,
-                    min: 0.5,
-                    max: 2.0,
-                    divisions: 15,
-                    label: '${(_imageScale * 100).toInt()}%',
-                    onChanged: (v) => setState(() => _imageScale = v),
-                  ),
-                ),
-                Icon(Icons.photo_size_select_large,
-                    size: 16, color: theme.colorScheme.outline),
-              ],
-            ),
-            Center(
-              child: Text('${(_imageScale * 100).toInt()}%',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showFullscreenMap(theme),
-                icon: const Icon(Icons.open_in_full, size: 16),
-                label: const Text('全屏查看'),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
+            Text('${_completed.length}/${_steps.length} 已完成',
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(color: theme.colorScheme.primary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControls(ThemeData theme) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SegmentedButton<_MapProvider>(
+          segments: const [
+            ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
+            ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
+            ButtonSegment(value: _MapProvider.tencent, label: Text('腾讯')),
+          ],
+          selected: {_provider},
+          onSelectionChanged: (v) => setState(() => _provider = v.first),
+        ),
+        SegmentedButton<_MapMode>(
+          segments: const [
+            ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
+            ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
+          ],
+          selected: {_mode},
+          onSelectionChanged: (v) => setState(() => _mode = v.first),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapBadge(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_mode == _MapMode.twoD ? Icons.map_outlined : Icons.view_in_ar,
+              size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+              '$_providerLabel · ${_mode == _MapMode.twoD ? '2D 地图' : '3D/全景'}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentStepOverlay(ThemeData theme) {
+    final step = _steps[_currentStep];
+    return Card(
+      elevation: 8,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(step.icon, color: theme.colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('当前步骤：${step.title}',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text('${step.location} · ${step.duration}',
+                      style: theme.textTheme.bodySmall),
+                ],
               ),
+            ),
+            FilledButton.tonal(
+              onPressed: _markCurrentDone,
+              child: Text(_completed.contains(_currentStep) ? '已完成' : '完成此步'),
             ),
           ],
         ),
@@ -413,43 +392,177 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  void _showFullscreenMap(ThemeData theme) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '关闭',
-      barrierColor: Colors.black87,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) {
-        return Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            title: const Text('新生入学流程地图'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
+  Widget _buildNavigationButtons(ThemeData theme) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        FilledButton.icon(
+          onPressed: () => _openUrl(_routeUrl),
+          icon: const Icon(Icons.my_location, size: 18),
+          label: Text('从当前位置导航到${_steps[_currentStep].location}'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            Clipboard.setData(
+                const ClipboardData(text: '安徽省滁州市会峰西路1号 滁州学院会峰校区'));
+            setState(() => _copiedText = '地址已复制');
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) setState(() => _copiedText = '');
+            });
+          },
+          icon: const Icon(Icons.copy, size: 18),
+          label: Text(_copiedText.isEmpty ? '复制学校地址' : _copiedText),
+        ),
+        OutlinedButton.icon(
+          onPressed: _resetProgress,
+          icon: const Icon(Icons.restart_alt, size: 18),
+          label: const Text('重置报到状态'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepsPanel(ThemeData theme) {
+    return Container(
+      color: theme.colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text('报到流程',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              itemCount: _steps.length,
+              itemBuilder: (context, index) => _buildStepCard(theme, index),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepCard(ThemeData theme, int index) {
+    final step = _steps[index];
+    final done = _completed.contains(index);
+    final active = _currentStep == index;
+    final color = done
+        ? const Color(0xFF2E7D32)
+        : active
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outline;
+    return Card(
+      elevation: active ? 2 : 0,
+      color:
+          active ? theme.colorScheme.primaryContainer.withOpacity(0.38) : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+            color: active
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _currentStep = index),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: color.withOpacity(0.12),
+                    child: Icon(done ? Icons.check : step.icon,
+                        size: 18, color: color),
+                  ),
+                  if (index < _steps.length - 1)
+                    Container(
+                        width: 2, height: 92, color: color.withOpacity(0.25)),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('${index + 1}. ${step.title}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: done ? color : null)),
+                        ),
+                        Text(
+                            done
+                                ? '已完成'
+                                : active
+                                    ? '进行中'
+                                    : '待办理',
+                            style: theme.textTheme.labelSmall
+                                ?.copyWith(color: color)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    _buildMetaLine(Icons.place_outlined, step.location),
+                    _buildMetaLine(Icons.schedule, step.duration),
+                    _buildMetaLine(Icons.assignment_outlined, step.task),
+                    _buildMetaLine(
+                        Icons.inventory_2_outlined, '材料：${step.materials}'),
+                    _buildMetaLine(Icons.phone_outlined, step.contact),
+                    const SizedBox(height: 8),
+                    Text(step.note,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
               ),
             ],
           ),
-          body: InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 5.0,
-            child: Center(
-              child: Image.asset(
-                'assets/images/会峰校区2003新生报到交通指示图01.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Text('图片未加载', style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
+  }
+
+  Widget _buildMetaLine(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14),
+          const SizedBox(width: 5),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12.5))),
+        ],
+      ),
+    );
+  }
+
+  void _markCurrentDone() {
+    setState(() {
+      _completed.add(_currentStep);
+      if (_currentStep < _steps.length - 1) _currentStep++;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(
+              '已完成：${_steps[_currentStep == 0 ? 0 : _currentStep - 1].title}')),
+    );
+  }
+
+  void _resetProgress() {
+    setState(() {
+      _completed.clear();
+      _currentStep = 0;
+    });
   }
 
   Widget _buildServiceTab(ThemeData theme) {
@@ -529,6 +642,41 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ),
       ),
     );
+  }
+
+  String get _providerLabel {
+    switch (_provider) {
+      case _MapProvider.baidu:
+        return '百度地图';
+      case _MapProvider.tencent:
+        return '腾讯地图';
+      case _MapProvider.amap:
+        return '高德地图';
+    }
+  }
+
+  String get _mapUrl {
+    if (_mode == _MapMode.threeD)
+      return 'https://www.chzu.edu.cn/vr/index.html';
+    switch (_provider) {
+      case _MapProvider.baidu:
+        return 'https://api.map.baidu.com/marker?location=32.2921,118.2988&title=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&content=%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&output=html';
+      case _MapProvider.tencent:
+        return 'https://apis.map.qq.com/uri/v1/marker?marker=coord:32.2921,118.2988;title:%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2;addr:%E4%BC%9A%E5%B3%B0%E8%A5%BF%E8%B7%AF1%E5%8F%B7&referer=wxx';
+      case _MapProvider.amap:
+        return 'https://uri.amap.com/marker?position=118.2988,32.2921&name=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&coordinate=gaode';
+    }
+  }
+
+  String get _routeUrl {
+    switch (_provider) {
+      case _MapProvider.baidu:
+        return 'https://api.map.baidu.com/direction?destination=latlng:32.2921,118.2988|name:%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&mode=walking&output=html';
+      case _MapProvider.tencent:
+        return 'https://apis.map.qq.com/uri/v1/routeplan?type=walk&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&tolat=32.2921&tolng=118.2988&referer=wxx';
+      case _MapProvider.amap:
+        return 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&mode=walk&coordinate=gaode';
+    }
   }
 
   Future<void> _openUrl(String url) async {
