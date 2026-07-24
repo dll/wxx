@@ -391,6 +391,16 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 			}
 		}
 	}
+	if len(steps) == 0 {
+		steps = fallbackProcessSteps(flowType)
+	}
+	if card == nil {
+		card = &model.AnswerCard{
+			Conclusion: flowTitle + "已整理，请按下列步骤办理。",
+			Fallback:   true,
+			Confidence: 0.5,
+		}
+	}
 
 	resp := gin.H{
 		"processes": []gin.H{
@@ -408,6 +418,58 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 		resp["answer_card"] = card
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func fallbackProcessSteps(flowType string) []gin.H {
+	switch flowType {
+	case "graduation":
+		return []gin.H{
+			processStep(1, "一表通在线申请", "[\"学生证\"]", "http://ybt.chzu.edu.cn/graduation", "6月初开放", "一表通线上系统", "提交离校申请"),
+			processStep(2, "图书馆与财务清账", "[\"校园卡\",\"缴费凭证\"]", "", "6月20日前", "图书馆/财务处", "归还图书并结清欠费"),
+			processStep(3, "宿舍退宿与校园卡清退", "[\"宿舍钥匙\",\"校园卡\"]", "", "6月25日前", "学生公寓/一卡通中心", "完成宿舍验收和余额清退"),
+			processStep(4, "组织关系与档案确认", "[\"党员证\",\"档案确认单\"]", "", "6月25日前", "学院/党委组织部", "党员需转出组织关系"),
+			processStep(5, "领取毕业证书", "[\"身份证\",\"学生证\"]", "", "毕业典礼后", "学院党政办", "领取毕业证、学位证和成绩单"),
+		}
+	case "major-transfer", "major_transfer", "major_change":
+		return []gin.H{
+			processStep(1, "了解接收条件", "[]", "http://jwc.chzu.edu.cn", "每年5月/11月", "教务处/学院官网", "查看转入专业条件和名额"),
+			processStep(2, "提交申请材料", "[\"转专业申请表\",\"成绩单\",\"个人陈述\"]", "", "第12-14周", "所在学院教学办公室", "填写并提交申请表"),
+			processStep(3, "学院与教务处审核", "[\"完整申请表\",\"成绩单\"]", "", "学期末", "所在学院/拟转入学院/教务处", "完成多级审批和公示"),
+			processStep(4, "办理学籍变更", "[]", "http://jwc.chzu.edu.cn", "公示期满后", "教务处学籍科", "完成学籍信息变更"),
+		}
+	case "student-loan", "student_loan":
+		return []gin.H{
+			processStep(1, "网上申请", "[]", "https://sls.cdb.com.cn", "7月-9月", "国家开发银行学生在线系统", "注册并填写贷款申请"),
+			processStep(2, "打印并认定申请表", "[\"申请表\"]", "", "7月-9月", "户籍地村居/乡镇", "完成家庭经济困难认定"),
+			processStep(3, "现场签订合同", "[\"身份证\",\"录取通知书/学生证\",\"户口簿\"]", "", "7月-9月", "县区学生资助中心", "学生和共同借款人到场办理"),
+			processStep(4, "学校回执录入", "[\"受理证明\"]", "", "开学后一周内", "学校学生资助中心", "提交回执并等待贷款发放"),
+		}
+	default:
+		return []gin.H{
+			processStep(1, "线上预报到", "[\"录取通知书\",\"身份证\"]", "https://yx.chzu.edu.cn", "报到前完成", "迎新系统", "完成个人信息确认和到校信息登记"),
+			processStep(2, "缴纳学杂费", "[\"银行卡\",\"缴费凭证\"]", "http://cw.chzu.edu.cn", "报到前或报到日", "财务系统/现场缴费点", "助学贷款学生携带贷款回执"),
+			processStep(3, "学院报到", "[\"录取通知书\",\"身份证\",\"档案\"]", "", "报到日", "计算机学院报到点", "领取班级、辅导员和校园卡信息"),
+			processStep(4, "宿舍入住", "[\"校园卡\",\"身份证\"]", "", "报到日", "学生公寓", "按分配宿舍领取钥匙并入住"),
+			processStep(5, "入学体检与学籍核验", "[\"身份证\",\"体检表\"]", "", "入学后两周内", "校医院/教务处", "按学院通知分批完成"),
+		}
+	}
+}
+
+func processStep(order int, title, materials, entryURL, deadline, location, notes string) gin.H {
+	return gin.H{
+		"step":         order,
+		"title":        title,
+		"status":       "pending",
+		"materials":    materials,
+		"entry_url":    entryURL,
+		"deadline":     deadline,
+		"location":     location,
+		"notes":        notes,
+		"contact":      "",
+		"phone":        "",
+		"office_hours": "",
+		"faq":          []gin.H{},
+	}
 }
 
 // mapFlowToResource 把前端流程类型映射到 KB resource_id

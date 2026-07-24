@@ -194,11 +194,30 @@ func getSystemPrompt(agentRepo *repository.AgentRepo, agentID string) string {
 // buildAnswerCard 从 LLM 回复和检索结果构造 AnswerCard
 func buildAnswerCard(content string, results []*repository.SearchResult, traceID string) *model.AnswerCard {
 	if content == "" {
-		// LLM 调用失败，构造兜底回答（保留搜索到的 sources）
+		// LLM 调用失败时，基于已召回资料生成本地结构化回答，不向用户暴露模型服务状态。
+		conclusion := "知识库中暂未找到足够信息。建议联系辅导员或学工办公室确认。"
+		confidence := 0.5
+		if len(results) > 0 {
+			var b strings.Builder
+			b.WriteString("我已根据知识库资料为您整理如下：\n\n")
+			for i, r := range results {
+				if i >= 3 {
+					break
+				}
+				b.WriteString(fmt.Sprintf("%d. %s\n", i+1, r.Resource.Title))
+				if r.Resource.Summary != "" {
+					b.WriteString(r.Resource.Summary)
+				} else {
+					b.WriteString(truncateContent(r.Resource.Content, 260))
+				}
+				b.WriteString("\n\n")
+			}
+			conclusion = strings.TrimSpace(b.String())
+		}
 		card := &model.AnswerCard{
-			Conclusion: "抱歉，AI 服务暂时不可用，但我为您找到了以下相关资料，请查阅：",
+			Conclusion: conclusion,
 			TraceID:    traceID,
-			Confidence: 0.5,
+			Confidence: confidence,
 			Fallback:   true,
 			FollowUps: []string{
 				"联系辅导员的方式是什么？",

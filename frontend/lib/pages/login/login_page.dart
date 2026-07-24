@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
+import '../../widgets/apk_download_card.dart';
 
 /// 登录页面 — 注册/登录分离，右上角按钮
 class LoginPage extends StatefulWidget {
@@ -128,6 +129,8 @@ class _LoginPageState extends State<LoginPage>
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  const ApkDownloadCard(compact: true),
 
                   // 登录表单（点击「登录」后显示）
                   if (_showLogin) ...[

@@ -455,12 +455,111 @@ class _ProfilePageState extends State<ProfilePage> {
               'AI 自动生成学习日记', '/student/learning-diary'),
           _ProfileFeature('checkin', '学生服务', Icons.check_circle_outline, '每日打卡',
               '学习打卡与连续记录', '/student/checkin'),
+          _ProfileFeature('digital_twin', '学生服务', Icons.person_pin, '数字孪生',
+              '我的数字画像', '/student/digital-twin'),
+          _ProfileFeature('personality', '学生服务', Icons.psychology_outlined,
+              '性格洞察', 'AI 性格分析', '/student/personality'),
+          _ProfileFeature('achievements', '学生服务', Icons.emoji_events_outlined,
+              '积分成就', '学习积分与成就', '/student/achievements'),
+          _ProfileFeature('course_map', '学生服务', Icons.map_outlined, '课程地图',
+              '课程学习路径', '/student/course-map'),
+          _ProfileFeature('course_analytics', '学生服务', Icons.analytics_outlined,
+              '课程学情', '课程学习分析', '/student/course-analytics'),
+          _ProfileFeature('weekly_report', '学生服务', Icons.summarize_outlined,
+              '学习周报', 'AI 周度学习总结', '/student/weekly-report'),
+          _ProfileFeature('qa_plaza', '学生服务', Icons.forum_outlined, '问答广场',
+              '校园问答社区', '/student/qa-plaza'),
+          _ProfileFeature('hot_topics', '学生服务', Icons.local_fire_department,
+              '热点关注', '校园热点话题', '/student/hot-topics'),
+          _ProfileFeature('qa_leaderboard', '学生服务', Icons.leaderboard_outlined,
+              '问答排行', '问答贡献排行榜', '/student/qa-leaderboard'),
+          _ProfileFeature('private_chat', '学生服务', Icons.chat_outlined, '站内私聊',
+              'AI 学伴私信', '/student/private-chat'),
+          _ProfileFeature('process_enhanced', '办事服务',
+              Icons.account_tree_outlined, 'AI 办事流程', '智能流程引导', '/enrollment'),
           _ProfileFeature('graduation', '学生服务', Icons.topic_outlined, '毕设选题',
               '毕业设计选题与导师选择', '/graduation'),
           _ProfileFeature('competition', '学生服务', Icons.emoji_events_outlined,
               '学科竞赛', '竞赛报名与作品提交', '/competition'),
           _ProfileFeature('plan', '学生服务', Icons.calendar_today, '大学规划',
               '四年学业与职业规划', '/plan'),
+          _ProfileFeature('party_education', '学生服务', Icons.flag_outlined,
+              '入党教育', '入党流程进度与学习', '/party-education'),
+          _ProfileFeature('club', '学生服务', Icons.groups_outlined, '社团生活',
+              '社团加入与活动参与', '/club'),
+        ],
+        if (role == 'counselor') ...[
+          _ProfileFeature('c_daily_focus', '辅导员服务', Icons.visibility_outlined,
+              'AI 今日关注', '重点关注学生提醒', '/counselor/daily-focus'),
+          _ProfileFeature('c_class_report', '辅导员服务', Icons.assessment_outlined,
+              '班级学情日报', '班级每日学情分析', '/counselor/class-report'),
+          _ProfileFeature('c_twin_board', '辅导员服务', Icons.dashboard_outlined,
+              '数字孪生看板', '学生数字画像看板', '/counselor/twin-board'),
+          _ProfileFeature('c_prediction', '辅导员服务', Icons.warning_outlined,
+              '预测性预警', 'AI 风险预测', '/counselor/prediction'),
+          _ProfileFeature('c_intervention', '辅导员服务', Icons.auto_fix_high,
+              'AI 干预方案', '智能干预方案生成', '/counselor/intervention'),
+          _ProfileFeature('c_talk_record', '辅导员服务', Icons.record_voice_over,
+              '谈心谈话', '谈话记录管理', '/counselor/talk-record'),
+          _ProfileFeature(
+              'c_talk_tips',
+              '辅导员服务',
+              Icons.tips_and_updates_outlined,
+              '话术推荐',
+              'AI 谈话话术',
+              '/counselor/talk-tips'),
+          _ProfileFeature('c_ideological', '辅导员服务', Icons.psychology, '思想档案',
+              '学生思想动态', '/counselor/ideological'),
+          _ProfileFeature('c_class_profile', '辅导员服务', Icons.groups_outlined,
+              '班级画像', '班级性格画像', '/counselor/class-profile'),
+          _ProfileFeature('c_community', '辅导员服务', Icons.admin_panel_settings,
+              '社区管理', '问答社区内容管理', '/counselor/community-manage'),
+          _ProfileFeature('c_hot_sense', '辅导员服务', Icons.trending_up, '热点感知',
+              '校园舆情热点感知', '/counselor/hot-topic-sense'),
+          _ProfileFeature('c_process_edit', '辅导员服务', Icons.edit_note, '流程编辑',
+              '办事流程编辑管理', '/counselor/process-edit'),
+          _ProfileFeature('c_student_list', '辅导员服务', Icons.people_alt_outlined,
+              '学生列表', '查看管理学生名单', '/counselor/student-list'),
+        ],
+        if (role == 'teacher') ...[
+          _ProfileFeature('t_daily', '教师服务', Icons.school_outlined, '今日授课',
+              'AI 授课概览', '/teacher/daily-overview'),
+          _ProfileFeature('t_lesson', '教师服务', Icons.auto_awesome, 'AI 备课',
+              '智能备课助手', '/teacher/lesson-prep'),
+          _ProfileFeature('t_exam', '教师服务', Icons.quiz_outlined, 'AI 出题',
+              '智能考试出题', '/teacher/exam-gen'),
+          _ProfileFeature('t_interact', '教师服务', Icons.live_help_outlined,
+              '课堂互动', 'AI 课堂互动', '/teacher/class-interact'),
+          _ProfileFeature('t_grading', '教师服务', Icons.grading, 'AI 批改', '智能作业批改',
+              '/teacher/grading'),
+          _ProfileFeature('t_heatmap', '教师服务', Icons.grid_on, '学情热力图',
+              '班级学情可视化', '/teacher/heatmap'),
+          _ProfileFeature('t_reflection', '教师服务', Icons.self_improvement,
+              '教学反思', 'AI 教学反思', '/teacher/reflection'),
+          _ProfileFeature('t_style', '教师服务', Icons.pie_chart_outline, '学习风格',
+              '学生学习风格分布', '/teacher/style-dist'),
+          _ProfileFeature('t_qa', '教师服务', Icons.question_answer_outlined,
+              '社区问答', '教师社区答疑', '/teacher/community-qa'),
+        ],
+        if (role == 'assistant') ...[
+          _ProfileFeature('a_schedule', '教辅服务', Icons.event_busy, '排课检测',
+              '排课冲突检测', '/assistant/schedule-check'),
+          _ProfileFeature('a_grad', '教辅服务', Icons.school, '毕业审核', '毕业资格审核',
+              '/assistant/grad-audit'),
+          _ProfileFeature('a_exam', '教辅服务', Icons.event_note, '考试编排', '考试安排管理',
+              '/assistant/exam-arrange'),
+        ],
+        if (role == 'student_union') ...[
+          _ProfileFeature('u_event_plan', '学生会服务', Icons.event, 'AI 活动策划',
+              '智能活动方案生成', '/union/event-plan'),
+          _ProfileFeature('u_poster', '学生会服务', Icons.brush, 'AI 海报文案',
+              '智能海报文案生成', '/union/poster-gen'),
+        ],
+        if (_canAccessAdmin(role)) ...[
+          _ProfileFeature('college_twin', '管理服务', Icons.dashboard, '数字孪生大屏',
+              '学院全景数据', '/college/twin-screen'),
+          _ProfileFeature('college_analysis', '管理服务', Icons.analytics, '数据分析',
+              '学院数据分析报告', '/college/data-analysis'),
         ],
         if (_canSubmitKB(role))
           _ProfileFeature('kb_submit', '知识治理', Icons.note_add_outlined, '知识提交',
@@ -487,15 +586,44 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildFeatureTabs(BuildContext context, String? role) {
     final all = _featuresFor(role);
-    if (_listedFeatures.isEmpty)
-      _listedFeatures = all.map((e) => e.key).toSet();
-    if (_enabledFeatures.isEmpty)
-      _enabledFeatures = all.map((e) => e.key).toSet();
+    final allKeys = all.map((e) => e.key).toSet();
+    var changed = false;
+    if (_listedFeatures.isEmpty) {
+      _listedFeatures = allKeys;
+      changed = true;
+    } else {
+      final before = _listedFeatures.length;
+      _listedFeatures.addAll(allKeys);
+      changed = changed || _listedFeatures.length != before;
+    }
+    if (_enabledFeatures.isEmpty) {
+      _enabledFeatures = allKeys;
+      changed = true;
+    } else {
+      final before = _enabledFeatures.length;
+      _enabledFeatures.addAll(allKeys);
+      changed = changed || _enabledFeatures.length != before;
+    }
+    if (changed) {
+      Storage.setListedFeatures(_listedFeatures.toList());
+      Storage.setEnabledFeatures(_enabledFeatures.toList());
+    }
     final visible = all
         .where((f) =>
             _listedFeatures.contains(f.key) && _enabledFeatures.contains(f.key))
         .toList();
-    final categories = ['常用', '学生服务', '办事服务', '知识治理', '校园文化', '管理服务'];
+    final categories = [
+      '常用',
+      '学生服务',
+      '办事服务',
+      '辅导员服务',
+      '教师服务',
+      '教辅服务',
+      '学生会服务',
+      '知识治理',
+      '校园文化',
+      '管理服务'
+    ];
     final adminCanManage = role == 'sys_admin' || role == 'college_admin';
     final tabs = [
       ...categories.where((c) => visible.any((f) => f.category == c)),
