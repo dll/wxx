@@ -178,6 +178,16 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	// 发送给 LLM 前对用户问题进行 PII 脱敏
 	sanitizedQuestion := util.SanitizeForLLM(question, 2000)
 	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, multiAgentResult)
+	if s.llmClient == nil {
+		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
+		_ = s.messageRepo.Create(&model.Message{
+			SessionID: sessionID,
+			Role:      "assistant",
+			Content:   card.Conclusion,
+			TraceID:   traceID,
+		})
+		return card, sessionID, nil
+	}
 
 	// ── 5. 调 LLM ──
 	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
@@ -352,8 +362,7 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		card.Fallback = true
 		// 如果多智能体也没有来源，替换结论为兜底引导文案（避免 LLM 无依据编造）
 		if multiAgentResult == nil || len(multiAgentResult.Sources) == 0 {
-			card.Confidence = 0.0
-			card.Conclusion = `知识库中暂无相关信息，建议联系辅导员或拨打学生处电话 0550-3510022 获取最新通知。如有紧急问题，也可通过"今日校园"APP联系在线客服。`
+			card.Conclusion = `知识库中暂未找到足够信息。建议联系辅导员、学院学工办公室或相关职能部门确认最新要求。`
 		}
 	}
 
@@ -380,7 +389,7 @@ func (s *ChatService) buildBlockedAnswer(traceID string, category string) *model
 // fallbackAnswer 构造兜底回答
 func (s *ChatService) fallbackAnswer(traceID string, question string) *model.AnswerCard {
 	return &model.AnswerCard{
-		Conclusion: "抱歉，我暂时无法回答您的问题。建议您联系辅导员或学工办公室获取帮助。",
+		Conclusion: "知识库中暂未找到足够信息。建议联系辅导员、学院学工办公室或相关职能部门确认。",
 		TraceID:    traceID,
 		Confidence: 0.0,
 		Fallback:   true,
@@ -393,7 +402,8 @@ func (s *ChatService) fallbackAnswer(traceID string, question string) *model.Ans
 
 // fallbackAnswerWithSources 构造兜底回答（保留搜索到的 sources）
 func (s *ChatService) fallbackAnswerWithSources(traceID string, question string, results []*repository.SearchResult) *model.AnswerCard {
-	conclusion := "我已根据知识库资料为您整理如下："
+	conclusion := "知识库中暂未找到足够信息。建议联系辅导员或学工办公室确认。"
+	confidence := 0.3
 	if len(results) > 0 {
 		var b strings.Builder
 		b.WriteString("我已根据知识库资料为您整理如下：\n\n")
@@ -410,11 +420,12 @@ func (s *ChatService) fallbackAnswerWithSources(traceID string, question string,
 			b.WriteString("\n\n")
 		}
 		conclusion = strings.TrimSpace(b.String())
+		confidence = 0.5
 	}
 	card := &model.AnswerCard{
 		Conclusion: conclusion,
 		TraceID:    traceID,
-		Confidence: 0.5, // 有搜索结果，置信度提高
+		Confidence: confidence,
 		Fallback:   true,
 		FollowUps: []string{
 			"联系辅导员的方式是什么？",
@@ -605,6 +616,16 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	// ── 3. 拼装 LLM 上下文 ──
 	sanitizedQuestion := util.SanitizeForLLM(question, 2000)
 	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, nil)
+	if s.llmClient == nil {
+		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
+		_ = s.messageRepo.Create(&model.Message{
+			SessionID: sessionID,
+			Role:      "assistant",
+			Content:   card.Conclusion,
+			TraceID:   traceID,
+		})
+		return card, sessionID, nil
+	}
 
 	// ── 4. 调 LLM ──
 	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{

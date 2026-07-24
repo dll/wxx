@@ -134,9 +134,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	kbSvc := service.NewKBService(kbRepo)
 	forecastSvc := service.NewForecastService(db, forecastRepo, emotionRepo, feedbackRepo, llmClient)
 
-	var chatSvc *service.ChatService
+	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
 	if llmClient != nil {
-		chatSvc = service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
 		chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo, llmClient))
 	}
 
@@ -181,12 +180,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
 	kbHandler := handler.NewKBHandler(kbSvc)
 
-	var chatHandler *handler.ChatHandler
-	if chatSvc != nil {
-		chatHandler = handler.NewChatHandler(chatSvc)
-		if emotionSvc != nil {
-			chatHandler.SetEmotionService(emotionSvc)
-		}
+	chatHandler := handler.NewChatHandler(chatSvc)
+	if emotionSvc != nil {
+		chatHandler.SetEmotionService(emotionSvc)
 	}
 
 	var voiceHandler *handler.VoiceHandler
@@ -497,11 +493,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		secured.Use(middleware.JWTAuth(cfg))
 		{
 			// ── AI 对话（self.chat）──
-			if chatH != nil {
-				secured.POST("/chat", auth.RequireCapability(auth.SelfChat), chatH.Ask)
-			} else {
-				secured.POST("/chat", placeholderHandler("对话接口（LLM 未配置）"))
-			}
+			secured.POST("/chat", auth.RequireCapability(auth.SelfChat), chatH.Ask)
 
 			// ── 会话/知识/推荐（self.* 能力）──
 			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
@@ -798,7 +790,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/notifications/webhook-status", auth.RequireCapability(auth.CounselorNotify), notificationH.WebhookStatus)
 
 			// ── 文档上传与知识入库 ──
-			secured.POST("/kb/upload", auth.RequireCapability(auth.UnionKBSubmit), uploadH.Upload)
+			secured.POST("/kb/upload", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), uploadH.Upload)
 			secured.GET("/kb/formats", uploadH.SupportedFormats)
 
 			// ── 教师 AI 功能 ──

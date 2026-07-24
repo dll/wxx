@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"mime/multipart"
 	"os"
@@ -222,11 +223,16 @@ func extractDocxText(xmlContent string) string {
 		if end == -1 {
 			break
 		}
-		text := xmlContent[contentStart : contentStart+end]
+		text := html.UnescapeString(xmlContent[contentStart : contentStart+end])
+		text = strings.TrimSpace(text)
+		if text == "" {
+			xmlContent = xmlContent[contentStart+end+6:]
+			continue
+		}
 		texts = append(texts, text)
 		xmlContent = xmlContent[contentStart+end+6:]
 	}
-	return strings.Join(texts, "")
+	return strings.Join(texts, " ")
 }
 
 // ConvertToKnowledgeFormat 将文档内容转换为知识库资源 JSON
@@ -241,19 +247,19 @@ func (s *DocumentService) ConvertToKnowledgeFormat(result *DocumentResult, resou
 	ownerID := "cs"
 
 	resource := map[string]interface{}{
-		"resource_id":  fmt.Sprintf("upload-%d", time.Now().UnixMilli()),
+		"resource_id":   fmt.Sprintf("upload-%d", time.Now().UnixMilli()),
 		"resource_type": resourceType,
-		"owner_scope":  scope,
-		"owner_id":     ownerID,
-		"role_scope":   []string{"student", "counselor", "student_union", "college_admin"},
-		"version":      "v1.0",
-		"status":       "published",
-		"title":        title,
-		"summary":      fmt.Sprintf("上传文档：%s（%s, %d KB）", result.FileName, result.FileType, result.FileSize/1024),
-		"content":      result.TextContent,
-		"tags":         []string{"上传文档", result.FileType},
-		"updated_by":   "upload",
-		"updated_at":   time.Now().Format("2006-01-02 15:04:05"),
+		"owner_scope":   scope,
+		"owner_id":      ownerID,
+		"role_scope":    []string{"student", "counselor", "student_union", "college_admin"},
+		"version":       "v1.0",
+		"status":        "published",
+		"title":         title,
+		"summary":       fmt.Sprintf("上传文档：%s（%s, %d KB）", result.FileName, result.FileType, result.FileSize/1024),
+		"content":       result.TextContent,
+		"tags":          []string{"上传文档", result.FileType},
+		"updated_by":    "upload",
+		"updated_at":    time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	return resource, nil

@@ -72,14 +72,8 @@ func NewTestDBFull(t *testing.T) *sql.DB {
 	db := NewTestDB(t)
 	t.Cleanup(func() { db.Close() })
 
-	// 执行种子数据迁移
-	seedPath := resolveMigrationPath(t, "002_test_data.sql")
-	seedContent, err := os.ReadFile(seedPath)
-	if err != nil {
-		t.Logf("跳过种子数据: %v", err)
-		return db
-	}
-	execMigrationSQL(t, db, string(seedContent))
+	// 测试种子只服务内存库；生产迁移不携带测试数据。
+	execMigrationSQL(t, db, embeddedTestSeedSQL)
 
 	return db
 }
@@ -184,3 +178,17 @@ func truncateSQL(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+
+const embeddedTestSeedSQL = `
+INSERT INTO kb_resources (resource_id, resource_type, owner_scope, owner_id, role_scope, version, status, title, summary, content, source_link, effective_at, tags, updated_by)
+VALUES
+('policy-scholarship-test', 'Policy', 'school', '', '["student","counselor","teacher"]', 'test', 'published', '奖学金评选测试资料', '国家奖学金用于奖励特别优秀的全日制本科学生。', '申请条件包括热爱祖国、遵守校规、诚实守信、学习成绩优异。评选流程为学生申请、班级评议、学院审核、学校评审、公示。', '', '2026-09-01 00:00:00', '["test"]', 'test'),
+('process-major-transfer-test', 'Process', 'school', '', '["student","counselor"]', 'test', 'published', '转专业办理测试流程', '符合条件的学生可按学校通知申请转专业。', '流程包括在线申请、转出学院审核、转入学院考核、教务处审批、公示、办理学籍异动。', '', '2026-06-01 00:00:00', '["test"]', 'test'),
+('faq-graduation-test', 'FAQ', 'school', '', '["student"]', 'test', 'published', '离校手续测试 FAQ', '毕业生离校需办理图书馆、宿舍、财务、学院等环节。', '离校手续通常包括归还图书、宿舍退宿、财务结算、档案确认和证书领取。具体要求以学校当年通知为准。', '', '2026-06-01 00:00:00', '["test"]', 'test');
+
+INSERT INTO process_steps (resource_id, step_order, title, materials, entry_url, deadline, location, notes)
+VALUES
+('process-major-transfer-test', 1, '在线申请', '[]', '', '学校通知时间内', '教务系统', '填写转专业申请'),
+('process-major-transfer-test', 2, '学院审核', '["成绩单"]', '', '提交后审核', '学院教学办公室', '完成转出与转入学院审核'),
+('process-major-transfer-test', 3, '教务处审批', '[]', '', '学院审核后', '教务处', '完成公示和学籍异动');
+`
