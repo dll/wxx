@@ -31,6 +31,8 @@ class _CampusTabInfo {
 class _CheckinStep {
   final String title;
   final String location;
+  final double lat;
+  final double lng;
   final String duration;
   final String task;
   final String materials;
@@ -41,12 +43,34 @@ class _CheckinStep {
   const _CheckinStep({
     required this.title,
     required this.location,
+    required this.lat,
+    required this.lng,
     required this.duration,
     required this.task,
     required this.materials,
     required this.contact,
     required this.note,
     required this.icon,
+  });
+}
+
+class _CampusPlan {
+  final String id;
+  final String name;
+  final String address;
+  final double lat;
+  final double lng;
+  final String entrance;
+  final List<_CheckinStep> steps;
+
+  const _CampusPlan({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.lat,
+    required this.lng,
+    required this.entrance,
+    required this.steps,
   });
 }
 
@@ -66,10 +90,12 @@ const _tabs = [
       '搜索滁州学院官方抖音'),
 ];
 
-const _steps = [
+const _huifengSteps = [
   _CheckinStep(
     title: '校门入校核验',
     location: '会峰校区南门',
+    lat: 32.2921,
+    lng: 118.2988,
     duration: '约 5 分钟',
     task: '核验录取通知书、身份证，按学院引导进入校园。',
     materials: '录取通知书、身份证',
@@ -80,6 +106,8 @@ const _steps = [
   _CheckinStep(
     title: '学院报到',
     location: '计算机学院报到点',
+    lat: 32.2932,
+    lng: 118.3005,
     duration: '约 15 分钟',
     task: '领取班级信息、辅导员联系方式、报到流程单。',
     materials: '录取通知书、身份证、档案袋',
@@ -90,6 +118,8 @@ const _steps = [
   _CheckinStep(
     title: '缴费与绿色通道',
     location: '财务缴费点 / 绿色通道',
+    lat: 32.2928,
+    lng: 118.2995,
     duration: '约 10-20 分钟',
     task: '完成学杂费确认，助学贷款或缓缴学生办理绿色通道。',
     materials: '缴费凭证、贷款受理证明（如有）',
@@ -100,6 +130,8 @@ const _steps = [
   _CheckinStep(
     title: '宿舍入住',
     location: '学生公寓楼值班室',
+    lat: 32.2940,
+    lng: 118.2976,
     duration: '约 15 分钟',
     task: '确认宿舍信息，领取钥匙，办理入住。',
     materials: '校园卡或身份证',
@@ -110,6 +142,8 @@ const _steps = [
   _CheckinStep(
     title: '校园卡与网络',
     location: '一卡通/信息服务点',
+    lat: 32.2926,
+    lng: 118.3000,
     duration: '约 10 分钟',
     task: '领取或激活校园卡，开通校园网账号。',
     materials: '身份证、学号信息',
@@ -120,6 +154,8 @@ const _steps = [
   _CheckinStep(
     title: '入学体检与学籍核验',
     location: '校医院 / 教务处学籍点',
+    lat: 32.2917,
+    lng: 118.2992,
     duration: '约 30-45 分钟',
     task: '按学院批次完成体检、照片采集和学籍信息核验。',
     materials: '身份证、体检表、录取通知书',
@@ -129,13 +165,113 @@ const _steps = [
   ),
 ];
 
+const _langyaSteps = [
+  _CheckinStep(
+    title: '校门入校核验',
+    location: '琅琊校区主入口',
+    lat: 32.3136,
+    lng: 118.3098,
+    duration: '约 5 分钟',
+    task: '核验录取通知书、身份证，确认学院迎新引导点。',
+    materials: '录取通知书、身份证',
+    contact: '迎新志愿者 / 保卫处 0550-3510110',
+    note: '老校区道路较集中，请按现场志愿者指引步行前往报到点。',
+    icon: Icons.login,
+  ),
+  _CheckinStep(
+    title: '学院报到',
+    location: '琅琊校区学院集中报到点',
+    lat: 32.3142,
+    lng: 118.3107,
+    duration: '约 15 分钟',
+    task: '领取班级信息、辅导员联系方式、报到流程单。',
+    materials: '录取通知书、身份证、档案袋',
+    contact: '学院辅导员，见班级群通知',
+    note: '如专业报到点调整，以现场公告和蔚小芯通知为准。',
+    icon: Icons.account_balance,
+  ),
+  _CheckinStep(
+    title: '缴费与绿色通道',
+    location: '琅琊校区综合服务点',
+    lat: 32.3140,
+    lng: 118.3094,
+    duration: '约 10-20 分钟',
+    task: '完成学杂费确认，助学贷款或缓缴学生办理绿色通道。',
+    materials: '缴费凭证、贷款受理证明（如有）',
+    contact: '财务处 0550-3510033',
+    note: '线上已缴费学生可快速核验，未缴费学生按现场窗口办理。',
+    icon: Icons.payments_outlined,
+  ),
+  _CheckinStep(
+    title: '宿舍入住',
+    location: '琅琊校区学生公寓值班室',
+    lat: 32.3150,
+    lng: 118.3089,
+    duration: '约 15 分钟',
+    task: '确认宿舍信息，领取钥匙，办理入住。',
+    materials: '校园卡或身份证',
+    contact: '公寓值班室 0550-3510088',
+    note: '入住后请检查床位、门锁、水电设施，问题现场登记。',
+    icon: Icons.bed_outlined,
+  ),
+  _CheckinStep(
+    title: '校园卡与网络',
+    location: '琅琊校区信息服务点',
+    lat: 32.3138,
+    lng: 118.3101,
+    duration: '约 10 分钟',
+    task: '领取或激活校园卡，开通校园网账号。',
+    materials: '身份证、学号信息',
+    contact: '信息中心 0550-3510999',
+    note: '校园卡用于门禁、食堂、图书馆等场景。',
+    icon: Icons.credit_card,
+  ),
+  _CheckinStep(
+    title: '入学体检与学籍核验',
+    location: '琅琊校区医务/学籍核验点',
+    lat: 32.3147,
+    lng: 118.3102,
+    duration: '约 30-45 分钟',
+    task: '按学院批次完成体检、照片采集和学籍信息核验。',
+    materials: '身份证、体检表、录取通知书',
+    contact: '校医院 0550-3510120 / 教务处 0550-3510015',
+    note: '抽血项目一般需空腹，请按学院通知批次办理。',
+    icon: Icons.health_and_safety_outlined,
+  ),
+];
+
+const _campuses = [
+  _CampusPlan(
+    id: 'huifeng',
+    name: '会峰校区',
+    address: '安徽省滁州市会峰西路1号 滁州学院会峰校区',
+    lat: 32.2921,
+    lng: 118.2988,
+    entrance: '会峰校区南门',
+    steps: _huifengSteps,
+  ),
+  _CampusPlan(
+    id: 'langya',
+    name: '琅琊校区',
+    address: '安徽省滁州市琅琊区 滁州学院琅琊校区',
+    lat: 32.3136,
+    lng: 118.3098,
+    entrance: '琅琊校区主入口',
+    steps: _langyaSteps,
+  ),
+];
+
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
   _MapProvider _provider = _MapProvider.amap;
   _MapMode _mode = _MapMode.twoD;
+  int _campusIndex = 0;
   int _currentStep = 0;
   final Set<int> _completed = {};
   String _copiedText = '';
+
+  _CampusPlan get _campus => _campuses[_campusIndex];
+  List<_CheckinStep> get _steps => _campus.steps;
 
   @override
   Widget build(BuildContext context) {
@@ -236,6 +372,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
         children: [
           _buildHeader(theme),
           const SizedBox(height: 12),
+          _buildCampusSelector(theme),
+          const SizedBox(height: 10),
           _buildControls(theme),
           const SizedBox(height: 12),
           Expanded(
@@ -244,7 +382,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 Positioned.fill(
                   child: CampusMapEmbed(
                     key: ValueKey(
-                        '${_provider.name}-${_mode.name}-$_currentStep'),
+                        '${_campus.id}-${_provider.name}-${_mode.name}-$_currentStep'),
                     url: _mapUrl,
                     title: _providerLabel,
                   ),
@@ -293,7 +431,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text('当前位置 → 会峰校区 → 按报到顺序逐站办理',
+                  Text('当前位置 → ${_campus.name} → 按报到顺序逐站办理',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ],
@@ -332,6 +470,57 @@ class _CampusMapPageState extends State<CampusMapPage> {
           onSelectionChanged: (v) => setState(() => _mode = v.first),
         ),
       ],
+    );
+  }
+
+  Widget _buildCampusSelector(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_balance_outlined,
+                    size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('选择报到校区',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(_campuses.length, (index) {
+                final campus = _campuses[index];
+                final selected = _campusIndex == index;
+                return ChoiceChip(
+                  selected: selected,
+                  avatar: Icon(
+                    selected ? Icons.check_circle : Icons.location_city,
+                    size: 18,
+                    color: selected ? theme.colorScheme.primary : null,
+                  ),
+                  label: Text(campus.name),
+                  onSelected: (_) => _switchCampus(index),
+                );
+              }),
+            ),
+            const SizedBox(height: 8),
+            Text('${_campus.entrance} · ${_campus.address}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -404,8 +593,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ),
         OutlinedButton.icon(
           onPressed: () {
-            Clipboard.setData(
-                const ClipboardData(text: '安徽省滁州市会峰西路1号 滁州学院会峰校区'));
+            Clipboard.setData(ClipboardData(text: _campus.address));
             setState(() => _copiedText = '地址已复制');
             Future.delayed(const Duration(seconds: 2), () {
               if (mounted) setState(() => _copiedText = '');
@@ -434,6 +622,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
             child: Text('报到流程',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text('${_campus.name} · ${_campus.steps.length} 个节点',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ),
           Expanded(
             child: ListView.builder(
@@ -565,6 +759,19 @@ class _CampusMapPageState extends State<CampusMapPage> {
     });
   }
 
+  void _switchCampus(int index) {
+    if (_campusIndex == index) return;
+    setState(() {
+      _campusIndex = index;
+      _completed.clear();
+      _currentStep = 0;
+      _copiedText = '';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已切换到${_campus.name}报到流程')),
+    );
+  }
+
   Widget _buildServiceTab(ThemeData theme) {
     final tab = _tabs.firstWhere((t) => t.tab == _currentTab);
     return Center(
@@ -656,26 +863,32 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   String get _mapUrl {
-    if (_mode == _MapMode.threeD)
+    if (_mode == _MapMode.threeD) {
       return 'https://www.chzu.edu.cn/vr/index.html';
+    }
+    final step = _steps[_currentStep];
+    final encodedName = Uri.encodeComponent('${_campus.name} ${step.title}');
+    final encodedLocation = Uri.encodeComponent(step.location);
     switch (_provider) {
       case _MapProvider.baidu:
-        return 'https://api.map.baidu.com/marker?location=32.2921,118.2988&title=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2&content=%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&output=html';
+        return 'https://api.map.baidu.com/marker?location=${step.lat},${step.lng}&title=$encodedName&content=$encodedLocation&output=html';
       case _MapProvider.tencent:
-        return 'https://apis.map.qq.com/uri/v1/marker?marker=coord:32.2921,118.2988;title:%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2;addr:%E4%BC%9A%E5%B3%B0%E8%A5%BF%E8%B7%AF1%E5%8F%B7&referer=wxx';
+        return 'https://apis.map.qq.com/uri/v1/marker?marker=coord:${step.lat},${step.lng};title:$encodedName;addr:$encodedLocation&referer=wxx';
       case _MapProvider.amap:
-        return 'https://uri.amap.com/marker?position=118.2988,32.2921&name=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&coordinate=gaode';
+        return 'https://uri.amap.com/marker?position=${step.lng},${step.lat}&name=$encodedName&coordinate=gaode';
     }
   }
 
   String get _routeUrl {
+    final step = _steps[_currentStep];
+    final encodedName = Uri.encodeComponent('${_campus.name} ${step.title}');
     switch (_provider) {
       case _MapProvider.baidu:
-        return 'https://api.map.baidu.com/direction?destination=latlng:32.2921,118.2988|name:%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&mode=walking&output=html';
+        return 'https://api.map.baidu.com/direction?destination=latlng:${step.lat},${step.lng}|name:$encodedName&mode=walking&output=html';
       case _MapProvider.tencent:
-        return 'https://apis.map.qq.com/uri/v1/routeplan?type=walk&to=%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&tolat=32.2921&tolng=118.2988&referer=wxx';
+        return 'https://apis.map.qq.com/uri/v1/routeplan?type=walk&to=$encodedName&tolat=${step.lat}&tolng=${step.lng}&referer=wxx';
       case _MapProvider.amap:
-        return 'https://uri.amap.com/navigation?to=118.2988,32.2921,%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2%E4%BC%9A%E5%B3%B0%E6%A0%A1%E5%8C%BA&mode=walk&coordinate=gaode';
+        return 'https://uri.amap.com/navigation?to=${step.lng},${step.lat},$encodedName&mode=walk&coordinate=gaode';
     }
   }
 
