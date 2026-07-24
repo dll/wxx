@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
 )
@@ -102,6 +103,265 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// UserQuery 用户高级查询参数
+type UserQuery struct {
+	Keyword        string // 关键词：模糊匹配姓名/学号/学院/专业/班级
+	Role           string
+	OwnerScope     string
+	OwnerID        string
+	College        string
+	Major          string
+	ClassName      string
+	EnrollmentYear string
+	Status         string
+	SortBy         string // id / username / display_name / created_at
+	SortOrder      string // asc / desc
+	Offset         int
+	Limit          int
+}
+
+// ListAdvanced 高级用户查询（搜索+多条件筛选+排序）
+func (r *UserRepo) ListAdvanced(q *UserQuery) ([]*model.User, int, error) {
+	query := `SELECT ` + userCols + ` FROM users WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM users WHERE 1=1`
+	var args []interface{}
+
+	if q.Keyword != "" {
+		kw := "%" + q.Keyword + "%"
+		query += " AND (display_name LIKE ? OR username LIKE ? OR college LIKE ? OR major LIKE ? OR class_name LIKE ?)"
+		countQuery += " AND (display_name LIKE ? OR username LIKE ? OR college LIKE ? OR major LIKE ? OR class_name LIKE ?)"
+		args = append(args, kw, kw, kw, kw, kw)
+	}
+	if q.Role != "" {
+		query += " AND role = ?"
+		countQuery += " AND role = ?"
+		args = append(args, q.Role)
+	}
+	if q.OwnerScope != "" {
+		query += " AND owner_scope = ?"
+		countQuery += " AND owner_scope = ?"
+		args = append(args, q.OwnerScope)
+	}
+	if q.OwnerID != "" {
+		query += " AND owner_id = ?"
+		countQuery += " AND owner_id = ?"
+		args = append(args, q.OwnerID)
+	}
+	if q.College != "" {
+		query += " AND college = ?"
+		countQuery += " AND college = ?"
+		args = append(args, q.College)
+	}
+	if q.Major != "" {
+		query += " AND major = ?"
+		countQuery += " AND major = ?"
+		args = append(args, q.Major)
+	}
+	if q.ClassName != "" {
+		query += " AND class_name = ?"
+		countQuery += " AND class_name = ?"
+		args = append(args, q.ClassName)
+	}
+	if q.EnrollmentYear != "" {
+		query += " AND enrollment_year = ?"
+		countQuery += " AND enrollment_year = ?"
+		args = append(args, q.EnrollmentYear)
+	}
+	if q.Status != "" {
+		query += " AND status = ?"
+		countQuery += " AND status = ?"
+		args = append(args, q.Status)
+	}
+
+	// 总数
+	var total int
+	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("统计用户数失败: %w", err)
+	}
+
+	// 排序
+	sortBy := "id"
+	switch q.SortBy {
+	case "username", "display_name", "role", "college", "major", "class_name", "enrollment_year", "created_at", "status":
+		sortBy = q.SortBy
+	}
+	sortOrder := "ASC"
+	if q.SortOrder == "desc" {
+		sortOrder = "DESC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
+
+	// 分页
+	if q.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, q.Limit)
+	}
+	if q.Offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, q.Offset)
+	}
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询用户列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*model.User
+	for rows.Next() {
+		u := &model.User{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
+			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
+			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
+			&u.PasswordHash, &u.VoiceEnabled,
+			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		users = append(users, u)
+	}
+	return users, total, rows.Err()
+}
+
+// GetDistinctValues 获取某列的去重值列表（用于筛选项）
+func (r *UserRepo) GetDistinctValues(column string, role, ownerScope, ownerID string) ([]string, error) {
+	allowedCols := map[string]bool{
+		"college":         true,
+		"major":           true,
+		"class_name":      true,
+		"enrollment_year": true,
+	}
+	if !allowedCols[column] {
+		return nil, fmt.Errorf("不支持的列: %s", column)
+	}
+
+	query := fmt.Sprintf(`SELECT DISTINCT %s FROM users WHERE %s IS NOT NULL AND %s != ''`, column, column, column)
+	var args []interface{}
+
+	if role != "" {
+		query += " AND role = ?"
+		args = append(args, role)
+	}
+	if ownerScope != "" {
+		query += " AND owner_scope = ?"
+		args = append(args, ownerScope)
+	}
+	if ownerID != "" {
+		query += " AND owner_id = ?"
+		args = append(args, ownerID)
+	}
+	query += fmt.Sprintf(" ORDER BY %s ASC", column)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var values []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		values = append(values, v)
+	}
+	return values, rows.Err()
+}
+
+// BatchUpdateStatus 批量更新用户状态
+func (r *UserRepo) BatchUpdateStatus(ids []int64, status string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
+	query := fmt.Sprintf(`UPDATE users SET status=?, updated_at=datetime('now') WHERE id IN (%s) AND role != 'sys_admin'`, placeholders)
+
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, status)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	result, err := r.db.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("批量更新状态失败: %w", err)
+	}
+	return result.RowsAffected()
+}
+
+// BatchResetPassword 批量重置用户密码
+func (r *UserRepo) BatchResetPassword(ids []int64, hash string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
+	query := fmt.Sprintf(`UPDATE users SET password_hash=?, updated_at=datetime('now') WHERE id IN (%s)`, placeholders)
+
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, hash)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	result, err := r.db.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("批量重置密码失败: %w", err)
+	}
+	return result.RowsAffected()
+}
+
+// BatchDelete 批量删除用户
+func (r *UserRepo) BatchDelete(ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("开始事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
+	idArgs := make([]interface{}, len(ids))
+	for i, id := range ids {
+		idArgs[i] = id
+	}
+
+	// 清理关联数据
+	assocTables := []string{
+		"chat_records",
+		"sessions",
+		"process_records",
+		"plan_progress_records",
+		"student_plans",
+		"club_members",
+		"club_activity_registrations",
+		"competition_registrations",
+		"student_topic_selections",
+		"party_progress",
+		"party_study_records",
+		"mood_diary",
+		"notifications",
+		"feedback",
+	}
+	for _, table := range assocTables {
+		tx.Exec(fmt.Sprintf(`DELETE FROM %s WHERE user_id IN (%s)`, table, placeholders), idArgs...)
+	}
+
+	// 删除用户（排除系统管理员）
+	result, err := tx.Exec(fmt.Sprintf(`DELETE FROM users WHERE id IN (%s) AND role != 'sys_admin'`, placeholders), idArgs...)
+	if err != nil {
+		return 0, fmt.Errorf("批量删除用户失败: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("提交事务失败: %w", err)
+	}
+	return rows, nil
 }
 
 // Count 统计用户总数（配合 List 分页）

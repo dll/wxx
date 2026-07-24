@@ -146,6 +146,73 @@ func (s *AdminService) DeleteUser(userID int64, deletedBy string) error {
 	return nil
 }
 
+// ListUsersAdvanced 高级用户查询（搜索+多条件筛选+排序）
+func (s *AdminService) ListUsersAdvanced(q *repository.UserQuery) ([]*model.User, int, error) {
+	users, total, err := s.userRepo.ListAdvanced(q)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询用户列表失败: %w", err)
+	}
+	return users, total, nil
+}
+
+// GetUserDictValues 获取用户字典值（学院/专业/班级/入学年份）
+func (s *AdminService) GetUserDictValues(column, role, ownerScope, ownerID string) ([]string, error) {
+	values, err := s.userRepo.GetDistinctValues(column, role, ownerScope, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("获取字典值失败: %w", err)
+	}
+	return values, nil
+}
+
+// BatchUpdateStatus 批量更新用户状态
+func (s *AdminService) BatchUpdateStatus(ids []int64, status string, operator string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, fmt.Errorf("用户ID列表不能为空")
+	}
+	if status != "active" && status != "disabled" {
+		return 0, fmt.Errorf("无效的状态值: %s", status)
+	}
+	count, err := s.userRepo.BatchUpdateStatus(ids, status)
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("批量更新用户状态 count=%d status=%s by=%s", count, status, operator)
+	return count, nil
+}
+
+// BatchResetPassword 批量重置用户密码
+func (s *AdminService) BatchResetPassword(ids []int64, newPassword, operator string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, fmt.Errorf("用户ID列表不能为空")
+	}
+	if len(newPassword) < 6 {
+		return 0, fmt.Errorf("密码长度至少6位")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return 0, fmt.Errorf("密码加密失败: %w", err)
+	}
+	count, err := s.userRepo.BatchResetPassword(ids, string(hash))
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("批量重置密码 count=%d by=%s", count, operator)
+	return count, nil
+}
+
+// BatchDelete 批量删除用户
+func (s *AdminService) BatchDelete(ids []int64, operator string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, fmt.Errorf("用户ID列表不能为空")
+	}
+	count, err := s.userRepo.BatchDelete(ids)
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("批量删除用户 count=%d by=%s", count, operator)
+	return count, nil
+}
+
 // ListAudit 分页查询审计日志
 func (s *AdminService) ListAudit(username, action, resource, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
 	offset, page, pageSize := util.Paginate(page, pageSize)

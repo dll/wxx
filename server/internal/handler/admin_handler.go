@@ -10,6 +10,7 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -180,6 +181,234 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "用户已删除",
+	})
+}
+
+// ListUsersAdvanced 高级用户查询 GET /api/v1/admin/users/advanced
+// ?keyword=&role=&owner_scope=&owner_id=&college=&major=&class_name=&enrollment_year=&status=&sort_by=&sort_order=&page=&page_size=
+func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	offset := (page - 1) * pageSize
+	if offset < 0 {
+		offset = 0
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+
+	ownerScope := c.Query("owner_scope")
+	ownerID := c.Query("owner_id")
+	if userCtx.Role == "college_admin" {
+		ownerScope = userCtx.OwnerScope
+		ownerID = userCtx.OwnerID
+	}
+
+	q := &repository.UserQuery{
+		Keyword:        c.Query("keyword"),
+		Role:           c.Query("role"),
+		OwnerScope:     ownerScope,
+		OwnerID:        ownerID,
+		College:        c.Query("college"),
+		Major:          c.Query("major"),
+		ClassName:      c.Query("class_name"),
+		EnrollmentYear: c.Query("enrollment_year"),
+		Status:         c.Query("status"),
+		SortBy:         c.DefaultQuery("sort_by", "id"),
+		SortOrder:      c.DefaultQuery("sort_order", "asc"),
+		Offset:         offset,
+		Limit:          pageSize,
+	}
+
+	users, total, err := h.adminSvc.ListUsersAdvanced(q)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询用户列表失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.UserListResponse{
+		Code:     0,
+		Message:  "success",
+		Data:     users,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
+// GetUserDict 获取用户字典值 GET /api/v1/admin/users/dict?column=college
+func (h *AdminHandler) GetUserDict(c *gin.Context) {
+	column := c.Query("column")
+	role := c.Query("role")
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	ownerScope := ""
+	ownerID := ""
+	if userCtx.Role == "college_admin" {
+		ownerScope = userCtx.OwnerScope
+		ownerID = userCtx.OwnerID
+	}
+
+	values, err := h.adminSvc.GetUserDictValues(column, role, ownerScope, ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    values,
+	})
+}
+
+// BatchUpdateStatus 批量更新用户状态 POST /api/v1/admin/users/batch/status
+func (h *AdminHandler) BatchUpdateStatus(c *gin.Context) {
+	var req struct {
+		Ids    []int64 `json:"ids" binding:"required,min=1"`
+		Status string  `json:"status" binding:"required,oneof=active disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	count, err := h.adminSvc.BatchUpdateStatus(req.Ids, req.Status, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "操作成功",
+		"data":    gin.H{"affected": count},
+	})
+}
+
+// BatchResetPassword 批量重置密码 POST /api/v1/admin/users/batch/password
+func (h *AdminHandler) BatchResetPassword(c *gin.Context) {
+	var req struct {
+		Ids         []int64 `json:"ids" binding:"required,min=1"`
+		NewPassword string  `json:"new_password" binding:"required,min=6,max=64"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	count, err := h.adminSvc.BatchResetPassword(req.Ids, req.NewPassword, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "密码重置成功",
+		"data":    gin.H{"affected": count},
+	})
+}
+
+// BatchDelete 批量删除用户 POST /api/v1/admin/users/batch/delete
+func (h *AdminHandler) BatchDelete(c *gin.Context) {
+	var req struct {
+		Ids []int64 `json:"ids" binding:"required,min=1"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	// 检查是否包含自己
+	for _, id := range req.Ids {
+		if id == userCtx.UserID {
+			c.JSON(http.StatusBadRequest, model.ErrorResponse{
+				Code:    400,
+				Message: "不允许删除当前登录账户",
+			})
+			return
+		}
+	}
+
+	count, err := h.adminSvc.BatchDelete(req.Ids, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "删除成功",
+		"data":    gin.H{"affected": count},
 	})
 }
 
