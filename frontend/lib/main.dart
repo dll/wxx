@@ -22,10 +22,12 @@ import 'providers/token_stats_provider.dart';
 import 'providers/forecast_provider.dart';
 import 'providers/student_new_features_provider.dart';
 import 'providers/guest_provider.dart';
+import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  redirectDownloadFallbackIfNeeded();
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);

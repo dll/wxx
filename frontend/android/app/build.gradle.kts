@@ -30,14 +30,16 @@ android {
         versionName = flutter.versionName()
     }
 
-    // APK 输出文件名固定为「蔚小芯-release.apk / 蔚小芯-debug.apk」
+    // APK 输出文件名固定为「蔚小芯-release.apk / 蔚小芯-debug.apk」；分 ABI 构建时附加 ABI，避免覆盖。
     // 详见 docs/deployment.md「构建与命名规范」
     applicationVariants.all {
         val variantName = name
         outputs
             .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
             .forEach { output ->
-                output.outputFileName = "蔚小芯-$variantName.apk"
+                val abi = output.getFilter(com.android.build.OutputFile.ABI)
+                val abiSuffix = if (abi.isNullOrBlank()) "" else "-$abi"
+                output.outputFileName = "蔚小芯-$variantName$abiSuffix.apk"
             }
     }
 

@@ -1,6 +1,5 @@
 const APK_FILE = '蔚小芯-v0.0.3.apk';
 const APK_URL = 'https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.3.apk';
-const APK_ORIGIN = 'https://wxx-frontend-j84ie7je8-czldl.vercel.app/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.3.apk';
 
 export async function onRequest(context) {
   const { request, params } = context;
@@ -25,22 +24,20 @@ export async function onRequest(context) {
     return new Response('Not Found', { status: 404, headers: corsHeaders() });
   }
 
-  const upstream = await fetch(APK_ORIGIN, {
-    headers: { 'User-Agent': 'wxx-agent-pages-download' },
-  });
-  if (!upstream.ok || !upstream.body) {
+  const assetResponse = await context.env.ASSETS.fetch(request);
+  if (!assetResponse.ok || !assetResponse.body) {
     return new Response('APK 暂时不可下载，请稍后重试', {
       status: 502,
       headers: corsHeaders(),
     });
   }
 
-  const headers = new Headers(upstream.headers);
+  const headers = new Headers(assetResponse.headers);
   applyCorsHeaders(headers);
   headers.set('Content-Type', 'application/vnd.android.package-archive');
   headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(APK_FILE)}`);
   headers.set('Cache-Control', 'public, max-age=300');
-  return new Response(upstream.body, { status: 200, headers });
+  return new Response(assetResponse.body, { status: 200, headers });
 }
 
 function jsonResponse(data) {

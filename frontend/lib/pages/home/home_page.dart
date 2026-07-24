@@ -218,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text('手机扫码下载、安装并使用蔚小芯',
+                  Text('手机扫码下载 APK，主流 Android 手机可直接安装',
                       style: theme.textTheme.bodySmall?.copyWith(color: muted)),
                 ],
               ),
