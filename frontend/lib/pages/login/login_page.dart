@@ -674,7 +674,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         final sessionId = data['session_id'] as String;
         _qrSessionId = sessionId;
         final encodedUrl = Uri.encodeComponent(
-            'https://wxx.pydaydayup.xyz/#/login?qr=$sessionId');
+            'https://wxx-agent.pages.dev/#/login?qr=$sessionId');
         setState(() {
           _qrImageUrl =
               'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
@@ -693,7 +693,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
 
   void _showFallbackQR(String message) {
     final encodedUrl =
-        Uri.encodeComponent('https://wxx.pydaydayup.xyz/#/login');
+        Uri.encodeComponent('https://wxx-agent.pages.dev/#/login');
     setState(() {
       _qrImageUrl =
           'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';

@@ -75,14 +75,9 @@ pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1 -NoVersionBu
 
 `-NoVersionBump` 不用于常规发布；常规发布必须使用 `make deploy-release` 自动递增版本。
 
-## Vercel 前端部署（强制流程）
+## Cloudflare Pages 前端部署（强制流程）
 
-> **注意**：前端已迁移至 Cloudflare Pages（`wxx-agent.pages.dev`），详见 `docs/蔚小芯前端重新部署.md`。Vercel 后端 `wxx-server` 仍保留运行，通过 Cloudflare Functions 代理访问。以下为 Vercel 历史部署记录。
-
-> 前端 Vercel 项目：`wxx-frontend`（绑定域名 `https://wxx.pydaydayup.xyz`）
-> 后端 Vercel 项目：`wxx-server`（绑定域名 `https://api.pydaydayup.xyz`，`api/index.go` 入口）
-
-**两个项目必须各自独立部署，绝不可在仓库根执行 `vercel deploy build/web`** —— 仓库根 `.vercel/repo.json` 指向 `wxx-server`，会把前端产物错传到后端项目，导致 API 服务中断。
+> 前端唯一正式入口：`https://wxx-agent.pages.dev`。Vercel 前端旧域名已停用，不再作为发布或验收入口。Vercel 后端 `wxx-server` 仍保留运行，通过 Cloudflare Pages Functions 代理访问。
 
 ### 标准部署命令（推荐）
 
@@ -92,8 +87,8 @@ make deploy-web
 
 该 target 会：
 1. 重新构建 `frontend/build/web/`
-2. 同步到 `frontend/.vercel/output/static/`
-3. 通过 `vercel deploy --prebuilt --prod --cwd frontend` 部署到 `wxx-frontend` 项目
+2. 同步 `frontend/functions/` 到部署目录
+3. 通过 `wrangler pages deploy` 部署到 Cloudflare Pages `wxx-agent` 项目
 
 Web + APK 联合发布请使用：
 
@@ -112,17 +107,19 @@ make deploy-web-prebuilt
 ```bash
 cd frontend
 flutter build web --release
-cp -rf build/web/* .vercel/output/static/
-npx --yes vercel deploy --prebuilt --prod
+rm -rf deploy && mkdir -p deploy
+cp -rf build/web/* deploy/
+cp -rf functions deploy/
+npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
 ```
 
 ### 部署后验证
 
 ```bash
-curl -s https://wxx.pydaydayup.xyz/ | grep -o "蔚小芯"   # 必须有输出
-curl -I https://wxx.pydaydayup.xyz/downloads/蔚小芯-v0.0.1.apk
-curl -s https://wxx.pydaydayup.xyz/downloads/release.json
-curl -s https://api.pydaydayup.xyz/health                # 必须 200，service=蔚小芯
+curl -s https://wxx-agent.pages.dev/ | grep -o "蔚小芯"   # 必须有输出
+curl -I https://wxx-agent.pages.dev/downloads/蔚小芯-v0.0.3.apk
+curl -s https://wxx-agent.pages.dev/downloads/release.json
+curl -s https://wxx-agent.pages.dev/api/health            # 必须 200，service=蔚小芯
 ```
 
 ### 误部署回滚

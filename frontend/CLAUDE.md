@@ -50,7 +50,7 @@ flutter test test/path_to_test.dart
 - 用户可见名称统一为「蔚小芯」：`AndroidManifest.xml` 的 `android:label`、`web/index.html` 的 `<title>` 和 `apple-mobile-web-app-title`、`web/manifest.json` 的 `name` / `short_name`
 - 技术 ID 仍用 `wxx_app` / `com.wxx.wxx_app`
 - APK 分发文件名固定为 `蔚小芯.apk`（Makefile 自动从 `apk/release/蔚小芯-release.apk` 复制到 `flutter-apk/蔚小芯.apk`）
-- Vercel 前端项目 `wxx-frontend`，绝不可在仓库根目录运行 `vercel deploy`，否则会把静态文件传到后端项目（详见 `docs/deployment.md`）
+- 前端正式入口是 Cloudflare Pages `https://wxx-agent.pages.dev`，不要再使用已停用的 Vercel 前端旧域名
 
 
 ## 架构概览
@@ -128,10 +128,10 @@ class XxxProvider extends ChangeNotifier {
 
 ## 部署
 
-Flutter Web 构建产物部署到 Vercel **`wxx-frontend`** 项目（域名 `wxx.pydaydayup.xyz`）。
+Flutter Web 构建产物部署到 Cloudflare Pages **`wxx-agent`** 项目（域名 `https://wxx-agent.pages.dev`）。
 
 ```bash
-make deploy-web   # 自动构建 + 同步 prebuilt + vercel deploy --prod
+make deploy-web   # 自动构建 + 同步 Pages Functions + wrangler pages deploy
 ```
 
-**绝对禁止**在仓库根目录运行 `vercel deploy`：根 `.vercel/repo.json` 指向 `wxx-server`，前端产物会污染后端 API。误部署回滚步骤详见 `docs/deployment.md`。
+**不要再使用 Vercel 前端旧域名**：原 `wxx.pydaydayup.xyz` 已停用。前端发布和验收均以 `https://wxx-agent.pages.dev` 为准。

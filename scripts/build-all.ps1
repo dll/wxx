@@ -16,7 +16,7 @@ $pubspec = Join-Path $frontend "pubspec.yaml"
 $releaseConfig = Join-Path $frontend "lib/config/release_config.dart"
 $downloadsDir = Join-Path $frontend "build/web/downloads"
 $webDownloadsDir = Join-Path $frontend "web/downloads"
-$baseUrl = "https://wxx.pydaydayup.xyz"
+$baseUrl = "https://wxx-agent.pages.dev"
 
 function Get-AppVersion {
     $text = Get-Content -LiteralPath $pubspec -Raw

@@ -1,8 +1,8 @@
 {
-  "apk_url": "https://wxx.pydaydayup.xyz/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.3.apk",
-  "version": "0.0.3",
-  "build_number": 3,
   "app": "蔚小芯",
   "release_date": "2026-07-20",
-  "apk_file": "蔚小芯-v0.0.3.apk"
+  "apk_url": "https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.3.apk",
+  "build_number": 3,
+  "apk_file": "蔚小芯-v0.0.3.apk",
+  "version": "0.0.3"
 }
