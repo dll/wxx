@@ -25,7 +25,7 @@ export async function onRequest(context) {
   }
 
   const assetResponse = await context.env.ASSETS.fetch(request);
-  if (!assetResponse.ok || !assetResponse.body) {
+  if (!assetResponse.ok || (request.method !== 'HEAD' && !assetResponse.body)) {
     return new Response('APK 暂时不可下载，请稍后重试', {
       status: 502,
       headers: corsHeaders(),
@@ -37,7 +37,7 @@ export async function onRequest(context) {
   headers.set('Content-Type', 'application/vnd.android.package-archive');
   headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(APK_FILE)}`);
   headers.set('Cache-Control', 'public, max-age=300');
-  return new Response(assetResponse.body, { status: 200, headers });
+  return new Response(request.method === 'HEAD' ? null : assetResponse.body, { status: 200, headers });
 }
 
 function jsonResponse(data) {
