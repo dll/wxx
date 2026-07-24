@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 
 /// AnswerCard 统一回答结构，对齐后端 model.AnswerCard
 class AnswerCard {
@@ -119,6 +120,10 @@ class Source {
   final String version;
   final String sourceLink;
   final double relevanceScore;
+  final String resourceType;
+  final String snippet;
+  final String effectiveDate;
+  final String summary;
 
   Source({
     required this.resourceId,
@@ -126,6 +131,10 @@ class Source {
     this.version = '',
     this.sourceLink = '',
     this.relevanceScore = 0,
+    this.resourceType = '',
+    this.snippet = '',
+    this.effectiveDate = '',
+    this.summary = '',
   });
 
   factory Source.fromJson(Map<String, dynamic> json) {
@@ -135,7 +144,68 @@ class Source {
       version: json['version'] ?? '',
       sourceLink: json['source_link'] ?? '',
       relevanceScore: (json['relevance_score'] ?? 0).toDouble(),
+      resourceType: json['resource_type'] ?? json['type'] ?? '',
+      snippet: json['snippet'] ?? json['content_preview'] ?? '',
+      effectiveDate: json['effective_date'] ?? json['date'] ?? '',
+      summary: json['summary'] ?? json['description'] ?? '',
     );
+  }
+
+  /// 资源类型中文标签
+  String get typeLabel {
+    const map = {
+      'policy': '政策',
+      'Policy': '政策',
+      'process': '流程',
+      'Process': '流程',
+      'faq': '问答',
+      'FAQ': '问答',
+      'activity': '活动',
+      'Activity': '活动',
+    };
+    return map[resourceType] ?? '资料';
+  }
+
+  /// 资源类型图标
+  IconData get typeIcon {
+    switch (resourceType.toLowerCase()) {
+      case 'policy':
+        return Icons.description;
+      case 'process':
+        return Icons.alt_route;
+      case 'faq':
+        return Icons.quiz;
+      case 'activity':
+        return Icons.event;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  /// 资源类型颜色
+  Color get typeColor {
+    switch (resourceType.toLowerCase()) {
+      case 'policy':
+        return const Color(0xFFE53935);
+      case 'process':
+        return const Color(0xFF1E88E5);
+      case 'faq':
+        return const Color(0xFF43A047);
+      case 'activity':
+        return const Color(0xFFFB8C00);
+      default:
+        return const Color(0xFF757575);
+    }
+  }
+
+  /// 相关度星级（0-5星）
+  int get relevanceStars {
+    if (relevanceScore >= 0.9) return 5;
+    if (relevanceScore >= 0.75) return 4;
+    if (relevanceScore >= 0.6) return 3;
+    if (relevanceScore >= 0.4) return 2;
+    if (relevanceScore >= 0.2) return 1;
+    return 0;
   }
 }
 
@@ -653,6 +723,153 @@ class AdminMetrics {
   }
 }
 
+/// 仪表盘统计数据
+class DashboardStats {
+  final UserStats users;
+  final KnowledgeStats knowledge;
+  final ChatStats chat;
+  final FeedbackStats feedback;
+
+  DashboardStats({
+    required this.users,
+    required this.knowledge,
+    required this.chat,
+    required this.feedback,
+  });
+
+  factory DashboardStats.fromJson(Map<String, dynamic> json) {
+    return DashboardStats(
+      users: UserStats.fromJson(json['users'] ?? {}),
+      knowledge: KnowledgeStats.fromJson(json['knowledge'] ?? {}),
+      chat: ChatStats.fromJson(json['chat'] ?? {}),
+      feedback: FeedbackStats.fromJson(json['feedback'] ?? {}),
+    );
+  }
+}
+
+/// 用户统计
+class UserStats {
+  final int total;
+  final int todayNew;
+  final int monthNew;
+  final Map<String, int> byRole;
+
+  UserStats({
+    this.total = 0,
+    this.todayNew = 0,
+    this.monthNew = 0,
+    this.byRole = const {},
+  });
+
+  factory UserStats.fromJson(Map<String, dynamic> json) {
+    Map<String, int> roleMap = {};
+    if (json['by_role'] != null) {
+      (json['by_role'] as Map<String, dynamic>).forEach((key, value) {
+        roleMap[key] = value ?? 0;
+      });
+    }
+    return UserStats(
+      total: json['total'] ?? 0,
+      todayNew: json['today_new'] ?? 0,
+      monthNew: json['month_new'] ?? 0,
+      byRole: roleMap,
+    );
+  }
+}
+
+/// 知识库统计
+class KnowledgeStats {
+  final int total;
+  final int draft;
+  final int pending;
+  final int published;
+  final int retired;
+  final Map<String, int> byType;
+  final int weekNew;
+
+  KnowledgeStats({
+    this.total = 0,
+    this.draft = 0,
+    this.pending = 0,
+    this.published = 0,
+    this.retired = 0,
+    this.byType = const {},
+    this.weekNew = 0,
+  });
+
+  factory KnowledgeStats.fromJson(Map<String, dynamic> json) {
+    Map<String, int> typeMap = {};
+    if (json['by_type'] != null) {
+      (json['by_type'] as Map<String, dynamic>).forEach((key, value) {
+        typeMap[key] = value ?? 0;
+      });
+    }
+    return KnowledgeStats(
+      total: json['total'] ?? 0,
+      draft: json['draft'] ?? 0,
+      pending: json['pending'] ?? 0,
+      published: json['published'] ?? 0,
+      retired: json['retired'] ?? 0,
+      byType: typeMap,
+      weekNew: json['week_new'] ?? 0,
+    );
+  }
+}
+
+/// 对话统计
+class ChatStats {
+  final int totalSessions;
+  final int totalMessages;
+  final int todaySessions;
+  final int todayMessages;
+  final List<DayTrendItem> weekTrend;
+
+  ChatStats({
+    this.totalSessions = 0,
+    this.totalMessages = 0,
+    this.todaySessions = 0,
+    this.todayMessages = 0,
+    this.weekTrend = const [],
+  });
+
+  factory ChatStats.fromJson(Map<String, dynamic> json) {
+    List<DayTrendItem> trend = [];
+    if (json['week_trend'] != null) {
+      trend = (json['week_trend'] as List)
+          .map((e) => DayTrendItem.fromJson(e))
+          .toList();
+    }
+    return ChatStats(
+      totalSessions: json['total_sessions'] ?? 0,
+      totalMessages: json['total_messages'] ?? 0,
+      todaySessions: json['today_sessions'] ?? 0,
+      todayMessages: json['today_messages'] ?? 0,
+      weekTrend: trend,
+    );
+  }
+}
+
+/// 每日趋势项
+class DayTrendItem {
+  final String date;
+  final int sessions;
+  final int messages;
+
+  DayTrendItem({
+    this.date = '',
+    this.sessions = 0,
+    this.messages = 0,
+  });
+
+  factory DayTrendItem.fromJson(Map<String, dynamic> json) {
+    return DayTrendItem(
+      date: json['date'] ?? '',
+      sessions: json['sessions'] ?? 0,
+      messages: json['messages'] ?? 0,
+    );
+  }
+}
+
 /// 审计日志（对齐后端 model.AuditLog）
 class AuditLog {
   final int id;
@@ -728,6 +945,12 @@ class FeedbackEntry {
   final String resolvedBy;
   final String? resolvedAt;
   final String reply;
+  final int rating;
+  final String ratingComment;
+  final String? ratedAt;
+  final String linkedResourceNote;
+  final String? linkedAt;
+  final String linkedBy;
   final String createdAt;
   final String updatedAt;
 
@@ -745,6 +968,12 @@ class FeedbackEntry {
     this.resolvedBy = '',
     this.resolvedAt,
     this.reply = '',
+    this.rating = 0,
+    this.ratingComment = '',
+    this.ratedAt,
+    this.linkedResourceNote = '',
+    this.linkedAt,
+    this.linkedBy = '',
     this.createdAt = '',
     this.updatedAt = '',
   });
@@ -764,6 +993,12 @@ class FeedbackEntry {
       resolvedBy: json['resolved_by'] ?? '',
       resolvedAt: json['resolved_at'],
       reply: json['reply'] ?? '',
+      rating: json['rating'] ?? 0,
+      ratingComment: json['rating_comment'] ?? '',
+      ratedAt: json['rated_at'],
+      linkedResourceNote: json['linked_resource_note'] ?? '',
+      linkedAt: json['linked_at'],
+      linkedBy: json['linked_by'] ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -772,7 +1007,8 @@ class FeedbackEntry {
   String get categoryLabel {
     const map = {
       'answer_error': '回答有误',
-      'suggestion': '功能建议',
+      'feature_request': '功能建议',
+      'bug': '系统问题',
       'other': '其他',
     };
     return map[category] ?? category;
@@ -781,10 +1017,132 @@ class FeedbackEntry {
   String get statusLabel {
     const map = {
       'pending': '待处理',
-      'resolved': '已处理',
+      'processing': '处理中',
+      'resolved': '已解决',
       'dismissed': '已驳回',
     };
     return map[status] ?? status;
+  }
+}
+
+/// 反馈统计数据
+class FeedbackStats {
+  final int total;
+  final Map<String, int> byStatus;
+  final Map<String, int> byCategory;
+  final List<WeekTrendItem> weekTrend;
+  final List<TopIssueItem> topIssues;
+  final double avgResolveHours;
+
+  FeedbackStats({
+    this.total = 0,
+    this.byStatus = const {},
+    this.byCategory = const {},
+    this.weekTrend = const [],
+    this.topIssues = const [],
+    this.avgResolveHours = 0,
+  });
+
+  factory FeedbackStats.fromJson(Map<String, dynamic> json) {
+    Map<String, int> parseMap(dynamic data) {
+      if (data is Map) {
+        return data.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0));
+      }
+      return {};
+    }
+
+    List<WeekTrendItem> weekTrend = [];
+    if (json['week_trend'] is List) {
+      weekTrend = (json['week_trend'] as List)
+          .map((e) => WeekTrendItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    List<TopIssueItem> topIssues = [];
+    if (json['top_issues'] is List) {
+      topIssues = (json['top_issues'] as List)
+          .map((e) => TopIssueItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    return FeedbackStats(
+      total: json['total'] ?? 0,
+      byStatus: parseMap(json['by_status']),
+      byCategory: parseMap(json['by_category']),
+      weekTrend: weekTrend,
+      topIssues: topIssues,
+      avgResolveHours: (json['avg_resolve_hours'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// 周趋势项
+class WeekTrendItem {
+  final String date;
+  final int count;
+
+  WeekTrendItem({this.date = '', this.count = 0});
+
+  factory WeekTrendItem.fromJson(Map<String, dynamic> json) {
+    return WeekTrendItem(
+      date: json['date'] ?? '',
+      count: json['count'] ?? 0,
+    );
+  }
+}
+
+/// 热门问题项
+class TopIssueItem {
+  final String keyword;
+  final int count;
+
+  TopIssueItem({this.keyword = '', this.count = 0});
+
+  factory TopIssueItem.fromJson(Map<String, dynamic> json) {
+    return TopIssueItem(
+      keyword: json['keyword'] ?? '',
+      count: json['count'] ?? 0,
+    );
+  }
+}
+
+/// 反馈处理记录
+class FeedbackLog {
+  final int id;
+  final String feedbackId;
+  final String action;
+  final String operator;
+  final String detail;
+  final String createdAt;
+
+  FeedbackLog({
+    this.id = 0,
+    this.feedbackId = '',
+    this.action = '',
+    this.operator = '',
+    this.detail = '',
+    this.createdAt = '',
+  });
+
+  factory FeedbackLog.fromJson(Map<String, dynamic> json) {
+    return FeedbackLog(
+      id: json['id'] ?? 0,
+      feedbackId: json['feedback_id'] ?? '',
+      action: json['action'] ?? '',
+      operator: json['operator'] ?? '',
+      detail: json['detail'] ?? '',
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+
+  String get actionLabel {
+    const map = {
+      'submit': '提交反馈',
+      'status_change': '状态变更',
+      'link_resource': '关联知识',
+      'rate': '用户评价',
+    };
+    return map[action] ?? action;
   }
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,18 +38,16 @@ func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未获取到用户信息",
-		})
+		util.FailUnauthorized(c, "未获取到用户信息")
 		return
 	}
 
-	cards, total, err := h.kbSvc.Browse(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, resourceType, page, pageSize)
+	cards, total, err := h.kbSvc.Browse(c.Request.Context(), userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, resourceType, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "获取知识大厅数据失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -73,7 +72,7 @@ func (h *KBHandler) ListResources(c *gin.Context) {
 	status := c.Query("status")
 	resourceType := c.Query("resource_type")
 
-	list, total, err := h.kbSvc.List(ownerScope, ownerID, status, resourceType, page, pageSize)
+	list, total, err := h.kbSvc.List(c.Request.Context(), ownerScope, ownerID, status, resourceType, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -104,7 +103,7 @@ func (h *KBHandler) GetResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.Get(resourceID)
+	kb, err := h.kbSvc.Get(c.Request.Context(), resourceID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{
 			Code:    404,
@@ -141,7 +140,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.Create(&req, userCtx.Username)
+	kb, err := h.kbSvc.Create(c.Request.Context(), &req, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -213,7 +212,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 		ndjsonData = strings.Join(lines, "\n")
 	}
 
-	resp, err := h.kbSvc.ImportResources(ndjsonData, userCtx.Username)
+	resp, err := h.kbSvc.ImportResources(c.Request.Context(), ndjsonData, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -255,7 +254,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.Update(resourceID, &req, userCtx.Username)
+	kb, err := h.kbSvc.Update(c.Request.Context(), resourceID, &req, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -349,7 +348,7 @@ func (h *KBHandler) ListPendingReviews(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	resources, total, err := h.kbSvc.ListPending(page, pageSize)
+	resources, total, err := h.kbSvc.ListPending(c.Request.Context(), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -382,7 +381,7 @@ func (h *KBHandler) SubmitForReview(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.SubmitForReview(resourceID, userCtx.Username)
+	kb, err := h.kbSvc.SubmitForReview(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
@@ -412,7 +411,7 @@ func (h *KBHandler) ApproveResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.ApproveResource(resourceID, userCtx.Username)
+	kb, err := h.kbSvc.ApproveResource(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
@@ -452,7 +451,7 @@ func (h *KBHandler) RejectResource(c *gin.Context) {
 		req.Reason = "未提供理由"
 	}
 
-	kb, err := h.kbSvc.RejectResource(resourceID, userCtx.Username, req.Reason)
+	kb, err := h.kbSvc.RejectResource(c.Request.Context(), resourceID, userCtx.Username, req.Reason)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
@@ -482,7 +481,7 @@ func (h *KBHandler) RetireResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.RetireResource(resourceID, userCtx.Username)
+	kb, err := h.kbSvc.RetireResource(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
@@ -520,7 +519,7 @@ func (h *KBHandler) ListResourcesAdvanced(c *gin.Context) {
 		PageSize:     pageSize,
 	}
 
-	list, total, err := h.kbSvc.ListAdvanced(q)
+	list, total, err := h.kbSvc.ListAdvanced(c.Request.Context(), q)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -551,7 +550,7 @@ func (h *KBHandler) GetDictValues(c *gin.Context) {
 		return
 	}
 
-	values, err := h.kbSvc.GetDictValues(column)
+	values, err := h.kbSvc.GetDictValues(c.Request.Context(), column)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -593,7 +592,7 @@ func (h *KBHandler) BatchApprove(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchApprove(req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchApprove(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -630,7 +629,7 @@ func (h *KBHandler) BatchReject(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchReject(req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchReject(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -667,7 +666,7 @@ func (h *KBHandler) BatchRetire(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchRetire(req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchRetire(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -704,7 +703,7 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchDelete(req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchDelete(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -723,7 +722,7 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 // GetStats 获取知识资源统计
 // GET /api/v1/kb/stats
 func (h *KBHandler) GetStats(c *gin.Context) {
-	stats, err := h.kbSvc.GetStats()
+	stats, err := h.kbSvc.GetStats(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,

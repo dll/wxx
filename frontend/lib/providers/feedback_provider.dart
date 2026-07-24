@@ -23,6 +23,16 @@ class FeedbackProvider extends ChangeNotifier {
   int _myTotal = 0;
   String _myStatusFilter = '';
 
+  // ── 统计数据 ──
+  FeedbackStats? _stats;
+  bool _statsLoading = false;
+
+  // ── 当前选中的反馈详情 ──
+  FeedbackEntry? _currentFeedback;
+  bool _detailLoading = false;
+  List<FeedbackLog> _logs = [];
+  bool _logsLoading = false;
+
   List<FeedbackEntry> get feedbacks => _feedbacks;
   bool get loading => _loading;
   int get total => _total;
@@ -33,6 +43,14 @@ class FeedbackProvider extends ChangeNotifier {
   bool get myLoading => _myLoading;
   int get myTotal => _myTotal;
   String get myStatusFilter => _myStatusFilter;
+
+  FeedbackStats? get stats => _stats;
+  bool get statsLoading => _statsLoading;
+
+  FeedbackEntry? get currentFeedback => _currentFeedback;
+  bool get detailLoading => _detailLoading;
+  List<FeedbackLog> get logs => _logs;
+  bool get logsLoading => _logsLoading;
 
   Future<void> fetchFeedbacks({bool refresh = false}) async {
     if (_loading) return;
@@ -113,6 +131,70 @@ class FeedbackProvider extends ChangeNotifier {
     if (_myStatusFilter == status) return;
     _myStatusFilter = status;
     fetchMyFeedbacks(refresh: true);
+  }
+
+  /// 获取反馈详情
+  Future<FeedbackEntry?> fetchFeedbackDetail(String feedbackId) async {
+    _detailLoading = true;
+    _currentFeedback = null;
+    notifyListeners();
+
+    try {
+      final response = await _api.get(ApiConfig.feedbackDetail(feedbackId));
+      if (response.data['code'] == 0) {
+        final data = response.data['data'] as Map<String, dynamic>;
+        _currentFeedback = FeedbackEntry.fromJson(data);
+        return _currentFeedback;
+      }
+    } catch (e) {
+      _error = '获取反馈详情失败: $e';
+    } finally {
+      _detailLoading = false;
+      notifyListeners();
+    }
+    return null;
+  }
+
+  /// 获取反馈处理记录
+  Future<void> fetchFeedbackLogs(String feedbackId) async {
+    _logsLoading = true;
+    _logs = [];
+    notifyListeners();
+
+    try {
+      final response = await _api.get(ApiConfig.feedbackLogs(feedbackId));
+      if (response.data['code'] == 0) {
+        final list = (response.data['data'] as List?)
+                ?.map((e) => FeedbackLog.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+        _logs = list;
+      }
+    } catch (e) {
+      _error = '获取处理记录失败: $e';
+    } finally {
+      _logsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 获取反馈统计
+  Future<void> fetchStats() async {
+    _statsLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _api.get(ApiConfig.adminFeedbackStats);
+      if (response.data['code'] == 0) {
+        final data = response.data['data'] as Map<String, dynamic>;
+        _stats = FeedbackStats.fromJson(data);
+      }
+    } catch (e) {
+      _error = '获取统计数据失败: $e';
+    } finally {
+      _statsLoading = false;
+      notifyListeners();
+    }
   }
 
   /// 上传截图，返回文件 URL（上传成功后前端用于回填）
@@ -226,6 +308,63 @@ class FeedbackProvider extends ChangeNotifier {
         return true;
       }
       _error = response.data['message'] ?? '处理失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 满意度评价
+  Future<bool> rateFeedback(String feedbackId, int rating,
+      {String comment = ''}) async {
+    try {
+      final response = await _api.put(
+        ApiConfig.feedbackRate(feedbackId),
+        data: {
+          'rating': rating,
+          'comment': comment,
+        },
+      );
+      if (response.data['code'] == 0) {
+        // 刷新详情和列表
+        if (_currentFeedback?.feedbackId == feedbackId) {
+          await fetchFeedbackDetail(feedbackId);
+        }
+        await fetchMyFeedbacks(refresh: true);
+        return true;
+      }
+      _error = response.data['message'] ?? '评价失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 关联知识资源
+  Future<bool> linkResource(String feedbackId, String resourceId,
+      {String note = ''}) async {
+    try {
+      final response = await _api.put(
+        ApiConfig.adminFeedbackLinkResource(feedbackId),
+        data: {
+          'resource_id': resourceId,
+          'note': note,
+        },
+      );
+      if (response.data['code'] == 0) {
+        if (_currentFeedback?.feedbackId == feedbackId) {
+          await fetchFeedbackDetail(feedbackId);
+        }
+        await fetchFeedbacks(refresh: true);
+        return true;
+      }
+      _error = response.data['message'] ?? '关联失败';
       notifyListeners();
       return false;
     } catch (e) {

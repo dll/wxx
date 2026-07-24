@@ -38,7 +38,7 @@ func setupRecTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 			ResourceID:   "rec-test-" + string(rune('0'+i%10)),
 			ResourceType: "Policy",
 			OwnerScope:   "school",
-			RoleScope:    "student",
+			RoleScope:    `["student"]`,
 			Version:      "1.0",
 			Status:       "published",
 			Title:        "测试政策文档",

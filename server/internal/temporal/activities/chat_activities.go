@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/llm"
@@ -228,11 +229,18 @@ func buildAnswerCard(content string, results []*repository.SearchResult, traceID
 			card.Sources = append(card.Sources, model.Source{
 				ResourceID:     r.Resource.ResourceID,
 				Title:          r.Resource.Title,
+				ResourceType:   r.Resource.ResourceType,
 				Version:        r.Resource.Version,
 				SourceLink:     r.Resource.SourceLink,
 				RelevanceScore: -r.Score,
+				EffectiveAt:    r.Resource.EffectiveAt,
+				Snippet:        r.Resource.Summary,
 			})
 		}
+		// 按相关度降序排序
+		sort.Slice(card.Sources, func(i, j int) bool {
+			return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore
+		})
 		return card
 	}
 
@@ -247,11 +255,19 @@ func buildAnswerCard(content string, results []*repository.SearchResult, traceID
 		card.Sources = append(card.Sources, model.Source{
 			ResourceID:     r.Resource.ResourceID,
 			Title:          r.Resource.Title,
+			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
 			RelevanceScore: -r.Score,
+			EffectiveAt:    r.Resource.EffectiveAt,
+			Snippet:        r.Resource.Summary,
 		})
 	}
+
+	// 按相关度降序排序
+	sort.Slice(card.Sources, func(i, j int) bool {
+		return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore
+	})
 
 	if len(results) == 0 {
 		card.Confidence = 0.3

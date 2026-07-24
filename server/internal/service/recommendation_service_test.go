@@ -169,7 +169,7 @@ func seedKBForRec(t *testing.T, kbRepo *repository.KBRepo, count int) {
 			ResourceType: "Policy",
 			OwnerScope:   "school",
 			OwnerID:      "school-1",
-			RoleScope:    "student",
+			RoleScope:    `["student"]`,
 			Version:      "1.0",
 			Status:       "published",
 			Title:        "测试政策文档 " + string(rune('0'+i%10)),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -114,6 +115,14 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		if card := s.faqLookup(question, userCtx); card != nil {
 			log.Printf("FAQ 命中 [trace=%s] question=%q", traceID, truncateContent(question, 60))
 			return card, "", nil
+		}
+	}
+
+	// │ ❸ 配额检查 ── 真正调用 LLM 前检查用户日/月配额
+	if s.tokenStatsSvc != nil {
+		if ok, msg := s.tokenStatsSvc.CheckAndIncrementQuota(userCtx.UserID); !ok {
+			log.Printf("配额超限 [user=%d] %s", userCtx.UserID, msg)
+			return s.buildQuotaExceededAnswer(traceID, msg), sessionID, nil
 		}
 	}
 
@@ -321,6 +330,19 @@ func (s *ChatService) getSystemPrompt(agentID string) string {
 6. 涉及政策、条件、数字、时间时必须原文引用，不能含糊。
 7. 回答要简洁、准确、有条理；流程类按步骤列出。
 
+【引用标注规则】
+1. 回答中涉及具体政策、流程、数据时，必须标注来源编号，格式为 [资料N]，其中 N 为资料序号（1、2、3...），对应上下文提供的资料顺序。
+2. 引用编号标注在句子末尾的句号前，例如："新生报到需携带身份证[资料1][资料3]。"
+3. 每句话引用的资料最多 3 个，选择最相关的。
+4. 如果引用的资料之间有冲突，以最新版本或官方发布的为准，并在回答中说明差异。
+5. 回答末尾可列出参考来源摘要，便于用户溯源。
+
+【版本冲突处理规则】
+- 当多个资料对同一问题有不同表述时，优先采用版本号更新、发布时间更近的资料。
+- 若资料有明确的生效时间，以生效时间最新的为准。
+- 学校级政策优先于学院级，学院级优先于班级级。
+- 如无法判断版本先后，应同时列出不同说法并注明存在差异，建议咨询相关部门确认。
+
 【请记住】：回答错误比不回答更糟糕。不确定就说不知道。`
 }
 
@@ -344,6 +366,7 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		card.Sources = append(card.Sources, model.Source{
 			ResourceID:     r.Resource.ResourceID,
 			Title:          r.Resource.Title,
+			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
 			RelevanceScore: -r.Score,
@@ -362,6 +385,11 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 			card.Sources = append(card.Sources, s)
 		}
 	}
+
+	// 按相关度降序排序（RelevanceScore 越大越相关）
+	sort.Slice(card.Sources, func(i, j int) bool {
+		return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore
+	})
 
 	// 无知识命中时降低置信度
 	if len(results) == 0 {
@@ -390,6 +418,17 @@ func (s *ChatService) buildBlockedAnswer(traceID string, category string) *model
 			"联系辅导员的方式是什么？",
 			"学工办公室在哪里？",
 		},
+	}
+}
+
+// buildQuotaExceededAnswer 配额超限时返回的回答
+func (s *ChatService) buildQuotaExceededAnswer(traceID string, reason string) *model.AnswerCard {
+	return &model.AnswerCard{
+		Conclusion: reason,
+		TraceID:    traceID,
+		Confidence: 0.0,
+		Fallback:   true,
+		FollowUps:  []string{},
 	}
 }
 
@@ -445,11 +484,19 @@ func (s *ChatService) fallbackAnswerWithSources(traceID string, question string,
 		card.Sources = append(card.Sources, model.Source{
 			ResourceID:     r.Resource.ResourceID,
 			Title:          r.Resource.Title,
+			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
 			RelevanceScore: -r.Score,
+			EffectiveAt:    r.Resource.EffectiveAt,
+			Snippet:        r.Resource.Summary,
 		})
 	}
+
+	// 按相关度降序排序
+	sort.Slice(card.Sources, func(i, j int) bool {
+		return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore
+	})
 
 	return card
 }
@@ -749,15 +796,19 @@ func (s *ChatService) faqLookup(question string, userCtx *model.UserContext) *mo
 	}
 	// 标记为来自历史问答缓存，便于前端展示
 	card.Sources = append([]model.Source{{
-		ResourceID: hit.Resource.ResourceID,
-		Title:      "历史问答缓存",
-		Version:    hit.Resource.Version,
-		SourceLink: "",
+		ResourceID:   hit.Resource.ResourceID,
+		Title:        "历史问答缓存",
+		ResourceType: "FAQ",
+		Version:      hit.Resource.Version,
+		SourceLink:   "",
+		Snippet:      hit.Resource.Summary,
 	}}, card.Sources...)
 	return &card
 }
 
-// faqStore 把生成成功且有引用的回答持久化到知识库
+// faqStore 把生成成功且有引用的回答持久化到知识库（待人工审核）
+// 注意：自动入库的 FAQ 状态为 pending，需人工审核通过后才会被检索到
+// 避免 LLM 生成错误 FAQ 导致"错误自我强化"
 func (s *ChatService) faqStore(question string, card *model.AnswerCard, role string) {
 	if s.kbRepo == nil || card == nil {
 		return
@@ -778,18 +829,18 @@ func (s *ChatService) faqStore(question string, card *model.AnswerCard, role str
 		OwnerID:      "all",
 		RoleScope:    "[\"" + role + "\"]",
 		Version:      time.Now().Format("20060102.150405"),
-		Status:       "published",
+		Status:       "pending",
 		Title:        string(titleRunes),
-		Summary:      q,
+		Summary:      q + "（AI自动生成，待人工审核）",
 		Content:      string(body),
 		SourceLink:   "",
-		Tags:         "[\"faq-cached\"]",
+		Tags:         "[\"faq-cached\",\"ai-generated\"]",
 		UpdatedBy:    "auto",
 	}
 	if _, action, err := s.kbRepo.Upsert(res); err != nil {
 		log.Printf("FAQ 入库失败 resource_id=%s err=%v", res.ResourceID, err)
 	} else {
-		log.Printf("FAQ 入库成功 resource_id=%s action=%s", res.ResourceID, action)
+		log.Printf("FAQ 入库成功（待审核） resource_id=%s action=%s", res.ResourceID, action)
 	}
 }
 

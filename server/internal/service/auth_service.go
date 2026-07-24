@@ -16,8 +16,26 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// 短信验证码存储（开发环境）
+// smsCodeStore 短信验证码存储：phone -> smsCodeEntry。
+// 生产环境应替换为 Redis 等带 TTL 的共享存储，以支持多实例部署。
 var smsCodeStore sync.Map
+
+// smsCodeTTL 验证码有效期。超过该时长的验证码视为过期，需重新获取。
+const smsCodeTTL = 5 * time.Minute
+
+// smsCodeEntry 保存一条验证码及其过期时间，用于 TTL 与单次消费控制。
+type smsCodeEntry struct {
+	code      string
+	expiresAt time.Time
+}
+
+// maskPhone 对手机号脱敏：138****1234
+func maskPhone(phone string) string {
+	if len(phone) < 7 {
+		return phone
+	}
+	return phone[:3] + "****" + phone[len(phone)-4:]
+}
 
 // AuthService 认证业务服务
 type AuthService struct {
@@ -60,7 +78,7 @@ func (s *AuthService) SendCode(phone string) (string, error) {
 	}
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	smsCodeStore.Store(phone, code)
-	log.Printf("[DEV] 短信验证码 手机=%s code=%s", phone, code)
+	log.Printf("[DEV] 短信验证码 手机=%s code=%s****", maskPhone(phone), code[:2])
 	return code, nil
 }
 

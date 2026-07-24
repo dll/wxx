@@ -62,6 +62,7 @@ class ApiConfig {
       '$apiPrefix/token-stats/subordinates';
 
   // ── 管理端 ──
+  static const String adminDashboard = '$apiPrefix/admin/stats/dashboard';
   static const String adminMetrics = '$apiPrefix/admin/metrics';
   static const String adminUsers = '$apiPrefix/admin/users';
   static String adminUserUpdate(String id) => '$apiPrefix/admin/users/$id';
@@ -90,6 +91,10 @@ class ApiConfig {
   static String kbSubmitReview(String id) =>
       '$apiPrefix/kb/resources/$id/submit';
 
+  // ── 文档解析 ──
+  static const String documentParse = '$apiPrefix/documents/parse';
+  static const String documentFormats = '$apiPrefix/documents/formats';
+
   // ── 知识审核 ──
   static const String reviewPending = '$apiPrefix/review/pending';
 
@@ -97,7 +102,14 @@ class ApiConfig {
   static const String feedback = '$apiPrefix/feedback';
   static const String feedbackScreenshot = '$apiPrefix/feedback/screenshot';
   static const String feedbackMine = '$apiPrefix/feedback/mine';
+  static String feedbackDetail(String id) => '$apiPrefix/feedback/$id';
   static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
+  static String feedbackRate(String id) => '$apiPrefix/feedback/$id/rate';
+  static String feedbackLogs(String id) => '$apiPrefix/feedback/$id/logs';
+  // 管理端
+  static const String adminFeedbackStats = '$apiPrefix/admin/feedback/stats';
+  static String adminFeedbackLinkResource(String id) =>
+      '$apiPrefix/admin/feedback/$id/link-resource';
 
   // ── 办事流程办理记录 ──
   static const String processRecords = '$apiPrefix/process/records';
@@ -116,6 +128,7 @@ class ApiConfig {
   static const String modelConfig = '$apiPrefix/user/model-config';
 
   // ── 学生 AI 功能 ──
+  static const String studentHome = '$apiPrefix/student/home';
   static const String dailyBriefing = '$apiPrefix/student/daily-briefing';
   static const String learningDiary = '$apiPrefix/student/learning-diary';
   static const String checkin = '$apiPrefix/student/checkin';
@@ -310,4 +323,11 @@ class ApiConfig {
   static const String mentalArticles = '$apiPrefix/mental/articles';
   static const String mentalHotlines = '$apiPrefix/mental/hotlines';
   static const String mentalMood = '$apiPrefix/mental/mood';
+
+  // ── 站内通知 ──
+  static const String notifications = '$apiPrefix/notifications';
+  static const String notificationsUnread = '$apiPrefix/notifications/unread-count';
+  static String notificationRead(String id) => '$apiPrefix/notifications/$id/read';
+  static const String notificationsReadAll = '$apiPrefix/notifications/read-all';
+  static const String adminNotificationSend = '$apiPrefix/admin/notifications/send';
 }

@@ -80,7 +80,7 @@ func setupChatBenchService(b *testing.B) *ChatService {
 			ResourceID:   "chat-bench-kb-" + string(rune('0'+i%10)),
 			ResourceType: "Policy",
 			OwnerScope:   "school",
-			RoleScope:    "student",
+			RoleScope:    `["student"]`,
 			Version:      "1.0",
 			Status:       "published",
 			Title:        "政策文档",

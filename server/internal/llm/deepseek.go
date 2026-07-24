@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/middleware"
 )
 
 // DeepSeekClient DeepSeek API 客户端
@@ -69,6 +70,11 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	// 传播 TraceID
+	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
+		httpReq.Header.Set("X-Trace-ID", tid)
+	}
 
 	// 发送请求
 	resp, err := c.client.Do(httpReq)

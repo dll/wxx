@@ -211,7 +211,7 @@ func TestClaims_Expiry(t *testing.T) {
 	token, _ := GenerateToken(cfg, user)
 
 	// 验证 token 的过期时间大致正确
-	claims := &Claims{}
+	claims := &CustomClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(cfg.JWTSecret), nil
 	})

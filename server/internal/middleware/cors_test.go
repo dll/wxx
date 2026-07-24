@@ -32,7 +32,7 @@ func TestCORS_DisallowedOrigin(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 	c.Request.Header.Set("Origin", "https://evil.com")
 
-	CORS()(c)
+	CORSWithConfig("http://localhost:3000,http://localhost:8080", false)(c)
 
 	allowOrigin := w.Header().Get("Access-Control-Allow-Origin")
 	if allowOrigin != "" {

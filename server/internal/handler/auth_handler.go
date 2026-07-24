@@ -8,6 +8,7 @@ import (
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,41 +33,25 @@ type loginRequest struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailBadRequest(c, "请求参数错误："+err.Error())
 		return
 	}
 
 	result, err := h.authSvc.LoginByUsername(req.Username, "", req.Password)
 	if err != nil {
-		status := http.StatusInternalServerError
-		code := 500
 		message := "登录失败，请稍后重试"
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			status = http.StatusUnauthorized
-			code = 401
-			message = "账号或密码错误"
+			util.FailUnauthorized(c, "账号或密码错误")
+			return
 		} else if errors.Is(err, service.ErrAccountUnavailable) {
-			status = http.StatusForbidden
-			code = 403
-			message = err.Error()
+			util.FailForbidden(c, err.Error())
+			return
 		}
-		c.JSON(status, model.ErrorResponse{
-			Code:    code,
-			Message: message,
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailInternalError(c, message)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "登录成功",
-		"data":    result,
-	})
+	util.SuccessWithMessage(c, result, "登录成功")
 }
 
 // Profile 获取当前用户信息
@@ -74,27 +59,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Profile(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailUnauthorized(c, "未认证")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data": gin.H{
-			"user_id":      userCtx.UserID,
-			"username":     userCtx.Username,
-			"display_name": userCtx.DisplayName,
-			"role":         userCtx.Role,
-			"owner_scope":  userCtx.OwnerScope,
-			"owner_id":     userCtx.OwnerID,
-			"consented":    userCtx.Consented,
-		},
-	})
+	data := gin.H{
+		"user_id":      userCtx.UserID,
+		"username":     userCtx.Username,
+		"display_name": userCtx.DisplayName,
+		"role":         userCtx.Role,
+		"owner_scope":  userCtx.OwnerScope,
+		"owner_id":     userCtx.OwnerID,
+		"consented":    userCtx.Consented,
+	}
+	util.Success(c, data)
 }
 
 // Consent 记录用户同意隐私政策与用户协议

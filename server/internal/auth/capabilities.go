@@ -72,10 +72,12 @@ const (
 
 // 学生会能力
 const (
-	UnionKBSubmit     Capability = "union.kb.submit"     // 知识库提交
-	UnionFeedbackList Capability = "union.feedback.list" // 反馈列表查看
-	UnionEventPlan    Capability = "union.event.plan"    // 活动策划
-	UnionPosterGen    Capability = "union.poster.gen"    // 海报生成
+	UnionKBSubmit      Capability = "union.kb.submit"      // 知识库提交
+	UnionFeedbackList  Capability = "union.feedback.list"  // 反馈列表查看
+	UnionFeedbackRead  Capability = "admin.feedback.read"  // 反馈统计查看（复用 admin 前缀，学生会及以上可用）
+	UnionFeedbackWrite Capability = "admin.feedback.write" // 反馈关联知识等管理操作
+	UnionEventPlan     Capability = "union.event.plan"     // 活动策划
+	UnionPosterGen     Capability = "union.poster.gen"     // 海报生成
 )
 
 // 辅导员能力
@@ -213,7 +215,8 @@ var roles = map[string]*roleNode{
 		role:    "student_union",
 		parents: []string{"student"},
 		capabilities: []Capability{
-			UnionKBSubmit, UnionFeedbackList, UnionEventPlan, UnionPosterGen,
+			UnionKBSubmit, UnionFeedbackList, UnionFeedbackRead, UnionFeedbackWrite,
+			UnionEventPlan, UnionPosterGen,
 			CounselorImportStudent,
 		},
 	},

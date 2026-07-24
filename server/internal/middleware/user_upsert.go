@@ -13,6 +13,17 @@ type UserUpserter interface {
 	UpsertFromContext(userCtx *model.UserContext) error
 }
 
+func maskNameForLog(name string) string {
+	if len(name) == 0 {
+		return name
+	}
+	r := []rune(name)
+	if len(r) == 1 {
+		return string(r[0]) + "*"
+	}
+	return string(r[0]) + "**"
+}
+
 // EnsureUserExists 确保 JWT 中的用户存在于数据库（JIT 创建）
 // 用于 Vercel 等无服务器环境，冷启动时数据库为空但 JWT 仍然有效。
 func EnsureUserExists(upserter UserUpserter) gin.HandlerFunc {
@@ -24,7 +35,7 @@ func EnsureUserExists(upserter UserUpserter) gin.HandlerFunc {
 		}
 
 		if err := upserter.UpsertFromContext(userCtx); err != nil {
-			log.Printf("[EnsureUserExists] 用户 upsert 失败 user=%s err=%v", userCtx.Username, err)
+			log.Printf("[EnsureUserExists] 用户 upsert 失败 user=%s err=%v", maskNameForLog(userCtx.Username), err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"code":    500,
 				"message": "用户状态异常，请重新登录",

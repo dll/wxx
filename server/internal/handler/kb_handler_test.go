@@ -374,12 +374,12 @@ func TestKBHandler_BrowseKnowledge_WithData(t *testing.T) {
 	// 插入已发布的知识资源
 	kbRepo.Create(&model.KBResource{
 		ResourceID: "browse-001", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student,counselor", Title: "奖学金办法", Content: "内容",
+		RoleScope: `["student","counselor"]`, Title: "奖学金办法", Content: "内容",
 		Version: "1.0", Status: "published",
 	})
 	kbRepo.Create(&model.KBResource{
 		ResourceID: "browse-002", ResourceType: "Process", OwnerScope: "school",
-		RoleScope: "student", Title: "入学流程", Content: "步骤",
+		RoleScope: `["student"]`, Title: "入学流程", Content: "步骤",
 		Version: "1.0", Status: "published",
 	})
 
@@ -407,12 +407,12 @@ func TestKBHandler_BrowseKnowledge_WithTypeFilter(t *testing.T) {
 
 	kbRepo.Create(&model.KBResource{
 		ResourceID: "bf-001", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Title: "政策A", Content: "内容",
+		RoleScope: `["student"]`, Title: "政策A", Content: "内容",
 		Version: "1.0", Status: "published",
 	})
 	kbRepo.Create(&model.KBResource{
 		ResourceID: "bf-002", ResourceType: "Process", OwnerScope: "school",
-		RoleScope: "student", Title: "流程B", Content: "内容",
+		RoleScope: `["student"]`, Title: "流程B", Content: "内容",
 		Version: "1.0", Status: "published",
 	})
 
@@ -509,7 +509,7 @@ func TestKBHandler_BrowseKnowledge_PaginationBoundary(t *testing.T) {
 		kbRepo.Create(&model.KBResource{
 			ResourceID:   "page-" + string(rune('a'+i)),
 			ResourceType: "Policy", OwnerScope: "school",
-			RoleScope: "student", Title: "分页测试", Content: "内容",
+			RoleScope: `["student"]`, Title: "分页测试", Content: "内容",
 			Version: "1.0", Status: "published",
 		})
 	}

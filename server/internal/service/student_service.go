@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ type StudentService struct {
 	sessionRepo *repository.SessionRepo
 	messageRepo *repository.MessageRepo
 	emotionRepo *repository.EmotionRepo
+	kbRepo      *repository.KBRepo
 	llmClient   llm.ChatClient
 }
 
@@ -28,6 +30,7 @@ func NewStudentService(
 	sessionRepo *repository.SessionRepo,
 	messageRepo *repository.MessageRepo,
 	emotionRepo *repository.EmotionRepo,
+	kbRepo *repository.KBRepo,
 	llmClient llm.ChatClient,
 ) *StudentService {
 	return &StudentService{
@@ -35,6 +38,7 @@ func NewStudentService(
 		sessionRepo: sessionRepo,
 		messageRepo: messageRepo,
 		emotionRepo: emotionRepo,
+		kbRepo:      kbRepo,
 		llmClient:   llmClient,
 	}
 }
@@ -619,6 +623,169 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// mapFlowToResource 把流程类型映射到 KB resource_id
+func mapFlowToResource(flowType string) (resourceID string, defaultTitle string) {
+	switch flowType {
+	case "graduation":
+		return "process-graduation-2026", "毕业生离校流程"
+	case "major-transfer", "major_transfer", "major_change":
+		return "process-major-change-2026", "转专业流程"
+	case "student-loan", "student_loan":
+		return "process-student-loan-2026", "助学贷款申请流程"
+	case "leave":
+		return "process-leave-2026", "学生请假办理流程"
+	case "scholarship":
+		return "process-scholarship-2026", "奖学金申请流程"
+	default:
+		return "process-registration-2026", "新生入学报到流程"
+	}
+}
+
+func processStep(order int, title, materials, entryURL, deadline, location, notes string) map[string]interface{} {
+	return map[string]interface{}{
+		"step":         order,
+		"title":        title,
+		"status":       "pending",
+		"materials":    materials,
+		"entry_url":    entryURL,
+		"deadline":     deadline,
+		"location":     location,
+		"notes":        notes,
+		"contact":      "",
+		"phone":        "",
+		"office_hours": "",
+		"faq":          []map[string]interface{}{},
+	}
+}
+
+func fallbackProcessSteps(flowType string) []map[string]interface{} {
+	switch flowType {
+	case "graduation":
+		return []map[string]interface{}{
+			processStep(1, "一表通在线申请", "[\"学生证\"]", "http://ybt.chzu.edu.cn/graduation", "6月初开放", "一表通线上系统", "提交离校申请"),
+			processStep(2, "图书馆与财务清账", "[\"校园卡\",\"缴费凭证\"]", "", "6月20日前", "图书馆/财务处", "归还图书并结清欠费"),
+			processStep(3, "宿舍退宿与校园卡清退", "[\"宿舍钥匙\",\"校园卡\"]", "", "6月25日前", "学生公寓/一卡通中心", "完成宿舍验收和余额清退"),
+			processStep(4, "组织关系与档案确认", "[\"党员证\",\"档案确认单\"]", "", "6月25日前", "学院/党委组织部", "党员需转出组织关系"),
+			processStep(5, "领取毕业证书", "[\"身份证\",\"学生证\"]", "", "毕业典礼后", "学院党政办", "领取毕业证、学位证和成绩单"),
+		}
+	case "major-transfer", "major_transfer", "major_change":
+		return []map[string]interface{}{
+			processStep(1, "了解接收条件", "[]", "http://jwc.chzu.edu.cn", "每年5月/11月", "教务处/学院官网", "查看转入专业条件和名额"),
+			processStep(2, "提交申请材料", "[\"转专业申请表\",\"成绩单\",\"个人陈述\"]", "", "第12-14周", "所在学院教学办公室", "填写并提交申请表"),
+			processStep(3, "学院与教务处审核", "[\"完整申请表\",\"成绩单\"]", "", "学期末", "所在学院/拟转入学院/教务处", "完成多级审批和公示"),
+			processStep(4, "办理学籍变更", "[]", "http://jwc.chzu.edu.cn", "公示期满后", "教务处学籍科", "完成学籍信息变更"),
+		}
+	case "student-loan", "student_loan":
+		return []map[string]interface{}{
+			processStep(1, "网上申请", "[]", "https://sls.cdb.com.cn", "7月-9月", "国家开发银行学生在线系统", "注册并填写贷款申请"),
+			processStep(2, "打印并认定申请表", "[\"申请表\"]", "", "7月-9月", "户籍地村居/乡镇", "完成家庭经济困难认定"),
+			processStep(3, "现场签订合同", "[\"身份证\",\"录取通知书/学生证\",\"户口簿\"]", "", "7月-9月", "县区学生资助中心", "学生和共同借款人到场办理"),
+			processStep(4, "学校回执录入", "[\"受理证明\"]", "", "开学后一周内", "学校学生资助中心", "提交回执并等待贷款发放"),
+		}
+	case "leave":
+		return []map[string]interface{}{
+			processStep(1, "提交请假申请", "[\"请假事由说明\",\"证明材料（如病假证明）\"]", "", "离校前提交", "辅导员/学院线上表单", "说明请假时间、去向和联系方式"),
+			processStep(2, "辅导员审核", "[]", "", "提交后1个工作日内", "辅导员办公室", "辅导员核实请假原因和安全去向"),
+			processStep(3, "学院审批", "[\"请假申请表\"]", "", "按学院要求", "学院学生工作办公室", "超过规定天数需学院审批"),
+			processStep(4, "销假返校", "[]", "", "返校当日", "辅导员/班级群", "返校后及时销假并更新在校状态"),
+		}
+	case "scholarship":
+		return []map[string]interface{}{
+			processStep(1, "查看评选通知", "[]", "", "每学年评选期", "学院官网/班级群", "确认奖项类别、名额和申请条件"),
+			processStep(2, "准备申请材料", "[\"申请表\",\"成绩单\",\"荣誉证明\",\"综测材料\"]", "", "通知规定时间内", "所在学院", "按奖项要求准备纸质或电子材料"),
+			processStep(3, "班级评议与学院审核", "[\"完整申请材料\"]", "", "学院评审期", "班级/学院学生工作办公室", "完成民主评议、学院初审和排序"),
+			processStep(4, "公示与学校审定", "[]", "", "公示期", "学院/学校官网", "公示无异议后报学校审定"),
+			processStep(5, "发放与归档", "[\"银行卡信息\"]", "", "学校审定后", "财务处/学院", "奖助资金发放并完成材料归档"),
+		}
+	default:
+		return []map[string]interface{}{
+			processStep(1, "线上预报到", "[\"录取通知书\",\"身份证\"]", "https://yx.chzu.edu.cn", "报到前完成", "迎新系统", "完成个人信息确认和到校信息登记"),
+			processStep(2, "缴纳学杂费", "[\"银行卡\",\"缴费凭证\"]", "http://cw.chzu.edu.cn", "报到前或报到日", "财务系统/现场缴费点", "助学贷款学生携带贷款回执"),
+			processStep(3, "学院报到", "[\"录取通知书\",\"身份证\",\"档案\"]", "", "报到日", "计算机学院报到点", "领取班级、辅导员和校园卡信息"),
+			processStep(4, "宿舍入住", "[\"校园卡\",\"身份证\"]", "", "报到日", "学生公寓", "按分配宿舍领取钥匙并入住"),
+			processStep(5, "入学体检与学籍核验", "[\"身份证\",\"体检表\"]", "", "入学后两周内", "校医院/教务处", "按学院通知分批完成"),
+		}
+	}
+}
+
+// GetProcessEnhanced AI 办事流程增强 — 按 type 参数从 KB + process_steps 拼装真实数据
+// type: enrollment（入学）/ graduation（离校）/ major_change（转专业）/ student_loan（助学贷款）/ leave（请假）/ scholarship（奖学金）
+func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, userOwnerID string) (*model.KBResource, []map[string]interface{}, *model.AnswerCard, error) {
+	resourceID, flowTitle := mapFlowToResource(flowType)
+
+	var card *model.AnswerCard
+	var kb *model.KBResource
+	steps := []map[string]interface{}{}
+
+	if svc.kbRepo != nil {
+		var err error
+		kb, err = svc.kbRepo.GetByResourceID(resourceID)
+		if err == nil && kb != nil {
+			flowTitle = kb.Title
+			card = &model.AnswerCard{
+				Conclusion: kb.Summary,
+				Sources: []model.Source{{
+					ResourceID:   kb.ResourceID,
+					Title:        kb.Title,
+					ResourceType: kb.ResourceType,
+					Version:      kb.Version,
+					SourceLink:   kb.SourceLink,
+					EffectiveAt:  kb.EffectiveAt,
+					Snippet:      kb.Summary,
+				}},
+			}
+		}
+		if rows, err := svc.kbRepo.GetProcessSteps(resourceID); err == nil {
+			for _, ps := range rows {
+				materials := ""
+				if ps.Materials != "" && ps.Materials != "[]" {
+					var parsed []string
+					if err := json.Unmarshal([]byte(ps.Materials), &parsed); err == nil {
+						b, _ := json.Marshal(parsed)
+						materials = string(b)
+					} else {
+						materials = ps.Materials
+					}
+				}
+				var faqList []map[string]interface{}
+				if ps.FAQ != "" && ps.FAQ != "[]" {
+					if err := json.Unmarshal([]byte(ps.FAQ), &faqList); err != nil {
+						faqList = []map[string]interface{}{}
+					}
+				} else {
+					faqList = []map[string]interface{}{}
+				}
+				steps = append(steps, map[string]interface{}{
+					"step":         ps.StepOrder,
+					"title":        ps.Title,
+					"status":       "pending",
+					"materials":    materials,
+					"entry_url":    ps.EntryURL,
+					"deadline":     ps.Deadline,
+					"location":     ps.Location,
+					"notes":        ps.Notes,
+					"contact":      ps.Contact,
+					"phone":        ps.Phone,
+					"office_hours": ps.OfficeHours,
+					"faq":          faqList,
+				})
+			}
+		}
+	}
+	if len(steps) == 0 {
+		steps = fallbackProcessSteps(flowType)
+	}
+	if card == nil {
+		card = &model.AnswerCard{
+			Conclusion: flowTitle + "已整理，请按下列步骤办理。",
+			Fallback:   true,
+			Confidence: 0.5,
+		}
+	}
+
+	return kb, steps, card, nil
 }
 
 // GrowthPath 成长路径规划

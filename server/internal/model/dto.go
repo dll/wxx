@@ -17,6 +17,7 @@ type AnswerCard struct {
 type Source struct {
 	ResourceID     string  `json:"resource_id"`
 	Title          string  `json:"title"`
+	ResourceType   string  `json:"resource_type"`          // 资源类型：Policy/Process/FAQ/Activity
 	Version        string  `json:"version"`
 	SourceLink     string  `json:"source_link"`
 	RelevanceScore float64 `json:"relevance_score"`        // BM25 相关性分数
@@ -43,6 +44,7 @@ type ChatResponse struct {
 	Message   string      `json:"message"`    // 状态描述
 	Data      *AnswerCard `json:"data"`       // 回答内容
 	SessionID string      `json:"session_id"` // 会话 ID
+	TraceID   string      `json:"trace_id"`   // 追踪 ID
 }
 
 // ErrorResponse 统一错误响应

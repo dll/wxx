@@ -52,7 +52,7 @@ func BenchmarkParseToken(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		claims := &Claims{}
+		claims := &CustomClaims{}
 		_, err := jwtlib.ParseWithClaims(tokenStr, claims, func(t *jwtlib.Token) (interface{}, error) {
 			return []byte(cfg.JWTSecret), nil
 		})

@@ -67,9 +67,12 @@ func kbResultsToSources(results []*repository.SearchResult) []model.Source {
 		sources = append(sources, model.Source{
 			ResourceID:     r.Resource.ResourceID,
 			Title:          r.Resource.Title,
+			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
 			RelevanceScore: -r.Score,
+			EffectiveAt:    r.Resource.EffectiveAt,
+			Snippet:        r.Resource.Summary,
 		})
 	}
 	return sources

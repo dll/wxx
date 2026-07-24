@@ -1045,6 +1045,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
   final String _roleScope = 'student';
   bool _saving = false;
   bool _uploading = false;
+  Map<String, dynamic>? _parseResult;
 
   bool get _isEdit => widget.resource != null;
 
@@ -1085,17 +1086,28 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
               children: [
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
+                  child: FilledButton.tonalIcon(
                     onPressed: _uploading ? null : _handleUpload,
                     icon: _uploading
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.upload_file),
-                    label: Text(_uploading ? '正在解析文档...' : '上传材料并解析回填'),
+                        : const Icon(Icons.description_outlined),
+                    label: Text(_uploading ? '正在解析文档...' : '从文档导入'),
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  '支持 PDF、Word、TXT、Markdown 等格式，最大 10MB',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                if (_parseResult != null) ...[
+                  const SizedBox(height: 12),
+                  _buildParseResultCard(),
+                ],
                 const SizedBox(height: 10),
                 TextFormField(
                     controller: _titleCtrl,
@@ -1232,54 +1244,181 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       type: FileType.custom,
       allowedExtensions: const [
         'txt',
-        'csv',
+        'md',
         'pdf',
         'docx',
+        'csv',
         'xlsx',
-        'png',
-        'jpg',
-        'jpeg',
-        'gif',
-        'bmp',
-        'webp',
-        'mp4',
-        'avi',
-        'mov',
-        'mkv'
       ],
     );
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.single;
     final bytes = file.bytes;
     if (bytes == null) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('无法读取文件内容')));
+      }
       return;
     }
+
+    if (file.size > 10 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('文件大小超过限制（最大 10MB）')),
+        );
+      }
+      return;
+    }
+
+    final provider = context.read<KnowledgeProvider>();
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _uploading = true);
-    final result = await context
-        .read<KnowledgeProvider>()
-        .uploadKnowledgeDocument(
-            bytes: bytes, filename: file.name, resourceType: _type);
+    final result = await provider.parseDocument(bytes: bytes, filename: file.name);
     if (!mounted) return;
     setState(() => _uploading = false);
     if (result == null) {
-      final errMsg = context.read<KnowledgeProvider>().resourceError;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(errMsg.isEmpty ? '上传解析失败' : errMsg)));
+      final errMsg = provider.resourceError;
+      messenger.showSnackBar(
+        SnackBar(content: Text(errMsg.isEmpty ? '文档解析失败' : errMsg)),
+      );
       return;
     }
+
+    setState(() {
+      _parseResult = result;
+    });
+
     _titleCtrl.text = (result['title'] ?? _titleCtrl.text).toString();
     _summaryCtrl.text =
-        (result['summary'] ?? result['content_preview'] ?? _summaryCtrl.text)
-            .toString();
+        (result['summary'] ?? _summaryCtrl.text).toString();
     _contentCtrl.text =
-        (result['content'] ?? result['content_preview'] ?? '').toString();
-    if (_tagsCtrl.text.trim().isEmpty)
+        (result['content'] ?? '').toString();
+
+    final keywords = result['keywords'] as List<dynamic>?;
+    if (keywords != null && keywords.isNotEmpty) {
+      final keywordStr = keywords.map((e) => e.toString()).join(',');
+      if (_tagsCtrl.text.trim().isEmpty) {
+        _tagsCtrl.text = keywordStr;
+      } else {
+        _tagsCtrl.text = '${_tagsCtrl.text},$keywordStr';
+      }
+    } else if (_tagsCtrl.text.trim().isEmpty) {
       _tagsCtrl.text = '上传文档,${file.extension ?? ''}';
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('文档已解析并回填，可继续编辑后保存')));
+    }
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('文档已解析并回填，可继续编辑后提交')),
+    );
+  }
+
+  Widget _buildParseResultCard() {
+    final result = _parseResult!;
+    final theme = Theme.of(context);
+    final wordCount = result['word_count'] ?? 0;
+    final paragraphs = result['paragraphs'] ?? 0;
+    final pages = result['pages'] ?? 0;
+    final keywords = (result['keywords'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '解析成功',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              _statItem('字数', '$wordCount'),
+              _statItem('段落', '$paragraphs'),
+              if (pages > 0) _statItem('页数', '$pages'),
+            ],
+          ),
+          if (keywords.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '提取关键词：',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: keywords
+                  .map((k) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer
+                              .withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          k,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 2),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 

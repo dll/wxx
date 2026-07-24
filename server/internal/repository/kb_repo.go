@@ -67,7 +67,7 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	if err == nil && len(phraseResults) > 0 {
 		// 短语匹配结果加分，标记为高置信度
 		for _, r := range phraseResults {
-			r.Score -= 5.0 // BM25分数越小越相关，减5表示大幅提升权重
+			r.Score -= 8.0 // BM25分数越小越相关，减8表示最高优先级
 		}
 	}
 
@@ -76,7 +76,7 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	nearResults, err := r.searchWithQuery(nearQuery, ownerScope, ownerID, role, limit)
 	if err == nil && len(nearResults) > 0 {
 		for _, r := range nearResults {
-			r.Score -= 2.0 // NEAR匹配适度加分
+			r.Score -= 3.0 // NEAR匹配次高优先级
 		}
 	}
 
@@ -122,7 +122,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (kb.role_scope = '' OR json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))
+			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
@@ -169,14 +169,16 @@ func buildPhraseQuery(query string) string {
 }
 
 // buildNearQuery 构建 NEAR 邻近匹配查询（字之间最大距离3）
+// 注意：FTS5 的 NEAR() 语法不支持内部使用前缀通配符 *
+// 使用精确单字匹配，利用 unicode61 单字分词的特性，字与字邻近=词组邻近
 func buildNearQuery(query string) string {
 	runes := []rune(query)
 	var parts []string
 	for _, r := range runes {
 		if r >= 0x4E00 && r <= 0x9FFF {
-			parts = append(parts, string(r)+"*")
+			parts = append(parts, string(r))
 		} else if !isSpaceRune(r) {
-			parts = append(parts, string(r)+"*")
+			parts = append(parts, string(r))
 		}
 	}
 	if len(parts) < 2 {
@@ -338,14 +340,14 @@ func (r *KBRepo) SearchFAQ(query string, ownerScope string, ownerID string, role
 	phraseQ := buildPhraseQuery(query)
 	phraseR, _ := r.searchFAQWithQuery(phraseQ, ownerScope, ownerID, role, limit)
 	for _, r := range phraseR {
-		r.Score -= 5.0
+		r.Score -= 8.0 // 短语精确匹配，最高优先级
 	}
 
 	// 阶段二：NEAR 邻近匹配
 	nearQ := buildNearQuery(query)
 	nearR, _ := r.searchFAQWithQuery(nearQ, ownerScope, ownerID, role, limit)
 	for _, r := range nearR {
-		r.Score -= 2.0
+		r.Score -= 3.0 // NEAR邻近匹配，次高优先级
 	}
 
 	// 阶段三：宽松 OR 匹配
@@ -385,7 +387,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 			   AND kb.status = 'published'
 			   AND kb.resource_type = 'FAQ'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (kb.role_scope = '' OR json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))
+			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
@@ -727,7 +729,7 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string, limit, offset int) (map[string][]*model.KnowledgeCard, int, error) {
 	whereClause := ` WHERE status = 'published'
 		   AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?)) OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
-		   AND (role_scope = '' OR json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))`
+		   AND (role_scope = '' OR (json_valid(role_scope) AND (json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))))`
 	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
 	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
 

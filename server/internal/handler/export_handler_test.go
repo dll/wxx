@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -20,7 +21,7 @@ type mockExportService struct {
 	err       error
 }
 
-func (m *mockExportService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
+func (m *mockExportService) ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

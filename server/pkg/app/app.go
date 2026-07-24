@@ -146,13 +146,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	agentSvc := service.NewAgentService(agentRepo)
-	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, llmClient)
+	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, kbRepo, llmClient)
 	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, feedbackScreenshotRepo)
+	feedbackSvc.SetDB(db)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
-	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo)
+	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
 	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)
 	uploadDir := "./data/uploads"
@@ -161,6 +162,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		log.Printf("Vercel 环境：上传目录 %s", uploadDir)
 	}
 	docSvc := service.NewDocumentService(uploadDir, 50)
+	docParseSvc := service.NewDocumentService(uploadDir, 10)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
@@ -212,8 +214,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
-	studentHandler := handler.NewStudentHandler(studentSvc)
-	studentHandler.SetKBRepo(kbRepo)
+	studentHandler := handler.NewStudentHandler(studentSvc, db)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
 	var teacherSvc *service.TeacherService
@@ -256,17 +257,20 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	forecastHandler := handler.NewForecastHandler(forecastSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	uploadHandler := handler.NewUploadHandler(docSvc, kbSvc)
+	documentHandler := handler.NewDocumentHandler(docParseSvc)
 	graduationHandler := handler.NewGraduationHandler(graduationService)
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
 	educationHandler := handler.NewEducationHandler(db)
 	studyPlanHandler := handler.NewStudyPlanHandler(db, llmClient)
+	userNotificationHandler := handler.NewUserNotificationHandler(db)
+	statsHandler := handler.NewStatsHandler(db)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, educationHandler, studyPlanHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler)
 
 	return router, nil
 }
@@ -457,14 +461,18 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	studentFeaturesH *handler.StudentFeaturesHandler,
 	notificationH *handler.NotificationHandler,
 	uploadH *handler.UploadHandler,
+	documentH *handler.DocumentHandler,
 	educationH *handler.EducationHandler,
 	studyPlanH *handler.StudyPlanHandler,
+	statsH *handler.StatsHandler,
+	userNotificationH *handler.UserNotificationHandler,
 ) *gin.Engine {
 	router := gin.New()
 
 	// 全局中间件
 	router.Use(gin.Recovery())
-	router.Use(middleware.CORS())
+	router.Use(middleware.CORSWithConfig(cfg.CORSAllowedOrigins, cfg.IsRelease()))
+	router.Use(middleware.GlobalIPRateLimiter()) // 全局限流（IP 维度，100 req/min/IP）
 	router.Use(middleware.TraceID())
 	router.Use(middleware.PIIMask()) // PII 检测与脱敏（在请求进入 handler 前检测并脱敏）
 	router.Use(gin.Logger())
@@ -491,12 +499,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		// 认证（公开）
 		authGroup := v1.Group("/auth")
 		{
-			authGroup.POST("/login", authH.Login)
+			authGroup.POST("/login", middleware.LoginIPRateLimiter(), authH.Login)
 			authGroup.POST("/qr-login", handler.CreateQRSession)
 			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
 			authGroup.PUT("/qr-scan", handler.ScanQRSession)
-			authGroup.POST("/send-code", authH.SendCode)
-			authGroup.POST("/guest-register", authH.GuestRegister)
+			authGroup.POST("/send-code", middleware.LoginIPRateLimiter(), authH.SendCode)
+			authGroup.POST("/guest-register", middleware.LoginIPRateLimiter(), authH.GuestRegister)
 		}
 
 		// 需要 JWT 认证
@@ -505,7 +513,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		secured.Use(middleware.EnsureUserExists(userRepo))
 		{
 			// ── AI 对话（self.chat）──
-			secured.POST("/chat", auth.RequireCapability(auth.SelfChat), chatH.Ask)
+			secured.POST("/chat", auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), chatH.Ask)
 
 			// ── 会话/知识/推荐（self.* 能力）──
 			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
@@ -682,6 +690,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 管理端 ──
 			admin := secured.Group("/admin")
 			{
+				admin.GET("/stats/dashboard", auth.RequireCapability(auth.CollegeMetricsRead), statsH.GetDashboardStats)
 				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), adminH.GetMetrics)
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsers)
 				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
@@ -716,9 +725,19 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.POST("/feedback/screenshot", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.UploadScreenshot)
 			// 我的反馈：所有登录用户都能查看自己提交的反馈（按 user_id 过滤）
 			secured.GET("/feedback/mine", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Mine)
+			// 反馈详情（所有登录用户可查自己的，管理端可查所有；权限由 handler 内 user_id 校验）
+			secured.GET("/feedback/:id", feedbackH.Get)
+			// 反馈满意度评价（用户对已解决的反馈打分）
+			secured.PUT("/feedback/:id/rate", auth.RequireCapability(auth.SelfFeedbackSubmit), feedbackH.Rate)
+			// 反馈处理记录
+			secured.GET("/feedback/:id/logs", feedbackH.GetLogs)
 			// 管理员反馈列表和处理（注意：直接注册避免 Group 产生的尾部斜杠重定向丢 Authorization 头）
 			secured.GET("/feedback", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
 			secured.PUT("/feedback/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
+			// 管理端反馈统计
+			secured.GET("/admin/feedback/stats", auth.RequireCapability(auth.UnionFeedbackRead), feedbackH.Stats)
+			// 管理端关联知识资源
+			secured.PUT("/admin/feedback/:id/link-resource", auth.RequireCapability(auth.UnionFeedbackWrite), feedbackH.LinkResource)
 
 			// ── 办事流程办理记录 ──
 			process := secured.Group("/process/records")
@@ -731,6 +750,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 学生 AI 功能（个人能力，所有角色继承自 student 都可用）──
 			student := secured.Group("/student")
 			{
+				student.GET("/home", auth.RequireCapability(auth.SelfStudyRead), studentH.Home)
 				student.GET("/daily-briefing", auth.RequireCapability(auth.SelfBriefingRead), studentH.DailyBriefing)
 				student.GET("/learning-diary", auth.RequireCapability(auth.SelfDiaryRead), studentH.LearningDiary)
 				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
@@ -812,11 +832,29 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			}
 
 			// ── 通知推送（辅导员及以上角色） ──
-			secured.POST("/notifications", auth.RequireCapability(auth.CounselorNotify), notificationH.Create)
-			secured.GET("/notifications", auth.RequireCapability(auth.CounselorNotify), notificationH.List)
-			secured.POST("/notifications/:id/publish", auth.RequireCapability(auth.CounselorNotify), notificationH.Publish)
-			secured.DELETE("/notifications/:id", auth.RequireCapability(auth.CounselorNotify), notificationH.Delete)
-			secured.GET("/notifications/webhook-status", auth.RequireCapability(auth.CounselorNotify), notificationH.WebhookStatus)
+			// 移动到 /admin/notifications/push 路径下，避免与用户站内通知冲突
+			notificationPush := secured.Group("/admin/notifications/push")
+			notificationPush.Use(auth.RequireCapability(auth.CounselorNotify))
+			{
+				notificationPush.POST("", notificationH.Create)
+				notificationPush.GET("", notificationH.List)
+				notificationPush.POST("/:id/publish", notificationH.Publish)
+				notificationPush.DELETE("/:id", notificationH.Delete)
+				notificationPush.GET("/webhook-status", notificationH.WebhookStatus)
+			}
+
+			// ── 用户站内通知（所有登录用户） ──
+			secured.GET("/notifications", userNotificationH.ListNotifications)
+			secured.GET("/notifications/unread-count", userNotificationH.GetUnreadCount)
+			secured.PUT("/notifications/:id/read", userNotificationH.MarkAsRead)
+			secured.PUT("/notifications/read-all", userNotificationH.MarkAllAsRead)
+
+			// ── 管理员发送系统通知 ──
+			secured.POST("/admin/notifications/send", auth.RequireCapability(auth.SystemSettingsWrite), userNotificationH.SendSystemNotification)
+
+			// ── 文档解析 ──
+			secured.POST("/documents/parse", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.ParseDocument)
+			secured.GET("/documents/formats", documentH.SupportedFormats)
 
 			// ── 文档上传与知识入库 ──
 			secured.POST("/kb/upload", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), uploadH.Upload)

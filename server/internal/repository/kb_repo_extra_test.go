@@ -69,18 +69,18 @@ func TestKBRepo_GetPublishedCards(t *testing.T) {
 	// 创建已发布资源
 	repo.Create(&model.KBResource{
 		ResourceID: "card-1", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student,counselor", Version: "1.0", Status: "published",
+		RoleScope: `["student","counselor"]`, Version: "1.0", Status: "published",
 		Title: "奖学金办法", Summary: "2026年度奖学金", Tags: `["奖学金"]`,
 	})
 	repo.Create(&model.KBResource{
 		ResourceID: "card-2", ResourceType: "Process", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "入学流程", Summary: "新生入学", Tags: `["入学"]`,
 	})
 	// 草稿状态不应出现
 	repo.Create(&model.KBResource{
 		ResourceID: "card-3", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "draft",
+		RoleScope: `["student"]`, Version: "1.0", Status: "draft",
 		Title: "草稿政策", Summary: "不应出现",
 	})
 
@@ -112,12 +112,12 @@ func TestKBRepo_GetPublishedCards_TypeFilter(t *testing.T) {
 
 	repo.Create(&model.KBResource{
 		ResourceID: "cf-1", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "政策A", Summary: "摘要A",
 	})
 	repo.Create(&model.KBResource{
 		ResourceID: "cf-2", ResourceType: "Process", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "流程B", Summary: "摘要B",
 	})
 
@@ -138,7 +138,7 @@ func TestKBRepo_Upsert_Create(t *testing.T) {
 
 	kb := &model.KBResource{
 		ResourceID: "upsert-new", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "新资源", Content: "正文内容",
 	}
 	id, action, err := repo.Upsert(kb)
@@ -162,7 +162,7 @@ func TestKBRepo_Upsert_UpdateWithHigherVersion(t *testing.T) {
 	// 先创建 v1.0
 	kb := &model.KBResource{
 		ResourceID: "upsert-ver", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "原始版本", Content: "v1正文",
 	}
 	repo.Upsert(kb)
@@ -170,7 +170,7 @@ func TestKBRepo_Upsert_UpdateWithHigherVersion(t *testing.T) {
 	// 再导入 v2.0（应更新）
 	kbV2 := &model.KBResource{
 		ResourceID: "upsert-ver", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "2.0", Status: "published",
+		RoleScope: `["student"]`, Version: "2.0", Status: "published",
 		Title: "更新版本", Content: "v2正文",
 	}
 	_, action, err := repo.Upsert(kbV2)
@@ -197,7 +197,7 @@ func TestKBRepo_Upsert_SkipLowerVersion(t *testing.T) {
 	// 先创建 v3.0
 	kb := &model.KBResource{
 		ResourceID: "upsert-skip", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "3.0", Status: "published",
+		RoleScope: `["student"]`, Version: "3.0", Status: "published",
 		Title: "高版本", Content: "v3正文",
 	}
 	repo.Upsert(kb)
@@ -205,7 +205,7 @@ func TestKBRepo_Upsert_SkipLowerVersion(t *testing.T) {
 	// 再导入 v1.0（应跳过）
 	kbOld := &model.KBResource{
 		ResourceID: "upsert-skip", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "低版本", Content: "v1正文",
 	}
 	_, action, err := repo.Upsert(kbOld)
@@ -226,7 +226,7 @@ func TestKBRepo_ListSince(t *testing.T) {
 	// 创建资源（created_at 由数据库自动生成）
 	repo.Create(&model.KBResource{
 		ResourceID: "since-1", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "新资源", Content: "正文",
 	})
 
@@ -257,12 +257,12 @@ func TestKBRepo_ListSince_TypeFilter(t *testing.T) {
 
 	repo.Create(&model.KBResource{
 		ResourceID: "ls-p", ResourceType: "Policy", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "政策", Content: "正文",
 	})
 	repo.Create(&model.KBResource{
 		ResourceID: "ls-f", ResourceType: "FAQ", OwnerScope: "school",
-		RoleScope: "student", Version: "1.0", Status: "published",
+		RoleScope: `["student"]`, Version: "1.0", Status: "published",
 		Title: "问答", Content: "正文",
 	})
 

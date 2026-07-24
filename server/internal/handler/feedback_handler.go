@@ -129,6 +129,33 @@ func (h *FeedbackHandler) Mine(c *gin.Context) {
 	})
 }
 
+// Get 获取反馈详情 GET /api/v1/feedback/:id
+func (h *FeedbackHandler) Get(c *gin.Context) {
+	feedbackID := c.Param("id")
+
+	fb, err := h.feedbackSvc.Get(feedbackID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询反馈失败",
+		})
+		return
+	}
+	if fb == nil {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{
+			Code:    404,
+			Message: "反馈不存在",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    fb,
+	})
+}
+
 // Resolve 处理反馈 PUT /api/v1/feedback/:id
 func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	feedbackID := c.Param("id")
@@ -164,6 +191,116 @@ func (h *FeedbackHandler) Resolve(c *gin.Context) {
 		"code":    0,
 		"message": "反馈已处理",
 		"data":    fb,
+	})
+}
+
+// Stats 反馈统计 GET /api/v1/admin/feedback/stats
+func (h *FeedbackHandler) Stats(c *gin.Context) {
+	stats, err := h.feedbackSvc.GetStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取统计数据失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    stats,
+	})
+}
+
+// LinkResource 关联知识资源 PUT /api/v1/admin/feedback/:id/link-resource
+func (h *FeedbackHandler) LinkResource(c *gin.Context) {
+	feedbackID := c.Param("id")
+
+	var req model.FeedbackLinkResourceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败",
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	if err := h.feedbackSvc.LinkResource(feedbackID, req.ResourceID, req.Note, userCtx.Username); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "关联成功",
+	})
+}
+
+// Rate 满意度评价 PUT /api/v1/feedback/:id/rate
+func (h *FeedbackHandler) Rate(c *gin.Context) {
+	feedbackID := c.Param("id")
+
+	var req model.FeedbackRateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败",
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	if err := h.feedbackSvc.Rate(feedbackID, userCtx.UserID, req.Rating, req.Comment); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "评价成功",
+	})
+}
+
+// GetLogs 获取反馈处理记录 GET /api/v1/feedback/:id/logs
+func (h *FeedbackHandler) GetLogs(c *gin.Context) {
+	feedbackID := c.Param("id")
+
+	logs, err := h.feedbackSvc.ListLogs(feedbackID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取处理记录失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    logs,
 	})
 }
 

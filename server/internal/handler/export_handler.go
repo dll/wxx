@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 // exportService 知识导出服务接口（用于测试 mock）
 type exportService interface {
-	ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error)
+	ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error)
 }
 
 // ExportHandler 知识导出 HTTP handler
@@ -92,7 +93,7 @@ func (h *ExportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	resources, err := h.kbSvc.ExportResources(resourceType, sinceCursor)
+	resources, err := h.kbSvc.ExportResources(c.Request.Context(), resourceType, sinceCursor)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,

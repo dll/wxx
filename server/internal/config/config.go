@@ -1,11 +1,15 @@
 package config
 
 import (
+	"fmt"
+	"log"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
 )
+
+const defaultJWTSecret = "dev-secret-not-for-production-min-32-chars!!"
 
 // Config 应用全局配置，从环境变量加载
 type Config struct {
@@ -15,11 +19,11 @@ type Config struct {
 	LogLevel string // debug | info | warn | error
 
 	// JWT
-	JWTSecret      string // 签名密钥
+	JWTSecret      string // 签名密钥，优先从环境变量 JWT_SECRET 读取
 	JWTExpireHours int    // 过期时间（小时）
 
 	// SQLite
-	SQLitePath string // 数据库文件路径
+	SQLitePath string // 数据库文件路径，优先从环境变量 DB_PATH 读取，其次 SQLITE_PATH
 
 	// 智谱清言
 	ZhipuAPIKey  string
@@ -65,6 +69,13 @@ type Config struct {
 	TemporalHostPort  string // e.g., "localhost:7233"（空 = 禁用）
 	TemporalNamespace string // e.g., "wxx"
 	TemporalTaskQueue string // e.g., "wxx-critical"
+
+	// LLM 配额
+	DailyChatQuotaPerUser   int // 每个用户每日对话次数上限，0 表示不限
+	MonthlyChatQuotaPerUser int // 每个用户每月对话次数上限，0 表示不限
+
+	// CORS
+	CORSAllowedOrigins string // 允许的跨域来源，逗号分隔，支持通配符子域名如 *.vercel.app，默认 "*"
 }
 
 // Load 加载配置。优先从 .env 文件读取，再从系统环境变量补充。
@@ -74,15 +85,15 @@ func Load() *Config {
 	_ = godotenv.Load()
 	_ = godotenv.Load("../.env")
 
-	return &Config{
+	cfg := &Config{
 		AppPort:  envOr("APP_PORT", "8080"),
 		AppMode:  envOr("APP_MODE", "debug"),
 		LogLevel: envOr("LOG_LEVEL", "info"),
 
-		JWTSecret:      envOr("JWT_SECRET", ""),
+		JWTSecret:      envOr("JWT_SECRET", defaultJWTSecret),
 		JWTExpireHours: envIntOr("JWT_EXPIRE_HOURS", 2),
 
-		SQLitePath: envOr("SQLITE_PATH", "./data/wxx.db"),
+		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
 		ZhipuAPIKey:  envOr("ZHIPU_API_KEY", ""),
 		ZhipuBaseURL: envOr("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
@@ -120,7 +131,43 @@ func Load() *Config {
 		TemporalHostPort:  envOr("TEMPORAL_HOST_PORT", ""),
 		TemporalNamespace: envOr("TEMPORAL_NAMESPACE", "wxx"),
 		TemporalTaskQueue: envOr("TEMPORAL_TASK_QUEUE", "wxx-critical"),
+
+		// LLM 配额
+		DailyChatQuotaPerUser:   envIntOr("DAILY_CHAT_QUOTA_PER_USER", 200),
+		MonthlyChatQuotaPerUser: envIntOr("MONTHLY_CHAT_QUOTA_PER_USER", 3000),
+
+		// CORS
+		CORSAllowedOrigins: envOr("CORS_ALLOWED_ORIGINS", "*"),
 	}
+
+	if err := cfg.Validate(); err != nil {
+		if cfg.IsRelease() {
+			log.Fatalf("[FATAL] 配置验证失败: %v", err)
+		} else {
+			log.Printf("[WARN] 配置验证警告(debug模式可忽略): %v", err)
+		}
+	}
+
+	return cfg
+}
+
+// IsRelease 判断当前是否为生产模式
+func (c *Config) IsRelease() bool {
+	return c.AppMode == "release"
+}
+
+// Validate 集中做配置校验，返回第一个遇到的错误
+func (c *Config) Validate() error {
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET 不能为空")
+	}
+	if c.JWTSecret == defaultJWTSecret {
+		return fmt.Errorf("JWT_SECRET 使用了默认值，生产环境必须配置为自定义强密钥")
+	}
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET 长度不足 32 位（当前 %d 位），生产环境密钥至少需要 32 字符", len(c.JWTSecret))
+	}
+	return nil
 }
 
 // envOr 读取环境变量，不存在时返回默认值

@@ -7,6 +7,25 @@ import (
 	"github.com/dll/wxx/server/internal/model"
 )
 
+var agentAllowedUpdateColumns = map[string]bool{
+	"name":           true,
+	"description":    true,
+	"agent_type":     true,
+	"system_prompt":  true,
+	"model_provider": true,
+	"model_name":     true,
+	"temperature":    true,
+	"max_tokens":     true,
+	"status":         true,
+}
+
+func sanitizeUpdateColumn(col string) string {
+	if agentAllowedUpdateColumns[col] {
+		return col
+	}
+	return ""
+}
+
 // AgentRepo 智能体数据访问
 type AgentRepo struct {
 	db *sql.DB
@@ -35,11 +54,14 @@ func (r *AgentRepo) Create(agent *model.Agent) (int64, error) {
 
 // Update 更新智能体（按 agent_id）
 func (r *AgentRepo) Update(agentID string, updates map[string]interface{}) error {
-	// 构建动态 UPDATE
 	sets := ""
 	args := make([]interface{}, 0)
 
 	for col, val := range updates {
+		col = sanitizeUpdateColumn(col)
+		if col == "" {
+			continue
+		}
 		if sets != "" {
 			sets += ", "
 		}
@@ -51,8 +73,6 @@ func (r *AgentRepo) Update(agentID string, updates map[string]interface{}) error
 		return fmt.Errorf("无更新字段")
 	}
 
-	// SQLite 使用 datetime('now') 获取 UTC 时间，这里用 Go 生成是为了跨数据库考虑
-	// 实际 SQLite 环境下 datetime('now') 足够
 	query := "UPDATE agents SET " + sets + ", updated_at = datetime('now') WHERE agent_id = ?"
 	args = append(args, agentID)
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/middleware"
 )
 
 // ZhipuClient 智谱清言 API 客户端
@@ -66,6 +67,11 @@ func (c *ZhipuClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	// 传播 TraceID
+	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
+		httpReq.Header.Set("X-Trace-ID", tid)
+	}
 
 	resp, err := c.client.Do(httpReq)
 	if err != nil {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -14,7 +15,7 @@ func TestKBService_List(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db))
 
-	list, total, err := svc.List("", "", "published", "", 1, 10)
+	list, total, err := svc.List(context.Background(),"", "", "published", "", 1, 10)
 	if err != nil {
 		t.Fatalf("List 失败: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestKBService_List_Pagination(t *testing.T) {
 	svc := NewKBService(repository.NewKBRepo(db))
 
 	// 每页 1 条
-	list, total, err := svc.List("", "", "published", "", 1, 1)
+	list, total, err := svc.List(context.Background(),"", "", "published", "", 1, 1)
 	if err != nil {
 		t.Fatalf("List 失败: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestKBService_Get(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db))
 
-	kb, err := svc.Get("policy-scholarship-2026")
+	kb, err := svc.Get(context.Background(),"policy-scholarship-2026")
 	if err != nil {
 		t.Fatalf("Get 失败: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestKBService_Get_NotFound(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db))
 
-	_, err := svc.Get("nonexistent")
+	_, err := svc.Get(context.Background(),"nonexistent")
 	if err == nil {
 		t.Fatal("不存在的资源应返回错误")
 	}
@@ -86,7 +87,7 @@ func TestKBService_Create(t *testing.T) {
 		Content:      "这是测试内容",
 	}
 
-	kb, err := svc.Create(req, "admin")
+	kb, err := svc.Create(context.Background(),req, "admin")
 	if err != nil {
 		t.Fatalf("Create 失败: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestKBService_Update(t *testing.T) {
 	svc := NewKBService(repository.NewKBRepo(db))
 
 	// 先创建
-	created, _ := svc.Create(&model.KBCreateRequest{
+	created, _ := svc.Create(context.Background(), &model.KBCreateRequest{
 		ResourceType: "FAQ",
 		OwnerScope:   "college",
 		RoleScope:    `["student"]`,
@@ -125,7 +126,7 @@ func TestKBService_Update(t *testing.T) {
 		Content: "更新后的内容",
 		Status:  "published",
 	}
-	updated, err := svc.Update(created.ResourceID, req, "editor")
+	updated, err := svc.Update(context.Background(),created.ResourceID, req, "editor")
 	if err != nil {
 		t.Fatalf("Update 失败: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestKBService_Update_NotFound(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db))
 
-	_, err := svc.Update("nonexistent", &model.KBUpdateRequest{Title: "x"}, "admin")
+	_, err := svc.Update(context.Background(),"nonexistent", &model.KBUpdateRequest{Title: "x"}, "admin")
 	if err == nil {
 		t.Fatal("更新不存在的资源应返回错误")
 	}

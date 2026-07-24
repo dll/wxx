@@ -489,6 +489,28 @@ class KnowledgeProvider extends ChangeNotifier {
     return null;
   }
 
+  /// 文档解析（仅解析，不入库）
+  Future<Map<String, dynamic>?> parseDocument({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    try {
+      final response = await _api.uploadBytes(
+        ApiConfig.documentParse,
+        bytes: bytes,
+        filename: filename,
+        fieldName: 'file',
+      );
+      if (response.data['code'] == 0) {
+        return Map<String, dynamic>.from(response.data['data'] as Map);
+      }
+      _resourceError = response.data['message']?.toString() ?? '解析失败';
+    } catch (e) {
+      _resourceError = '解析失败: $e';
+    }
+    return null;
+  }
+
   /// 按固定顺序返回分类列表
   List<MapEntry<String, List<KnowledgeCard>>> get orderedCategories {
     final result = <MapEntry<String, List<KnowledgeCard>>>[];

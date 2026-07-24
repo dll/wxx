@@ -8,6 +8,7 @@ import (
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,22 +34,14 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 	// 解析请求
 	var req model.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailBadRequest(c, "请求参数错误："+err.Error())
 		return
 	}
 
 	// 获取用户上下文
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailUnauthorized(c, "未认证")
 		return
 	}
 
@@ -56,11 +49,7 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 	card, sessionID, err := h.chatSvc.Ask(c.Request.Context(), userCtx, req.SessionID, req.Question, req.AgentID)
 	if err != nil {
 		log.Printf("问答处理失败 trace=%s user=%s session=%s err=%v", middleware.GetTraceID(c), userCtx.Username, req.SessionID, err)
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "问答处理失败：" + err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		util.FailInternalError(c, "问答处理失败："+err.Error())
 		return
 	}
 
@@ -85,5 +74,6 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 		Message:   "success",
 		Data:      card,
 		SessionID: sessionID,
+		TraceID:   middleware.GetTraceID(c),
 	})
 }

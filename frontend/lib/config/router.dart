@@ -14,6 +14,7 @@ import '../pages/browse/browse_page.dart';
 import '../pages/emotion/emotion_dashboard_page.dart';
 import '../pages/agent/agent_management_page.dart';
 import '../pages/admin/admin_metrics_page.dart';
+import '../pages/admin/admin_dashboard_page.dart';
 import '../pages/admin/admin_users_page.dart';
 import '../pages/admin/admin_audit_page.dart';
 import '../pages/admin/admin_settings_page.dart';
@@ -23,6 +24,7 @@ import '../pages/admin/feedback_page.dart';
 import '../pages/profile/my_feedbacks_page.dart';
 import '../pages/process/my_records_page.dart';
 import '../pages/bookmarks/bookmarks_page.dart';
+import '../pages/notification/notification_page.dart';
 // ── 学生 AI 功能页面 ──
 import '../pages/student/daily_briefing_page.dart';
 import '../pages/student/learning_diary_page.dart';
@@ -207,6 +209,10 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const TokenStatsPage(),
         ),
         GoRoute(
+          path: '/admin/dashboard',
+          builder: (context, state) => const AdminDashboardPage(),
+        ),
+        GoRoute(
           path: '/admin/metrics',
           builder: (context, state) => const AdminMetricsPage(),
         ),
@@ -331,6 +337,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/bookmarks',
           builder: (context, state) => const BookmarksPage(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationPage(),
         ),
         GoRoute(
           path: '/campus',

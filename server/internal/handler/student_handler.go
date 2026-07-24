@@ -1,32 +1,26 @@
 package handler
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // StudentHandler 学生角色 AI 功能接口
 type StudentHandler struct {
-	svc    *service.StudentService
-	kbRepo *repository.KBRepo // 用于 ProcessEnhanced 等需要读 KB/process_steps 的接口
+	svc *service.StudentService
+	db  *sql.DB
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
-func NewStudentHandler(svc *service.StudentService) *StudentHandler {
-	return &StudentHandler{svc: svc}
-}
-
-// SetKBRepo 注入 KB 仓储（可选，仅 ProcessEnhanced 使用）
-func (h *StudentHandler) SetKBRepo(kb *repository.KBRepo) {
-	h.kbRepo = kb
+func NewStudentHandler(svc *service.StudentService, db *sql.DB) *StudentHandler {
+	return &StudentHandler{svc: svc, db: db}
 }
 
 // DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
@@ -332,176 +326,55 @@ func (h *StudentHandler) PrivateChat(c *gin.Context) {
 // type: enrollment（入学）/ graduation（离校）/ major_change（转专业）/ student_loan（助学贷款）/ leave（请假）/ scholarship（奖学金）
 func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 	flowType := c.DefaultQuery("type", "enrollment")
-	resourceID, flowTitle := mapFlowToResource(flowType)
 
-	// kbRepo 未注入或资源未命中时降级到通用流程提示，但绝不再回到"缓考申请"
-	var card *model.AnswerCard
-	steps := []gin.H{}
-	if h.kbRepo != nil {
-		if kb, err := h.kbRepo.GetByResourceID(resourceID); err == nil && kb != nil {
-			flowTitle = kb.Title
-			card = &model.AnswerCard{
-				Conclusion: kb.Summary,
-				Sources: []model.Source{{
-					ResourceID:  kb.ResourceID,
-					Title:       kb.Title,
-					Version:     kb.Version,
-					SourceLink:  kb.SourceLink,
-					EffectiveAt: kb.EffectiveAt,
-					Snippet:     kb.Summary,
-				}},
+	if h.svc != nil {
+		kb, steps, card, err := h.svc.GetProcessEnhanced(flowType, "", "")
+		if err == nil {
+			flowTitle := defaultFlowTitle(flowType)
+			if kb != nil {
+				flowTitle = kb.Title
 			}
-		}
-		if rows, err := h.kbRepo.GetProcessSteps(resourceID); err == nil {
-			for _, s := range rows {
-				materials := ""
-				// materials 是 JSON 数组字符串，前端以字符串形式展示
-				if s.Materials != "" && s.Materials != "[]" {
-					var parsed []string
-					if err := json.Unmarshal([]byte(s.Materials), &parsed); err == nil {
-						b, _ := json.Marshal(parsed)
-						materials = string(b)
-					} else {
-						materials = s.Materials
-					}
-				}
-				// 解析 FAQ JSON
-				var faqList []gin.H
-				if s.FAQ != "" && s.FAQ != "[]" {
-					if err := json.Unmarshal([]byte(s.FAQ), &faqList); err != nil {
-						faqList = []gin.H{}
-					}
-				} else {
-					faqList = []gin.H{}
-				}
-				steps = append(steps, gin.H{
-					"step":         s.StepOrder,
-					"title":        s.Title,
-					"status":       "pending",
-					"materials":    materials,
-					"entry_url":    s.EntryURL,
-					"deadline":     s.Deadline,
-					"location":     s.Location,
-					"notes":        s.Notes,
-					"contact":      s.Contact,
-					"phone":        s.Phone,
-					"office_hours": s.OfficeHours,
-					"faq":          faqList,
-				})
+			resp := gin.H{
+				"processes": []gin.H{
+					{
+						"id":           "1",
+						"title":        flowTitle,
+						"status":       "in_progress",
+						"current_step": 0,
+						"steps":        steps,
+					},
+				},
+				"reminders": []gin.H{},
 			}
+			if card != nil {
+				resp["answer_card"] = card
+			}
+			c.JSON(http.StatusOK, resp)
+			return
 		}
 	}
-	if len(steps) == 0 {
-		steps = fallbackProcessSteps(flowType)
-	}
-	if card == nil {
-		card = &model.AnswerCard{
-			Conclusion: flowTitle + "已整理，请按下列步骤办理。",
-			Fallback:   true,
-			Confidence: 0.5,
-		}
-	}
-
-	resp := gin.H{
-		"processes": []gin.H{
-			{
-				"id":           "1",
-				"title":        flowTitle,
-				"status":       "in_progress",
-				"current_step": 0,
-				"steps":        steps,
-			},
-		},
-		"reminders": []gin.H{},
-	}
-	if card != nil {
-		resp["answer_card"] = card
-	}
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+		Code:    500,
+		Message: "服务不可用",
+		TraceID: middleware.GetTraceID(c),
+	})
 }
 
-func fallbackProcessSteps(flowType string) []gin.H {
+// defaultFlowTitle 根据 flowType 返回默认流程标题（当 KB 未命中时使用）
+func defaultFlowTitle(flowType string) string {
 	switch flowType {
 	case "graduation":
-		return []gin.H{
-			processStep(1, "一表通在线申请", "[\"学生证\"]", "http://ybt.chzu.edu.cn/graduation", "6月初开放", "一表通线上系统", "提交离校申请"),
-			processStep(2, "图书馆与财务清账", "[\"校园卡\",\"缴费凭证\"]", "", "6月20日前", "图书馆/财务处", "归还图书并结清欠费"),
-			processStep(3, "宿舍退宿与校园卡清退", "[\"宿舍钥匙\",\"校园卡\"]", "", "6月25日前", "学生公寓/一卡通中心", "完成宿舍验收和余额清退"),
-			processStep(4, "组织关系与档案确认", "[\"党员证\",\"档案确认单\"]", "", "6月25日前", "学院/党委组织部", "党员需转出组织关系"),
-			processStep(5, "领取毕业证书", "[\"身份证\",\"学生证\"]", "", "毕业典礼后", "学院党政办", "领取毕业证、学位证和成绩单"),
-		}
+		return "毕业生离校流程"
 	case "major-transfer", "major_transfer", "major_change":
-		return []gin.H{
-			processStep(1, "了解接收条件", "[]", "http://jwc.chzu.edu.cn", "每年5月/11月", "教务处/学院官网", "查看转入专业条件和名额"),
-			processStep(2, "提交申请材料", "[\"转专业申请表\",\"成绩单\",\"个人陈述\"]", "", "第12-14周", "所在学院教学办公室", "填写并提交申请表"),
-			processStep(3, "学院与教务处审核", "[\"完整申请表\",\"成绩单\"]", "", "学期末", "所在学院/拟转入学院/教务处", "完成多级审批和公示"),
-			processStep(4, "办理学籍变更", "[]", "http://jwc.chzu.edu.cn", "公示期满后", "教务处学籍科", "完成学籍信息变更"),
-		}
+		return "转专业流程"
 	case "student-loan", "student_loan":
-		return []gin.H{
-			processStep(1, "网上申请", "[]", "https://sls.cdb.com.cn", "7月-9月", "国家开发银行学生在线系统", "注册并填写贷款申请"),
-			processStep(2, "打印并认定申请表", "[\"申请表\"]", "", "7月-9月", "户籍地村居/乡镇", "完成家庭经济困难认定"),
-			processStep(3, "现场签订合同", "[\"身份证\",\"录取通知书/学生证\",\"户口簿\"]", "", "7月-9月", "县区学生资助中心", "学生和共同借款人到场办理"),
-			processStep(4, "学校回执录入", "[\"受理证明\"]", "", "开学后一周内", "学校学生资助中心", "提交回执并等待贷款发放"),
-		}
+		return "助学贷款申请流程"
 	case "leave":
-		return []gin.H{
-			processStep(1, "提交请假申请", "[\"请假事由说明\",\"证明材料（如病假证明）\"]", "", "离校前提交", "辅导员/学院线上表单", "说明请假时间、去向和联系方式"),
-			processStep(2, "辅导员审核", "[]", "", "提交后1个工作日内", "辅导员办公室", "辅导员核实请假原因和安全去向"),
-			processStep(3, "学院审批", "[\"请假申请表\"]", "", "按学院要求", "学院学生工作办公室", "超过规定天数需学院审批"),
-			processStep(4, "销假返校", "[]", "", "返校当日", "辅导员/班级群", "返校后及时销假并更新在校状态"),
-		}
+		return "学生请假办理流程"
 	case "scholarship":
-		return []gin.H{
-			processStep(1, "查看评选通知", "[]", "", "每学年评选期", "学院官网/班级群", "确认奖项类别、名额和申请条件"),
-			processStep(2, "准备申请材料", "[\"申请表\",\"成绩单\",\"荣誉证明\",\"综测材料\"]", "", "通知规定时间内", "所在学院", "按奖项要求准备纸质或电子材料"),
-			processStep(3, "班级评议与学院审核", "[\"完整申请材料\"]", "", "学院评审期", "班级/学院学生工作办公室", "完成民主评议、学院初审和排序"),
-			processStep(4, "公示与学校审定", "[]", "", "公示期", "学院/学校官网", "公示无异议后报学校审定"),
-			processStep(5, "发放与归档", "[\"银行卡信息\"]", "", "学校审定后", "财务处/学院", "奖助资金发放并完成材料归档"),
-		}
+		return "奖学金申请流程"
 	default:
-		return []gin.H{
-			processStep(1, "线上预报到", "[\"录取通知书\",\"身份证\"]", "https://yx.chzu.edu.cn", "报到前完成", "迎新系统", "完成个人信息确认和到校信息登记"),
-			processStep(2, "缴纳学杂费", "[\"银行卡\",\"缴费凭证\"]", "http://cw.chzu.edu.cn", "报到前或报到日", "财务系统/现场缴费点", "助学贷款学生携带贷款回执"),
-			processStep(3, "学院报到", "[\"录取通知书\",\"身份证\",\"档案\"]", "", "报到日", "计算机学院报到点", "领取班级、辅导员和校园卡信息"),
-			processStep(4, "宿舍入住", "[\"校园卡\",\"身份证\"]", "", "报到日", "学生公寓", "按分配宿舍领取钥匙并入住"),
-			processStep(5, "入学体检与学籍核验", "[\"身份证\",\"体检表\"]", "", "入学后两周内", "校医院/教务处", "按学院通知分批完成"),
-		}
-	}
-}
-
-func processStep(order int, title, materials, entryURL, deadline, location, notes string) gin.H {
-	return gin.H{
-		"step":         order,
-		"title":        title,
-		"status":       "pending",
-		"materials":    materials,
-		"entry_url":    entryURL,
-		"deadline":     deadline,
-		"location":     location,
-		"notes":        notes,
-		"contact":      "",
-		"phone":        "",
-		"office_hours": "",
-		"faq":          []gin.H{},
-	}
-}
-
-// mapFlowToResource 把前端流程类型映射到 KB resource_id
-func mapFlowToResource(flowType string) (resourceID string, defaultTitle string) {
-	switch flowType {
-	case "graduation":
-		return "process-graduation-2026", "毕业生离校流程"
-	case "major-transfer", "major_transfer", "major_change":
-		return "process-major-change-2026", "转专业流程"
-	case "student-loan", "student_loan":
-		return "process-student-loan-2026", "助学贷款申请流程"
-	case "leave":
-		return "process-leave-2026", "学生请假办理流程"
-	case "scholarship":
-		return "process-scholarship-2026", "奖学金申请流程"
-	default:
-		return "process-registration-2026", "新生入学报到流程"
+		return "新生入学报到流程"
 	}
 }
 
@@ -713,4 +586,415 @@ func (h *StudentHandler) EnhancedCareerSim(c *gin.Context) {
 		"stages":      []string{"在校期", "应届生", "3年经验", "5年+"},
 		"data_source": "fallback",
 	})
+}
+
+// ═══════════════════════════════════════════════
+// 学生首页数据接口
+// ═══════════════════════════════════════════════
+
+// HomeStudentCourse 今日课程
+type HomeStudentCourse struct {
+	CourseName string `json:"course_name"`
+	Time       string `json:"time"`
+	Location   string `json:"location"`
+	Teacher    string `json:"teacher"`
+	Color      string `json:"color"`
+}
+
+// HomeStudentTask 今日任务
+type HomeStudentTask struct {
+	ID       int64  `json:"id"`
+	Title    string `json:"title"`
+	PlanID   int64  `json:"plan_id"`
+	Status   string `json:"status"`
+	Duration int    `json:"duration"`
+}
+
+// HomeStudentEvent 近期事件
+type HomeStudentEvent struct {
+	ID        int64  `json:"id"`
+	EventName string `json:"event_name"`
+	EventType string `json:"event_type"`
+	StartDate string `json:"start_date"`
+	DaysLeft  int    `json:"days_left"`
+}
+
+// HomeStudentStats 统计数据
+type HomeStudentStats struct {
+	UnreadNotifications int `json:"unread_notifications"`
+	PendingFeedback     int `json:"pending_feedback"`
+	PlansInProgress     int `json:"plans_in_progress"`
+}
+
+// HomeStudentQuickEntry 功能入口
+type HomeStudentQuickEntry struct {
+	Icon  string `json:"icon"`
+	Title string `json:"title"`
+	Route string `json:"route"`
+}
+
+// HomeStudentUserInfo 用户信息
+type HomeStudentUserInfo struct {
+	Name      string `json:"name"`
+	StudentID string `json:"student_id"`
+	College   string `json:"college"`
+	Major     string `json:"major"`
+	Grade     string `json:"grade"`
+}
+
+// HomeStudentToday 今日信息
+type HomeStudentToday struct {
+	Date         string `json:"date"`
+	Weekday      string `json:"weekday"`
+	WeekNo       int    `json:"week_no"`
+	SemesterName string `json:"semester_name"`
+}
+
+// Home 学生首页数据
+// GET /api/v1/student/home
+func (h *StudentHandler) Home(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, model.ErrorResponse{
+			Code:    503,
+			Message: "数据库未初始化",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	today := time.Now()
+	todayStr := today.Format("2006-01-02")
+	weekday := int(today.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	weekdayNames := []string{"", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"}
+
+	// 1. 获取用户信息
+	userInfo := h.getUserInfo(userCtx.UserID)
+
+	// 2. 获取当前学期和教学周
+	calendar, weekNo := h.resolveCurrentCalendar()
+	semesterName := ""
+	if calendar != nil {
+		semesterName = calendar.SemesterName
+		if calendar.Status == "completed" {
+			semesterName += "（已结束）"
+		} else if calendar.Status == "upcoming" {
+			semesterName += "（未开始）"
+		}
+	}
+
+	// 3. 获取今日课程
+	todayCourses := h.getTodayCourses(userCtx.UserID, weekday, calendar)
+
+	// 4. 获取今日任务
+	todayTasks := h.getTodayTasks(userCtx.UserID, todayStr)
+
+	// 5. 获取近期事件（未来7天 + 正在进行中的）
+	upcomingEvents := h.getUpcomingEvents(todayStr, calendar)
+
+	// 6. 获取统计数据
+	stats := h.getHomeStats(userCtx.UserID)
+
+	// 7. 功能入口（固定配置）
+	quickEntries := []HomeStudentQuickEntry{
+		{Icon: "chat", Title: "AI问答", Route: "/chat"},
+		{Icon: "study_plan", Title: "学习计划", Route: "/student/study-plan"},
+		{Icon: "timetable", Title: "我的课表", Route: "/student/timetable"},
+		{Icon: "career", Title: "就业服务", Route: "/student/career"},
+		{Icon: "study", Title: "学业服务", Route: "/student/study"},
+		{Icon: "mental", Title: "心理健康", Route: "/student/mental"},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data": gin.H{
+			"user_info":       userInfo,
+			"today": HomeStudentToday{
+				Date:         todayStr,
+				Weekday:      weekdayNames[weekday],
+				WeekNo:       weekNo,
+				SemesterName: semesterName,
+			},
+			"today_courses":   todayCourses,
+			"today_tasks":     todayTasks,
+			"upcoming_events": upcomingEvents,
+			"stats":           stats,
+			"quick_entries":   quickEntries,
+		},
+	})
+}
+
+// getUserInfo 获取用户信息
+func (h *StudentHandler) getUserInfo(userID int64) HomeStudentUserInfo {
+	info := HomeStudentUserInfo{
+		Name:      "同学",
+		StudentID: "",
+		College:   "",
+		Major:     "",
+		Grade:     "",
+	}
+	if h.db == nil {
+		return info
+	}
+
+	var displayName, username, college, major, enrollmentYear sql.NullString
+	err := h.db.QueryRow(
+		"SELECT display_name, username, college, major, enrollment_year FROM users WHERE id = ?",
+		userID,
+	).Scan(&displayName, &username, &college, &major, &enrollmentYear)
+	if err != nil {
+		return info
+	}
+	if displayName.Valid {
+		info.Name = displayName.String
+	}
+	if username.Valid {
+		info.StudentID = username.String
+	}
+	if college.Valid {
+		info.College = college.String
+	}
+	if major.Valid {
+		info.Major = major.String
+	}
+	if enrollmentYear.Valid && enrollmentYear.String != "" {
+		info.Grade = enrollmentYear.String + "级"
+	}
+	return info
+}
+
+// resolveCurrentCalendar 获取当前学期校历与教学周
+func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
+	if h.db == nil {
+		return nil, 0
+	}
+
+	today := time.Now().Format("2006-01-02")
+
+	calendar := &AcademicCalendar{}
+	err := h.db.QueryRow(
+		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
+			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
+			"FROM academic_calendars WHERE start_date <= ? AND end_date >= ? ORDER BY id DESC LIMIT 1",
+		today, today,
+	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
+		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
+		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
+		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
+	if err == nil {
+		return calendar, calcHomeCurrentWeek(calendar.StartDate, today)
+	}
+	if err != sql.ErrNoRows {
+		return nil, 0
+	}
+
+	calendar = &AcademicCalendar{}
+	err = h.db.QueryRow(
+		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
+			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
+			"FROM academic_calendars WHERE start_date > ? ORDER BY start_date ASC LIMIT 1",
+		today,
+	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
+		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
+		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
+		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
+	if err == nil {
+		return calendar, 0
+	}
+	if err != sql.ErrNoRows {
+		return nil, 0
+	}
+
+	calendar = &AcademicCalendar{}
+	err = h.db.QueryRow(
+		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
+			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
+			"FROM academic_calendars WHERE end_date < ? ORDER BY end_date DESC LIMIT 1",
+		today,
+	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
+		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
+		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
+		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, 0
+	}
+	if err != nil {
+		return nil, 0
+	}
+	return calendar, 0
+}
+
+// calcHomeCurrentWeek 计算当前教学周
+func calcHomeCurrentWeek(startDate, today string) int {
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		return 0
+	}
+	now, err := time.Parse("2006-01-02", today)
+	if err != nil {
+		return 0
+	}
+	if now.Before(start) {
+		return 0
+	}
+	days := int(now.Sub(start).Hours() / 24)
+	return days/7 + 1
+}
+
+// getTodayCourses 获取今日课程
+func (h *StudentHandler) getTodayCourses(userID int64, weekday int, calendar *AcademicCalendar) []HomeStudentCourse {
+	courses := make([]HomeStudentCourse, 0)
+	if h.db == nil || calendar == nil {
+		return courses
+	}
+
+	rows, err := h.db.Query(
+		"SELECT course_name, start_period, end_period, location, teacher, color "+
+			"FROM course_schedules WHERE user_id = ? AND semester_code = ? AND weekday = ? "+
+			"ORDER BY start_period ASC, id ASC",
+		userID, calendar.SemesterCode, weekday,
+	)
+	if err != nil {
+		return courses
+	}
+	defer rows.Close()
+
+	periodTimes := []string{
+		"", "08:00-08:45", "08:55-09:40",
+		"10:00-10:45", "10:55-11:40",
+		"14:00-14:45", "14:55-15:40",
+		"16:00-16:45", "16:55-17:40",
+		"19:00-19:45", "19:55-20:40",
+	}
+
+	for rows.Next() {
+		var courseName, location, teacher, color sql.NullString
+		var startPeriod, endPeriod int
+		if err := rows.Scan(&courseName, &startPeriod, &endPeriod, &location, &teacher, &color); err != nil {
+			continue
+		}
+		timeStr := ""
+		if startPeriod >= 1 && startPeriod <= 10 && endPeriod >= startPeriod && endPeriod <= 10 {
+			startTime := periodTimes[startPeriod][:5]
+			endTime := periodTimes[endPeriod][6:]
+			timeStr = startTime + "-" + endTime
+		}
+		courses = append(courses, HomeStudentCourse{
+			CourseName: courseName.String,
+			Time:       timeStr,
+			Location:   location.String,
+			Teacher:    teacher.String,
+			Color:      color.String,
+		})
+	}
+	return courses
+}
+
+// getTodayTasks 获取今日任务
+func (h *StudentHandler) getTodayTasks(userID int64, todayStr string) []HomeStudentTask {
+	tasks := make([]HomeStudentTask, 0)
+	if h.db == nil {
+		return tasks
+	}
+
+	rows, err := h.db.Query(
+		"SELECT t.id, t.title, t.plan_id, t.status, t.scheduled_duration "+
+			"FROM study_plan_tasks t JOIN study_plans p ON t.plan_id = p.id "+
+			"WHERE p.user_id = ? AND t.scheduled_date = ? "+
+			"ORDER BY t.sort_order ASC, t.id ASC",
+		userID, todayStr,
+	)
+	if err != nil {
+		return tasks
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var title sql.NullString
+		var duration sql.NullInt64
+		task := HomeStudentTask{}
+		if err := rows.Scan(&task.ID, &title, &task.PlanID, &task.Status, &duration); err != nil {
+			continue
+		}
+		task.Title = title.String
+		task.Duration = int(duration.Int64)
+		tasks = append(tasks, task)
+	}
+	return tasks
+}
+
+// getUpcomingEvents 获取近期事件（未来7天 + 正在进行中的）
+func (h *StudentHandler) getUpcomingEvents(todayStr string, calendar *AcademicCalendar) []HomeStudentEvent {
+	events := make([]HomeStudentEvent, 0)
+	if h.db == nil || calendar == nil {
+		return events
+	}
+
+	fromDate := todayStr
+	toDate := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
+
+	rows, err := h.db.Query(
+		"SELECT id, event_name, event_type, start_date, end_date "+
+			"FROM academic_calendar_events WHERE semester_code = ? "+
+			"AND (start_date <= ? AND (end_date >= ? OR end_date IS NULL)) "+
+			"ORDER BY start_date ASC, id ASC LIMIT 10",
+		calendar.SemesterCode, toDate, fromDate,
+	)
+	if err != nil {
+		return events
+	}
+	defer rows.Close()
+
+	today, _ := time.Parse("2006-01-02", todayStr)
+
+	for rows.Next() {
+		var eventName, eventType, startDate sql.NullString
+		var endDate sql.NullString
+		var id int64
+		if err := rows.Scan(&id, &eventName, &eventType, &startDate, &endDate); err != nil {
+			continue
+		}
+		start, err := time.Parse("2006-01-02", startDate.String)
+		if err != nil {
+			continue
+		}
+		daysLeft := int(start.Sub(today).Hours() / 24)
+		events = append(events, HomeStudentEvent{
+			ID:        id,
+			EventName: eventName.String,
+			EventType: eventType.String,
+			StartDate: startDate.String,
+			DaysLeft:  daysLeft,
+		})
+	}
+	return events
+}
+
+// getHomeStats 获取首页统计数据
+func (h *StudentHandler) getHomeStats(userID int64) HomeStudentStats {
+	stats := HomeStudentStats{}
+	if h.db == nil {
+		return stats
+	}
+
+	// 进行中的学习计划数
+	_ = h.db.QueryRow(
+		"SELECT COUNT(*) FROM study_plans WHERE user_id = ? AND status = 'active'",
+		userID,
+	).Scan(&stats.PlansInProgress)
+
+	return stats
 }

@@ -31,8 +31,8 @@ func setupFeedbackTestRouter(t *testing.T) (*gin.Engine, *config.Config, *reposi
 	userRepo := repository.NewUserRepo(db)
 	feedbackRepo := repository.NewFeedbackRepo(db)
 	screenshotRepo := repository.NewFeedbackScreenshotRepo(db)
-	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo)
-	feedbackHandler := NewFeedbackHandler(feedbackSvc, screenshotRepo)
+	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, screenshotRepo)
+	feedbackHandler := NewFeedbackHandler(feedbackSvc)
 
 	r := gin.New()
 	r.Use(middleware.TraceID())

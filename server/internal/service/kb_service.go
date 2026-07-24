@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,7 +30,7 @@ func NewKBService(kbRepo *repository.KBRepo) *KBService {
 }
 
 // List 分页查询知识资源
-func (s *KBService) List(ownerScope, ownerID, status, resourceType string, page, pageSize int) ([]*model.KBResource, int, error) {
+func (s *KBService) List(ctx context.Context, ownerScope, ownerID, status, resourceType string, page, pageSize int) ([]*model.KBResource, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -52,7 +53,7 @@ func (s *KBService) List(ownerScope, ownerID, status, resourceType string, page,
 }
 
 // Get 获取知识资源详情
-func (s *KBService) Get(resourceID string) (*model.KBResource, error) {
+func (s *KBService) Get(ctx context.Context, resourceID string) (*model.KBResource, error) {
 	kb, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识详情失败: %w", err)
@@ -65,7 +66,7 @@ func (s *KBService) Get(resourceID string) (*model.KBResource, error) {
 
 // Browse 知识大厅浏览（按类型分组，面向所有已认证用户）
 // page/pageSize 控制分页；pageSize<=0 时返回全部（不分页）
-func (s *KBService) Browse(ownerScope, ownerID, role, resourceType string, page, pageSize int) (map[string][]*model.KnowledgeCard, int, error) {
+func (s *KBService) Browse(ctx context.Context, ownerScope, ownerID, role, resourceType string, page, pageSize int) (map[string][]*model.KnowledgeCard, int, error) {
 	var limit, offset int
 	if pageSize > 0 {
 		if page < 1 {
@@ -83,7 +84,7 @@ func (s *KBService) Browse(ownerScope, ownerID, role, resourceType string, page,
 }
 
 // Create 创建知识资源
-func (s *KBService) Create(req *model.KBCreateRequest, username string) (*model.KBResource, error) {
+func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, username string) (*model.KBResource, error) {
 	resourceID := uuid.New().String()
 
 	kb := &model.KBResource{
@@ -117,7 +118,7 @@ func (s *KBService) Create(req *model.KBCreateRequest, username string) (*model.
 }
 
 // Update 更新知识资源
-func (s *KBService) Update(resourceID string, req *model.KBUpdateRequest, username string) (*model.KBResource, error) {
+func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KBUpdateRequest, username string) (*model.KBResource, error) {
 	// 查询现有资源
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
@@ -181,7 +182,7 @@ func (s *KBService) Update(resourceID string, req *model.KBUpdateRequest, userna
 
 // SubmitForReview 提交知识资源进入审核流程（draft → pending）
 // 仅限 student_union 及以上角色调用
-func (s *KBService) SubmitForReview(resourceID, username string) (*model.KBResource, error) {
+func (s *KBService) SubmitForReview(ctx context.Context, resourceID, username string) (*model.KBResource, error) {
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识资源失败: %w", err)
@@ -204,7 +205,7 @@ func (s *KBService) SubmitForReview(resourceID, username string) (*model.KBResou
 
 // ApproveResource 审核通过知识资源（pending → published）
 // 仅限 counselor 及以上角色调用
-func (s *KBService) ApproveResource(resourceID, username string) (*model.KBResource, error) {
+func (s *KBService) ApproveResource(ctx context.Context, resourceID, username string) (*model.KBResource, error) {
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识资源失败: %w", err)
@@ -227,7 +228,7 @@ func (s *KBService) ApproveResource(resourceID, username string) (*model.KBResou
 
 // RejectResource 驳回知识资源（pending → draft），附带驳回理由
 // 仅限 counselor 及以上角色调用
-func (s *KBService) RejectResource(resourceID, username, reason string) (*model.KBResource, error) {
+func (s *KBService) RejectResource(ctx context.Context, resourceID, username, reason string) (*model.KBResource, error) {
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识资源失败: %w", err)
@@ -250,7 +251,7 @@ func (s *KBService) RejectResource(resourceID, username, reason string) (*model.
 
 // RetireResource 下架知识资源（published → retired）
 // 仅限 counselor 及以上角色调用
-func (s *KBService) RetireResource(resourceID, username string) (*model.KBResource, error) {
+func (s *KBService) RetireResource(ctx context.Context, resourceID, username string) (*model.KBResource, error) {
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("查询知识资源失败: %w", err)
@@ -273,7 +274,7 @@ func (s *KBService) RetireResource(resourceID, username string) (*model.KBResour
 
 // ImportResources 导入知识资源（NDJSON 格式，逐行 KBResource JSON）
 // 幂等键：(resource_id, version, status)；冲突按高版本覆盖、同版本跳过
-func (s *KBService) ImportResources(ndjsonData string, username string) (*model.KBImportResponse, error) {
+func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, username string) (*model.KBImportResponse, error) {
 	lines := strings.Split(strings.TrimSpace(ndjsonData), "\n")
 	results := make([]*model.KBImportResult, 0, len(lines))
 	var created, updated, skipped int
@@ -367,12 +368,12 @@ func (s *KBService) ImportResources(ndjsonData string, username string) (*model.
 }
 
 // ListPending 查询所有待审核知识资源
-func (s *KBService) ListPending(page, pageSize int) ([]*model.KBResource, int, error) {
-	return s.List("", "", "pending", "", page, pageSize)
+func (s *KBService) ListPending(ctx context.Context, page, pageSize int) ([]*model.KBResource, int, error) {
+	return s.List(ctx, "", "", "pending", "", page, pageSize)
 }
 
 // ExportResources 导出知识资源（无分页，用于同步/备份）
-func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.KBResource, error) {
+func (s *KBService) ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error) {
 	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历
 	return s.kbRepo.ListSince(resourceType, sinceCursor, 5000)
 }
@@ -380,7 +381,7 @@ func (s *KBService) ExportResources(resourceType, sinceCursor string) ([]*model.
 // ════════ 高级查询与批量操作 ════════
 
 // ListAdvanced 高级知识资源查询（搜索+多条件筛选+排序+分页）
-func (s *KBService) ListAdvanced(q *repository.KBQuery) ([]*model.KBResource, int, error) {
+func (s *KBService) ListAdvanced(ctx context.Context, q *repository.KBQuery) ([]*model.KBResource, int, error) {
 	if q == nil {
 		q = &repository.KBQuery{}
 	}
@@ -392,7 +393,7 @@ func (s *KBService) ListAdvanced(q *repository.KBQuery) ([]*model.KBResource, in
 }
 
 // GetDictValues 获取字典值（用于筛选下拉）
-func (s *KBService) GetDictValues(column string) ([]string, error) {
+func (s *KBService) GetDictValues(ctx context.Context, column string) ([]string, error) {
 	values, err := s.kbRepo.GetDistinctValues(column)
 	if err != nil {
 		return nil, fmt.Errorf("获取字典值失败: %w", err)
@@ -401,7 +402,7 @@ func (s *KBService) GetDictValues(column string) ([]string, error) {
 }
 
 // BatchUpdateStatus 批量更新知识资源状态
-func (s *KBService) BatchUpdateStatus(resourceIDs []string, status string, operator string) (int64, error) {
+func (s *KBService) BatchUpdateStatus(ctx context.Context, resourceIDs []string, status string, operator string) (int64, error) {
 	if len(resourceIDs) == 0 {
 		return 0, fmt.Errorf("资源ID列表不能为空")
 	}
@@ -417,7 +418,7 @@ func (s *KBService) BatchUpdateStatus(resourceIDs []string, status string, opera
 }
 
 // BatchDelete 批量删除知识资源
-func (s *KBService) BatchDelete(resourceIDs []string, operator string) (int64, error) {
+func (s *KBService) BatchDelete(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
 	if len(resourceIDs) == 0 {
 		return 0, fmt.Errorf("资源ID列表不能为空")
 	}
@@ -430,22 +431,22 @@ func (s *KBService) BatchDelete(resourceIDs []string, operator string) (int64, e
 }
 
 // BatchApprove 批量审核通过
-func (s *KBService) BatchApprove(resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(resourceIDs, "published", operator)
+func (s *KBService) BatchApprove(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "published", operator)
 }
 
 // BatchReject 批量驳回
-func (s *KBService) BatchReject(resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(resourceIDs, "draft", operator)
+func (s *KBService) BatchReject(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "draft", operator)
 }
 
 // BatchRetire 批量下架
-func (s *KBService) BatchRetire(resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(resourceIDs, "retired", operator)
+func (s *KBService) BatchRetire(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "retired", operator)
 }
 
 // GetStats 获取知识资源统计
-func (s *KBService) GetStats() (*repository.KBStats, error) {
+func (s *KBService) GetStats(ctx context.Context) (*repository.KBStats, error) {
 	stats, err := s.kbRepo.GetStats()
 	if err != nil {
 		return nil, fmt.Errorf("获取统计数据失败: %w", err)

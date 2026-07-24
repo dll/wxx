@@ -14,6 +14,13 @@ class AdminProvider extends ChangeNotifier {
   AdminMetrics? get metrics => _metrics;
   bool get metricsLoading => _metricsLoading;
 
+  // ── 数据仪表盘 ──
+  DashboardStats? _dashboard;
+  bool _dashboardLoading = false;
+
+  DashboardStats? get dashboard => _dashboard;
+  bool get dashboardLoading => _dashboardLoading;
+
   // ── 用户管理 ──
   final List<UserProfile> _users = [];
   bool _usersLoading = false;
@@ -97,6 +104,28 @@ class AdminProvider extends ChangeNotifier {
       _error = '获取看板数据失败: $e';
     } finally {
       _metricsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 数据仪表盘 ──
+
+  Future<void> fetchDashboard() async {
+    if (_dashboardLoading) return;
+    _dashboardLoading = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      final response = await _api.get(ApiConfig.adminDashboard);
+      if (response.data['code'] == 0 && response.data['data'] != null) {
+        _dashboard = DashboardStats.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      _error = '获取仪表盘数据失败: $e';
+    } finally {
+      _dashboardLoading = false;
       notifyListeners();
     }
   }
