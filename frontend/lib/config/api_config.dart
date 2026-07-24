@@ -65,6 +65,7 @@ class ApiConfig {
   static const String adminMetrics = '$apiPrefix/admin/metrics';
   static const String adminUsers = '$apiPrefix/admin/users';
   static String adminUserUpdate(String id) => '$apiPrefix/admin/users/$id';
+  static String adminUserDelete(String id) => '$apiPrefix/admin/users/$id';
   static const String adminAudit = '$apiPrefix/admin/audit';
   static const String adminSettings = '$apiPrefix/admin/settings';
 

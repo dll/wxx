@@ -8,12 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// UserUpserter 鐢ㄦ埛 upsert 鎺ュ彛锛堥伩鍏嶇洿鎺ヤ緷璧?repository 鍖咃級
+// UserUpserter 用户 upsert 接口（避免直接依赖 repository 包）
 type UserUpserter interface {
 	UpsertFromContext(userCtx *model.UserContext) error
 }
 
-// EnsureUserExists 纭繚 JWT 涓殑鐢ㄦ埛瀛樺湪浜庢暟鎹簱锛圝IT 鍒涘缓锛?// 鐢ㄤ簬 Vercel 绛夋棤鏈嶅姟鍣ㄧ幆澧冿紝鍐峰惎鍔ㄦ椂鏁版嵁搴撲负绌轰絾 JWT 浠嶇劧鏈夋晥銆?func EnsureUserExists(upserter UserUpserter) gin.HandlerFunc {
+// EnsureUserExists 确保 JWT 中的用户存在于数据库（JIT 创建）
+// 用于 Vercel 等无服务器环境，冷启动时数据库为空但 JWT 仍然有效。
+func EnsureUserExists(upserter UserUpserter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userCtx := GetUserContext(c)
 		if userCtx == nil {
@@ -22,10 +24,10 @@ type UserUpserter interface {
 		}
 
 		if err := upserter.UpsertFromContext(userCtx); err != nil {
-			log.Printf("[EnsureUserExists] 鐢ㄦ埛 upsert 澶辫触 user=%s err=%v", userCtx.Username, err)
+			log.Printf("[EnsureUserExists] 用户 upsert 失败 user=%s err=%v", userCtx.Username, err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"code":    500,
-				"message": "鐢ㄦ埛鐘舵€佸紓甯革紝璇烽噸鏂扮櫥褰?,
+				"message": "用户状态异常，请重新登录",
 			})
 			return
 		}

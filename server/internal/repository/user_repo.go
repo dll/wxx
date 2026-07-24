@@ -253,6 +253,49 @@ func (r *UserRepo) UpdateUsernameAndRole(userID int64, username, role string) er
 	return err
 }
 
+// Delete 删除用户（先清理关联数据，再删除用户记录）
+func (r *UserRepo) Delete(userID int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("开始事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 清理关联数据（按外键依赖顺序）
+	assocTables := []string{
+		"chat_records",      // 聊天记录
+		"sessions",          // 会话
+		"process_records",   // 办事记录
+		"plan_progress_records", // 规划进度
+		"student_plans",     // 学生规划
+		"club_members",      // 社团成员
+		"club_activity_registrations", // 活动报名
+		"competition_registrations",   // 竞赛报名
+		"student_topic_selections",    // 选题记录
+		"party_progress",    // 入党进度
+		"party_study_records", // 党建学习记录
+		"mood_diary",        // 情绪日记（如果表存在）
+		"notifications",     // 通知
+		"feedback",          // 反馈
+	}
+	for _, table := range assocTables {
+		// 逐表尝试删除，忽略表不存在的错误
+		tx.Exec(fmt.Sprintf(`DELETE FROM %s WHERE user_id = ?`, table), userID)
+	}
+
+	// 删除用户本身
+	result, err := tx.Exec(`DELETE FROM users WHERE id = ?`, userID)
+	if err != nil {
+		return fmt.Errorf("删除用户失败: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("用户不存在")
+	}
+
+	return tx.Commit()
+}
+
 // UpdatePassword 更新用户密码哈希
 func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 	_, err := r.db.Exec(

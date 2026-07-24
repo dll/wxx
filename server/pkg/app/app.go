@@ -671,6 +671,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
 
 				admin.PUT("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.UpdateUser)
+				admin.DELETE("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.DeleteUser)
 				admin.PUT("/users/:id/password", auth.RequireCapability(auth.SystemPasswordReset), adminH.ResetUserPassword)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)

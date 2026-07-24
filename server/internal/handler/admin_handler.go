@@ -140,6 +140,49 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	})
 }
 
+// DeleteUser 删除用户 DELETE /api/v1/admin/users/:id
+func (h *AdminHandler) DeleteUser(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "用户 ID 格式错误",
+		})
+		return
+	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+
+	// 不允许删除自己
+	if userCtx.UserID == userID {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "不允许删除当前登录账户",
+		})
+		return
+	}
+
+	if err := h.adminSvc.DeleteUser(userID, userCtx.Username); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "用户已删除",
+	})
+}
+
 // ListAudit 审计日志列表 GET /api/v1/admin/audit?username=&action=&resource=&start_date=&end_date=&page=&page_size=
 func (h *AdminHandler) ListAudit(c *gin.Context) {
 	username := c.Query("username")

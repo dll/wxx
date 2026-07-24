@@ -307,6 +307,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   late String _status;
   bool _saving = false;
   bool _resetting = false;
+  bool _deleting = false;
 
   @override
   void initState() {
@@ -453,7 +454,20 @@ class _UserEditDialogState extends State<_UserEditDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        if (canUpdate)
+        if (canUpdate) ...[
+          TextButton.icon(
+            onPressed: _deleting ? null : _handleDelete,
+            icon: _deleting
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.delete_outline, size: 18),
+            label: Text(_deleting ? '删除中...' : '删除用户'),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+          ),
           FilledButton(
             onPressed: _saving ? null : _handleSave,
             child: _saving
@@ -463,6 +477,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('保存'),
           ),
+        ],
       ],
     );
   }
@@ -520,6 +535,51 @@ class _UserEditDialogState extends State<_UserEditDialog> {
           const SnackBar(content: Text('密码已重置')),
         );
       } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.read<AdminProvider>().error),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    // 二次确认
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text(
+            '确定要删除用户「${widget.user.displayName}」（@${widget.user.username}）吗？\n\n该操作会同时删除其所有关联数据（会话、聊天记录、办事记录等），不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _deleting = true);
+    final ok = await context.read<AdminProvider>().deleteUser(widget.user.id);
+    if (mounted) {
+      if (ok) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('用户已删除')),
+        );
+      } else {
+        setState(() => _deleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.read<AdminProvider>().error),

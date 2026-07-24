@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
+import 'mobile_download_dialog.dart';
 import 'voice_dialog.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
@@ -25,6 +26,12 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   double _dy = 120;
 
   static const _items = <_FabItem>[
+    _FabItem(
+      icon: Icons.smartphone_outlined,
+      label: '移动',
+      color: Color(0xFF2E7D32),
+      action: _FabAction.mobile,
+    ),
     _FabItem(
       icon: Icons.navigation,
       label: '导航',
@@ -215,6 +222,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   void _onTap(_FabItem item) {
     switch (item.action) {
+      case _FabAction.mobile:
+        showMobileDownloadDialog(context);
       case _FabAction.campus:
         _openNavigation(context);
       case _FabAction.feedback:
@@ -233,7 +242,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
 // ── 内部组件 ──
 
-enum _FabAction { campus, feedback, voice, focus }
+enum _FabAction { mobile, campus, feedback, voice, focus }
 
 class _FabItem {
   final IconData icon;

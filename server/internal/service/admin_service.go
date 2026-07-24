@@ -123,6 +123,29 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 	return s.userRepo.GetByID(userID)
 }
 
+// DeleteUser 删除用户及其关联数据
+func (s *AdminService) DeleteUser(userID int64, deletedBy string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return fmt.Errorf("用户不存在: id=%d", userID)
+	}
+
+	// 不允许删除系统管理员
+	if user.Role == "sys_admin" {
+		return fmt.Errorf("不允许删除系统管理员账户")
+	}
+
+	if err := s.userRepo.Delete(userID); err != nil {
+		return fmt.Errorf("删除用户失败: %w", err)
+	}
+
+	log.Printf("用户已删除 user_id=%d username=%s role=%s by=%s", userID, user.Username, user.Role, deletedBy)
+	return nil
+}
+
 // ListAudit 分页查询审计日志
 func (s *AdminService) ListAudit(username, action, resource, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
 	offset, page, pageSize := util.Paginate(page, pageSize)

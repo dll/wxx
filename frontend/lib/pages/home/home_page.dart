@@ -109,8 +109,6 @@ class _HomePageState extends State<HomePage> {
             // 日期时间 + 校历入口
             const DateTimeBanner(),
             const SizedBox(height: 20),
-            _buildApkDownloadCard(theme),
-            const SizedBox(height: 20),
             // 辅导员及以上：告警概览
             if (_canAccessAlerts(role)) ...[
               _buildAlertOverview(theme),

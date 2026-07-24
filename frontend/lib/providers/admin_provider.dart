@@ -132,6 +132,25 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  /// 删除用户
+  Future<bool> deleteUser(int id) async {
+    try {
+      final response =
+          await _api.delete(ApiConfig.adminUserDelete(id.toString()));
+      if (response.data['code'] == 0) {
+        await fetchUsers(refresh: true);
+        return true;
+      }
+      _error = response.data['message'] ?? '删除失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── 审计日志 ──
 
   Future<void> fetchAuditLogs({bool refresh = false}) async {
