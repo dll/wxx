@@ -257,13 +257,14 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	uploadHandler := handler.NewUploadHandler(docSvc, kbSvc)
 	graduationHandler := handler.NewGraduationHandler(graduationService)
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
+	educationHandler := handler.NewEducationHandler(db)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, educationHandler)
 
 	return router, nil
 }
@@ -454,6 +455,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	studentFeaturesH *handler.StudentFeaturesHandler,
 	notificationH *handler.NotificationHandler,
 	uploadH *handler.UploadHandler,
+	educationH *handler.EducationHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -603,6 +605,17 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				kb.POST("/import", auth.RequireCapability(auth.CounselorKBWrite), kbH.Import)
 				kb.POST("/validate", auth.RequireCapability(auth.CounselorKBWrite), kbH.Validate)
 
+				// 高级查询与字典
+				kb.GET("/resources/advanced", auth.RequireCapability(auth.CounselorKBWrite), kbH.ListResourcesAdvanced)
+				kb.GET("/dict", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetDictValues)
+				kb.GET("/stats", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetStats)
+
+				// 批量操作（counselor.kb.review）
+				kb.POST("/batch/approve", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchApprove)
+				kb.POST("/batch/reject", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchReject)
+				kb.POST("/batch/retire", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchRetire)
+				kb.POST("/batch/delete", auth.RequireCapability(auth.CounselorKBWrite), kbH.BatchDelete)
+
 				// 知识审核（counselor.kb.review）
 				kb.POST("/resources/:id/approve", auth.RequireCapability(auth.CounselorKBReview), kbH.ApproveResource)
 				kb.POST("/resources/:id/reject", auth.RequireCapability(auth.CounselorKBReview), kbH.RejectResource)
@@ -673,6 +686,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.PUT("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.UpdateUser)
 				admin.DELETE("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.DeleteUser)
 				admin.PUT("/users/:id/password", auth.RequireCapability(auth.SystemPasswordReset), adminH.ResetUserPassword)
+				admin.GET("/users/advanced", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsersAdvanced)
+				admin.GET("/users/dict", auth.RequireCapability(auth.CollegeUserRead), adminH.GetUserDict)
+				admin.POST("/users/batch/status", auth.RequireCapability(auth.SchoolUserUpdate), adminH.BatchUpdateStatus)
+				admin.POST("/users/batch/password", auth.RequireCapability(auth.SystemPasswordReset), adminH.BatchResetPassword)
+				admin.POST("/users/batch/delete", auth.RequireCapability(auth.SchoolUserUpdate), adminH.BatchDelete)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)
 
@@ -873,6 +891,45 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				sysAdminGroup.GET("/system-health", auth.RequireCapability(auth.CollegeTwinScreen), sysAdminH.SystemHealth)
 				sysAdminGroup.GET("/knowledge-quality", auth.RequireCapability(auth.CollegeDataAnalysis), sysAdminH.KnowledgeQuality)
 				sysAdminGroup.GET("/user-behavior", auth.RequireCapability(auth.CollegeTwinScreen), sysAdminH.UserBehavior)
+			}
+
+			// ── 就业指导模块（全员可见）──
+			career := secured.Group("/career")
+			{
+				career.GET("/policies", auth.RequireCapability(auth.SelfCareerRead), educationH.ListCareerPolicies)
+				career.GET("/policies/:id", auth.RequireCapability(auth.SelfCareerRead), educationH.GetCareerPolicy)
+				career.GET("/jobs", auth.RequireCapability(auth.SelfCareerRead), educationH.ListJobPostings)
+				career.GET("/jobs/:id", auth.RequireCapability(auth.SelfCareerRead), educationH.GetJobPosting)
+				career.GET("/sessions", auth.RequireCapability(auth.SelfCareerRead), educationH.ListInfoSessions)
+				career.GET("/interview/questions", auth.RequireCapability(auth.SelfCareerRead), educationH.ListInterviewQuestions)
+			}
+
+			// ── 学业学习模块（全员可见）──
+			study := secured.Group("/study")
+			{
+				study.GET("/courses", auth.RequireCapability(auth.SelfStudyRead), educationH.ListCourses)
+				study.GET("/courses/:id", auth.RequireCapability(auth.SelfStudyRead), educationH.GetCourse)
+				study.GET("/grades", auth.RequireCapability(auth.SelfStudyRead), educationH.ListMyGrades)
+				study.GET("/grades/summary", auth.RequireCapability(auth.SelfStudyRead), educationH.GetGradeSummary)
+				study.GET("/resources", auth.RequireCapability(auth.SelfStudyRead), educationH.ListLearningResources)
+				study.GET("/exams", auth.RequireCapability(auth.SelfStudyRead), educationH.ListExamSchedules)
+			}
+
+			// ── 心理健康模块（全员可见）──
+			mental := secured.Group("/mental")
+			{
+				mental.GET("/scales", auth.RequireCapability(auth.SelfMentalRead), educationH.ListPsychScales)
+				mental.GET("/scales/:id", auth.RequireCapability(auth.SelfMentalRead), educationH.GetPsychScale)
+				mental.POST("/assessments", auth.RequireCapability(auth.SelfMentalWrite), educationH.SubmitAssessment)
+				mental.GET("/assessments", auth.RequireCapability(auth.SelfMentalRead), educationH.ListMyAssessments)
+				mental.GET("/counselors", auth.RequireCapability(auth.SelfMentalRead), educationH.ListCounselors)
+				mental.GET("/appointments", auth.RequireCapability(auth.SelfMentalRead), educationH.ListMyAppointments)
+				mental.POST("/appointments", auth.RequireCapability(auth.SelfMentalWrite), educationH.CreateAppointment)
+				mental.GET("/articles", auth.RequireCapability(auth.SelfMentalRead), educationH.ListPsychArticles)
+				mental.GET("/articles/:id", auth.RequireCapability(auth.SelfMentalRead), educationH.GetPsychArticle)
+				mental.GET("/hotlines", auth.RequireCapability(auth.SelfMentalRead), educationH.ListCrisisHotlines)
+				mental.GET("/mood", auth.RequireCapability(auth.SelfMentalRead), educationH.ListMyMoodDiary)
+				mental.POST("/mood", auth.RequireCapability(auth.SelfMentalWrite), educationH.CreateMoodDiary)
 			}
 
 			// ── 校园文化智能体（全员可见）──
