@@ -7,6 +7,16 @@
 .buildlog/
 .history
 
+# Student data / data files
+*.xlsx
+data/*
+
+# Generated wiki
+code-wiki.md
+
+# User upsert middleware (auto-generated)
+server/internal/middleware/user_upsert.go
+
 
 
 # Flutter repo-specific
