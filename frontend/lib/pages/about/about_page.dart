@@ -162,7 +162,7 @@ class _AboutPageState extends State<AboutPage> {
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 ListTile(
                   leading: Icon(Icons.auto_awesome),

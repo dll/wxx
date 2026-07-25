@@ -3,7 +3,7 @@ export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
   const backendPath = url.pathname === '/api/health' ? '/health' : url.pathname;
-  const targetUrl = 'https://wxx-server.vercel.app' + backendPath + url.search;
+  const targetUrl = 'https://wxx-server-j1us8ki1c-czldl.vercel.app' + backendPath + url.search;
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -13,13 +13,7 @@ export async function onRequest(context) {
   }
 
   const headers = new Headers(request.headers);
-  headers.set('Host', 'wxx-server.vercel.app');
-
-  const init = { method: request.method, headers };
-  let requestBody;
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    requestBody = await request.arrayBuffer();
-  }
+  headers.set('Host', 'wxx-server-j1us8ki1c-czldl.vercel.app');
 
   const isLogin = url.pathname === '/api/v1/auth/login';
   const isFeedbackSubmit = request.method === 'POST' &&
@@ -29,18 +23,22 @@ export async function onRequest(context) {
     url.pathname === '/api/health' ||
     url.pathname === '/api/v1/user/profile' ||
     url.pathname === '/api/v1/user/capabilities';
-  // 反馈提交是非幂等写操作，只缓冲响应，不自动重试，避免上游已写入后重复创建。
   const maxAttempts = shouldBuffer && !isFeedbackSubmit ? 2 : 1;
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
+      let requestBody;
+      if (shouldBuffer && request.method !== 'GET' && request.method !== 'HEAD') {
+        requestBody = await request.arrayBuffer();
+      }
+
       const resp = await fetch(targetUrl, {
-        ...init,
-        body: requestBody ? requestBody.slice(0) : undefined,
+        method: request.method,
+        headers,
+        body: requestBody ? requestBody.slice(0) : request.body,
       });
 
-      // 登录与启动关键接口先完整读取，避免上游流中断后浏览器只得到模糊网络错误。
       const responseBody = shouldBuffer ? await resp.arrayBuffer() : resp.body;
       const out = new Headers(resp.headers);
       applyCorsHeaders(out);
