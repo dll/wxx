@@ -671,8 +671,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(categoryIcons[t] ?? Icons.widgets_outlined, size: 18),
-                          const SizedBox(width: 4),
+                          Icon(categoryIcons[t] ?? Icons.widgets_outlined, size: 20),
+                          const SizedBox(width: 6),
                           Text(t),
                         ],
                       ),
