@@ -2,6 +2,18 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../utils/storage.dart';
 
+/// 全局会话重置回调注册表。
+/// 各 Provider 在构造时注册自己的 reset()，令牌吊销/过期（401）时统一触发，
+/// 防止跨账号内存态泄露（Q-08 / S-01 令牌吊销联动）。
+final List<void Function()> sessionResetCallbacks = [];
+
+/// 触发所有已注册的会话重置回调
+void triggerSessionReset() {
+  for (final cb in sessionResetCallbacks) {
+    cb();
+  }
+}
+
 /// HTTP 请求服务，基于 Dio 封装
 /// - 自动注入 JWT Token
 /// - 401 时触发退出登录回调

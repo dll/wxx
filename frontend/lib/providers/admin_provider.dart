@@ -87,6 +87,39 @@ class AdminProvider extends ChangeNotifier {
   String _error = '';
   String get error => _error;
 
+  /// 退出登录时重置全部内存态，防止跨账号泄露（Q-08）
+  void reset() {
+    _metrics = null;
+    _metricsLoading = false;
+    _dashboard = null;
+    _dashboardLoading = false;
+    _users.clear();
+    _usersLoading = false;
+    _userPage = 1;
+    _userTotal = 0;
+    _keyword = '';
+    _userRoleFilter = '';
+    _userScopeFilter = '';
+    _collegeFilter = '';
+    _majorFilter = '';
+    _classFilter = '';
+    _enrollmentYearFilter = '';
+    _statusFilter = '';
+    _collegeList = [];
+    _majorList = [];
+    _classList = [];
+    _enrollmentYearList = [];
+    _selectedUserIds.clear();
+    _auditLogs.clear();
+    _auditLoading = false;
+    _auditPage = 1;
+    _auditTotal = 0;
+    _settings.clear();
+    _settingsLoading = false;
+    _error = '';
+    notifyListeners();
+  }
+
   // ── 质量看板 ──
 
   Future<void> fetchMetrics() async {

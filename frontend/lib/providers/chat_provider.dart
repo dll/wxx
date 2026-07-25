@@ -122,6 +122,21 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 退出登录时重置全部内存态，防止跨账号泄露（Q-08）
+  void reset() {
+    _messages.clear();
+    _sessionId = null;
+    _error = null;
+    _sending = false;
+    _agents = [];
+    _selectedAgentId = null;
+    _agentsLoading = false;
+    _isRecording = false;
+    _isPlaying = false;
+    _playingIndex = -1;
+    notifyListeners();
+  }
+
   /// 切换智能体
   void selectAgent(String? agentId) {
     _selectedAgentId = agentId;

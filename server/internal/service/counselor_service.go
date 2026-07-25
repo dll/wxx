@@ -16,6 +16,7 @@ import (
 type CounselorService struct {
 	userRepo    *repository.UserRepo
 	emotionRepo *repository.EmotionRepo
+	twinRepo    *repository.TwinRepo
 	llmClient   llm.ChatClient
 }
 
@@ -23,11 +24,13 @@ type CounselorService struct {
 func NewCounselorService(
 	userRepo *repository.UserRepo,
 	emotionRepo *repository.EmotionRepo,
+	twinRepo *repository.TwinRepo,
 	llmClient llm.ChatClient,
 ) *CounselorService {
 	return &CounselorService{
 		userRepo:    userRepo,
 		emotionRepo: emotionRepo,
+		twinRepo:    twinRepo,
 		llmClient:   llmClient,
 	}
 }
@@ -502,6 +505,33 @@ type TwinBoardStudent struct {
 }
 
 func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID string) []*TwinBoardStudent {
+	// 优先真实五维快照（student_profile_snapshot），按归属范围拉取
+	if s.twinRepo != nil {
+		snaps, err := s.twinRepo.ListSnapshotsByScope(scope, ownerID, "", "", 20)
+		if err == nil && len(snaps) > 0 {
+			students := make([]*TwinBoardStudent, 0, len(snaps))
+			for _, sp := range snaps {
+				if len(students) >= 10 {
+					break
+				}
+				students = append(students, &TwinBoardStudent{
+					StudentID: fmt.Sprintf("%d", sp.UserID),
+					Name:      maskDisplayName(nameOrID(sp.UserID)),
+					Academic:  sp.AcademicScore,
+					Social:    sp.SocialScore,
+					Mental:    sp.EmotionalScore,
+					Practice:  sp.AbilityScore,
+					Innovate:  sp.IdeologicalScore,
+					Risk:      riskFromSnapshot(sp),
+				})
+			}
+			if len(students) > 0 {
+				return students
+			}
+		}
+	}
+
+	// 次选：无快照时用情感预警的真实分值填 Mental 维，其余维度缺测留 0（不再用 len(username) 造数）
 	if s.emotionRepo != nil {
 		alerts, _, _ := s.emotionRepo.ListAlerts("", "pending", scope, ownerID, "counselor", 1, 20)
 		students := make([]*TwinBoardStudent, 0)
@@ -513,12 +543,8 @@ func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID
 			seen[a.UserID] = true
 			students = append(students, &TwinBoardStudent{
 				StudentID: fmt.Sprintf("%d", a.UserID),
-				Name:      a.Username,
-				Academic:  65 + float64(len(a.Username)%30),
-				Social:    45 + float64(len(a.Username)%35),
-				Mental:    a.Score,
-				Practice:  60 + float64(len(a.Username)%25),
-				Innovate:  50 + float64(len(a.Username)%40),
+				Name:      maskDisplayName(a.Username),
+				Mental:    a.Score, // 真实情感分
 				Risk:      normalizeRisk(a.RiskLevel),
 			})
 		}
@@ -527,6 +553,24 @@ func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID
 		}
 	}
 	return fallbackTwinBoard()
+}
+
+// nameOrID 快照无姓名时用 ID 占位（快照表不含 display_name，交由前端按 user_id 补全）
+func nameOrID(userID int64) string {
+	return fmt.Sprintf("学生%d", userID)
+}
+
+// riskFromSnapshot 依据五维快照综合分推断风险档位
+func riskFromSnapshot(sp *repository.TwinSnapshot) string {
+	avg := (sp.AcademicScore + sp.AbilityScore + sp.IdeologicalScore + sp.EmotionalScore + sp.SocialScore) / 5.0
+	switch {
+	case avg < 50:
+		return "high"
+	case avg < 70:
+		return "medium"
+	default:
+		return "low"
+	}
 }
 
 func fallbackTwinBoard() []*TwinBoardStudent {
@@ -556,16 +600,23 @@ func (s *CounselorService) GeneratePredictions(ctx context.Context, scope, owner
 				continue
 			}
 			seen[a.UserID] = true
-			prob := 0.25 + float64(len(a.Username)%20)/100.0
+			// 概率由真实情感分推导：分越低风险越高（1-score），再按预警等级加权
+			prob := 1.0 - a.Score
+			if prob < 0 {
+				prob = 0
+			}
 			if a.RiskLevel == "high" || a.RiskLevel == "urgent" {
-				prob += 0.3
+				prob += 0.15
+			}
+			if prob > 0.95 {
+				prob = 0.95
 			}
 			predictions = append(predictions, &PredictionStudent{
 				StudentID:   fmt.Sprintf("%d", a.UserID),
-				Name:        a.Username,
+				Name:        maskDisplayName(a.Username),
 				RiskType:    riskTypeFromScore(a.Score),
 				Probability: prob,
-				Factors:     []string{"出勤率下降", "成绩波动", "社交参与减少"},
+				Factors:     predictionFactors(a.RiskLevel, a.Score),
 				Suggestion:  suggestionByRisk(a.RiskLevel),
 			})
 		}
@@ -574,6 +625,23 @@ func (s *CounselorService) GeneratePredictions(ctx context.Context, scope, owner
 		}
 	}
 	return fallbackPredictions()
+}
+
+// predictionFactors 依据真实预警等级与情感分给出成因，不再返回写死的三项
+func predictionFactors(riskLevel string, score float64) []string {
+	factors := make([]string, 0, 3)
+	if score < 0.4 {
+		factors = append(factors, "情感状态持续低迷")
+	} else if score < 0.6 {
+		factors = append(factors, "情绪波动明显")
+	}
+	if riskLevel == "high" || riskLevel == "urgent" {
+		factors = append(factors, "近期高风险预警")
+	}
+	if len(factors) == 0 {
+		factors = append(factors, "存在待关注信号")
+	}
+	return factors
 }
 
 func riskTypeFromScore(score float64) string {
@@ -789,7 +857,7 @@ func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className s
 			{"name": "李华", "prev_streak": 3, "curr_streak": 0, "risk": "low"},
 		},
 		AIAnalysis: "班级整体打卡率93%，3人今日未打卡。张明同学连续打卡中断，建议关注其近期状态。",
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -813,7 +881,7 @@ func (s *CounselorService) GenerateIdeologicalSummary(ctx context.Context, scope
 			{"name": "赵强", "status": "预备党员", "evaluation": "思想觉悟高，积极参与组织活动"},
 			{"name": "刘洋", "status": "入党积极分子", "evaluation": "表现良好，建议加强理论学习"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 
 	if s.llmClient != nil {
@@ -852,7 +920,7 @@ func (s *CounselorService) GenerateClassProfile(ctx context.Context, className s
 		},
 		Characteristics: []string{"整体偏理性思维", "团队协作意愿强", "创新意识较好"},
 		Suggestions:     []string{"多组织团队活动促进内向同学融入", "利用分析型同学带动学术氛围"},
-		DataSource:      "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -876,7 +944,7 @@ func (s *CounselorService) GenerateCommunityManage(ctx context.Context) *Communi
 		Stats: map[string]interface{}{
 			"total_posts_today": 12, "reviewed": 8, "official_responses": 2, "hidden": 1,
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -897,7 +965,7 @@ func (s *CounselorService) GenerateHotTopicSense(ctx context.Context) *HotTopicS
 		},
 		Keywords:    []string{"考试", "实习", "焦虑", "空调", "选课"},
 		AlertTopics: []map[string]interface{}{{"title": "期中考试焦虑", "reason": "多名学生表达负面情绪，需关注心理状态"}},
-		DataSource:  "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -922,7 +990,7 @@ func (s *CounselorService) GetEditableProcesses(ctx context.Context) *EditablePr
 		Permissions: map[string]interface{}{
 			"can_edit_contact": true, "can_edit_location": true, "can_edit_faq": true, "can_edit_media": false,
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -934,20 +1002,46 @@ type StudentListData struct {
 }
 
 func (s *CounselorService) GetStudentList(ctx context.Context, scope, ownerID string) *StudentListData {
+	// 真实数据：按辅导员归属范围拉取名下学生（结构化优先，范围锁定防越权）
+	if s.userRepo != nil {
+		users, err := s.userRepo.List("student", scope, ownerID, 0, 200)
+		if err == nil {
+			students := make([]map[string]interface{}, 0, len(users))
+			for _, u := range users {
+				// 状态映射：账号 disabled/rejected 视为需关注，其余按 active
+				status := "normal"
+				switch u.Status {
+				case "disabled", "rejected":
+					status = "alert"
+				case "pending":
+					status = "warning"
+				}
+				students = append(students, map[string]interface{}{
+					"user_id":    u.ID,
+					"name":       maskDisplayName(u.DisplayName), // 姓名脱敏
+					"student_id": u.Username,
+					"class_name": u.ClassName,
+					"major":      u.Major,
+					"college":    u.College,
+					"status":     status,
+				})
+			}
+			total, _ := s.userRepo.Count("student", scope, ownerID)
+			if total == 0 {
+				total = len(students)
+			}
+			return &StudentListData{
+				Students:   students,
+				Total:      total,
+				DataSource: "real",
+			}
+		}
+	}
+
+	// 兜底：无 repo 或查询失败时返回空列表（前端不白屏，但明确标注非真实）
 	return &StudentListData{
-		Students: []map[string]interface{}{
-			{"name": "张明", "student_id": "2023010101", "class_name": "计科2301", "status": "warning", "gpa": 3.2, "checkin_days": 35},
-			{"name": "李华", "student_id": "2023010102", "class_name": "计科2301", "status": "alert", "gpa": 2.8, "checkin_days": 28},
-			{"name": "王芳", "student_id": "2023010103", "class_name": "计科2301", "status": "normal", "gpa": 3.8, "checkin_days": 42},
-			{"name": "赵强", "student_id": "2023010104", "class_name": "计科2301", "status": "normal", "gpa": 3.5, "checkin_days": 40},
-			{"name": "刘洋", "student_id": "2023010105", "class_name": "计科2301", "status": "normal", "gpa": 3.6, "checkin_days": 41},
-			{"name": "陈静", "student_id": "2023010106", "class_name": "计科2301", "status": "normal", "gpa": 3.9, "checkin_days": 42},
-			{"name": "周磊", "student_id": "2023010107", "class_name": "计科2301", "status": "warning", "gpa": 2.9, "checkin_days": 30},
-			{"name": "吴敏", "student_id": "2023010108", "class_name": "计科2301", "status": "normal", "gpa": 3.4, "checkin_days": 38},
-			{"name": "孙浩", "student_id": "2023010109", "class_name": "计科2301", "status": "normal", "gpa": 3.7, "checkin_days": 39},
-			{"name": "郑雪", "student_id": "2023010110", "class_name": "计科2301", "status": "normal", "gpa": 4.0, "checkin_days": 42},
-		},
-		Total:      45,
-		DataSource: "mock",
+		Students:   []map[string]interface{}{},
+		Total:      0,
+		DataSource: "fallback",
 	}
 }

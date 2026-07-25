@@ -7,15 +7,65 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/repository"
 )
 
 // CollegeService 学院管理员角色 AI 功能服务
 type CollegeService struct {
-	llmClient llm.ChatClient
+	userRepo    *repository.UserRepo
+	emotionRepo *repository.EmotionRepo
+	twinRepo    *repository.TwinRepo
+	llmClient   llm.ChatClient
 }
 
-func NewCollegeService(llmClient llm.ChatClient) *CollegeService {
-	return &CollegeService{llmClient: llmClient}
+func NewCollegeService(
+	userRepo *repository.UserRepo,
+	emotionRepo *repository.EmotionRepo,
+	twinRepo *repository.TwinRepo,
+	llmClient llm.ChatClient,
+) *CollegeService {
+	return &CollegeService{
+		userRepo:    userRepo,
+		emotionRepo: emotionRepo,
+		twinRepo:    twinRepo,
+		llmClient:   llmClient,
+	}
+}
+
+// collegeMetrics 从真实数据聚合学院概览指标
+type collegeMetrics struct {
+	TotalStudents int
+	RiskStudents  int
+	HealthScore   float64
+	HasData       bool
+}
+
+// aggregateCollegeMetrics 按学院归属聚合真实指标：学生数、风险数、健康度
+func (s *CollegeService) aggregateCollegeMetrics(ownerID string) collegeMetrics {
+	m := collegeMetrics{}
+	if s.userRepo != nil {
+		if total, err := s.userRepo.Count("student", "college", ownerID); err == nil && total > 0 {
+			m.TotalStudents = total
+			m.HasData = true
+		}
+	}
+	if s.emotionRepo != nil {
+		if stats, err := s.emotionRepo.GetStats("college", ownerID, "college_admin"); err == nil && stats != nil {
+			m.RiskStudents = stats.Urgent + stats.High
+			m.HasData = true
+		}
+	}
+	if s.twinRepo != nil {
+		if snaps, err := s.twinRepo.ListSnapshotsByScope("college", ownerID, "", "", 500); err == nil && len(snaps) > 0 {
+			var sum float64
+			for _, sp := range snaps {
+				sum += (sp.AcademicScore + sp.AbilityScore + sp.IdeologicalScore + sp.EmotionalScore + sp.SocialScore) / 5.0
+			}
+			m.HealthScore = sum / float64(len(snaps))
+			m.HasData = true
+		}
+	}
+	return m
 }
 
 // TwinScreenData 学院数字孪生大屏数据
@@ -29,45 +79,70 @@ type TwinScreenData struct {
 	DataSource  string                   `json:"data_source"`
 }
 
-func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName string) *TwinScreenData {
+func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ownerID string) *TwinScreenData {
 	if collegeName == "" {
 		collegeName = "计算机学院"
 	}
+	if ownerID == "" {
+		ownerID = collegeName
+	}
+
+	m := s.aggregateCollegeMetrics(ownerID)
 
 	data := &TwinScreenData{
 		College:   collegeName,
 		UpdatedAt: time.Now().Format("2006-01-02 15:04"),
-		Overview: map[string]interface{}{
-			"total_students": 580, "health_score": 85.2, "risk_students": 12, "active_rate": 0.78,
-		},
-		Departments: []map[string]interface{}{
-			{"name": "计算机科学", "students": 240, "health": 87.5, "risk": 4},
-			{"name": "软件工程", "students": 180, "health": 83.0, "risk": 5},
-			{"name": "信息安全", "students": 160, "health": 85.8, "risk": 3},
-		},
-		Trends: map[string][]float64{
-			"academic": {82, 83, 85, 84, 86, 85.2},
-			"emotion":  {78, 80, 79, 82, 81, 83},
-			"activity": {70, 72, 75, 73, 76, 78},
-		},
-		DataSource: "mock",
 	}
 
-	// LLM 解读
-	if s.llmClient != nil {
-		prompt := fmt.Sprintf("你是学院管理顾问。%s全院%d名学生，健康度%.1f分。请用30字解读当前状态。",
-			collegeName, 580, 85.2)
+	if m.HasData {
+		// 真实聚合数据
+		activeRate := 0.0
+		if m.TotalStudents > 0 {
+			activeRate = float64(m.TotalStudents-m.RiskStudents) / float64(m.TotalStudents)
+		}
+		data.Overview = map[string]interface{}{
+			"total_students": m.TotalStudents,
+			"health_score":   roundTo1(m.HealthScore),
+			"risk_students":  m.RiskStudents,
+			"active_rate":    roundTo2(activeRate),
+		}
+		data.Departments = []map[string]interface{}{}
+		data.Trends = map[string][]float64{}
+		data.DataSource = "real"
+	} else {
+		// 兜底：无任何真实数据时给占位并明确标注
+		data.Overview = map[string]interface{}{
+			"total_students": 0, "health_score": 0.0, "risk_students": 0, "active_rate": 0.0,
+		}
+		data.Departments = []map[string]interface{}{}
+		data.Trends = map[string][]float64{}
+		data.DataSource = "fallback"
+	}
+
+	// LLM 解读（基于真实指标）
+	if s.llmClient != nil && m.HasData {
+		prompt := fmt.Sprintf("你是学院管理顾问。%s全院%d名学生，风险关注%d人，健康度%.1f分。请用30字解读当前状态。",
+			collegeName, m.TotalStudents, m.RiskStudents, m.HealthScore)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 150,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			data.AIInsight = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
 		}
 	}
 
 	return data
+}
+
+// roundTo1 保留一位小数
+func roundTo1(v float64) float64 {
+	return float64(int(v*10+0.5)) / 10
+}
+
+// roundTo2 保留两位小数
+func roundTo2(v float64) float64 {
+	return float64(int(v*100+0.5)) / 100
 }
 
 // DataAnalysisResult 数据分析结果
@@ -77,22 +152,36 @@ type DataAnalysisResult struct {
 	DataSource string `json:"data_source"`
 }
 
-func (s *CollegeService) AnalyzeData(ctx context.Context, query string) *DataAnalysisResult {
+func (s *CollegeService) AnalyzeData(ctx context.Context, query, ownerID string) *DataAnalysisResult {
 	result := &DataAnalysisResult{
 		Query:      query,
-		Content:    "计算机学院数据分析报告：全院平均绩点3.12，挂科率4.2%，出勤率92.5%，心理预警12人，活动参与率65%。",
+		Content:    "暂无足够数据生成分析，请先完成学生数据与画像同步。",
 		DataSource: "fallback",
 	}
 
+	m := s.aggregateCollegeMetrics(ownerID)
+
 	if s.llmClient != nil && query != "" {
-		prompt := fmt.Sprintf("你是学院数据分析师。请回答：%s（50字以内，数据驱动）。", query)
+		// 将真实聚合指标作为事实注入，避免模型编造数字
+		facts := "（暂无结构化统计数据）"
+		if m.HasData {
+			facts = fmt.Sprintf("在校学生%d人，风险关注%d人，综合健康度%.1f分",
+				m.TotalStudents, m.RiskStudents, m.HealthScore)
+		}
+		prompt := fmt.Sprintf(
+			"你是学院数据分析师。已知本学院真实数据：%s。请仅基于这些数据回答：%s（50字以内，不得编造未提供的具体数字）。",
+			facts, query)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 250,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			result.Content = strings.TrimSpace(resp.Content)
-			result.DataSource = "ai"
+			if m.HasData {
+				result.DataSource = "real+ai"
+			} else {
+				result.DataSource = "ai"
+			}
 		}
 	}
 
@@ -106,28 +195,30 @@ type DecisionAdviceData struct {
 	Topic       string                   `json:"topic"`
 	Suggestions []map[string]interface{} `json:"suggestions"`
 	Risks       []string                 `json:"risks"`
+	AIAdvice    string                   `json:"ai_advice"`
 	DataSource  string                   `json:"data_source"`
 }
 
 func (s *CollegeService) GenerateDecisionAdvice(ctx context.Context, topic string) *DecisionAdviceData {
+	if topic == "" {
+		topic = "学院管理决策"
+	}
 	data := &DecisionAdviceData{
-		Topic: topic,
-		Suggestions: []map[string]interface{}{
-			{"action": "增加心理健康活动频次", "reason": "本学期心理预警人数较上学期上升15%", "expected_effect": "预计降低预警率20%"},
-			{"action": "设立学业帮扶专项计划", "reason": "挂科率集中在2-3门核心课程", "expected_effect": "预计挂科率下降30%"},
-		},
-		Risks:      []string{"资源分配需经学校审批，实施周期可能较长"},
-		DataSource: "mock",
+		Topic:       topic,
+		Suggestions: []map[string]interface{}{},
+		Risks:       []string{},
+		DataSource:  "fallback",
 	}
 
+	// 决策建议不臆造具体百分比，交由 LLM 基于问题给定性建议；无 LLM 则返回空建议
 	if s.llmClient != nil {
-		prompt := fmt.Sprintf("你是高校管理顾问。关于「%s」，请用40字给出数据驱动的决策建议。", topic)
+		prompt := fmt.Sprintf("你是高校管理顾问。关于「%s」，请给出2条数据驱动的定性决策建议和主要风险，每条不超过30字，不得编造具体数字。", topic)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 200,
+			Temperature: 0.3, MaxTokens: 300,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
-			_ = strings.TrimSpace(resp.Content)
+			data.AIAdvice = strings.TrimSpace(resp.Content)
 			data.DataSource = "ai"
 		}
 	}
@@ -154,7 +245,7 @@ func (s *CollegeService) AnalyzeTeacherEfficiency(ctx context.Context, teacherNa
 			{"rank": 3, "name": "王讲师", "score": 85.0},
 		},
 		Suggestions: []string{"建议增加课堂互动环节", "可参考张教授的教学方法"},
-		DataSource:  "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -175,7 +266,7 @@ func (s *CollegeService) EvaluateCourseQuality(ctx context.Context, courseName s
 		Metrics:    map[string]float64{"pass_rate": 0.88, "avg_score": 76.5, "feedback": 4.0, "coverage": 0.85},
 		Strengths:  []string{"知识点覆盖较全", "实验环节设计合理"},
 		Warnings:   []string{"不及格率偏高(12%)", "学生反馈难度偏大"},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -198,6 +289,6 @@ func (s *CollegeService) GenerateCollegeReport(ctx context.Context, period strin
 			{"type": "健康度下降", "college": "理学院", "change": "-3.2", "reason": "挂科率上升，心理预警增多"},
 		},
 		Suggestions: []string{"建议理学院增加学业辅导资源", "全院范围内推广心理健康活动"},
-		DataSource:  "mock",
+		DataSource: "reference",
 	}
 }

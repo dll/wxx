@@ -2,6 +2,8 @@ package service
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/repository"
 )
@@ -34,6 +36,87 @@ func (s *StudentFeaturesService) GetCompetition(id int64) (map[string]interface{
 		return nil, fmt.Errorf("GetCompetition: %w", err)
 	}
 	return item, nil
+}
+
+// MatchCompetitions 基于学生专业/学院对真实竞赛做个性化匹配排序。
+// 数据来源为 competitions 表（真实数据），按类别与专业关键词打分，仅返回可报名/进行中的赛事。
+// 无匹配或库为空时返回空列表，由 handler 决定是否回落。
+func (s *StudentFeaturesService) MatchCompetitions(major, college string, limit int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	// 拉取较大范围候选（up to 100），在内存里按相关度排序
+	items, _, err := s.repo.ListCompetitions("", "", "", 1, 100)
+	if err != nil {
+		return nil, fmt.Errorf("MatchCompetitions: %w", err)
+	}
+
+	// 专业/学院文本 → 类别偏好关键词
+	profile := strings.ToLower(major + " " + college)
+	categoryHints := map[string][]string{
+		"programming": {"计算机", "软件", "网络", "信息", "数据", "人工智能", "网络空间", "cs", "coding", "程序"},
+		"electronics": {"电子", "通信", "自动化", "物联网", "电气"},
+		"math":        {"数学", "统计", "应用数学"},
+		"english":     {"英语", "外语", "翻译"},
+		"innovation":  {"创新", "创业", "管理", "经济"},
+	}
+
+	type scored struct {
+		item  map[string]interface{}
+		score int
+	}
+	var ranked []scored
+	for _, it := range items {
+		// 仅推荐尚可参与的赛事
+		st, _ := it["status"].(string)
+		if st == "finished" {
+			continue
+		}
+		score := 0
+		cat, _ := it["category"].(string)
+		// 类别与专业画像匹配
+		if hints, ok := categoryHints[cat]; ok {
+			for _, kw := range hints {
+				if strings.Contains(profile, kw) {
+					score += 10
+					break
+				}
+			}
+		}
+		// 报名中优先
+		switch st {
+		case "registration", "open":
+			score += 5
+		case "upcoming":
+			score += 2
+		}
+		// 级别加权：国家级 > 省级 > 市级 > 校级
+		switch lev, _ := it["level"].(string); lev {
+		case "national":
+			score += 3
+		case "provincial":
+			score += 2
+		case "municipal":
+			score += 1
+		}
+		ranked = append(ranked, scored{item: it, score: score})
+	}
+
+	// 稳定排序：分数降序，保持原有 competition_date DESC 次序
+	sort.SliceStable(ranked, func(i, j int) bool {
+		return ranked[i].score > ranked[j].score
+	})
+
+	out := make([]map[string]interface{}, 0, limit)
+	for i, r := range ranked {
+		if i >= limit {
+			break
+		}
+		item := r.item
+		item["match_score"] = r.score
+		out = append(out, item)
+	}
+	return out, nil
 }
 
 func (s *StudentFeaturesService) RegisterCompetition(competitionID, userID int64, studentID, studentName, college, major, className, teamName, teamMembers, advisorName string) (int64, error) {

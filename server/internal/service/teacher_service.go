@@ -329,7 +329,7 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 		StudentCount:   42,
 		LastReflection: "上次课程学生对递归的理解较好，但动态规划部分还需加强练习。",
 		KeyKnowledge:   []string{"二叉树遍历算法", "树的递归定义", "遍历的非递归实现"},
-		DataSource:     "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -403,7 +403,7 @@ func (s *TeacherService) GenerateIdeologicalSuggestions(ctx context.Context, cou
 			"《软件工程师职业道德规范》",
 			"华为高斯数据库技术白皮书",
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -432,7 +432,7 @@ func (s *TeacherService) GenerateStudentTwinTeaching(ctx context.Context, course
 			{"name": "李华", "mastery": 0.48, "weakness": "动态规划", "risk": "需辅导"},
 			{"name": "王芳", "mastery": 0.95, "weakness": "", "risk": "可担任助教"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -464,7 +464,7 @@ func (s *TeacherService) ManageFAQKnowledge(ctx context.Context, courseName stri
 			{"question": "堆排序和快速排序的比较？", "views": 156, "likes": 28, "status": "已发布"},
 		},
 		Suggestion: "建议将BFS/DFS相关问题整理为专题FAQ，补充图论算法的可视化解释。",
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -523,6 +523,7 @@ type HeatmapData struct {
 	WeakTopFive   []string                 `json:"weak_top_five"`
 	TotalStudents int                      `json:"total_students"`
 	AnomalyCount  int                      `json:"anomaly_count"`
+	AIAnalysis    string                   `json:"ai_analysis"`
 	DataSource    string                   `json:"data_source"`
 }
 
@@ -542,7 +543,8 @@ func (s *TeacherService) GenerateHeatmap(ctx context.Context, courseName string)
 		},
 		WeakTopFive:   []string{"图的最短路径", "AVL树旋转", "B树插入删除", "哈希冲突处理", "堆排序"},
 		TotalStudents: 45, AnomalyCount: 5,
-		DataSource: "mock",
+		// 示例学情热力图：缺少逐知识点掌握度数据表，数据为教学演示样例
+		DataSource: "reference",
 	}
 
 	if s.llmClient != nil {
@@ -552,8 +554,8 @@ func (s *TeacherService) GenerateHeatmap(ctx context.Context, courseName string)
 			Temperature: 0.3, MaxTokens: 200,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
-			_ = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
+			data.AIAnalysis = strings.TrimSpace(resp.Content)
+			data.DataSource = "reference+ai"
 		}
 	}
 
@@ -580,7 +582,7 @@ func (s *TeacherService) GenerateStyleDist(ctx context.Context, courseName strin
 			"动手型学生占比最高，建议增加实验和编程练习",
 			"为视觉型学生准备更多图示和动画",
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -605,6 +607,6 @@ func (s *TeacherService) GenerateCommunityQA(ctx context.Context) *CommunityQADa
 		Stats: map[string]interface{}{
 			"total_answers": 15, "certified_count": 12, "likes_received": 45, "questions_in_faq": 8,
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }

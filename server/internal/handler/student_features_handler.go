@@ -160,6 +160,32 @@ func (h *StudentFeaturesHandler) GetCompetitionStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": stats})
 }
 
+// CompetitionMatch 基于学生专业/学院对真实竞赛做个性化匹配推荐
+// GET /api/v1/competition/match?major=&college=&limit=
+// major/college 可选：前端从登录资料带入；为空则退化为按级别+报名状态排序的通用推荐。
+func (h *StudentFeaturesHandler) CompetitionMatch(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
+		return
+	}
+	major := c.Query("major")
+	college := c.Query("college")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	items, err := h.svc.MatchCompetitions(major, college, limit)
+	if err != nil {
+		log.Printf("竞赛个性化匹配失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "匹配失败"})
+		return
+	}
+	source := "real"
+	if len(items) == 0 {
+		source = "empty"
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": items, "total": len(items), "data_source": source})
+}
+
 // ══════════════════════════════════════════════════════════════
 // 大学规划
 // ══════════════════════════════════════════════════════════════

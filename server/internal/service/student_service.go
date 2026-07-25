@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -558,15 +559,110 @@ type StudyBuddyMatch struct {
 }
 
 func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID int64) *StudyBuddyMatch {
+	// 兜底：无 userRepo 时返回占位
+	if s.userRepo == nil {
+		return studyBuddyFallback()
+	}
+
+	me, err := s.userRepo.GetByID(userID)
+	if err != nil || me == nil || (me.College == "" && me.Major == "" && me.ClassName == "") {
+		// 无法定位本人或无院系资料，走兜底文案
+		return studyBuddyFallback()
+	}
+
+	// 优先同专业，其次同学院，查询真实同学（排除自己、仅学生角色、活跃账号）
+	q := &repository.UserQuery{
+		Role:   "student",
+		Status: "active",
+		Limit:  30,
+	}
+	if me.Major != "" {
+		q.Major = me.Major
+	} else if me.College != "" {
+		q.College = me.College
+	}
+	peers, _, err := s.userRepo.ListAdvanced(q)
+	if err != nil || len(peers) == 0 {
+		return studyBuddyFallback()
+	}
+
+	matches := make([]map[string]interface{}, 0, 5)
+	for _, p := range peers {
+		if p.ID == userID {
+			continue // 排除自己
+		}
+		// 打分：同班 +40，同专业 +30，同学院 +15，同年级 +15
+		score := 50
+		switch {
+		case me.ClassName != "" && p.ClassName == me.ClassName:
+			score += 40
+		case me.Major != "" && p.Major == me.Major:
+			score += 30
+		case me.College != "" && p.College == me.College:
+			score += 15
+		}
+		if me.EnrollmentYear != "" && p.EnrollmentYear == me.EnrollmentYear {
+			score += 15
+		}
+		if score > 99 {
+			score = 99
+		}
+		reason := "同学院"
+		if me.ClassName != "" && p.ClassName == me.ClassName {
+			reason = "同班同学"
+		} else if me.Major != "" && p.Major == me.Major {
+			reason = "同专业"
+		}
+		matches = append(matches, map[string]interface{}{
+			"name":        maskDisplayName(p.DisplayName),
+			"match_score": score,
+			"major":       p.Major,
+			"class_name":  p.ClassName,
+			"reason":      reason,
+		})
+		if len(matches) >= 5 {
+			break
+		}
+	}
+
+	if len(matches) == 0 {
+		return studyBuddyFallback()
+	}
+
+	// 按 match_score 降序
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i]["match_score"].(int) > matches[j]["match_score"].(int)
+	})
+
+	return &StudyBuddyMatch{
+		Matches:     matches,
+		MatchReason: fmt.Sprintf("基于你的专业「%s」与班级，为你匹配了 %d 位可结伴学习的同学（姓名已脱敏保护隐私）。", me.Major, len(matches)),
+		DataSource:  "real",
+	}
+}
+
+// studyBuddyFallback 学友匹配兜底文案
+func studyBuddyFallback() *StudyBuddyMatch {
 	return &StudyBuddyMatch{
 		Matches: []map[string]interface{}{
-			{"name": "张三", "match_score": 92, "strength": "算法与数据结构", "complement": "英语", "style": "动手实践型"},
-			{"name": "李四", "match_score": 85, "strength": "操作系统", "complement": "数学", "style": "理论学习型"},
-			{"name": "王五", "match_score": 78, "strength": "编程语言", "complement": "项目管理", "style": "综合型"},
+			{"name": "张*", "match_score": 92, "reason": "同专业", "major": "计算机科学与技术"},
+			{"name": "李*", "match_score": 85, "reason": "同学院"},
 		},
-		MatchReason: "基于你的学习风格（动手实践型）和能力短板（算法），推荐以上互补学友。",
-		DataSource:  "mock",
+		MatchReason: "暂无足够的同学资料用于精准匹配，以下为示例。完善院系班级信息后可获得真实推荐。",
+		DataSource:  "fallback",
 	}
+}
+
+// maskDisplayName 姓名脱敏：张* / 张**
+func maskDisplayName(name string) string {
+	r := []rune(name)
+	if len(r) == 0 {
+		return "同学"
+	}
+	if len(r) == 1 {
+		return string(r[0]) + "*"
+	}
+	return string(r[0]) + "**"
 }
 
 // MentalHealthReport 心理健康评估报告
@@ -900,7 +996,7 @@ func (s *StudentService) GenerateKnowledgeGraph(ctx context.Context, courseName 
 			{"from": "ds", "to": "search", "relation": "包含"},
 			{"from": "tree", "to": "graph", "relation": "关联(遍历算法通用)"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -954,28 +1050,59 @@ type ResumeData struct {
 }
 
 func (s *StudentService) GenerateResume(ctx context.Context, userID int64, position string) *ResumeData {
-	user, err := s.userRepo.GetByID(userID)
-	userName := "张同学"
-	major := "计算机科学与技术"
-	if err == nil && user != nil {
-		userName = user.DisplayName
+	userName := "同学"
+	major := ""
+	college := ""
+	eduLine := "请补充学校、专业与起止年份"
+	dataSource := "fallback"
+
+	if s.userRepo != nil {
+		if user, err := s.userRepo.GetByID(userID); err == nil && user != nil {
+			if user.DisplayName != "" {
+				userName = user.DisplayName
+			}
+			major = user.Major
+			college = user.College
+			// 教育背景仅使用数据库真实字段拼装，缺失项留空不臆造
+			eduParts := make([]string, 0, 4)
+			if college != "" {
+				eduParts = append(eduParts, college)
+			}
+			if major != "" {
+				eduParts = append(eduParts, major)
+			}
+			if user.EnrollmentYear != "" {
+				eduParts = append(eduParts, user.EnrollmentYear+"级")
+			}
+			if len(eduParts) > 0 {
+				eduLine = strings.Join(eduParts, " · ")
+				dataSource = "real"
+			}
+		}
 	}
 
 	if position == "" {
-		position = "Java后端开发工程师"
+		position = "（请填写目标岗位）"
 	}
+
+	// 个人信息只放真实可核验字段；其余为待学生本人填写的占位，避免生成虚假履历
+	infoParts := []string{userName}
+	if major != "" {
+		infoParts = append(infoParts, major)
+	}
+	infoLine := strings.Join(infoParts, " | ")
 
 	return &ResumeData{
 		Title:    userName + "的简历 - 应聘" + position,
 		Template: "现代简洁风",
 		Sections: []map[string]interface{}{
-			{"section": "个人信息", "content": fmt.Sprintf("%s | %s | 中共党员 | CET-4 520", userName, major)},
-			{"section": "教育背景", "content": fmt.Sprintf("滁州学院 %s 本科 2023-2027", major)},
-			{"section": "项目经历", "content": "1. 校园二手交易平台(Spring Boot+Vue) 2. 智能日程管理App(Flutter+Go)"},
-			{"section": "技能特长", "content": "Java/Python/Go, Spring Boot/Flask/Gin, MySQL/Redis, Linux/Git"},
-			{"section": "获奖经历", "content": "蓝桥杯省赛二等奖 | ACM校赛一等奖 | 三好学生"},
+			{"section": "个人信息", "content": infoLine, "editable": true, "hint": "补充联系方式、政治面貌、外语水平等"},
+			{"section": "教育背景", "content": eduLine, "editable": true, "hint": "确认学校、专业、起止年份与 GPA"},
+			{"section": "项目经历", "content": "", "editable": true, "hint": "按 项目名称 + 技术栈 + 你的职责与成果 逐条填写真实项目"},
+			{"section": "技能特长", "content": "", "editable": true, "hint": "列出你实际掌握的语言、框架与工具"},
+			{"section": "获奖经历", "content": "", "editable": true, "hint": "填写真实获得的奖项与荣誉，切勿虚构"},
 		},
-		DataSource: "mock",
+		DataSource: dataSource,
 	}
 }
 
@@ -1004,7 +1131,7 @@ func (s *StudentService) GenerateCareerSimulation(ctx context.Context, careerPat
 			{"year": "2028(3年)", "range": "20-30万", "title": "高级开发工程师"},
 			{"year": "2030(5年)", "range": "30-50万", "title": "技术专家/架构师"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -1027,7 +1154,7 @@ func (s *StudentService) GenerateAlumniMatch(ctx context.Context, userID int64) 
 			"实习面试时面试官最看重哪些能力？",
 			"从学校到职场的转变中，最大的挑战是什么？",
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -1046,6 +1173,9 @@ type WeeklyReportData struct {
 	TimeDistribution map[string]float64       `json:"time_distribution"`
 	KnowledgeChanges []map[string]interface{} `json:"knowledge_changes"`
 	Attribution      string                   `json:"attribution"`
+	QuestionsAsked   int                      `json:"questions_asked"` // 本周真实提问次数
+	ActiveDays       int                      `json:"active_days"`     // 本周真实活跃天数
+	SessionsCount    int                      `json:"sessions_count"`  // 本周真实会话数
 	DataSource       string                   `json:"data_source"`
 }
 
@@ -1067,19 +1197,34 @@ func (s *StudentService) GenerateWeeklyReport(ctx context.Context, userID int64)
 			{"course": "数据结构", "change": "+12%", "trend": "up", "detail": "树和图相关知识点掌握度提升"},
 			{"course": "操作系统", "change": "-5%", "trend": "down", "detail": "内存管理章节理解不足"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
+	}
+
+	// 真实交互活跃度（近 7 天提问/会话/活跃天数）——覆盖模板值
+	if s.messageRepo != nil {
+		if wa, err := s.messageRepo.GetWeeklyActivity(userID, 7); err == nil && wa != nil && wa.Questions > 0 {
+			data.QuestionsAsked = wa.Questions
+			data.ActiveDays = wa.ActiveDays
+			data.SessionsCount = wa.Sessions
+			data.DataSource = "real"
+		}
 	}
 
 	if s.llmClient != nil {
-		prompt := fmt.Sprintf("学生本周学习%.0f小时，亮点：%s，不足：%s。请用40字做归因分析。",
-			data.TotalHours, strings.Join(data.Highlights, "、"), strings.Join(data.Improvements, "、"))
+		prompt := fmt.Sprintf("学生本周与学工助手交互：提问%d次、活跃%d天、会话%d个。亮点：%s，不足：%s。请用40字做学习状态归因分析，只依据以上数据、不得编造。",
+			data.QuestionsAsked, data.ActiveDays, data.SessionsCount,
+			strings.Join(data.Highlights, "、"), strings.Join(data.Improvements, "、"))
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 200,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			data.Attribution = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
+			if data.DataSource == "real" {
+				data.DataSource = "real+ai"
+			} else {
+				data.DataSource = "ai"
+			}
 		}
 	}
 
@@ -1224,12 +1369,8 @@ type QALeaderboardData struct {
 }
 
 func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboardData {
-	return &QALeaderboardData{
-		HotQuestions: []map[string]interface{}{
-			{"rank": 1, "title": "ACM竞赛如何入门？", "views": 256, "answers": 8, "score": 92.5},
-			{"rank": 2, "title": "转专业需要什么条件？", "views": 128, "answers": 5, "score": 85.0},
-			{"rank": 3, "title": "考研还是就业？", "views": 198, "answers": 12, "score": 80.3},
-		},
+	data := &QALeaderboardData{
+		// TopAnswerers / Contributors：平台暂无「回答/采纳」数据表，保持参考样例
 		TopAnswerers: []map[string]interface{}{
 			{"rank": 1, "name": "知识达人", "answers": 23, "adopted": 15, "score": 95.0},
 			{"rank": 2, "name": "热心学长", "answers": 18, "adopted": 10, "score": 82.5},
@@ -1240,8 +1381,37 @@ func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboa
 			{"rank": 2, "name": "热心学长", "contributions": 10, "quality_score": 4.5},
 			{"rank": 3, "name": "学霸笔记", "contributions": 8, "quality_score": 4.3},
 		},
-		Period: "本周", DataSource: "mock",
+		Period: "本周", DataSource: "reference",
 	}
+
+	// 热门提问：来自真实 messages 表的聚合统计
+	if s.messageRepo != nil {
+		if hot, err := s.messageRepo.GetHotQuestions(10); err == nil && len(hot) > 0 {
+			questions := make([]map[string]interface{}, 0, len(hot))
+			for i, h := range hot {
+				title := h.Title
+				if len([]rune(title)) > 40 {
+					title = string([]rune(title)[:40]) + "…"
+				}
+				questions = append(questions, map[string]interface{}{
+					"rank":  i + 1,
+					"title": title,
+					"count": h.Count, // 真实被提问次数
+				})
+			}
+			data.HotQuestions = questions
+			data.DataSource = "real" // 热榜为真实数据；答主榜仍为参考
+			return data
+		}
+	}
+
+	// 无真实提问数据时的参考样例
+	data.HotQuestions = []map[string]interface{}{
+		{"rank": 1, "title": "ACM竞赛如何入门？", "count": 8},
+		{"rank": 2, "title": "转专业需要什么条件？", "count": 5},
+		{"rank": 3, "title": "考研还是就业？", "count": 12},
+	}
+	return data
 }
 
 // PrivateChatData 站内私聊
@@ -1262,7 +1432,7 @@ func (s *StudentService) GeneratePrivateChat(ctx context.Context) *PrivateChatDa
 			{"name": "赵学姐", "reason": "同专业大三，擅长算法", "match_score": 88},
 			{"name": "刘同学", "reason": "学习风格互补，可组队复习", "match_score": 82},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -1310,7 +1480,7 @@ func (s *StudentService) GenerateDynamicMentor(ctx context.Context, userID int64
 		InteractionTips: []string{
 			"可以随时问我学习问题", "我会记住你的学习偏好和薄弱点", "每周生成一份学习报告",
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 
 	if s.llmClient != nil {
@@ -1337,6 +1507,7 @@ type EnhancedCareerSimulation struct {
 	SalaryProjection    []map[string]interface{} `json:"salary_projection"`
 	MarketTrends        []string                 `json:"market_trends"`
 	AlternativePathways []string                 `json:"alternative_pathways"`
+	AIAdvice            string                   `json:"ai_advice"`
 	DataSource          string                   `json:"data_source"`
 }
 
@@ -1374,7 +1545,8 @@ func (s *StudentService) GenerateEnhancedCareerSimulation(ctx context.Context, c
 			"创业路径: 积累3-5年经验→加入初创公司→自主创业",
 			"自由职业路径: 建立技术品牌→接外包→远程工作→数字游民",
 		},
-		DataSource: "mock",
+		// 阶段/薪资为行业通用参考区间，非个人真实数据
+		DataSource: "reference",
 	}
 
 	if s.llmClient != nil {
@@ -1384,8 +1556,8 @@ func (s *StudentService) GenerateEnhancedCareerSimulation(ctx context.Context, c
 			Temperature: 0.5, MaxTokens: 400,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
-			_ = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
+			data.AIAdvice = strings.TrimSpace(resp.Content)
+			data.DataSource = "reference+ai"
 		}
 	}
 

@@ -3,9 +3,18 @@ package handler
 import (
 	"net/http"
 
+	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+// collegeOwnerID 从认证上下文取学院归属 ID（范围锁定，防止跨学院越权）
+func collegeOwnerID(c *gin.Context) string {
+	if uc := middleware.GetUserContext(c); uc != nil {
+		return uc.OwnerID
+	}
+	return ""
+}
 
 // CollegeHandler 学院管理员角色 AI 功能接口
 type CollegeHandler struct {
@@ -21,7 +30,7 @@ func (h *CollegeHandler) TwinScreen(c *gin.Context) {
 	college := c.Query("college")
 
 	if h.svc != nil {
-		data := h.svc.GenerateTwinScreen(c.Request.Context(), college)
+		data := h.svc.GenerateTwinScreen(c.Request.Context(), college, collegeOwnerID(c))
 		if data != nil {
 			c.JSON(http.StatusOK, data)
 			return
@@ -46,7 +55,7 @@ func (h *CollegeHandler) DataAnalysis(c *gin.Context) {
 	query := c.Query("q")
 
 	if h.svc != nil {
-		result := h.svc.AnalyzeData(c.Request.Context(), query)
+		result := h.svc.AnalyzeData(c.Request.Context(), query, collegeOwnerID(c))
 		if result != nil {
 			c.JSON(http.StatusOK, result)
 			return

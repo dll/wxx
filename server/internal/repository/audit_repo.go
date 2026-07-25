@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/dll/wxx/server/internal/model"
 )
@@ -95,4 +96,57 @@ func (r *AuditRepo) Count(username, action, resource, startDate, endDate string)
 		return 0, err
 	}
 	return count, nil
+}
+
+// CountDistinctActiveUsers 统计最近 sinceDays 天内有操作记录的去重用户数（真实活跃用户）
+func (r *AuditRepo) CountDistinctActiveUsers(sinceDays int) (int, error) {
+	if sinceDays <= 0 {
+		sinceDays = 1
+	}
+	var count int
+	err := r.db.QueryRow(
+		`SELECT COUNT(DISTINCT username) FROM audit_logs
+		 WHERE username != '' AND created_at >= datetime('now', ?)`,
+		fmt.Sprintf("-%d days", sinceDays),
+	).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// ActionCount 操作类型计数项
+type ActionCount struct {
+	Action string
+	Count  int
+}
+
+// TopActions 统计最近 sinceDays 天内最高频的操作类型（真实功能使用分布）
+func (r *AuditRepo) TopActions(sinceDays, limit int) ([]ActionCount, error) {
+	if sinceDays <= 0 {
+		sinceDays = 30
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+	rows, err := r.db.Query(
+		`SELECT action, COUNT(*) AS cnt FROM audit_logs
+		 WHERE action != '' AND created_at >= datetime('now', ?)
+		 GROUP BY action ORDER BY cnt DESC LIMIT ?`,
+		fmt.Sprintf("-%d days", sinceDays), limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ActionCount
+	for rows.Next() {
+		var a ActionCount
+		if err := rows.Scan(&a.Action, &a.Count); err != nil {
+			return nil, err
+		}
+		result = append(result, a)
+	}
+	return result, rows.Err()
 }

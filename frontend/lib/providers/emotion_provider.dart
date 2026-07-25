@@ -31,6 +31,21 @@ class EmotionProvider extends ChangeNotifier {
   EmotionStats? get stats => _stats;
   bool get statsLoading => _statsLoading;
 
+  /// 退出登录时重置全部内存态，防止跨账号泄露（Q-08）
+  void reset() {
+    _alerts.clear();
+    _loading = false;
+    _error = '';
+    _riskFilter = '';
+    _statusFilter = '';
+    _page = 1;
+    _total = 0;
+    _hasMore = true;
+    _stats = null;
+    _statsLoading = false;
+    notifyListeners();
+  }
+
   // ── 过滤 ──
 
   void setRiskFilter(String level) {

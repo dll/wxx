@@ -3,19 +3,34 @@ package service
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/repository"
 )
+
+// processStart 进程启动时刻，用于计算真实运行时长
+var processStart = time.Now()
 
 // SysAdminService 系统管理员角色 AI 功能服务
 type SysAdminService struct {
 	llmClient llm.ChatClient
+	userRepo  *repository.UserRepo
+	kbRepo    *repository.KBRepo
+	auditRepo *repository.AuditRepo
 }
 
-func NewSysAdminService(llmClient llm.ChatClient) *SysAdminService {
-	return &SysAdminService{llmClient: llmClient}
+func NewSysAdminService(llmClient llm.ChatClient, userRepo *repository.UserRepo, kbRepo *repository.KBRepo, auditRepo *repository.AuditRepo) *SysAdminService {
+	return &SysAdminService{llmClient: llmClient, userRepo: userRepo, kbRepo: kbRepo, auditRepo: auditRepo}
+}
+
+// formatUptime 把时长格式化为「Xh Ym」
+func formatUptime(d time.Duration) string {
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	return fmt.Sprintf("%dh %dm", h, m)
 }
 
 // SystemHealth 系统健康状态
@@ -25,6 +40,7 @@ type SystemHealth struct {
 	CPUUsage    float64                  `json:"cpu_usage"`
 	MemoryUsage float64                  `json:"memory_usage"`
 	DiskUsage   float64                  `json:"disk_usage"`
+	TotalUsers  int                      `json:"total_users"`
 	ActiveUsers int                      `json:"active_users"`
 	APILatency  float64                  `json:"api_latency_ms"`
 	Alerts      []map[string]interface{} `json:"alerts"`
@@ -33,31 +49,47 @@ type SystemHealth struct {
 }
 
 func (s *SysAdminService) GetSystemHealth(ctx context.Context) *SystemHealth {
-	health := &SystemHealth{
-		Status:      "healthy",
-		Uptime:      "72h 35m",
-		CPUUsage:    0.35,
-		MemoryUsage: 0.62,
-		DiskUsage:   0.45,
-		ActiveUsers: 128,
-		APILatency:  85.5,
-		Alerts: []map[string]interface{}{
-			{"type": "warning", "message": "磁盘空间预计7天后达到80%", "time": time.Now().Format("15:04")},
-			{"type": "info", "message": "LLM API调用量较昨日增长15%", "time": time.Now().Format("15:04")},
-		},
-		DataSource: "mock",
+	// 真实运行时指标：内存来自 Go runtime，运行时长来自进程启动时刻
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	// 以 Sys（向 OS 申请的总内存）为分母估算堆占用比例，避免臆造宿主机指标
+	memUsage := 0.0
+	if mem.Sys > 0 {
+		memUsage = float64(mem.HeapAlloc) / float64(mem.Sys)
 	}
 
+	health := &SystemHealth{
+		Status:      "healthy",
+		Uptime:      formatUptime(time.Since(processStart)),
+		MemoryUsage: memUsage,
+		Alerts:      []map[string]interface{}{},
+		DataSource:  "real",
+	}
+
+	// 真实在册用户数
+	if s.userRepo != nil {
+		if n, err := s.userRepo.Count("", "", ""); err == nil {
+			health.TotalUsers = n
+		}
+	}
+	// 真实活跃用户数（近 7 天有审计操作的去重用户）
+	if s.auditRepo != nil {
+		if active, err := s.auditRepo.CountDistinctActiveUsers(7); err == nil {
+			health.ActiveUsers = active
+		}
+	}
+
+	// CPU/磁盘/API 延迟需接入宿主机监控，暂不提供臆造值（保持 0，前端据 data_source 决定展示）
 	if s.llmClient != nil {
-		prompt := fmt.Sprintf("你是运维专家。CPU%.0f%%，内存%.0f%%，API延迟%.0fms。请用30字诊断系统健康状态。",
-			health.CPUUsage*100, health.MemoryUsage*100, health.APILatency)
+		prompt := fmt.Sprintf("你是运维专家。当前进程堆内存占用约%.0f%%，运行时长%s，在册用户%d、近7日活跃%d。请用30字诊断系统健康状态。",
+			memUsage*100, health.Uptime, health.TotalUsers, health.ActiveUsers)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.2, MaxTokens: 150,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			health.AIDiagnosis = strings.TrimSpace(resp.Content)
-			health.DataSource = "ai"
+			health.DataSource = "real+ai"
 		}
 	}
 
@@ -77,29 +109,69 @@ type KnowledgeQuality struct {
 }
 
 func (s *SysAdminService) EvaluateKnowledgeQuality(ctx context.Context) *KnowledgeQuality {
-	return &KnowledgeQuality{
-		TotalResources: 1250,
-		Coverage:       0.82,
-		Accuracy:       0.91,
-		Freshness:      0.78,
-		Redundancy:     0.12,
-		Issues: []map[string]interface{}{
-			{"type": "过时", "resource": "2024年奖学金评定标准", "detail": "已被2025年新标准替代，建议下线", "severity": "high"},
-			{"type": "冗余", "resource": "转专业流程说明v1/v2", "detail": "存在2个版本，建议合并保留最新版", "severity": "medium"},
-			{"type": "缺失", "resource": "国际交流项目申请", "detail": "学生查询量高但无对应知识条目", "severity": "medium"},
-		},
-		Suggestions: []string{
-			"建议更新：奖学金政策(3条)、入党流程(2条)",
-			"建议合并：转专业FAQ重复条目",
-			"建议补充：国际交流项目、创新创业学分",
-		},
-		DataSource: "mock",
+	result := &KnowledgeQuality{
+		Issues:      []map[string]interface{}{},
+		Suggestions: []string{},
+		DataSource:  "fallback",
 	}
+
+	if s.kbRepo == nil {
+		return result
+	}
+	stats, err := s.kbRepo.GetStats()
+	if err != nil || stats == nil {
+		return result
+	}
+
+	result.TotalResources = stats.Total
+	result.DataSource = "real"
+	// 覆盖率 = 已发布 / 总量；冗余、时效需额外数据，暂不臆造
+	if stats.Total > 0 {
+		result.Coverage = float64(stats.Published) / float64(stats.Total)
+	}
+
+	// 基于真实状态分布生成问题项
+	if stats.Retired > 0 {
+		result.Issues = append(result.Issues, map[string]interface{}{
+			"type": "已下线", "count": stats.Retired,
+			"detail": "存在已下线资源，确认是否需要清理归档", "severity": "low",
+		})
+	}
+	if stats.Pending > 0 {
+		result.Issues = append(result.Issues, map[string]interface{}{
+			"type": "待审核", "count": stats.Pending,
+			"detail": fmt.Sprintf("%d 条资源待审核，建议及时处理", stats.Pending), "severity": "medium",
+		})
+	}
+	if stats.Draft > 0 {
+		result.Issues = append(result.Issues, map[string]interface{}{
+			"type": "草稿", "count": stats.Draft,
+			"detail": fmt.Sprintf("%d 条草稿未发布", stats.Draft), "severity": "low",
+		})
+	}
+
+	// LLM 基于真实分布给运营建议
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf(
+			"你是知识库运营专家。真实统计：总计%d条，已发布%d，待审核%d，草稿%d，已下线%d。请给出3条精炼运营建议，每条不超过25字，只依据数据。",
+			stats.Total, stats.Published, stats.Pending, stats.Draft, stats.Retired)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.4, MaxTokens: 220,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			result.Suggestions = splitSuggestions(resp.Content)
+			result.DataSource = "real+ai"
+		}
+	}
+
+	return result
 }
 
 // UserBehaviorAnalysis 用户行为分析
 type UserBehaviorAnalysis struct {
 	Period        string                   `json:"period"`
+	TotalUsers    int                      `json:"total_users"`
 	ActiveUsers   int                      `json:"active_users"`
 	DAU           int                      `json:"dau"`
 	RetentionRate float64                  `json:"retention_rate"`
@@ -110,27 +182,37 @@ type UserBehaviorAnalysis struct {
 }
 
 func (s *SysAdminService) AnalyzeUserBehavior(ctx context.Context) *UserBehaviorAnalysis {
-	return &UserBehaviorAnalysis{
-		Period:        "2026年5月",
-		ActiveUsers:   3200,
-		DAU:           450,
-		RetentionRate: 0.68,
-		TopFeatures: []map[string]interface{}{
-			{"feature": "智能问答", "usage": 2800, "growth": "+15%", "satisfaction": 4.2},
-			{"feature": "今日速览", "usage": 1800, "growth": "+22%", "satisfaction": 4.5},
-			{"feature": "办事流程", "usage": 950, "growth": "+8%", "satisfaction": 3.8},
-			{"feature": "AI备课助手", "usage": 420, "growth": "+35%", "satisfaction": 4.6},
-		},
-		UserJourneys: []string{
-			"高频路径: 登录→今日速览→智能问答→课程查询",
-			"新用户路径: 登录→办事流程→智能问答",
-			"教师路径: 登录→备课助手→学情热力图→课堂互动",
-		},
-		Suggestions: []string{
-			"智能问答是核心功能，建议持续优化知识库质量",
-			"AI备课助手增长最快(35%)，建议重点推广给更多教师",
-			"办事流程满意度偏低(3.8)，需优化交互体验",
-		},
-		DataSource: "mock",
+	result := &UserBehaviorAnalysis{
+		Period:       time.Now().Format("2006年01月"),
+		TopFeatures:  []map[string]interface{}{},
+		UserJourneys: []string{},
+		Suggestions:  []string{},
+		DataSource:   "fallback",
 	}
+
+	// 真实在册用户总数
+	if s.userRepo != nil {
+		if n, err := s.userRepo.Count("", "", ""); err == nil {
+			result.TotalUsers = n
+			result.DataSource = "real"
+		}
+	}
+
+	// 真实活跃用户与功能使用分布（来自审计日志聚合，非臆造埋点）
+	if s.auditRepo != nil {
+		if active, err := s.auditRepo.CountDistinctActiveUsers(7); err == nil {
+			result.ActiveUsers = active // 近 7 天有操作记录的去重用户
+			result.DataSource = "real"
+		}
+		if actions, err := s.auditRepo.TopActions(30, 5); err == nil && len(actions) > 0 {
+			for _, a := range actions {
+				result.TopFeatures = append(result.TopFeatures, map[string]interface{}{
+					"feature": a.Action,
+					"count":   a.Count,
+				})
+			}
+		}
+	}
+
+	return result
 }

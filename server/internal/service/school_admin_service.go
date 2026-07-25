@@ -2,19 +2,71 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/repository"
 )
 
 // SchoolAdminService 学校管理员角色 AI 功能服务
 type SchoolAdminService struct {
-	llmClient llm.ChatClient
+	userRepo    *repository.UserRepo
+	emotionRepo *repository.EmotionRepo
+	twinRepo    *repository.TwinRepo
+	llmClient   llm.ChatClient
 }
 
-func NewSchoolAdminService(llmClient llm.ChatClient) *SchoolAdminService {
-	return &SchoolAdminService{llmClient: llmClient}
+func NewSchoolAdminService(
+	userRepo *repository.UserRepo,
+	emotionRepo *repository.EmotionRepo,
+	twinRepo *repository.TwinRepo,
+	llmClient llm.ChatClient,
+) *SchoolAdminService {
+	return &SchoolAdminService{
+		userRepo:    userRepo,
+		emotionRepo: emotionRepo,
+		twinRepo:    twinRepo,
+		llmClient:   llmClient,
+	}
+}
+
+// aggregateSchoolReal 聚合全校真实概览：学生总数、风险数、学院数、按学院明细
+func (s *SchoolAdminService) aggregateSchoolReal() (total, risk, colleges int, perCollege []map[string]interface{}, hasData bool) {
+	perCollege = []map[string]interface{}{}
+	if s.userRepo != nil {
+		if t, err := s.userRepo.Count("student", "", ""); err == nil && t > 0 {
+			total = t
+			hasData = true
+		}
+		// 按学院明细
+		if names, err := s.userRepo.GetDistinctValues("college", "student", "", ""); err == nil {
+			colleges = len(names)
+			for _, name := range names {
+				if name == "" {
+					continue
+				}
+				cnt, _ := s.userRepo.Count("student", "college", name)
+				entry := map[string]interface{}{"name": name, "students": cnt}
+				if s.emotionRepo != nil {
+					if st, e := s.emotionRepo.GetStats("college", name, "school_admin"); e == nil && st != nil {
+						entry["risk"] = st.Urgent + st.High
+					}
+				}
+				perCollege = append(perCollege, entry)
+			}
+		}
+	}
+	if s.emotionRepo != nil {
+		if st, err := s.emotionRepo.GetStats("school", "", "school_admin"); err == nil && st != nil {
+			risk = st.Urgent + st.High
+			hasData = true
+		}
+	}
+	return
 }
 
 // SchoolPanorama 全校数字孪生全景
@@ -30,34 +82,29 @@ type SchoolPanorama struct {
 }
 
 func (s *SchoolAdminService) GenerateSchoolPanorama(ctx context.Context) *SchoolPanorama {
+	total, risk, colleges, perCollege, hasData := s.aggregateSchoolReal()
+
 	data := &SchoolPanorama{
-		TotalStudents: 8000,
-		TotalColleges: 8,
-		HealthScore:   82.5,
-		RiskStudents:  85,
-		Colleges: []map[string]interface{}{
-			{"name": "计算机学院", "students": 1200, "health": 85.2, "risk": 12, "trend": "up"},
-			{"name": "经管学院", "students": 1500, "health": 80.5, "risk": 18, "trend": "stable"},
-			{"name": "文学院", "students": 900, "health": 88.0, "risk": 5, "trend": "up"},
-			{"name": "理学院", "students": 800, "health": 79.0, "risk": 15, "trend": "down"},
-		},
-		Trends: map[string][]float64{
-			"health":   {78, 79, 80, 81, 82, 82.5},
-			"academic": {72, 73, 74, 75, 76, 77},
-			"emotion":  {80, 79, 81, 80, 82, 81},
-		},
-		DataSource: "mock",
+		TotalStudents: total,
+		TotalColleges: colleges,
+		RiskStudents:  risk,
+		Colleges:      perCollege,
+		Trends:        map[string][]float64{},
+		DataSource:    "fallback",
+	}
+	if hasData {
+		data.DataSource = "real"
 	}
 
-	if s.llmClient != nil {
-		prompt := "你是高校管理顾问。全校8000学生，8个学院，健康度82.5分。请用40字给出校级宏观感知。"
+	if s.llmClient != nil && hasData {
+		prompt := fmt.Sprintf("你是高校管理顾问。全校%d名学生，%d个学院，风险关注%d人。请用40字给出校级宏观感知（不得编造未提供的数字）。",
+			total, colleges, risk)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 200,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			data.AIInsight = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
 		}
 	}
 
@@ -75,14 +122,41 @@ type PolicySimulation struct {
 }
 
 func (s *SchoolAdminService) SimulatePolicy(ctx context.Context, policy, adjustment string) *PolicySimulation {
-	return &PolicySimulation{
+	result := &PolicySimulation{
 		Policy:            policy,
 		Adjustment:        adjustment,
-		BeneficiaryChange: "预计受益学生从1200人增加至1500人(+25%)",
-		RiskPrediction:    "可能存在经费缺口约5万元，建议分两期实施",
-		ResourceNeeds:     []string{"新增2名辅导教师", "扩充心理咨询室1间", "开发线上申请系统模块"},
-		DataSource:        "mock",
+		BeneficiaryChange: "需结合具体政策口径与学生数据进一步测算",
+		RiskPrediction:    "暂无足够数据进行量化风险预测",
+		ResourceNeeds:     []string{},
+		DataSource:        "fallback",
 	}
+
+	total, _, colleges, _, hasData := s.aggregateSchoolReal()
+	if s.llmClient != nil {
+		facts := "（暂无结构化统计数据）"
+		if hasData {
+			facts = fmt.Sprintf("全校在校学生%d人，%d个学院", total, colleges)
+		}
+		prompt := fmt.Sprintf(
+			"你是高校政策分析师。已知真实数据：%s。拟对政策「%s」做调整：%s。请基于数据给出：1)受益范围变化定性判断 2)主要风险 3)所需资源清单。用简洁中文，不得编造未提供的具体数字。",
+			facts, policy, adjustment)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.4, MaxTokens: 400,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			result.RiskPrediction = strings.TrimSpace(resp.Content)
+			result.BeneficiaryChange = ""
+			result.ResourceNeeds = nil
+			if hasData {
+				result.DataSource = "real+ai"
+			} else {
+				result.DataSource = "ai"
+			}
+		}
+	}
+
+	return result
 }
 
 // CrossCollegeComparison 跨学院对比分析
@@ -96,27 +170,50 @@ type CrossCollegeComparison struct {
 
 func (s *SchoolAdminService) CompareColleges(ctx context.Context, metric string) *CrossCollegeComparison {
 	if metric == "" {
-		metric = "学业健康度"
+		metric = "学生规模与风险"
 	}
 
-	return &CrossCollegeComparison{
-		Metric: metric,
-		Rankings: []map[string]interface{}{
-			{"rank": 1, "college": "文学院", "score": 88.0, "change": "+2.5"},
-			{"rank": 2, "college": "计算机学院", "score": 85.2, "change": "+1.8"},
-			{"rank": 3, "college": "经管学院", "score": 80.5, "change": "-0.5"},
-			{"rank": 4, "college": "理学院", "score": 79.0, "change": "-3.2"},
-		},
-		Anomalies: []map[string]interface{}{
-			{"college": "理学院", "metric": metric, "value": 79.0, "deviation": "较均值低3.8分", "reason": "挂科率上升，心理预警增多"},
-		},
-		Suggestions: []string{
-			"建议理学院增加学业辅导资源",
-			"推广计算机学院的导师制经验到其他学院",
-			"建立学院间帮扶结对机制",
-		},
-		DataSource: "mock",
+	result := &CrossCollegeComparison{
+		Metric:      metric,
+		Rankings:    []map[string]interface{}{},
+		Anomalies:   []map[string]interface{}{},
+		Suggestions: []string{},
+		DataSource:  "fallback",
 	}
+
+	_, _, _, perCollege, hasData := s.aggregateSchoolReal()
+	if hasData && len(perCollege) > 0 {
+		// 按在校学生数降序排名（真实数据）
+		sortByStudentsDesc(perCollege)
+		for i, c := range perCollege {
+			entry := map[string]interface{}{
+				"rank":     i + 1,
+				"college":  c["name"],
+				"students": c["students"],
+			}
+			if r, ok := c["risk"]; ok {
+				entry["risk"] = r
+			}
+			result.Rankings = append(result.Rankings, entry)
+		}
+		result.DataSource = "real"
+
+		// LLM 基于真实排名给建议
+		if s.llmClient != nil {
+			prompt := fmt.Sprintf("你是高校管理顾问。以下是各学院真实学生规模与风险数据（JSON）：%s。请就「%s」给出3条精炼建议，每条不超过25字，只依据数据、不得编造。",
+				jsonCompact(result.Rankings), metric)
+			resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+				Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+				Temperature: 0.4, MaxTokens: 220,
+			})
+			if err == nil && resp != nil && resp.Content != "" {
+				result.Suggestions = splitSuggestions(resp.Content)
+				result.DataSource = "real+ai"
+			}
+		}
+	}
+
+	return result
 }
 
 // SchoolAcademicOverview 校级学情总览
@@ -130,21 +227,80 @@ type SchoolAcademicOverview struct {
 }
 
 func (s *SchoolAdminService) GenerateAcademicOverview(ctx context.Context) *SchoolAcademicOverview {
-	return &SchoolAcademicOverview{
-		Date: time.Now().Format("2006-01-02"),
-		CollegeRankings: []map[string]interface{}{
-			{"college": "计算机学院", "health": 85.2, "academic": 77, "activity": 78, "rank": 2},
-			{"college": "经管学院", "health": 80.5, "academic": 75, "activity": 72, "rank": 3},
-			{"college": "文学院", "health": 88.0, "academic": 82, "activity": 85, "rank": 1},
-		},
-		CounselorEfficiency: []map[string]interface{}{
-			{"name": "李辅导员", "college": "计算机学院", "talks_monthly": 15, "alerts_handled": 8, "score": 92},
-			{"name": "王辅导员", "college": "经管学院", "talks_monthly": 10, "alerts_handled": 5, "score": 78},
-		},
-		KeyStudentTypes: map[string]int{
-			"学业困难": 120, "心理关注": 85, "经济困难": 200, "优秀学生": 350,
-		},
-		IdeologicalCoverage: 0.95,
-		DataSource:          "mock",
+	overview := &SchoolAcademicOverview{
+		Date:                time.Now().Format("2006-01-02"),
+		CollegeRankings:     []map[string]interface{}{},
+		CounselorEfficiency: []map[string]interface{}{},
+		KeyStudentTypes:     map[string]int{},
+		DataSource:          "fallback",
 	}
+
+	_, risk, _, perCollege, hasData := s.aggregateSchoolReal()
+	if hasData {
+		sortByStudentsDesc(perCollege)
+		for i, c := range perCollege {
+			entry := map[string]interface{}{
+				"college":  c["name"],
+				"students": c["students"],
+				"rank":     i + 1,
+			}
+			if r, ok := c["risk"]; ok {
+				entry["risk"] = r
+			}
+			overview.CollegeRankings = append(overview.CollegeRankings, entry)
+		}
+		// 关键学生类型：以真实风险预警人数作为「心理关注」项，其余待接入相应数据源
+		overview.KeyStudentTypes["心理关注"] = risk
+		overview.DataSource = "real"
+	}
+
+	return overview
+}
+
+// sortByStudentsDesc 按 students 字段降序排序（就地）
+func sortByStudentsDesc(items []map[string]interface{}) {
+	sort.SliceStable(items, func(i, j int) bool {
+		return toInt(items[i]["students"]) > toInt(items[j]["students"])
+	})
+}
+
+// toInt 宽松地把 interface{} 转成 int
+func toInt(v interface{}) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+// jsonCompact 把任意值序列化为紧凑 JSON 字符串（失败返回空串）
+func jsonCompact(v interface{}) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// splitSuggestions 把模型返回的多行/编号文本拆成建议条目
+func splitSuggestions(text string) []string {
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	out := make([]string, 0, len(lines))
+	for _, ln := range lines {
+		ln = strings.TrimSpace(ln)
+		// 去掉常见前缀：1. 2、 - •
+		ln = strings.TrimLeft(ln, "0123456789.、)-•　 \t")
+		if ln != "" {
+			out = append(out, ln)
+		}
+	}
+	if len(out) == 0 && strings.TrimSpace(text) != "" {
+		return []string{strings.TrimSpace(text)}
+	}
+	return out
 }

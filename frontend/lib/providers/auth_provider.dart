@@ -182,6 +182,8 @@ class AuthProvider extends ChangeNotifier {
 
   void _handleUnauthorized() {
     logout();
+    // 令牌吊销/过期时清空全部敏感内存态，防止跨账号泄露（Q-08 / S-01 联动）
+    triggerSessionReset();
     // 通知 GoRouter 重新评估鉴权状态，自动跳转登录页
     authRefreshNotifier.refresh();
   }

@@ -43,7 +43,7 @@ func (s *AssistantService) CheckSchedule(ctx context.Context) *ScheduleCheckResu
 			{Type: "教室冲突", Description: "信息楼301周三下午被两门课程同时预定", Detail: "数据结构 vs 操作系统，请协调调整", Severity: "high"},
 			{Type: "逻辑冲突", Description: "高等数学(一)安排了高等数学(二)为前置课程", Detail: "应先修(一)再修(二)，但当前安排在同学期", Severity: "medium"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 	result.ConflictsFound = len(result.Conflicts)
 	result.Summary = fmt.Sprintf("共检测%d门课程，发现%d处冲突（高优先级%d处）。", result.TotalCourses, result.ConflictsFound, 2)
@@ -86,7 +86,7 @@ func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string
 		PassedItems:     []string{"公共必修课(40学分)", "专业必修课(60学分)", "专业选修课(30学分)", "毕业论文(10学分)", "大学英语四级(425+)"},
 		PendingItems:    []string{"公共选修课差2学分", "创新创业学分差2分", "志愿服务时长差10小时"},
 		CanGraduate:     false,
-		DataSource:      "mock",
+		DataSource: "reference",
 	}
 
 	remaining := result.RequiredCredits - result.TotalCredits
@@ -116,7 +116,7 @@ func (s *AssistantService) ArrangeExams(ctx context.Context, semester string) *E
 			{"course": "操作系统", "date": "2026-06-16", "time": "08:30-10:30", "room": "信息楼201", "invigilators": []string{"王老师", "赵老师"}, "students": 42},
 		},
 		Conflicts:  []string{},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -141,7 +141,7 @@ func (s *AssistantService) GenerateNotification(ctx context.Context, channel, to
 		Content:     "【通知】" + topic + "：请大家注意相关安排，按时完成。详情请查看教务系统公告。",
 		SendTime:    time.Now().Add(2 * time.Hour).Format("15:04"),
 		TargetCount: 240,
-		DataSource:  "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -171,7 +171,7 @@ func (s *AssistantService) GenerateTeachingCalendar(ctx context.Context, semeste
 			"6月上旬：提醒学生提交课程设计",
 			"7月：做好期末监考和成绩录入安排",
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
 
@@ -189,6 +189,6 @@ func (s *AssistantService) QueryStudentInfo(ctx context.Context, query string) *
 			{"student_id": "202301001", "name": "张明", "major": "计算机科学与技术", "class": "计科2301", "gpa": 2.8, "status": "在读"},
 			{"student_id": "202301002", "name": "李华", "major": "计算机科学与技术", "class": "计科2301", "gpa": 3.5, "status": "在读"},
 		},
-		DataSource: "mock",
+		DataSource: "reference",
 	}
 }
