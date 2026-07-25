@@ -147,7 +147,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	agentSvc := service.NewAgentService(agentRepo)
-	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, kbRepo, llmClient)
+	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, kbRepo, twinRepo, llmClient)
 	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
@@ -770,7 +770,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/course-analytics", auth.RequireCapability(auth.SelfCourseAnalytics), studentH.CourseAnalytics)
 				student.GET("/weekly-report", auth.RequireCapability(auth.SelfWeeklyReport), studentH.WeeklyReport)
 				student.GET("/freshman-plan", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("freshman-plan"))
-				student.GET("/growth-path", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("growth-path"))
+				student.GET("/growth-path", auth.RequireCapability(auth.SelfGenericAI), studentH.GrowthPath)
 				student.GET("/political-study", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("political-study"))
 				student.GET("/ideological-record", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("ideological-record"))
 				student.GET("/party-progress", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("party-progress"))

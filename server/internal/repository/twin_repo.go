@@ -239,6 +239,46 @@ func (r *TwinRepo) GetClassBasis(className string) (*ClassPercentileBasis, error
 	return b, nil
 }
 
+// CourseGrade 单门课程成绩（课程学情看板用）
+type CourseGrade struct {
+	CourseID   string  `json:"course_id"`
+	CourseName string  `json:"course_name"`
+	Semester   string  `json:"semester"`
+	Score      float64 `json:"score"`
+	GPA        float64 `json:"gpa"`
+	Rank       int     `json:"rank"`
+	GradeLevel string  `json:"grade_level"`
+	Passed     bool    `json:"passed"`
+	Credits    float64 `json:"credits"`
+}
+
+// ListCourseGrades 读取某学生全部课程成绩（按学期倒序），供课程学情看板逐课展示。
+// user_id 为 TEXT，需以字符串形式查询。
+func (r *TwinRepo) ListCourseGrades(userID int64) ([]*CourseGrade, error) {
+	uidStr := strconv.FormatInt(userID, 10)
+	rows, err := r.db.Query(`
+		SELECT course_id, course_name, semester, score, gpa, rank, grade_level, passed, credits_earned
+		FROM student_grades WHERE user_id = ?
+		ORDER BY semester DESC, course_name ASC`, uidStr)
+	if err != nil {
+		return nil, fmt.Errorf("查询课程成绩失败: %w", err)
+	}
+	defer rows.Close()
+
+	var list []*CourseGrade
+	for rows.Next() {
+		g := &CourseGrade{}
+		var passed int
+		if err := rows.Scan(&g.CourseID, &g.CourseName, &g.Semester, &g.Score,
+			&g.GPA, &g.Rank, &g.GradeLevel, &passed, &g.Credits); err != nil {
+			return nil, err
+		}
+		g.Passed = passed == 1
+		list = append(list, g)
+	}
+	return list, rows.Err()
+}
+
 // ListSnapshotsByScope 按归属聚合快照（辅导员看板/学院大屏复用）
 func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className string, limit int) ([]*TwinSnapshot, error) {
 	query := `

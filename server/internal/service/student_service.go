@@ -21,6 +21,7 @@ type StudentService struct {
 	messageRepo *repository.MessageRepo
 	emotionRepo *repository.EmotionRepo
 	kbRepo      *repository.KBRepo
+	twinRepo    *repository.TwinRepo // 复用五维底座的成绩/班级基准查询，可为 nil（走兜底）
 	llmClient   llm.ChatClient
 }
 
@@ -31,6 +32,7 @@ func NewStudentService(
 	messageRepo *repository.MessageRepo,
 	emotionRepo *repository.EmotionRepo,
 	kbRepo *repository.KBRepo,
+	twinRepo *repository.TwinRepo,
 	llmClient llm.ChatClient,
 ) *StudentService {
 	return &StudentService{
@@ -39,6 +41,7 @@ func NewStudentService(
 		messageRepo: messageRepo,
 		emotionRepo: emotionRepo,
 		kbRepo:      kbRepo,
+		twinRepo:    twinRepo,
 		llmClient:   llmClient,
 	}
 }
@@ -599,19 +602,78 @@ func (s *StudentService) GenerateMentalHealthReport(ctx context.Context, userID 
 		DataSource: "fallback",
 	}
 
-	if s.llmClient != nil && s.emotionRepo != nil {
-		// 读取最近情感数据
-		_ = userName // 用于个性化
-		if s.llmClient != nil {
-			prompt := fmt.Sprintf("你是心理健康顾问。为%s生成简短的心理健康建议（50字）：保持规律作息，适当运动，积极社交。", userName)
-			resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-				Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-				Temperature: 0.5, MaxTokens: 200,
-			})
-			if err == nil && resp != nil && resp.Content != "" {
-				report.Suggestions = append(report.Suggestions, "AI个性化建议："+resp.Content)
-				report.DataSource = "ai"
+	// 读取本人最近情感分析记录，基于真实数据推断压力/情绪水平
+	if s.emotionRepo != nil {
+		logs, err := s.emotionRepo.ListRecentByUser(userID, 20)
+		if err == nil && len(logs) > 0 {
+			var sum float64
+			var high, urgent int
+			for _, l := range logs {
+				sum += l.Score
+				switch l.RiskLevel {
+				case "high":
+					high++
+				case "urgent":
+					urgent++
+				}
 			}
+			avg := sum / float64(len(logs))
+			// score 区间 -1.0~1.0：越低压力越大
+			switch {
+			case urgent > 0 || avg <= -0.5:
+				report.StressLevel = "偏高"
+				report.EmotionState = "近期情绪波动较大"
+				report.Resilience = "需关注"
+			case high > 0 || avg <= -0.2:
+				report.StressLevel = "中等偏上"
+				report.EmotionState = "存在一定压力"
+				report.Resilience = "尚可"
+			case avg >= 0.3:
+				report.StressLevel = "较低"
+				report.EmotionState = "情绪积极稳定"
+				report.Resilience = "较强"
+			default:
+				report.StressLevel = "中等"
+				report.EmotionState = "总体平稳"
+				report.Resilience = "较强"
+			}
+			report.DataSource = "real"
+
+			// 高风险时优先给出求助引导
+			if urgent > 0 || high > 0 {
+				report.Suggestions = append([]string{
+					"近期检测到情绪压力信号，建议尽快联系学校心理咨询中心或辅导员当面沟通",
+				}, report.Suggestions...)
+			}
+
+			// LLM 基于真实统计做个性化总结
+			if s.llmClient != nil {
+				prompt := fmt.Sprintf(
+					"你是心理健康顾问。学生%s近期%d条情绪记录平均情感分%.2f（-1~1，越低压力越大），高风险%d条、紧急%d条。请用50字内给出温暖、可执行的建议，勿诊断、勿夸大。",
+					userName, len(logs), avg, high, urgent,
+				)
+				resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+					Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+					Temperature: 0.5, MaxTokens: 200,
+				})
+				if err == nil && resp != nil && resp.Content != "" {
+					report.Suggestions = append(report.Suggestions, "AI个性化建议："+resp.Content)
+				}
+			}
+			return report
+		}
+	}
+
+	// 无情感记录：给通用 LLM 文案（保持原兜底行为）
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("你是心理健康顾问。为%s生成简短的心理健康建议（50字）：保持规律作息，适当运动，积极社交。", userName)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.5, MaxTokens: 200,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			report.Suggestions = append(report.Suggestions, "AI个性化建议："+resp.Content)
+			report.DataSource = "ai"
 		}
 	}
 
@@ -803,31 +865,7 @@ func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, u
 	return kb, steps, card, nil
 }
 
-// GrowthPath 成长路径规划
-type GrowthPath struct {
-	CurrentSemester string                   `json:"current_semester"`
-	Milestones      []map[string]interface{} `json:"milestones"`
-	Suggestions     []string                 `json:"suggestions"`
-	DataSource      string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateGrowthPath(ctx context.Context, userID int64) *GrowthPath {
-	return &GrowthPath{
-		CurrentSemester: "大二下学期",
-		Milestones: []map[string]interface{}{
-			{"semester": "大二下", "goal": "数据结构与算法达到竞赛水平", "action": "每日刷2道LeetCode"},
-			{"semester": "大三上", "goal": "完成1个完整项目", "action": "参与开源项目或校内实验室"},
-			{"semester": "大三下", "goal": "获得实习offer", "action": "准备简历和面试，参加春招"},
-			{"semester": "大四上", "goal": "明确职业方向", "action": "参加秋招，争取大厂offer"},
-		},
-		Suggestions: []string{
-			"本学期重点提升算法能力，准备蓝桥杯/ACM竞赛",
-			"暑假建议参加实习或实验室项目",
-			"大三应确定考研还是就业方向",
-		},
-		DataSource: "mock",
-	}
-}
+// 注：成长路径已升级为真实五维数据版 GenerateGrowthPath（见下方 S1 功能7 实现，返回 *GrowthPathResult）
 
 // ─── P2 专业知识图谱 + 笔记助手 + 简历生成 ───
 
@@ -1058,6 +1096,39 @@ type QAPlazaData struct {
 }
 
 func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
+	// 优先用真实已发布 FAQ 资源作为问答广场热门问题（结构化优先，可追溯）
+	if s.kbRepo != nil {
+		faqs, err := s.kbRepo.List("", "", "published", "FAQ", 0, 8)
+		if err == nil && len(faqs) > 0 {
+			hot := make([]map[string]interface{}, 0, len(faqs))
+			for _, f := range faqs {
+				ans := f.Summary
+				if strings.TrimSpace(ans) == "" {
+					ans = f.Content
+				}
+				if len([]rune(ans)) > 120 {
+					ans = string([]rune(ans)[:120]) + "…"
+				}
+				hot = append(hot, map[string]interface{}{
+					"id":          f.ResourceID,
+					"title":       f.Title,
+					"author":      "知识库",
+					"answers":     1,
+					"views":       0,
+					"ai_answer":   ans,
+					"tags":        parseTags(f.Tags),
+					"source_link": f.SourceLink,
+				})
+			}
+			return &QAPlazaData{
+				HotQuestions: hot,
+				Categories:   []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
+				MyPosts:      0, MyAnswers: 0,
+				DataSource: "real",
+			}
+		}
+	}
+	// 兜底：知识库暂无已发布 FAQ 时返回示例数据，保证前端可用
 	return &QAPlazaData{
 		HotQuestions: []map[string]interface{}{
 			{"id": "1", "title": "转专业需要什么条件？", "author": "匿名同学", "answers": 5, "views": 128, "ai_answer": "转专业一般需要：1.大一第一学期结束后申请 2.绩点达到3.0以上 3.通过目标专业考核", "tags": []string{"政策", "学业"}},
@@ -1066,8 +1137,21 @@ func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
 		},
 		Categories: []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
 		MyPosts:    2, MyAnswers: 5,
-		DataSource: "mock",
+		DataSource: "fallback",
 	}
+}
+
+// parseTags 解析 KB 资源的 tags（JSON 数组字符串）为字符串切片；解析失败返回空切片
+func parseTags(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return []string{}
+	}
+	var tags []string
+	if err := json.Unmarshal([]byte(raw), &tags); err != nil {
+		return []string{}
+	}
+	return tags
 }
 
 // HotTopicsData 热点关注
@@ -1078,6 +1162,46 @@ type HotTopicsData struct {
 }
 
 func (s *StudentService) GenerateHotTopics(ctx context.Context) *HotTopicsData {
+	// 优先用最近已发布的 Activity 资源作为校园热点（按 List 默认 updated_at 倒序取前若干）
+	if s.kbRepo != nil {
+		acts, err := s.kbRepo.List("", "", "published", "Activity", 0, 6)
+		if err == nil && len(acts) > 0 {
+			topics := make([]map[string]interface{}, 0, len(acts))
+			// 热度按新近程度递减模拟（首条最热），趋势首两条 rising 其余 stable
+			heat := 95
+			for i, a := range acts {
+				summary := a.Summary
+				if strings.TrimSpace(summary) == "" {
+					summary = a.Title
+				}
+				if len([]rune(summary)) > 60 {
+					summary = string([]rune(summary)[:60]) + "…"
+				}
+				trend := "stable"
+				if i < 2 {
+					trend = "rising"
+				}
+				topics = append(topics, map[string]interface{}{
+					"id":          a.ResourceID,
+					"title":       a.Title,
+					"heat":        heat,
+					"trend":       trend,
+					"summary":     summary,
+					"source_link": a.SourceLink,
+				})
+				heat -= 10
+				if heat < 40 {
+					heat = 40
+				}
+			}
+			return &HotTopicsData{
+				Topics:     topics,
+				UpdatedAt:  time.Now().Format("2006-01-02 15:04"),
+				DataSource: "real",
+			}
+		}
+	}
+	// 兜底：知识库暂无已发布 Activity 时返回示例数据
 	return &HotTopicsData{
 		Topics: []map[string]interface{}{
 			{"id": "1", "title": "期中考试安排", "heat": 95, "trend": "rising", "posts": 23, "summary": "本学期期中考试集中在第10-11周"},
@@ -1086,7 +1210,7 @@ func (s *StudentService) GenerateHotTopics(ctx context.Context) *HotTopicsData {
 			{"id": "4", "title": "社团招新", "heat": 55, "trend": "falling", "posts": 8, "summary": "本学期第二轮社团招新已结束"},
 		},
 		UpdatedAt:  time.Now().Format("2006-01-02 15:04"),
-		DataSource: "mock",
+		DataSource: "fallback",
 	}
 }
 
@@ -1266,4 +1390,246 @@ func (s *StudentService) GenerateEnhancedCareerSimulation(ctx context.Context, c
 	}
 
 	return data
+}
+
+// ── 课程学情看板（S1 功能5）──
+
+// CourseAnalyticsItem 单门课程学情
+type CourseAnalyticsItem struct {
+	CourseName     string  `json:"course_name"`
+	Semester       string  `json:"semester"`
+	Score          float64 `json:"score"`
+	GPA            float64 `json:"gpa"`
+	GradeLevel     string  `json:"grade_level"`
+	Credits        float64 `json:"credits"`
+	Passed         bool    `json:"passed"`
+	RankPercentile int     `json:"rank_percentile"` // 班级匿名百分位（越小越靠前，0=未知）
+}
+
+// CourseAnalyticsResult 课程学情看板结果
+type CourseAnalyticsResult struct {
+	UserDisplayName string                 `json:"user_display_name"`
+	ClassName       string                 `json:"class_name"`
+	OverallGPA      float64                `json:"overall_gpa"`
+	ClassAvgGPA     float64                `json:"class_avg_gpa"`
+	ClassSize       int                    `json:"class_size"`
+	CreditsEarned   float64                `json:"credits_earned"`
+	Courses         []*CourseAnalyticsItem `json:"courses"`
+	WeakCourses     []string               `json:"weak_courses"` // 未通过或分数偏低的课程
+	Advice          string                 `json:"advice"`       // LLM 个性化学业建议
+	DataSource      string                 `json:"data_source"`  // real/fallback
+}
+
+// GenerateCourseAnalytics 生成课程学情看板（真实成绩 + 班级匿名基准 + LLM 薄弱点建议）
+// 无成绩数据时返回 (nil, nil)，由 handler 回落 mock。
+func (s *StudentService) GenerateCourseAnalytics(ctx context.Context, userID int64) (*CourseAnalyticsResult, error) {
+	if s.twinRepo == nil || s.userRepo == nil {
+		return nil, nil
+	}
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, nil
+	}
+	grades, err := s.twinRepo.ListCourseGrades(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(grades) == 0 {
+		return nil, nil // 无真实成绩，交由 handler 兜底
+	}
+
+	basis, _ := s.twinRepo.GetClassBasis(user.ClassName)
+
+	res := &CourseAnalyticsResult{
+		UserDisplayName: user.DisplayName,
+		ClassName:       user.ClassName,
+		Courses:         make([]*CourseAnalyticsItem, 0, len(grades)),
+		WeakCourses:     []string{},
+		DataSource:      "real",
+	}
+	if basis != nil {
+		res.ClassAvgGPA = basis.ClassAvgGPA
+		res.ClassSize = basis.ClassSize
+	}
+
+	var gpaSum float64
+	for _, g := range grades {
+		item := &CourseAnalyticsItem{
+			CourseName: g.CourseName,
+			Semester:   g.Semester,
+			Score:      g.Score,
+			GPA:        g.GPA,
+			GradeLevel: g.GradeLevel,
+			Credits:    g.Credits,
+			Passed:     g.Passed,
+		}
+		res.Courses = append(res.Courses, item)
+		gpaSum += g.GPA
+		if g.Passed {
+			res.CreditsEarned += g.Credits
+		}
+		// 薄弱课程：未通过或分数 < 70
+		if !g.Passed || g.Score < 70 {
+			res.WeakCourses = append(res.WeakCourses, g.CourseName)
+		}
+	}
+	if len(grades) > 0 {
+		res.OverallGPA = gpaSum / float64(len(grades))
+	}
+
+	// LLM 生成薄弱点学业建议（失败不阻断，返回无 Advice 的真实数据）
+	res.Advice = s.buildCourseAdvice(ctx, res)
+	return res, nil
+}
+
+// ── 成长路径（S1 功能7）──
+
+// GrowthMilestone 成长路径里程碑
+type GrowthMilestone struct {
+	Stage   string   `json:"stage"`   // 阶段名（如「本学期」「大三上」）
+	Focus   string   `json:"focus"`   // 重点方向
+	Actions []string `json:"actions"` // 关键行动
+	Done    bool     `json:"done"`    // 是否已达成
+}
+
+// GrowthPathResult 成长路径结果
+type GrowthPathResult struct {
+	UserDisplayName string             `json:"user_display_name"`
+	CurrentStage    string             `json:"current_stage"`    // 当前学业阶段
+	AcademicScore   float64            `json:"academic_score"`   // 五维·学业
+	AbilityScore    float64            `json:"ability_score"`    // 五维·能力
+	StrongestDim    string             `json:"strongest_dim"`    // 最强维度
+	WeakestDim      string             `json:"weakest_dim"`      // 最弱维度
+	Milestones      []*GrowthMilestone `json:"milestones"`       // 分阶段路线图
+	Summary         string             `json:"summary"`          // LLM 个性化总结
+	DataSource      string             `json:"data_source"`      // real/fallback
+}
+
+// GenerateGrowthPath 生成成长路径（基于数字孪生五维快照 + 学业阶段 → 分阶段里程碑 + LLM 总结）
+// 无快照数据时返回 (nil, nil)，由 handler 回落通用 AI 文案。
+func (s *StudentService) GenerateGrowthPath(ctx context.Context, userID int64) (*GrowthPathResult, error) {
+	if s.twinRepo == nil || s.userRepo == nil {
+		return nil, nil
+	}
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, nil
+	}
+	snap, err := s.twinRepo.GetSnapshot(userID)
+	if err != nil {
+		return nil, err
+	}
+	if snap == nil {
+		return nil, nil // 无孪生快照，交 handler 兜底（可先访问 /student/digital-twin 生成）
+	}
+
+	// 找最强/最弱维度
+	dims := map[string]float64{
+		"学业": snap.AcademicScore, "能力": snap.AbilityScore, "思想": snap.IdeologicalScore,
+		"情感": snap.EmotionalScore, "社交": snap.SocialScore,
+	}
+	strongest, weakest := "学业", "学业"
+	for k, v := range dims {
+		if v > dims[strongest] {
+			strongest = k
+		}
+		if v < dims[weakest] {
+			weakest = k
+		}
+	}
+
+	res := &GrowthPathResult{
+		UserDisplayName: user.DisplayName,
+		CurrentStage:    inferAcademicStage(user.EnrollmentYear),
+		AcademicScore:   snap.AcademicScore,
+		AbilityScore:    snap.AbilityScore,
+		StrongestDim:    strongest,
+		WeakestDim:      weakest,
+		DataSource:      "real",
+	}
+	res.Milestones = buildGrowthMilestones(weakest)
+	res.Summary = s.buildGrowthSummary(ctx, user.DisplayName, res, weakest)
+	return res, nil
+}
+
+// inferAcademicStage 根据入学年份推断当前学业阶段（简化：按自然年差）
+func inferAcademicStage(enrollmentYear string) string {
+	if enrollmentYear == "" {
+		return "在读阶段"
+	}
+	stages := []string{"大一", "大二", "大三", "大四"}
+	yr := time.Now().Year()
+	var ey int
+	fmt.Sscanf(enrollmentYear, "%d", &ey)
+	if ey == 0 {
+		return "在读阶段"
+	}
+	idx := yr - ey
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(stages) {
+		return "毕业年级"
+	}
+	return stages[idx]
+}
+
+// buildGrowthMilestones 依据最弱维度给出分阶段路线图（规则模板，稳定可兜底）
+func buildGrowthMilestones(weakest string) []*GrowthMilestone {
+	base := []*GrowthMilestone{
+		{Stage: "本学期", Focus: "夯实基础", Actions: []string{"稳定核心课程成绩", "确定一个能力提升方向"}, Done: false},
+		{Stage: "下学期", Focus: "能力拓展", Actions: []string{"参加一项竞赛或项目", "积累实践/志愿经历"}, Done: false},
+		{Stage: "长期", Focus: "目标冲刺", Actions: []string{"锁定升学或就业目标", "补齐关键短板"}, Done: false},
+	}
+	switch weakest {
+	case "能力":
+		base[0].Actions = append(base[0].Actions, "报名一项学科竞赛")
+	case "思想":
+		base[0].Actions = append(base[0].Actions, "参与思政学习与志愿服务")
+	case "情感":
+		base[0].Actions = append(base[0].Actions, "关注作息与心理调适，善用心理陪伴")
+	case "社交":
+		base[0].Actions = append(base[0].Actions, "加入一个社团或团队协作项目")
+	}
+	return base
+}
+
+// buildGrowthSummary 用真实五维数据生成个性化成长总结；LLM 不可用时规则兜底
+func (s *StudentService) buildGrowthSummary(ctx context.Context, name string, res *GrowthPathResult, weakest string) string {
+	fallback := fmt.Sprintf("%s当前处于%s，最强项是%s，建议本阶段重点补齐%s维度。", name, res.CurrentStage, res.StrongestDim, weakest)
+	if s.llmClient == nil {
+		return fallback
+	}
+	prompt := fmt.Sprintf(
+		"你是成长规划师。学生%s当前%s，五维画像中最强为%s、最弱为%s（学业分%.0f、能力分%.0f）。请给出约90字的成长路径建议，聚焦补齐短板、鼓励语气。",
+		name, res.CurrentStage, res.StrongestDim, weakest, res.AcademicScore, res.AbilityScore)
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+		Temperature: 0.6, MaxTokens: 350,
+	})
+	if err == nil && resp != nil && strings.TrimSpace(resp.Content) != "" {
+		return strings.TrimSpace(resp.Content)
+	}
+	return fallback
+}
+
+// buildCourseAdvice 基于薄弱课程生成个性化学业建议；LLM 不可用时给规则兜底文案
+func (s *StudentService) buildCourseAdvice(ctx context.Context, res *CourseAnalyticsResult) string {
+	if len(res.WeakCourses) == 0 {
+		return "各科成绩稳定，继续保持。可尝试挑战竞赛或选修拓展课程。"
+	}
+	if s.llmClient == nil {
+		return fmt.Sprintf("重点关注薄弱课程：%s。建议制定复习计划、多做真题并及时向任课教师答疑。", strings.Join(res.WeakCourses, "、"))
+	}
+	prompt := fmt.Sprintf(
+		"你是学业辅导老师。一名学生当前均绩 %.2f（班级平均 %.2f），薄弱课程为：%s。请给出约80字的针对性提升建议，语气鼓励。",
+		res.OverallGPA, res.ClassAvgGPA, strings.Join(res.WeakCourses, "、"))
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+		Temperature: 0.5, MaxTokens: 300,
+	})
+	if err == nil && resp != nil && strings.TrimSpace(resp.Content) != "" {
+		return strings.TrimSpace(resp.Content)
+	}
+	return fmt.Sprintf("重点关注薄弱课程：%s。建议制定复习计划、多做真题并及时向任课教师答疑。", strings.Join(res.WeakCourses, "、"))
 }

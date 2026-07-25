@@ -220,7 +220,7 @@ class _HomePageState extends State<HomePage> {
               _buildStudentHomeContent(theme),
               const SizedBox(height: 20),
             ],
-            // 非学生角色或学生角色的通用部分
+            // 非学生角色或未登录：显示日期时间 + 告警概览
             if (!isStudent || !loggedIn) ...[
               // 日期时间 + 校历入口
               const DateTimeBanner(),
@@ -230,26 +230,26 @@ class _HomePageState extends State<HomePage> {
                 _buildAlertOverview(theme),
                 const SizedBox(height: 20),
               ],
-              // 所有角色：知识入口
-              _buildKnowledgeEntry(theme),
+            ],
+            // 所有角色：知识入口
+            _buildKnowledgeEntry(theme),
+            const SizedBox(height: 20),
+            // 所有角色：校园服务
+            _buildCampusService(theme),
+            const SizedBox(height: 20),
+            // 学生专区（student/student_union）
+            if (isStudent) ...[
+              _buildStudentFeatures(theme),
               const SizedBox(height: 20),
-              // 所有角色：校园服务
-              _buildCampusService(theme),
+              _buildEducationFeatures(theme),
               const SizedBox(height: 20),
-              // 学生专区（student/student_union）
-              if (isStudent) ...[
-                _buildStudentFeatures(theme),
-                const SizedBox(height: 20),
-                _buildEducationFeatures(theme),
-                const SizedBox(height: 20),
-              ],
-              // 管理专区（college_admin+）
-              if (role == 'college_admin' ||
-                  role == 'school_admin' ||
-                  role == 'sys_admin') ...[
-                _buildAdminFeatures(theme),
-                const SizedBox(height: 20),
-              ],
+            ],
+            // 管理专区（college_admin+）
+            if (role == 'college_admin' ||
+                role == 'school_admin' ||
+                role == 'sys_admin') ...[
+              _buildAdminFeatures(theme),
+              const SizedBox(height: 20),
             ],
             // 最近对话
             if (loggedIn) _buildRecentSessions(theme),

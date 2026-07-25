@@ -227,3 +227,35 @@ func (r *EmotionRepo) UpdateStatus(alertID string, status string, acknowledgedBy
 	}
 	return nil
 }
+
+// ListRecentByUser 读取某用户最近 N 条情感分析记录（按时间倒序），供个人心理健康报告使用。
+// 仅返回该用户本人的数据，天然限定在 user_id，无越权风险。
+func (r *EmotionRepo) ListRecentByUser(userID int64, limit int) ([]*model.EmotionLog, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := r.db.Query(
+		`SELECT id, user_id, username, session_id, alert_id, message_text,
+		        score, risk_level, analysis_json, notified, status,
+		        acknowledged_by, acknowledged_at, created_at
+		 FROM emotion_logs WHERE user_id = ?
+		 ORDER BY created_at DESC LIMIT ?`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户情感记录失败: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []*model.EmotionLog
+	for rows.Next() {
+		l := &model.EmotionLog{}
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.SessionID, &l.AlertID,
+			&l.MessageText, &l.Score, &l.RiskLevel, &l.AnalysisJSON, &l.Notified,
+			&l.Status, &l.AcknowledgedBy, &l.AcknowledgedAt, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
+}

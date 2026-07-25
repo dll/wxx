@@ -122,6 +122,20 @@ func (h *StudentHandler) CheckinHistory(c *gin.Context) {
 }
 
 // DigitalTwin 数字孪生
+// GrowthPath 成长路径（S1 功能7）：优先真实五维快照分阶段路线图，失败回落通用 AI 文案
+func (h *StudentHandler) GrowthPath(c *gin.Context) {
+	if h.svc != nil {
+		if userCtx := middleware.GetUserContext(c); userCtx != nil {
+			if result, err := h.svc.GenerateGrowthPath(c.Request.Context(), userCtx.UserID); err == nil && result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+	// 兜底：无孪生快照时走通用 LLM 文案（与原 GenericAI 一致，保证前端可用）
+	h.GenericAI("growth-path")(c)
+}
+
 func (h *StudentHandler) DigitalTwin(c *gin.Context) {
 	// 优先走真实五维聚合服务（S1.1 数字孪生数据底座）
 	if h.twinSvc != nil {
@@ -208,9 +222,9 @@ func (h *StudentHandler) CourseAnalytics(c *gin.Context) {
 	if h.svc != nil {
 		userCtx := middleware.GetUserContext(c)
 		if userCtx != nil {
-			warning := h.svc.GenerateAcademicWarning(c.Request.Context(), userCtx.UserID)
-			if warning != nil {
-				c.JSON(http.StatusOK, warning)
+			// 优先真实课程学情看板（成绩 + 班级匿名基准 + LLM 建议）
+			if result, err := h.svc.GenerateCourseAnalytics(c.Request.Context(), userCtx.UserID); err == nil && result != nil {
+				c.JSON(http.StatusOK, result)
 				return
 			}
 		}
