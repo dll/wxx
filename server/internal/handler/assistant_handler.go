@@ -128,3 +128,105 @@ func (h *AssistantHandler) StudentInfoQuery(c *gin.Context) {
 		"data_source": "fallback",
 	})
 }
+
+// ======================== P2 补充功能 ========================
+
+// MaterialTemplates AI 材料模板库
+func (h *AssistantHandler) MaterialTemplates(c *gin.Context) {
+	category := c.Query("category")
+	if h.svc != nil {
+		data := h.svc.GetMaterialTemplates(c.Request.Context(), category)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"templates":   []gin.H{{"name": "请假申请表", "category": "学生事务"}},
+		"data_source": "fallback",
+	})
+}
+
+// DocProcess AI 文档智能处理
+func (h *AssistantHandler) DocProcess(c *gin.Context) {
+	fileName := c.Query("file_name")
+	fileType := c.Query("file_type")
+	if h.svc != nil {
+		data := h.svc.ProcessDocument(c.Request.Context(), fileName, fileType)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"file_name":   fileName,
+		"summary":     "文档处理中",
+		"data_source": "fallback",
+	})
+}
+
+// WorkflowAutomation AI 流程自动化
+func (h *AssistantHandler) WorkflowAutomation(c *gin.Context) {
+	workflowType := c.Query("type")
+	if h.svc != nil {
+		data := h.svc.AutomateWorkflow(c.Request.Context(), workflowType)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"workflow": workflowType,
+		"status":  "pending",
+		"data_source": "fallback",
+	})
+}
+
+// ProcessStepsManage 流程步骤详情管理
+func (h *AssistantHandler) ProcessStepsManage(c *gin.Context) {
+	processID := c.Query("process_id")
+	if h.svc != nil {
+		data := h.svc.ManageProcessSteps(c.Request.Context(), processID)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"process_id": processID,
+		"steps":      []gin.H{},
+		"data_source": "fallback",
+	})
+}
+
+// MusicRadio 音乐电台
+func (h *AssistantHandler) MusicRadio(c *gin.Context) {
+	category := c.Query("category")
+	if h.svc != nil {
+		data := h.svc.GetMusicRadio(c.Request.Context(), category)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"now_playing": gin.H{"title": "Canon in D", "artist": "Pachelbel"},
+		"data_source": "fallback",
+	})
+}
+
+// ActivityRegister 校园活动报名
+func (h *AssistantHandler) ActivityRegister(c *gin.Context) {
+	status := c.Query("status")
+	if h.svc != nil {
+		data := h.svc.GetActivityRegister(c.Request.Context(), status)
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"activities":  []gin.H{},
+		"data_source": "fallback",
+	})
+}

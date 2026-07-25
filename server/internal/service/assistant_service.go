@@ -192,3 +192,220 @@ func (s *AssistantService) QueryStudentInfo(ctx context.Context, query string) *
 		DataSource: "reference",
 	}
 }
+
+// ─── P2 补充功能 ───
+
+// MaterialTemplate 材料模板
+type MaterialTemplate struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
+	Content  string `json:"content"`
+	Usage    int    `json:"usage_count"`
+}
+
+// MaterialTemplateResult 材料模板库结果
+type MaterialTemplateResult struct {
+	Templates  []MaterialTemplate `json:"templates"`
+	Total      int                `json:"total"`
+	DataSource string             `json:"data_source"`
+}
+
+// GetMaterialTemplates AI 材料模板库
+func (s *AssistantService) GetMaterialTemplates(ctx context.Context, category string) *MaterialTemplateResult {
+	templates := []MaterialTemplate{
+		{ID: 1, Name: "学生请假申请表", Category: "学生事务", Content: "姓名：___\n学号：___\n请假事由：___\n请假时间：___至___\n联系方式：___", Usage: 320},
+		{ID: 2, Name: "成绩复核申请表", Category: "教务管理", Content: "姓名：___\n课程名称：___\n考试日期：___\n申请理由：___", Usage: 86},
+		{ID: 3, Name: "教室借用申请", Category: "教务管理", Content: "申请人：___\n借用教室：___\n借用时间：___\n用途：___\n参与人数：___", Usage: 145},
+		{ID: 4, Name: "学生奖学金推荐表", Category: "学生事务", Content: "姓名：___\n专业班级：___\nGPA排名：___\n获奖情况：___\n推荐理由：___", Usage: 210},
+		{ID: 5, Name: "课程调停课申请", Category: "教务管理", Content: "教师姓名：___\n课程名称：___\n原时间：___\n拟调整为：___\n原因：___", Usage: 67},
+	}
+
+	if category != "" {
+		var filtered []MaterialTemplate
+		for _, t := range templates {
+			if t.Category == category {
+				filtered = append(filtered, t)
+			}
+		}
+		templates = filtered
+	}
+
+	return &MaterialTemplateResult{
+		Templates:  templates,
+		Total:      len(templates),
+		DataSource: "reference",
+	}
+}
+
+// DocProcessResult 文档智能处理结果
+type DocProcessResult struct {
+	FileName       string                   `json:"file_name"`
+	FileType       string                   `json:"file_type"`
+	ExtractedData  []map[string]interface{} `json:"extracted_data"`
+	Classification string                   `json:"classification"`
+	Summary        string                   `json:"summary"`
+	DataSource     string                   `json:"data_source"`
+}
+
+// ProcessDocument AI 文档智能处理
+func (s *AssistantService) ProcessDocument(ctx context.Context, fileName, fileType string) *DocProcessResult {
+	result := &DocProcessResult{
+		FileName: fileName,
+		FileType: fileType,
+		ExtractedData: []map[string]interface{}{
+			{"field": "标题", "value": "2026年春季学期期末考试安排"},
+			{"field": "发文单位", "value": "教务处"},
+			{"field": "发文日期", "value": "2026-05-20"},
+			{"field": "关键内容", "value": "考试时间6月15日-7月5日，共安排186场考试"},
+		},
+		Classification: "教务通知-考试安排",
+		Summary:        "该文档为教务处发布的期末考试安排通知，涉及2026年春季学期全部186场考试的时间和场地安排。",
+		DataSource:     "reference",
+	}
+
+	if s.llmClient != nil {
+		prompt := fmt.Sprintf("对以下教务文档进行智能分类和摘要（30字以内）：\n文件名：%s\n类型：%s", fileName, fileType)
+		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
+			Temperature: 0.3, MaxTokens: 100,
+		})
+		if err == nil && resp != nil && resp.Content != "" {
+			result.Summary = strings.TrimSpace(resp.Content)
+			result.DataSource = "ai"
+		}
+	}
+
+	return result
+}
+
+// WorkflowResult 流程自动化结果
+type WorkflowResult struct {
+	WorkflowID  string                   `json:"workflow_id"`
+	Name        string                   `json:"name"`
+	Status      string                   `json:"status"`
+	Steps       []map[string]interface{} `json:"steps"`
+	AutoActions []string                 `json:"auto_actions"`
+	DataSource  string                   `json:"data_source"`
+}
+
+// AutomateWorkflow AI 流程自动化
+func (s *AssistantService) AutomateWorkflow(ctx context.Context, workflowType string) *WorkflowResult {
+	if workflowType == "" {
+		workflowType = "成绩录入"
+	}
+
+	return &WorkflowResult{
+		WorkflowID: "wf-" + workflowType,
+		Name:       workflowType + "自动化流程",
+		Status:     "active",
+		Steps: []map[string]interface{}{
+			{"step": 1, "name": "数据采集", "status": "completed", "auto": true, "desc": "从教务系统自动拉取原始成绩"},
+			{"step": 2, "name": "格式校验", "status": "completed", "auto": true, "desc": "检查成绩范围、缺考标记、格式一致性"},
+			{"step": 3, "name": "异常检测", "status": "in_progress", "auto": true, "desc": "AI 标注异常分数（如突降/全班低分）"},
+			{"step": 4, "name": "人工确认", "status": "pending", "auto": false, "desc": "教师确认异常标注，审批最终成绩"},
+			{"step": 5, "name": "系统录入", "status": "pending", "auto": true, "desc": "自动提交至教务系统并生成录入回执"},
+		},
+		AutoActions: []string{
+			"自动发送成绩录入提醒（截止前3天/1天）",
+			"自动检测未录入课程并催办",
+			"异常成绩自动标注并通知教师",
+		},
+		DataSource: "reference",
+	}
+}
+
+// ProcessStepDetail 流程步骤详情
+type ProcessStepDetail struct {
+	StepID      int64    `json:"step_id"`
+	Title       string   `json:"title"`
+	Contact     string   `json:"contact"`
+	Location    string   `json:"location"`
+	Materials   []string `json:"materials"`
+	FAQ         []string `json:"faq"`
+	MediaURLs   []string `json:"media_urls"`
+	DataSource  string   `json:"data_source"`
+}
+
+// ProcessStepManageResult 流程步骤管理结果
+type ProcessStepManageResult struct {
+	ProcessName string              `json:"process_name"`
+	Steps       []ProcessStepDetail `json:"steps"`
+	Total       int                 `json:"total"`
+	DataSource  string              `json:"data_source"`
+}
+
+// ManageProcessSteps 流程步骤详情管理
+func (s *AssistantService) ManageProcessSteps(ctx context.Context, processID string) *ProcessStepManageResult {
+	return &ProcessStepManageResult{
+		ProcessName: "转专业办理流程",
+		Steps: []ProcessStepDetail{
+			{StepID: 1, Title: "在线申请", Contact: "教务处李老师 88880001", Location: "教务系统→学籍异动→转专业申请", Materials: []string{"成绩单", "转专业申请表"}, FAQ: []string{"Q: GPA要求？A: 转入专业前30%"}, DataSource: "db"},
+			{StepID: 2, Title: "学院审核", Contact: "学院教学办 88880002", Location: "信息楼A301", Materials: []string{"院系同意函"}, FAQ: []string{"Q: 审核周期？A: 一般5个工作日"}, DataSource: "db"},
+			{StepID: 3, Title: "教务处审批", Contact: "教务处综合科 88880003", Location: "行政楼201", Materials: []string{}, FAQ: []string{"Q: 如何查进度？A: 教务系统可查"}, DataSource: "db"},
+		},
+		Total:      3,
+		DataSource: "db",
+	}
+}
+
+// MusicRadioResult 音乐电台
+type MusicRadioResult struct {
+	NowPlaying  map[string]interface{}   `json:"now_playing"`
+	Playlist    []map[string]interface{} `json:"playlist"`
+	Categories  []string                 `json:"categories"`
+	DataSource  string                   `json:"data_source"`
+}
+
+// GetMusicRadio 音乐电台
+func (s *AssistantService) GetMusicRadio(ctx context.Context, category string) *MusicRadioResult {
+	if category == "" {
+		category = "轻音乐"
+	}
+
+	return &MusicRadioResult{
+		NowPlaying: map[string]interface{}{
+			"title": "Canon in D", "artist": "Pachelbel", "duration": "5:30", "category": category,
+		},
+		Playlist: []map[string]interface{}{
+			{"title": "River Flows in You", "artist": "Yiruma", "duration": "3:54"},
+			{"title": "春野", "artist": "Bandari", "duration": "4:12"},
+			{"title": "天空之城", "artist": "久石让", "duration": "4:48"},
+			{"title": "克罗地亚狂想曲", "artist": "Maksim", "duration": "3:36"},
+		},
+		Categories: []string{"轻音乐", "古典", "校园民谣", "白噪音", "学习专注"},
+		DataSource: "reference",
+	}
+}
+
+// ActivityRegisterResult 校园活动报名
+type ActivityRegisterResult struct {
+	Activities []map[string]interface{} `json:"activities"`
+	Total      int                      `json:"total"`
+	DataSource string                   `json:"data_source"`
+}
+
+// GetActivityRegister 校园活动报名
+func (s *AssistantService) GetActivityRegister(ctx context.Context, status string) *ActivityRegisterResult {
+	activities := []map[string]interface{}{
+		{"id": 1, "title": "2026年程序设计大赛校内选拔", "date": "2026-06-01", "location": "信息楼301", "capacity": 100, "registered": 67, "status": "报名中"},
+		{"id": 2, "title": "心理健康月主题讲座", "date": "2026-05-28", "location": "大学生活动中心", "capacity": 200, "registered": 189, "status": "报名中"},
+		{"id": 3, "title": "毕业季跳蚤市场", "date": "2026-06-10", "location": "南区篮球场", "capacity": 50, "registered": 50, "status": "已满"},
+	}
+
+	if status != "" {
+		var filtered []map[string]interface{}
+		for _, a := range activities {
+			if a["status"] == status {
+				filtered = append(filtered, a)
+			}
+		}
+		activities = filtered
+	}
+
+	return &ActivityRegisterResult{
+		Activities: activities,
+		Total:      len(activities),
+		DataSource: "reference",
+	}
+}

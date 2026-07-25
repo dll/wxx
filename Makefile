@@ -139,11 +139,15 @@ all-apk-safe: flutter-build-apk-safe
 test-all: test flutter-test
 
 # ---- 评测与压测 ----
-.PHONY: test-eval stress
+.PHONY: test-eval stress quality-gate
 
 test-eval:
 	@echo "运行问答质量评测（需要 -token 参数）..."
 	cd server && go run -tags fts5 cmd/eval/main.go -baseline ../specs/eval-baseline.ndjson -token $(TOKEN)
+
+quality-gate:
+	@echo "运行质量门禁检查..."
+	go run ./server/cmd/gate -report $(or $(REPORT),eval-result.json)
 
 stress:
 	@echo "运行压测（默认 50 并发）..."

@@ -138,3 +138,20 @@ func (h *CollegeHandler) CollegeReport(c *gin.Context) {
 		"data_source": "fallback",
 	})
 }
+
+// ProcessStepEdit 流程步骤编辑（学院范围）
+func (h *CollegeHandler) ProcessStepEdit(c *gin.Context) {
+	processID := c.Query("process_id")
+	if h.svc != nil {
+		data := h.svc.ManageProcessSteps(c.Request.Context(), processID, collegeOwnerID(c))
+		if data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"process_id": processID,
+		"steps":      []gin.H{},
+		"data_source": "fallback",
+	})
+}

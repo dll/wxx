@@ -156,17 +156,40 @@ func (c *Config) IsRelease() bool {
 	return c.AppMode == "release"
 }
 
-// Validate 集中做配置校验，返回第一个遇到的错误
+// Validate 集中做配置校验，返回第一个遇到的错误（A-09 增强版）
 func (c *Config) Validate() error {
+	// ── JWT 安全 ──
 	if c.JWTSecret == "" {
 		return fmt.Errorf("JWT_SECRET 不能为空")
 	}
-	if c.JWTSecret == defaultJWTSecret {
+	if c.IsRelease() && c.JWTSecret == defaultJWTSecret {
 		return fmt.Errorf("JWT_SECRET 使用了默认值，生产环境必须配置为自定义强密钥")
 	}
-	if len(c.JWTSecret) < 32 {
+	if c.IsRelease() && len(c.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET 长度不足 32 位（当前 %d 位），生产环境密钥至少需要 32 字符", len(c.JWTSecret))
 	}
+
+	// ── 端口合法性 ──
+	port, err := strconv.Atoi(c.AppPort)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("APP_PORT 不合法（当前值 %q），需为 1~65535 的整数", c.AppPort)
+	}
+
+	// ── 至少配置一个 LLM API Key ──
+	if c.ZhipuAPIKey == "" && c.DeepSeekAPIKey == "" && c.XfyunAPIKey == "" {
+		return fmt.Errorf("至少需要配置一个 LLM API Key（ZHIPU_API_KEY / DEEPSEEK_API_KEY / XFYUN_API_KEY）")
+	}
+
+	// ── SQLite 路径 ──
+	if c.SQLitePath == "" {
+		return fmt.Errorf("DB_PATH / SQLITE_PATH 不能为空")
+	}
+
+	// ── AppMode 枚举 ──
+	if c.AppMode != "debug" && c.AppMode != "release" && c.AppMode != "test" {
+		return fmt.Errorf("APP_MODE 需为 debug / release / test（当前值 %q）", c.AppMode)
+	}
+
 	return nil
 }
 

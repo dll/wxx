@@ -292,3 +292,33 @@ func (s *CollegeService) GenerateCollegeReport(ctx context.Context, period strin
 		DataSource: "reference",
 	}
 }
+
+// ProcessStepData 流程步骤管理数据
+type ProcessStepData struct {
+	ProcessID   string                   `json:"process_id"`
+	ProcessName string                   `json:"process_name"`
+	Steps       []map[string]interface{} `json:"steps"`
+	Total       int                      `json:"total"`
+	DataSource  string                   `json:"data_source"`
+}
+
+// ManageProcessSteps 学院流程步骤编辑（学院管辖范围）
+func (s *CollegeService) ManageProcessSteps(ctx context.Context, processID, ownerID string) *ProcessStepData {
+	if processID == "" {
+		processID = "transfer"
+	}
+
+	steps := []map[string]interface{}{
+		{"step": 1, "title": "学生在线申请", "handler": "学生本人", "editable": false, "status": "系统自动"},
+		{"step": 2, "title": "学院审核", "handler": "学院教学办", "editable": true, "status": "待配置审核人"},
+		{"step": 3, "title": "教务处审批", "handler": "教务处", "editable": false, "status": "上级流程"},
+	}
+
+	return &ProcessStepData{
+		ProcessID:   processID,
+		ProcessName: "转专业办理流程",
+		Steps:       steps,
+		Total:       len(steps),
+		DataSource:  "reference",
+	}
+}

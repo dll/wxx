@@ -10,9 +10,15 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// timedLimiter 带最后访问时间的限流器
+type timedLimiter struct {
+	limiter    *rate.Limiter
+	lastAccess time.Time
+}
+
 // IPRateLimiter IP 维度限流器
 type IPRateLimiter struct {
-	ips map[string]*rate.Limiter
+	ips map[string]*timedLimiter
 	mu  sync.Mutex
 	r   rate.Limit
 	b   int
@@ -22,11 +28,14 @@ type IPRateLimiter struct {
 // rps: 每秒请求数（令牌桶速率）
 // burst: 令牌桶容量（突发请求数）
 func NewIPRateLimiter(rps float64, burst int) *IPRateLimiter {
-	return &IPRateLimiter{
-		ips: make(map[string]*rate.Limiter),
+	ipl := &IPRateLimiter{
+		ips: make(map[string]*timedLimiter),
 		r:   rate.Limit(rps),
 		b:   burst,
 	}
+	// 启动后台清理协程（每 10 分钟清理 30 分钟无活动的条目）
+	go ipl.cleanupLoop(10*time.Minute, 30*time.Minute)
+	return ipl
 }
 
 // getLimiter 获取或创建 IP 对应的限流器
@@ -34,12 +43,33 @@ func (i *IPRateLimiter) getLimiter(ip string) *rate.Limiter {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	limiter, exists := i.ips[ip]
+	tl, exists := i.ips[ip]
 	if !exists {
-		limiter = rate.NewLimiter(i.r, i.b)
-		i.ips[ip] = limiter
+		tl = &timedLimiter{
+			limiter:    rate.NewLimiter(i.r, i.b),
+			lastAccess: time.Now(),
+		}
+		i.ips[ip] = tl
+	} else {
+		tl.lastAccess = time.Now()
 	}
-	return limiter
+	return tl.limiter
+}
+
+// cleanupLoop 定期清理过期条目（防止内存泄漏）
+func (i *IPRateLimiter) cleanupLoop(interval, maxIdle time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for range ticker.C {
+		i.mu.Lock()
+		now := time.Now()
+		for key, tl := range i.ips {
+			if now.Sub(tl.lastAccess) > maxIdle {
+				delete(i.ips, key)
+			}
+		}
+		i.mu.Unlock()
+	}
 }
 
 // IPThrottleMiddleware IP 限流中间件构造函数
@@ -60,7 +90,7 @@ func IPThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 
 // UserRateLimiter 用户维度限流器
 type UserRateLimiter struct {
-	users map[int64]*rate.Limiter
+	users map[int64]*timedLimiter
 	mu    sync.Mutex
 	r     rate.Limit
 	b     int
@@ -70,11 +100,13 @@ type UserRateLimiter struct {
 // rps: 每秒请求数
 // burst: 令牌桶容量
 func NewUserRateLimiter(rps float64, burst int) *UserRateLimiter {
-	return &UserRateLimiter{
-		users: make(map[int64]*rate.Limiter),
+	ul := &UserRateLimiter{
+		users: make(map[int64]*timedLimiter),
 		r:     rate.Limit(rps),
 		b:     burst,
 	}
+	go ul.cleanupLoop(10*time.Minute, 30*time.Minute)
+	return ul
 }
 
 // getLimiter 获取或创建用户对应的限流器
@@ -82,12 +114,33 @@ func (u *UserRateLimiter) getLimiter(userID int64) *rate.Limiter {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	limiter, exists := u.users[userID]
+	tl, exists := u.users[userID]
 	if !exists {
-		limiter = rate.NewLimiter(u.r, u.b)
-		u.users[userID] = limiter
+		tl = &timedLimiter{
+			limiter:    rate.NewLimiter(u.r, u.b),
+			lastAccess: time.Now(),
+		}
+		u.users[userID] = tl
+	} else {
+		tl.lastAccess = time.Now()
 	}
-	return limiter
+	return tl.limiter
+}
+
+// cleanupLoop 定期清理过期的用户限流器
+func (u *UserRateLimiter) cleanupLoop(interval, maxIdle time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for range ticker.C {
+		u.mu.Lock()
+		now := time.Now()
+		for key, tl := range u.users {
+			if now.Sub(tl.lastAccess) > maxIdle {
+				delete(u.users, key)
+			}
+		}
+		u.mu.Unlock()
+	}
 }
 
 // UserThrottleMiddleware 用户限流中间件构造函数
@@ -144,16 +197,6 @@ func ChatUserRateLimiter() gin.HandlerFunc {
 	return UserThrottleMiddleware(ChatUserRPS, ChatUserBurst)
 }
 
-// CleanupStaleLimiters 定期清理过期的限流器（可选，防止内存泄漏）
-// 长时间不活跃的 IP/用户 限流器会被清理
-func (i *IPRateLimiter) CleanupStaleLimiters(maxAge time.Duration) {
-	// 简单实现：基于访问时间的清理需要额外结构
-	// 生产环境建议封装带最后访问时间的 limiter
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	// 对于中小规模服务，map 增长缓慢可接受
-	// 如需严格控制内存，可引入 lastAccessed 字段
-}
 
 // RateLimitByMinute 快捷函数：按分钟速率创建 IP 限流中间件
 func RateLimitByMinute(reqPerMin int) gin.HandlerFunc {

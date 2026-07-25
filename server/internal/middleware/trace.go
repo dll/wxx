@@ -23,8 +23,9 @@ func TraceID() gin.HandlerFunc {
 			traceID = uuid.New().String()
 		}
 
-		// 存入上下文 + 响应头
+		// 存入 gin.Context + 标准 context.Context + 响应头
 		c.Set("trace_id", traceID)
+		c.Request = c.Request.WithContext(WithTraceID(c.Request.Context(), traceID))
 		c.Header("X-Trace-ID", traceID)
 
 		c.Next()

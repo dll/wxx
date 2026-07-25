@@ -98,6 +98,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationRepo := repository.NewGraduationRepo(db)
 	studentFeaturesRepo := repository.NewStudentFeaturesRepo(db)
 	twinRepo := repository.NewTwinRepo(db)
+	chatMetricsRepo := repository.NewChatMetricsRepo(db)
 
 	// ── 服务层 ──
 	graduationService := service.NewGraduationService(graduationRepo)
@@ -151,6 +152,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, twinRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
+	adminSvc.SetChatMetricsRepo(chatMetricsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, feedbackScreenshotRepo)
 	feedbackSvc.SetDB(db)
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
@@ -189,6 +191,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	kbHandler := handler.NewKBHandler(kbSvc)
 
 	chatHandler := handler.NewChatHandler(chatSvc)
+	chatHandler.SetMetricsRepo(chatMetricsRepo)
 	if emotionSvc != nil {
 		chatHandler.SetEmotionService(emotionSvc)
 	}
@@ -920,6 +923,13 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				assistantGroup.POST("/notification", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.Notification)
 				assistantGroup.GET("/teaching-calendar", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.TeachingCalendar)
 				assistantGroup.GET("/student-info", auth.RequireCapability(auth.AssistantGradAudit), assistantH.StudentInfoQuery)
+				// ── P2 补充功能 ──
+				assistantGroup.GET("/material-templates", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.MaterialTemplates)
+				assistantGroup.POST("/doc-process", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.DocProcess)
+				assistantGroup.GET("/workflow-automation", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.WorkflowAutomation)
+				assistantGroup.GET("/process-steps-manage", auth.RequireCapability(auth.AssistantGradAudit), assistantH.ProcessStepsManage)
+				assistantGroup.GET("/music-radio", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.MusicRadio)
+				assistantGroup.GET("/activity-register", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.ActivityRegister)
 			}
 
 			// ── 学生会 AI 功能 ──
@@ -945,6 +955,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				collegeGroup.GET("/teacher-efficiency", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.TeacherEfficiency)
 				collegeGroup.GET("/course-quality", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.CourseQuality)
 				collegeGroup.GET("/college-report", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.CollegeReport)
+				collegeGroup.GET("/process-step-edit", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.ProcessStepEdit)
 			}
 
 			// ── 学校管理员 AI 功能（P2）──
@@ -1045,17 +1056,48 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 }
 
 func healthHandler(db *sql.DB) gin.HandlerFunc {
+	startTime := time.Now()
 	return func(c *gin.Context) {
-		dbOK := "ok"
+		// 数据库连通性
+		dbStatus := "ok"
+		dbLatency := ""
+		t0 := time.Now()
 		if err := db.Ping(); err != nil {
-			dbOK = "error: " + err.Error()
+			dbStatus = "error: " + err.Error()
+		} else {
+			dbLatency = time.Since(t0).String()
 		}
+
+		// FTS5 可用性
+		ftsStatus := "ok"
+		var ftsCheck int
+		if err := db.QueryRow("SELECT 1 FROM kb_fts LIMIT 1").Scan(&ftsCheck); err != nil {
+			ftsStatus = "unavailable"
+		}
+
+		// LLM API 配置（仅检查 key 是否配置，不实际调用）
+		llmStatus := "configured"
+		if os.Getenv("ZHIPU_API_KEY") == "" && os.Getenv("DEEPSEEK_API_KEY") == "" && os.Getenv("SPARK_API_KEY") == "" {
+			llmStatus = "no_api_key"
+		}
+
+		// 总体状态
+		overall := "healthy"
+		if dbStatus != "ok" {
+			overall = "degraded"
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"status":  "running",
+			"status":  overall,
 			"service": "蔚小芯",
 			"version": "0.0.1",
-			"db":      dbOK,
-			"time":    time.Now().Format(time.RFC3339),
+			"uptime":  time.Since(startTime).String(),
+			"dependencies": gin.H{
+				"sqlite":    gin.H{"status": dbStatus, "latency": dbLatency},
+				"fts5":      gin.H{"status": ftsStatus},
+				"llm_api":   gin.H{"status": llmStatus},
+			},
+			"time": time.Now().Format(time.RFC3339),
 		})
 	}
 }

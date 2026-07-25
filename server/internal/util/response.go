@@ -1,8 +1,10 @@
 package util
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -80,4 +82,24 @@ func FailNotFound(c *gin.Context, message string) {
 // FailInternalError 500 错误响应（服务器内部错误）
 func FailInternalError(c *gin.Context, message string) {
 	Fail(c, http.StatusInternalServerError, message)
+}
+
+// FailBizError 业务错误响应（A-01 错误码注册表适配）
+// 从 BizError 中提取业务码和 HTTP 状态码，返回统一格式
+func FailBizError(c *gin.Context, bizErr *model.BizError) {
+	c.JSON(bizErr.HTTPStatus, ApiResponse{
+		Code:    bizErr.Code,
+		Message: bizErr.Message,
+		TraceID: getTraceID(c),
+	})
+}
+
+// FailFromError 从 error 自动识别 BizError 或回退为 500
+func FailFromError(c *gin.Context, err error) {
+	var bizErr *model.BizError
+	if errors.As(err, &bizErr) {
+		FailBizError(c, bizErr)
+		return
+	}
+	FailInternalError(c, "服务器内部错误")
 }

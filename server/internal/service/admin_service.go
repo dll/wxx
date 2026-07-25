@@ -15,9 +15,10 @@ import (
 
 // AdminService 管理端业务服务
 type AdminService struct {
-	userRepo     *repository.UserRepo
-	auditRepo    *repository.AuditRepo
-	settingsRepo *repository.SettingsRepo
+	userRepo        *repository.UserRepo
+	auditRepo       *repository.AuditRepo
+	settingsRepo    *repository.SettingsRepo
+	chatMetricsRepo *repository.ChatMetricsRepo // 可选：质量指标聚合
 }
 
 // NewAdminService 创建管理端服务
@@ -29,7 +30,12 @@ func NewAdminService(userRepo *repository.UserRepo, auditRepo *repository.AuditR
 	}
 }
 
-// GetMetrics 获取质量看板数据（从 audit_logs 聚合）
+// SetChatMetricsRepo 注入质量指标 repo（可选）
+func (s *AdminService) SetChatMetricsRepo(repo *repository.ChatMetricsRepo) {
+	s.chatMetricsRepo = repo
+}
+
+// GetMetrics 获取质量看板数据（优先从 chat_metrics 聚合真实数据，回退默认值）
 func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 	m := &model.AdminMetrics{}
 
@@ -59,11 +65,27 @@ func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 	}
 	m.ActiveUsersNow = int64(auditToday)
 
-	// 这些指标需要与评测基线对比才能精确计算，初始提供合理默认值
-	m.HitRate = 0.85
-	m.FallbackRate = 0.10
-	m.SourceCoverage = 0.92
-	m.P95Latency = 1800
+	// 这些指标优先从 chat_metrics 表聚合，无数据时使用合理默认值
+	if s.chatMetricsRepo != nil {
+		agg, err := s.chatMetricsRepo.Aggregate(7)
+		if err == nil && agg.TotalQuestions > 0 {
+			m.HitRate = agg.SourceHitRate
+			m.FallbackRate = agg.FallbackRate
+			m.SourceCoverage = agg.SourceHitRate
+			m.P95Latency = agg.P95DurationMs
+		} else {
+			// 无数据或查询失败，使用默认值
+			m.HitRate = 0.85
+			m.FallbackRate = 0.10
+			m.SourceCoverage = 0.92
+			m.P95Latency = 1800
+		}
+	} else {
+		m.HitRate = 0.85
+		m.FallbackRate = 0.10
+		m.SourceCoverage = 0.92
+		m.P95Latency = 1800
+	}
 
 	return m, nil
 }
