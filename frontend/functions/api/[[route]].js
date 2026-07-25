@@ -15,30 +15,34 @@ export async function onRequest(context) {
   const headers = new Headers(request.headers);
   headers.set('Host', 'wxx-server-j1us8ki1c-czldl.vercel.app');
 
+  // 所有非 GET/HEAD 请求都先读取为 arrayBuffer，确保 multipart/form-data 等请求体完整传递
+  let requestBody;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    requestBody = await request.arrayBuffer();
+  }
+
   const isLogin = url.pathname === '/api/v1/auth/login';
   const isFeedbackSubmit = request.method === 'POST' &&
     url.pathname === '/api/v1/feedback';
+  // 这些关键接口需要缓冲响应 + 重试
   const shouldBuffer = isLogin ||
     isFeedbackSubmit ||
     url.pathname === '/api/health' ||
     url.pathname === '/api/v1/user/profile' ||
     url.pathname === '/api/v1/user/capabilities';
+  // 反馈提交是非幂等写操作，不自动重试，避免上游已写入后重复创建
   const maxAttempts = shouldBuffer && !isFeedbackSubmit ? 2 : 1;
   let lastError;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      let requestBody;
-      if (shouldBuffer && request.method !== 'GET' && request.method !== 'HEAD') {
-        requestBody = await request.arrayBuffer();
-      }
-
       const resp = await fetch(targetUrl, {
         method: request.method,
         headers,
-        body: requestBody ? requestBody.slice(0) : request.body,
+        body: requestBody ? requestBody.slice(0) : undefined,
       });
 
+      // 关键接口先完整读取响应，避免上游流中断后浏览器只得到模糊网络错误
       const responseBody = shouldBuffer ? await resp.arrayBuffer() : resp.body;
       const out = new Headers(resp.headers);
       applyCorsHeaders(out);
