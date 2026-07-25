@@ -62,6 +62,37 @@ func (h *KBHandler) BrowseKnowledge(c *gin.Context) {
 	})
 }
 
+// BrowseKnowledgePublic 公开知识大厅浏览（游客也可访问，仅返回全校公开的已发布资源）
+// GET /api/v1/knowledge/public?type=Policy&page=1&page_size=20
+func (h *KBHandler) BrowseKnowledgePublic(c *gin.Context) {
+	resourceType := c.Query("type")
+	if resourceType == "" {
+		resourceType = c.Query("resource_type")
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	cards, total, err := h.kbSvc.Browse(c.Request.Context(), "school", "", "guest", resourceType, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取知识大厅数据失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.KnowledgeBrowseResponse{
+		Code:     0,
+		Message:  "success",
+		Data:     cards,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
 // ListResources 知识列表（分页 + 过滤）
 // GET /api/v1/kb/resources?page=1&page_size=20&status=published&resource_type=Policy&owner_scope=school
 func (h *KBHandler) ListResources(c *gin.Context) {

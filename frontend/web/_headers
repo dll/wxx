@@ -16,3 +16,22 @@
 
 /*.js
   Cache-Control: no-cache, must-revalidate
+
+/assets/fonts/*.otf
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+  Content-Type: font/otf
+
+/assets/fonts/*.ttf
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+  Content-Type: font/ttf
+
+/assets/packages/cupertino_icons/assets/*.ttf
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+  Content-Type: font/ttf
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *

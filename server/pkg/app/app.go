@@ -219,6 +219,17 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 数字孪生五维聚合服务（S1.1）：注入现有 StudentHandler，/student/digital-twin 走真实数据，失败兜底 mock
 	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
 	studentHandler.SetTwinService(twinSvc)
+
+	// 打卡服务（S1 学生核心功能）
+	checkinRepo := repository.NewCheckinRepo(db)
+	checkinSvc := service.NewCheckinService(checkinRepo)
+	studentHandler.SetCheckinService(checkinSvc)
+
+	// 性格洞察服务（S1 学生核心功能）
+	personalityRepo := repository.NewPersonalityRepo(db)
+	personalitySvc := service.NewPersonalityService(personalityRepo, userRepo, twinRepo, llmClient)
+	studentHandler.SetPersonalityService(personalitySvc)
+
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
 	var teacherSvc *service.TeacherService
@@ -511,6 +522,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		// 版本更新（公开）
 		v1.GET("/version/check", appVersionH.CheckUpdate)
 		v1.GET("/version/latest", appVersionH.GetLatestVersion)
+
+		// 知识大厅（公开，仅返回全校公开已发布资源）
+		v1.GET("/knowledge/public", kbH.BrowseKnowledgePublic)
 
 		// 需要 JWT 认证
 		secured := v1.Group("/")

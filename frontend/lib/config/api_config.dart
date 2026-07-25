@@ -36,6 +36,7 @@ class ApiConfig {
 
   // ── 知识大厅 ──
   static const String knowledge = '$apiPrefix/knowledge';
+  static const String knowledgePublic = '$apiPrefix/knowledge/public';
 
   // ── 情感预警 ──
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';

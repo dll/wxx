@@ -3,6 +3,7 @@ import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../utils/capability_utils.dart';
+import '../utils/storage.dart';
 
 /// 知识大厅状态管理
 class KnowledgeProvider extends ChangeNotifier {
@@ -31,6 +32,7 @@ class KnowledgeProvider extends ChangeNotifier {
   }
 
   /// 加载知识大厅数据
+  /// 已登录调用认证接口（返回个性化内容），未登录调用公开接口（仅全校公开内容）
   Future<void> load({String? type}) async {
     _loading = true;
     _error = null;
@@ -42,7 +44,11 @@ class KnowledgeProvider extends ChangeNotifier {
       if (_selectedType.isNotEmpty) {
         queryParams['type'] = _selectedType;
       }
-      final response = await _api.get(ApiConfig.knowledge, params: queryParams);
+      // 根据登录状态选择接口
+      final apiPath = Storage.isLoggedIn
+          ? ApiConfig.knowledge
+          : ApiConfig.knowledgePublic;
+      final response = await _api.get(apiPath, params: queryParams);
 
       final data = response.data['data'] as Map<String, dynamic>?;
       if (data == null) {

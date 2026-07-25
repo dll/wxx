@@ -14,9 +14,11 @@ import (
 
 // StudentHandler 学生角色 AI 功能接口
 type StudentHandler struct {
-	svc     *service.StudentService
-	twinSvc *service.TwinService // 数字孪生五维聚合服务，可为 nil（走兜底 mock）
-	db      *sql.DB
+	svc            *service.StudentService
+	twinSvc        *service.TwinService        // 数字孪生五维聚合服务，可为 nil（走兜底 mock）
+	checkinSvc     *service.CheckinService      // 打卡服务，可为 nil
+	personalitySvc *service.PersonalityService  // 性格洞察服务，可为 nil
+	db             *sql.DB
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
@@ -27,6 +29,16 @@ func NewStudentHandler(svc *service.StudentService, db *sql.DB) *StudentHandler 
 // SetTwinService 注入数字孪生服务（可选依赖，装配期调用）
 func (h *StudentHandler) SetTwinService(twinSvc *service.TwinService) {
 	h.twinSvc = twinSvc
+}
+
+// SetCheckinService 注入打卡服务（可选依赖，装配期调用）
+func (h *StudentHandler) SetCheckinService(svc *service.CheckinService) {
+	h.checkinSvc = svc
+}
+
+// SetPersonalityService 注入性格洞察服务（可选依赖，装配期调用）
+func (h *StudentHandler) SetPersonalityService(svc *service.PersonalityService) {
+	h.personalitySvc = svc
 }
 
 // DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
@@ -101,23 +113,54 @@ func (h *StudentHandler) mockLearningDiary(c *gin.Context) {
 
 // Checkin 打卡
 func (h *StudentHandler) Checkin(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
+	var req struct {
+		Mood string `json:"mood"` // happy/normal/tired/sad
+		Note string `json:"note"` // 一句话感想
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	if h.checkinSvc != nil {
+		result := h.checkinSvc.DoCheckin(userCtx.UserID, req.Mood, req.Note)
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": result.Message, "data": result})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "打卡成功"})
 }
 
 // CheckinHistory 打卡历史
 func (h *StudentHandler) CheckinHistory(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
+	if h.checkinSvc != nil {
+		result := h.checkinSvc.GetHistory(userCtx.UserID)
+		// 附加最近 30 天打卡日期（供日历渲染）
+		dates, _ := h.checkinSvc.GetRecentDates(userCtx.UserID, 30)
+		c.JSON(http.StatusOK, gin.H{"code": 0, "data": result, "recent_dates": dates})
+		return
+	}
+
+	// 兜底 mock
 	today := time.Now().Format("2006-01-02")
 	c.JSON(http.StatusOK, gin.H{
-		"date":           today,
-		"streak":         7,
-		"total_days":     42,
-		"longest_streak": 15,
-		"today_checked":  true,
-		"recent_dates": []string{
-			today,
-			time.Now().AddDate(0, 0, -1).Format("2006-01-02"),
-			time.Now().AddDate(0, 0, -2).Format("2006-01-02"),
+		"code": 0,
+		"data": gin.H{
+			"date":           today,
+			"streak":         0,
+			"total_days":     0,
+			"longest_streak": 0,
+			"today_checked":  false,
 		},
+		"recent_dates": []string{},
 	})
 }
 
@@ -172,14 +215,33 @@ func (h *StudentHandler) DigitalTwin(c *gin.Context) {
 
 // Personality 性格洞察
 func (h *StudentHandler) Personality(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
+	if h.personalitySvc != nil {
+		result, err := h.personalitySvc.GetPersonality(c.Request.Context(), userCtx.UserID)
+		if err == nil && result != nil {
+			c.JSON(http.StatusOK, gin.H{"code": 0, "data": result})
+			return
+		}
+	}
+
+	// 兜底 mock
 	c.JSON(http.StatusOK, gin.H{
-		"type":               "INTJ",
-		"label":              "建筑师型",
-		"description":        "富有想象力和战略性的思考者，一切皆在计划之中。",
-		"strengths":          []string{"逻辑思维强", "独立自主", "目标明确", "善于规划"},
-		"weaknesses":         []string{"有时过于理性", "社交场合可能显得冷淡"},
-		"career_suggestions": []string{"软件工程师", "数据分析师", "系统架构师", "研究员"},
-		"learning_style":     "偏好系统化学习，喜欢先建立整体框架再深入细节",
+		"code": 0,
+		"data": gin.H{
+			"type":               "待评估",
+			"label":              "数据不足",
+			"description":        "暂无足够行为数据推断性格画像，请多使用系统积累数据后再查看。",
+			"strengths":          []string{"持续使用中"},
+			"weaknesses":         []string{"数据样本不足"},
+			"career_suggestions": []string{"继续探索中"},
+			"learning_style":     "需要更多学习记录来判断",
+			"data_source":        "fallback",
+		},
 	})
 }
 
