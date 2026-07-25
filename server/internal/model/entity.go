@@ -714,3 +714,18 @@ type ClubActivityRegistration struct {
 	Rating      int    `json:"rating"`
 	CreatedAt   string `json:"created_at"`
 }
+
+// AppVersion 应用版本
+type AppVersion struct {
+	ID          int64  `json:"id" db:"id"`
+	VersionCode int    `json:"version_code" db:"version_code"`
+	VersionName string `json:"version_name" db:"version_name"`
+	Platform    string `json:"platform" db:"platform"`
+	Title       string `json:"title" db:"title"`
+	Changelog   string `json:"changelog" db:"changelog"`
+	DownloadURL string `json:"download_url" db:"download_url"`
+	ForceUpdate int    `json:"force_update" db:"force_update"`
+	Status      int    `json:"status" db:"status"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+	UpdatedAt   string `json:"updated_at" db:"updated_at"`
+}

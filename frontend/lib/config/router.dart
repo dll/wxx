@@ -25,6 +25,7 @@ import '../pages/profile/my_feedbacks_page.dart';
 import '../pages/process/my_records_page.dart';
 import '../pages/bookmarks/bookmarks_page.dart';
 import '../pages/notification/notification_page.dart';
+import '../pages/about/about_page.dart';
 // ── 学生 AI 功能页面 ──
 import '../pages/student/daily_briefing_page.dart';
 import '../pages/student/learning_diary_page.dart';
@@ -341,6 +342,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationPage(),
+        ),
+        GoRoute(
+          path: '/about',
+          builder: (context, state) => const AboutPage(),
         ),
         GoRoute(
           path: '/campus',

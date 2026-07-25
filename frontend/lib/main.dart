@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'config/router.dart';
+import 'services/api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/session_provider.dart';
@@ -25,6 +26,7 @@ import 'providers/guest_provider.dart';
 import 'providers/education_provider.dart';
 import 'providers/study_plan_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/update_provider.dart';
 import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
 
@@ -76,17 +78,33 @@ class WxxApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final p = ChatProvider();
+          sessionResetCallbacks.add(p.reset);
+          return p;
+        }),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => EnrollmentProvider()),
         ChangeNotifierProvider(create: (_) => ProcessRecordProvider()),
         ChangeNotifierProvider(create: (_) => KnowledgeProvider()),
-        ChangeNotifierProvider(create: (_) => EmotionProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final p = EmotionProvider();
+          sessionResetCallbacks.add(p.reset);
+          return p;
+        }),
         ChangeNotifierProvider(create: (_) => AgentProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
-        ChangeNotifierProvider(create: (_) => AdminProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final p = AdminProvider();
+          sessionResetCallbacks.add(p.reset);
+          return p;
+        }),
         ChangeNotifierProvider(create: (_) => FeedbackProvider()),
-        ChangeNotifierProvider(create: (_) => BookmarkProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final p = BookmarkProvider();
+          sessionResetCallbacks.add(p.reset);
+          return p;
+        }),
         ChangeNotifierProvider(create: (_) => StudentFeatureProvider()),
         ChangeNotifierProvider(create: (_) => CounselorFeatureProvider()),
         ChangeNotifierProvider(create: (_) => TeacherFeatureProvider()),
@@ -101,6 +119,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MentalProvider()),
         ChangeNotifierProvider(create: (_) => StudyPlanProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => UpdateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeNotifier()),
       ],
       child: Consumer<ThemeNotifier>(

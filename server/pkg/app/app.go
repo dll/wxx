@@ -148,7 +148,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 	agentSvc := service.NewAgentService(agentRepo)
 	studentSvc := service.NewStudentService(userRepo, sessionRepo, messageRepo, emotionRepo, kbRepo, twinRepo, llmClient)
-	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, llmClient)
+	counselorSvc := service.NewCounselorService(userRepo, emotionRepo, twinRepo, llmClient)
 	integrationSvc := service.NewIntegrationService(cfg)
 	adminSvc := service.NewAdminService(userRepo, auditRepo, settingsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, feedbackScreenshotRepo)
@@ -240,23 +240,16 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	unionHandler := handler.NewUnionHandler(unionSvc)
 
-	var collegeSvc *service.CollegeService
-	if llmClient != nil {
-		collegeSvc = service.NewCollegeService(llmClient)
-	}
+	// 学院/学校服务始终构建：即便无 LLM，也能返回真实聚合数据（LLM 仅用于解读增强）
+	collegeSvc := service.NewCollegeService(userRepo, emotionRepo, twinRepo, llmClient)
 	collegeHandler := handler.NewCollegeHandler(collegeSvc)
 	cultureHandler := handler.NewCultureHandler()
 
-	var schoolAdminSvc *service.SchoolAdminService
-	if llmClient != nil {
-		schoolAdminSvc = service.NewSchoolAdminService(llmClient)
-	}
+	schoolAdminSvc := service.NewSchoolAdminService(userRepo, emotionRepo, twinRepo, llmClient)
 	schoolAdminHandler := handler.NewSchoolAdminHandler(schoolAdminSvc)
 
-	var sysAdminSvc *service.SysAdminService
-	if llmClient != nil {
-		sysAdminSvc = service.NewSysAdminService(llmClient)
-	}
+	// 系统管理员服务始终构建：真实聚合（用户数/知识库统计/运行时指标）不依赖 LLM
+	sysAdminSvc := service.NewSysAdminService(llmClient, userRepo, kbRepo, auditRepo)
 	sysAdminHandler := handler.NewSysAdminHandler(sysAdminSvc)
 	forecastHandler := handler.NewForecastHandler(forecastSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
@@ -268,13 +261,16 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	studyPlanHandler := handler.NewStudyPlanHandler(db, llmClient)
 	userNotificationHandler := handler.NewUserNotificationHandler(db)
 	statsHandler := handler.NewStatsHandler(db)
+	appVersionRepo := repository.NewAppVersionRepo(db)
+	appVersionService := service.NewAppVersionService(appVersionRepo)
+	appVersionHandler := handler.NewAppVersionHandler(appVersionService)
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler)
 
 	return router, nil
 }
@@ -470,6 +466,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	studyPlanH *handler.StudyPlanHandler,
 	statsH *handler.StatsHandler,
 	userNotificationH *handler.UserNotificationHandler,
+	appVersionH *handler.AppVersionHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -510,6 +507,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			authGroup.POST("/send-code", middleware.LoginIPRateLimiter(), authH.SendCode)
 			authGroup.POST("/guest-register", middleware.LoginIPRateLimiter(), authH.GuestRegister)
 		}
+
+		// 版本更新（公开）
+		v1.GET("/version/check", appVersionH.CheckUpdate)
+		v1.GET("/version/latest", appVersionH.GetLatestVersion)
 
 		// 需要 JWT 认证
 		secured := v1.Group("/")
@@ -572,6 +573,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			competition := secured.Group("/competition")
 			{
 				competition.GET("/list", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.ListCompetitions)
+				competition.GET("/match", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.CompetitionMatch)
 				competition.GET("/:id", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetCompetition)
 				competition.POST("/register", auth.RequireCapability(auth.SelfCompetitionWrite), studentFeaturesH.RegisterCompetition)
 				competition.GET("/my-registrations", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetMyCompetitionRegistrations)
@@ -713,6 +715,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.POST("/users/batch/delete", auth.RequireCapability(auth.SchoolUserUpdate), adminH.BatchDelete)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)
+
+				// 应用版本管理（sys_admin）
+				admin.GET("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.ListVersions)
+				admin.POST("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.CreateVersion)
+				admin.PUT("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.UpdateVersion)
+				admin.DELETE("/app-versions/:id", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.DeleteVersion)
 
 				// 游客管理（college_admin+）
 				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)

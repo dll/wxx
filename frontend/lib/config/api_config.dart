@@ -330,4 +330,8 @@ class ApiConfig {
   static String notificationRead(String id) => '$apiPrefix/notifications/$id/read';
   static const String notificationsReadAll = '$apiPrefix/notifications/read-all';
   static const String adminNotificationSend = '$apiPrefix/admin/notifications/send';
+
+  // ── 版本更新 ──
+  static const String versionCheck = '$apiPrefix/version/check';
+  static const String versionLatest = '$apiPrefix/version/latest';
 }

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../config/release_config.dart';
 import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/bookmark_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/capability_utils.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
@@ -396,10 +397,14 @@ class _ProfilePageState extends State<ProfilePage> {
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
-          child: const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('关于蔚小芯'),
-            subtitle: Text('v0.0.1 · 滁州学院计算机学院'),
+          child: ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('关于蔚小芯'),
+            subtitle: Text('v${ReleaseConfig.version} · 滁州学院计算机学院'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/about');
+            },
           ),
         ),
 
@@ -411,8 +416,9 @@ class _ProfilePageState extends State<ProfilePage> {
           height: 48,
           child: OutlinedButton.icon(
             onPressed: () async {
-              // 退出前清空本地收藏内存态，防止下一账号在同设备看到上一账号收藏（Q-08）
-              context.read<BookmarkProvider>().reset();
+              // 退出前清空全部敏感内存态，防止下一账号在同设备看到上一账号数据（Q-08）
+              // 与 401 令牌吊销路径共用同一注册表，避免遗漏新增 Provider
+              triggerSessionReset();
               await auth.logout();
               if (context.mounted) {
                 context.go('/login');

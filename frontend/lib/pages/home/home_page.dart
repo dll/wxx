@@ -8,6 +8,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/update_provider.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../utils/date_utils.dart';
@@ -65,7 +66,17 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
       _checkConsent();
+      _checkAppUpdate();
     });
+  }
+
+  /// 检查应用更新
+  Future<void> _checkAppUpdate() async {
+    final updateProvider = context.read<UpdateProvider>();
+    final hasUpdate = await updateProvider.checkUpdate(silent: true);
+    if (hasUpdate && mounted) {
+      updateProvider.showUpdateDialog(context);
+    }
   }
 
   /// 检查是否已同意隐私政策与用户协议，未同意则弹出授权弹窗
