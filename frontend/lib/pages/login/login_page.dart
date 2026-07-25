@@ -121,10 +121,23 @@ class _LoginPageState extends State<LoginPage>
 
                   // 底部：版本号 + 下载
                   Center(
-                    child: TextButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: () => _showDownloadSheet(context),
-                      icon: const Icon(Icons.phone_android, size: 18),
-                      label: const Text('下载手机版'),
+                      icon: const Icon(Icons.android, size: 20, color: Color(0xFF3DDC84)),
+                      label: const Text(
+                        '下载手机安卓版本',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF3DDC84),
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF3DDC84), width: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
