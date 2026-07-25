@@ -53,6 +53,7 @@ class ReleaseConfig {
   static const String releaseDate = '$ReleaseDate';
   static const String apkFileName = '$apkFileName';
   static const String apkDownloadUrl = '$apkUrl';
+  static const String webUrl = '$baseUrl';
 }
 "@
     Set-Content -LiteralPath $releaseConfig -Value $dart -Encoding UTF8
