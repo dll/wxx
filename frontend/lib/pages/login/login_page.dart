@@ -123,7 +123,12 @@ class _LoginPageState extends State<LoginPage>
                   Center(
                     child: OutlinedButton.icon(
                       onPressed: () => _showDownloadSheet(context),
-                      icon: const Icon(Icons.android, size: 20, color: Color(0xFF3DDC84)),
+                      icon: Image.asset(
+                        'assets/images/app_icon.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                      ),
                       label: const Text(
                         '下载手机安卓版本',
                         style: TextStyle(
