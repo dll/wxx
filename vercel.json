@@ -1,15 +1,17 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.go",
-      "use": "@vercel/go"
+  "buildCommand": null,
+  "outputDirectory": null,
+  "functions": {
+    "api/index.go": {
+      "memory": 1024,
+      "maxDuration": 30
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/index.go"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ]
 }
