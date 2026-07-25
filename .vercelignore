@@ -1,3 +1,5 @@
+# .vercelignore - 排除大文件减小 Vercel 部署包体积
+# 仅保留 server/ 和 api/ 等后端必需文件
 # 忽略前端文件
 frontend/
 
