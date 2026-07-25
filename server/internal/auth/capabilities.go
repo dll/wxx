@@ -143,9 +143,10 @@ const (
 
 // 学校管理能力
 const (
-	SchoolAgentWrite Capability = "school.agent.write" // 智能体管理
-	SchoolUserWrite  Capability = "school.user.write"  // 用户管理（学校级）
-	SchoolUserUpdate Capability = "school.user.update" // 修改用户信息（学校级）
+	SchoolAgentWrite     Capability = "school.agent.write"      // 智能体管理
+	SchoolUserWrite      Capability = "school.user.write"       // 用户管理（学校级）
+	SchoolUserUpdate     Capability = "school.user.update"      // 修改用户信息（学校级）
+	SchoolKBSyncExport   Capability = "school.kb.sync.export"   // 知识库全量/增量同步导出（学校级运维，区别于 self.export.self 导出本人回答）
 )
 
 // 系统管理能力
@@ -272,6 +273,7 @@ var roles = map[string]*roleNode{
 		parents: []string{"college_admin"},
 		capabilities: []Capability{
 			SchoolAgentWrite, SchoolUserWrite, SchoolUserUpdate,
+			SchoolKBSyncExport,
 		},
 	},
 	"sys_admin": {

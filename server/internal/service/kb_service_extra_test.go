@@ -288,7 +288,7 @@ func TestKBService_ExportResources(t *testing.T) {
 		Title: "导出资源", Content: "导出正文",
 	})
 
-	resources, err := svc.ExportResources(context.Background(),"", "2020-01-01T00:00:00Z")
+	resources, err := svc.ExportResources(context.Background(),"", "2020-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestKBService_ExportResources_EmptyWithFutureCursor(t *testing.T) {
 	svc := NewKBService(repository.NewKBRepo(db))
 
 	// 用未来时间作为游标，应返回空
-	resources, err := svc.ExportResources(context.Background(),"", "2099-01-01T00:00:00Z")
+	resources, err := svc.ExportResources(context.Background(),"", "2099-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}
@@ -331,7 +331,7 @@ func TestKBService_ExportResources_TypeFilter(t *testing.T) {
 		Title: "问答", Content: "问答正文",
 	})
 
-	resources, err := svc.ExportResources(context.Background(),"FAQ", "2020-01-01T00:00:00Z")
+	resources, err := svc.ExportResources(context.Background(),"FAQ", "2020-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}

@@ -22,6 +22,7 @@ type CustomClaims struct {
 	OwnerID     string `json:"owner_id"`
 	DisplayName string `json:"display_name"`
 	Consented   bool   `json:"consented"`
+	TokenVersion int   `json:"tv"` // 令牌版本，与数据库 token_version 比对以支持吊销
 	jwt.RegisteredClaims
 }
 
@@ -42,7 +43,10 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		OwnerScope:  user.OwnerScope,
 		OwnerID:     user.OwnerID,
 		DisplayName: user.DisplayName,
-		Consented:   true, // 登录即视为已同意（首次使用由前端弹窗处理）
+		// 安全修复 SEC-02：同意状态以数据库为权威（EnsureUserExists 注入），
+		// 此处仅按签发时的数据库值填充，不再无条件置 true。
+		Consented:   user.Consented == 1,
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -129,6 +133,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			OwnerScope:  claims.OwnerScope,
 			OwnerID:     claims.OwnerID,
 			DisplayName: claims.DisplayName,
+			TokenVersion: claims.TokenVersion,
 		}
 		c.Set(contextKeyUser, userCtx)
 

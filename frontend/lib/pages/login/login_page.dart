@@ -634,6 +634,7 @@ class _QRCodeLoginPanel extends StatefulWidget {
 
 class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
   String? _qrSessionId;
+  String? _qrPollSecret; // 安全修复 S-03：仅本浏览器持有，用于拉取 token
   String? _qrImageUrl;
   String _qrStatus = 'loading';
   Timer? _pollTimer;
@@ -676,6 +677,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
       if (code == 0 && data is Map && data['session_id'] is String) {
         final sessionId = data['session_id'] as String;
         _qrSessionId = sessionId;
+        // 安全修复 S-03：poll_secret 保存在本地，绝不写入二维码
+        _qrPollSecret = data['poll_secret'] as String?;
         final encodedUrl = Uri.encodeComponent(
             'https://wxx-agent.pages.dev/#/login?qr=$sessionId');
         setState(() {
@@ -721,8 +724,10 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
       }
 
       try {
-        final resp = await api
-            .get('/api/v1/auth/qr-status', params: {'session': _qrSessionId!});
+        final resp = await api.get('/api/v1/auth/qr-status', params: {
+          'session': _qrSessionId!,
+          if (_qrPollSecret != null) 'poll_secret': _qrPollSecret!,
+        });
         if (!mounted) return;
         _pollFailureCount = 0;
 

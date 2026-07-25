@@ -26,35 +26,66 @@ func NewModelConfigService(repo *repository.ModelConfigRepo) *ModelConfigService
 	return &ModelConfigService{repo: repo}
 }
 
-// Get 获取用户模型配置
-func (s *ModelConfigService) Get(userID int64) (*model.UserModelConfig, error) {
+// Get 获取用户模型配置（脱敏视图，密钥仅返回掩码）
+// 安全修复 SEC-05：绝不向前端回显密钥明文。
+func (s *ModelConfigService) Get(userID int64) (*model.ModelConfigView, error) {
 	cfg, err := s.repo.GetByUserID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("查询模型配置失败: %w", err)
 	}
-	return cfg, nil
+	if cfg == nil {
+		return nil, nil
+	}
+	return cfg.ToMaskedView(), nil
 }
 
-// Save 保存用户模型配置
-func (s *ModelConfigService) Save(userID int64, req *model.ModelConfigSaveRequest) (*model.UserModelConfig, error) {
+// isMaskedOrEmpty 判断入参是否为空或掩码占位（前端回显未改动的字段）
+func isMaskedOrEmpty(v string) bool {
+	return v == "" || strings.HasPrefix(v, "****")
+}
+
+// Save 保存用户模型配置（返回脱敏视图）
+func (s *ModelConfigService) Save(userID int64, req *model.ModelConfigSaveRequest) (*model.ModelConfigView, error) {
 	// 参数验证
 	if err := s.validate(req); err != nil {
 		return nil, err
 	}
 
+	// 安全修复 SEC-05：前端可能回显掩码值（未改动密钥）。
+	// 若入参为空或掩码占位，则保留数据库中已有密钥，避免用掩码覆盖真实密钥。
+	existing, _ := s.repo.GetByUserID(userID)
+	deepseekKey := req.DeepseekKey
+	zhipuKey := req.ZhipuKey
+	xunfeiKey := req.XunfeiKey
+	xunfeiSecret := req.XunfeiSecret
+	if existing != nil {
+		if isMaskedOrEmpty(deepseekKey) {
+			deepseekKey = existing.DeepseekKey
+		}
+		if isMaskedOrEmpty(zhipuKey) {
+			zhipuKey = existing.ZhipuKey
+		}
+		if isMaskedOrEmpty(xunfeiKey) {
+			xunfeiKey = existing.XunfeiKey
+		}
+		if isMaskedOrEmpty(xunfeiSecret) {
+			xunfeiSecret = existing.XunfeiSecret
+		}
+	}
+
 	cfg := &model.UserModelConfig{
 		UserID:          userID,
-		DeepseekKey:     req.DeepseekKey,
+		DeepseekKey:     deepseekKey,
 		DeepseekModel:   req.DeepseekModel,
 		DeepseekTemp:    req.DeepseekTemp,
 		DeepseekMaxTok:  req.DeepseekMaxTok,
-		ZhipuKey:        req.ZhipuKey,
+		ZhipuKey:        zhipuKey,
 		ZhipuModel:      req.ZhipuModel,
 		ZhipuTemp:       req.ZhipuTemp,
 		ZhipuMaxTok:     req.ZhipuMaxTok,
 		XunfeiAppID:     req.XunfeiAppID,
-		XunfeiKey:       req.XunfeiKey,
-		XunfeiSecret:    req.XunfeiSecret,
+		XunfeiKey:       xunfeiKey,
+		XunfeiSecret:    xunfeiSecret,
 		XunfeiModel:     req.XunfeiModel,
 		XunfeiTemp:      req.XunfeiTemp,
 		XunfeiMaxTok:    req.XunfeiMaxTok,
@@ -65,10 +96,13 @@ func (s *ModelConfigService) Save(userID int64, req *model.ModelConfigSaveReques
 		return nil, fmt.Errorf("保存模型配置失败: %w", err)
 	}
 
-	// 读回完整记录
+	// 读回完整记录并脱敏
 	saved, _ := s.repo.GetByUserID(userID)
 	log.Printf("用户模型配置已保存 user_id=%d default_provider=%s", userID, req.DefaultProvider)
-	return saved, nil
+	if saved == nil {
+		return nil, nil
+	}
+	return saved.ToMaskedView(), nil
 }
 
 // validate 校验模型参数

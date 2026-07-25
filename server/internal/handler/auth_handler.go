@@ -260,10 +260,18 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 		return
 	}
 
+	// 安全约束：生产环境绝不在响应中回显验证码，仅通过真实短信通道下发。
+	// 仅在 debug 模式下回显，便于本地联调。
+	data := gin.H{}
+	if h.authSvc.DebugCodeEcho() {
+		data["code"] = code
+		data["debug_note"] = "验证码仅在调试模式回显，生产环境不返回"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "验证码已发送",
-		"data":    gin.H{"code": code},
+		"data":    data,
 	})
 }
 

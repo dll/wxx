@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/bookmark_provider.dart';
 import '../../utils/capability_utils.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
@@ -410,6 +411,8 @@ class _ProfilePageState extends State<ProfilePage> {
           height: 48,
           child: OutlinedButton.icon(
             onPressed: () async {
+              // 退出前清空本地收藏内存态，防止下一账号在同设备看到上一账号收藏（Q-08）
+              context.read<BookmarkProvider>().reset();
               await auth.logout();
               if (context.mounted) {
                 context.go('/login');

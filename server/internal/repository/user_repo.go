@@ -21,7 +21,7 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 // userCols 统一 SELECT 列名
 const userCols = `id, username, display_name, role, owner_scope, owner_id,
 	college, major, class_name, enrollment_date, enrollment_year,
-	password_hash, voice_enabled, status, created_at, updated_at`
+	password_hash, voice_enabled, status, token_version, consented, created_at, updated_at`
 
 // GetByUsername 根据用户名查询用户
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
@@ -32,7 +32,7 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
 		&user.PasswordHash, &user.VoiceEnabled,
-		&user.Status, &user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -52,7 +52,7 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
 		&user.PasswordHash, &user.VoiceEnabled,
-		&user.Status, &user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -97,7 +97,7 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
 			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
 			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -216,7 +216,7 @@ func (r *UserRepo) ListAdvanced(q *UserQuery) ([]*model.User, int, error) {
 			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
 			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
 			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -276,7 +276,12 @@ func (r *UserRepo) BatchUpdateStatus(ids []int64, status string) (int64, error) 
 		return 0, nil
 	}
 	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
-	query := fmt.Sprintf(`UPDATE users SET status=?, updated_at=datetime('now') WHERE id IN (%s) AND role != 'sys_admin'`, placeholders)
+	// 安全修复 S-01：停用/拒绝时递增 token_version 吊销旧令牌；启用等其它状态不动版本。
+	setClause := "status=?, updated_at=datetime('now')"
+	if status == "disabled" || status == "rejected" {
+		setClause = "status=?, token_version = token_version + 1, updated_at=datetime('now')"
+	}
+	query := fmt.Sprintf(`UPDATE users SET %s WHERE id IN (%s) AND role != 'sys_admin'`, setClause, placeholders)
 
 	args := make([]interface{}, 0, len(ids)+1)
 	args = append(args, status)
@@ -297,7 +302,8 @@ func (r *UserRepo) BatchResetPassword(ids []int64, hash string) (int64, error) {
 		return 0, nil
 	}
 	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
-	query := fmt.Sprintf(`UPDATE users SET password_hash=?, updated_at=datetime('now') WHERE id IN (%s)`, placeholders)
+	// 安全修复 S-01：批量改密递增 token_version，登出相关用户所有旧会话。
+	query := fmt.Sprintf(`UPDATE users SET password_hash=?, token_version = token_version + 1, updated_at=datetime('now') WHERE id IN (%s)`, placeholders)
 
 	args := make([]interface{}, 0, len(ids)+1)
 	args = append(args, hash)
@@ -390,9 +396,11 @@ func (r *UserRepo) Count(role, ownerScope, ownerID string) (int, error) {
 }
 
 // Update 更新用户角色和归属信息
+// 安全修复 S-01：角色/归属/状态属敏感变更，一律递增 token_version 使旧令牌失效，
+// 避免被降权用户凭旧 JWT 继续以原权限访问。
 func (r *UserRepo) Update(user *model.User) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, updated_at=datetime('now') WHERE id=?`,
+		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=datetime('now') WHERE id=?`,
 		user.Role, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
 	)
 	return err
@@ -437,7 +445,7 @@ func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
 			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
 			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -446,7 +454,15 @@ func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 }
 
 // UpdateStatus 更新用户状态
+// 安全修复 S-01：停用/拒绝时递增 token_version，令该用户此前签发的所有 JWT 立即失效。
 func (r *UserRepo) UpdateStatus(userID int64, status string) error {
+	if status == "disabled" || status == "rejected" {
+		_, err := r.db.Exec(
+			`UPDATE users SET status = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
+			status, userID,
+		)
+		return err
+	}
 	_, err := r.db.Exec(
 		`UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?`,
 		status, userID,
@@ -463,16 +479,33 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 	}
 
 	if existing != nil {
-		// 用户已存在，同步关键信息（ID 不变）
-		if existing.ID != userCtx.UserID {
-			// ID 不一致时以数据库为准，更新 context 中的 ID
-			userCtx.UserID = existing.ID
+		// 用户已存在：数据库为权威来源。
+		// 安全修复 S-01：禁止把 JWT 携带的 role/owner_scope/owner_id 回写数据库，
+		// 否则被降权/改归属的旧令牌会"复活"过期权限。改为反向以数据库值覆盖 context。
+
+		// 1) 账户状态强制：停用/拒绝的账户一律拒绝访问（pending 游客不拦截）
+		if existing.Status == "disabled" || existing.Status == "rejected" {
+			return model.ErrAccountDisabled
 		}
+
+		// 2) 令牌吊销比对：JWT 版本旧于数据库权威版本 → 令牌已被吊销
+		if userCtx.TokenVersion < existing.TokenVersion {
+			return model.ErrTokenRevoked
+		}
+
+		// 3) 以数据库权威值覆盖 context（ID、角色、归属、显示名、状态、令牌版本）
+		userCtx.UserID = existing.ID
+		userCtx.Role = existing.Role
+		userCtx.OwnerScope = existing.OwnerScope
+		userCtx.OwnerID = existing.OwnerID
+		userCtx.DisplayName = existing.DisplayName
+		userCtx.TokenVersion = existing.TokenVersion
+		// 安全修复 SEC-02：同意状态以数据库为权威，供 RequireConsent 中间件判断
+		userCtx.Consented = existing.Consented == 1
+
+		// 4) 仅刷新 updated_at 以标记活跃，不写回任何权限字段
 		_, err = r.db.Exec(
-			`UPDATE users SET display_name=?, role=?, owner_scope=?, owner_id=?,
-			 status=COALESCE(NULLIF(status,''), 'active'), updated_at=datetime('now')
-			 WHERE id=?`,
-			userCtx.DisplayName, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
+			`UPDATE users SET updated_at=datetime('now') WHERE id=?`,
 			existing.ID,
 		)
 		return err
@@ -492,22 +525,40 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 	}
 	newID, _ := result.LastInsertId()
 	userCtx.UserID = newID
+	// JIT 创建的用户 consented 采用数据库默认值 1（存量策略一致），避免 SSO 用户被锁死
+	userCtx.Consented = true
 	return nil
 }
 
+// SetConsented 持久化用户隐私授权状态
+// 安全修复 SEC-02：将同意状态写入数据库，使 RequireConsent 中间件可据此放行。
+func (r *UserRepo) SetConsented(userID int64, consented bool) error {
+	v := 0
+	if consented {
+		v = 1
+	}
+	_, err := r.db.Exec(
+		`UPDATE users SET consented = ?, updated_at = datetime('now') WHERE id = ?`,
+		v, userID,
+	)
+	return err
+}
+
 // UpdateRole 更新用户角色
+// 安全修复 S-01：角色变更递增 token_version 使旧令牌失效。
 func (r *UserRepo) UpdateRole(userID int64, role string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET role = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
 		role, userID,
 	)
 	return err
 }
 
 // UpdateUsernameAndRole 更新用户名和角色（游客审核通过用）
+// 安全修复 S-01：用户名/角色变更递增 token_version，要求用户以新身份重新登录。
 func (r *UserRepo) UpdateUsernameAndRole(userID int64, username, role string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET username = ?, role = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET username = ?, role = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
 		username, role, userID,
 	)
 	return err
@@ -557,9 +608,10 @@ func (r *UserRepo) Delete(userID int64) error {
 }
 
 // UpdatePassword 更新用户密码哈希
+// 安全修复 S-01：改密递增 token_version，登出该用户所有旧会话（含被盗令牌）。
 func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET password_hash = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
 		hash, userID,
 	)
 	return err

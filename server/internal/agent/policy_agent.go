@@ -43,11 +43,13 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 	}
 
 	if len(policyResults) == 0 {
+		// CE-01 修复：政策类零命中时，不得把非政策检索结果伪装成政策来源返回，
+		// 否则兜底回答会携带误导性 sources，违反「政策类零命中禁止编造来源」的硬约束。
 		return &AgentResult{
 			AgentName:  a.Name(),
 			Content:    "",
-			Confidence: 0.1,
-			Sources:    kbResultsToSources(results),
+			Confidence: 0,
+			Sources:    nil,
 		}, nil
 	}
 

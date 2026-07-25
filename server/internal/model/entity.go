@@ -16,6 +16,8 @@ type User struct {
 	PasswordHash   string `json:"-" db:"password_hash"`                 // bcrypt 密码哈希；可登录账号不得为空
 	VoiceEnabled   int    `json:"voice_enabled" db:"voice_enabled"`     // 语音开关：0=关闭 1=开启
 	Status         string `json:"status" db:"status"`                   // active/pending/rejected/disabled
+	TokenVersion   int    `json:"-" db:"token_version"`                 // JWT 令牌版本，+1 即吊销该用户所有旧令牌
+	Consented      int    `json:"consented" db:"consented"`             // 是否已同意隐私政策与用户协议：0=否 1=是
 	CreatedAt      string `json:"created_at" db:"created_at"`
 	UpdatedAt      string `json:"updated_at" db:"updated_at"`
 }
@@ -74,10 +76,14 @@ type ProcessStep struct {
 	Deadline    string `json:"deadline" db:"deadline"`
 	Location    string `json:"location" db:"location"` // 办理地点
 	Notes       string `json:"notes" db:"notes"`
-	Contact     string `json:"contact" db:"contact"`           // 联系人
-	Phone       string `json:"phone" db:"phone"`               // 联系电话
-	OfficeHours string `json:"office_hours" db:"office_hours"` // 办公时间
-	FAQ         string `json:"faq" db:"faq"`                   // JSON 数组：[{"q":"…","a":"…"}]
+	Contact       string  `json:"contact" db:"contact"`               // 联系人
+	Phone         string  `json:"phone" db:"phone"`                   // 联系电话
+	ContactWechat string  `json:"contact_wechat" db:"contact_wechat"` // 联系人微信/企业微信
+	OfficeHours   string  `json:"office_hours" db:"office_hours"`     // 办公时间
+	GeoLat        float64 `json:"geo_lat" db:"geo_lat"`               // 办理地点纬度（0 表示未录入）
+	GeoLng        float64 `json:"geo_lng" db:"geo_lng"`               // 办理地点经度（0 表示未录入）
+	MediaURLs     string  `json:"media_urls" db:"media_urls"`         // JSON 数组：办理指引图片/视频 URL
+	FAQ           string  `json:"faq" db:"faq"`                       // JSON 数组：[{"q":"…","a":"…"}]
 }
 
 // AuditLog 审计日志，对应 audit_logs 表
@@ -235,6 +241,48 @@ type UserModelConfig struct {
 	DefaultProvider string  `json:"default_provider" db:"default_provider"`
 	CreatedAt       string  `json:"created_at" db:"created_at"`
 	UpdatedAt       string  `json:"updated_at" db:"updated_at"`
+}
+
+// maskSecret 对密钥脱敏：保留末 4 位，前缀用 **** 代替；空串返回空串。
+// 安全修复 SEC-05：读取模型配置时绝不回显密钥明文。
+func maskSecret(s string) string {
+	if s == "" {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= 4 {
+		return "****"
+	}
+	return "****" + string(r[len(r)-4:])
+}
+
+// ToMaskedView 将模型配置转为脱敏视图，密钥仅返回掩码 + 是否已配置标志。
+func (c *UserModelConfig) ToMaskedView() *ModelConfigView {
+	return &ModelConfigView{
+		ID:              c.ID,
+		UserID:          c.UserID,
+		DeepseekKey:     maskSecret(c.DeepseekKey),
+		DeepseekKeySet:  c.DeepseekKey != "",
+		DeepseekModel:   c.DeepseekModel,
+		DeepseekTemp:    c.DeepseekTemp,
+		DeepseekMaxTok:  c.DeepseekMaxTok,
+		ZhipuKey:        maskSecret(c.ZhipuKey),
+		ZhipuKeySet:     c.ZhipuKey != "",
+		ZhipuModel:      c.ZhipuModel,
+		ZhipuTemp:       c.ZhipuTemp,
+		ZhipuMaxTok:     c.ZhipuMaxTok,
+		XunfeiAppID:     c.XunfeiAppID,
+		XunfeiKey:       maskSecret(c.XunfeiKey),
+		XunfeiKeySet:    c.XunfeiKey != "",
+		XunfeiSecret:    maskSecret(c.XunfeiSecret),
+		XunfeiSecretSet: c.XunfeiSecret != "",
+		XunfeiModel:     c.XunfeiModel,
+		XunfeiTemp:      c.XunfeiTemp,
+		XunfeiMaxTok:    c.XunfeiMaxTok,
+		DefaultProvider: c.DefaultProvider,
+		CreatedAt:       c.CreatedAt,
+		UpdatedAt:       c.UpdatedAt,
+	}
 }
 
 // SystemSetting 系统配置项，对应 system_settings 表

@@ -47,6 +47,9 @@ type KBStats struct {
 type SearchResult struct {
 	Resource model.KBResource
 	Score    float64 // BM25 分数（负值，越小越相关）
+	// LowConfidence 瞬态标记（不落库）：检索相关性全部低于阈值、仅为避免空结果而强留的最佳结果。
+	// 下游据此走兜底，避免基于弱相关资料编造政策关键数字（CE-02）。
+	LowConfidence bool
 }
 
 // Search 全文检索，使用 FTS5/BM25 算法（增强精准度版）
@@ -551,7 +554,11 @@ func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, 
 }
 
 // ListSince 查询 updated_at >= sinceCursor 的资源（增量导出用）
-func (r *KBRepo) ListSince(resourceType, sinceCursor string, limit int) ([]*model.KBResource, error) {
+// 安全修复 RB-01：新增 callerScope/callerOwnerID 强制按调用者数据范围过滤（纵深防御，与路由能力门叠加）
+//   - callerScope == "school"（或空，兼容旧调用）：可导出全部已发布资源
+//   - callerScope == "college"：仅本院资源 + 全校公共（school 级）资源
+//   - callerScope == "class"：仅本班资源 + 上级公共（school/college）资源
+func (r *KBRepo) ListSince(resourceType, sinceCursor, callerScope, callerOwnerID string, limit int) ([]*model.KBResource, error) {
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
 			role_scope, version, status, title, summary,
 			content, source_link, source_version,
@@ -567,6 +574,16 @@ func (r *KBRepo) ListSince(resourceType, sinceCursor string, limit int) ([]*mode
 	if sinceCursor != "" {
 		query += " AND updated_at >= ?"
 		args = append(args, sinceCursor)
+	}
+
+	// scope 过滤：school 级（或空）不限；college/class 级仅本范围 + 上级公共资源
+	switch callerScope {
+	case "college":
+		query += " AND (owner_scope = 'school' OR (owner_scope = 'college' AND owner_id = ?))"
+		args = append(args, callerOwnerID)
+	case "class":
+		query += " AND (owner_scope = 'school' OR owner_scope = 'college' OR (owner_scope = 'class' AND owner_id = ?))"
+		args = append(args, callerOwnerID)
 	}
 
 	query += " ORDER BY updated_at DESC LIMIT ?"
@@ -698,7 +715,7 @@ func (r *KBRepo) CountProcessSteps(resourceID string) (int, error) {
 func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error) {
 	rows, err := r.db.Query(
 		`SELECT id, resource_id, step_order, title, materials, entry_url, deadline, location, notes,
-		        contact, phone, office_hours, faq
+		        contact, phone, contact_wechat, office_hours, geo_lat, geo_lng, media_urls, faq
 		 FROM process_steps WHERE resource_id = ?
 		 ORDER BY step_order ASC`, resourceID,
 	)
@@ -712,7 +729,8 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 		s := &model.ProcessStep{}
 		if err := rows.Scan(&s.ID, &s.ResourceID, &s.StepOrder, &s.Title,
 			&s.Materials, &s.EntryURL, &s.Deadline, &s.Location, &s.Notes,
-			&s.Contact, &s.Phone, &s.OfficeHours, &s.FAQ); err != nil {
+			&s.Contact, &s.Phone, &s.ContactWechat, &s.OfficeHours,
+			&s.GeoLat, &s.GeoLng, &s.MediaURLs, &s.FAQ); err != nil {
 			return nil, err
 		}
 		steps = append(steps, s)

@@ -273,8 +273,20 @@ func (s *ChatService) buildMessages(ctx context.Context, sessionID string, quest
 
 	// 拼接检索到的知识库内容
 	if len(results) > 0 {
+		// 判断是否全部为低置信（仅强留的弱相关结果），若是则提示 LLM 谨慎作答
+		allLow := true
+		for _, r := range results {
+			if !r.LowConfidence {
+				allLow = false
+				break
+			}
+		}
+
 		var knowledgeBuilder strings.Builder
 		knowledgeBuilder.WriteString("\n\n--- 知识库参考资料 ---\n")
+		if allLow {
+			knowledgeBuilder.WriteString("注意：以下资料与问题的相关性较低，可能并不匹配。若资料未明确覆盖用户问题，请勿臆测或编造条款、数字、期限等关键信息，应明确告知信息不足并建议咨询相关部门。\n")
+		}
 		for i, r := range results {
 			knowledgeBuilder.WriteString(fmt.Sprintf("\n【资料 %d】%s（%s）\n", i+1, r.Resource.Title, r.Resource.ResourceType))
 			if r.Resource.Summary != "" {
@@ -291,11 +303,19 @@ func (s *ChatService) buildMessages(ctx context.Context, sessionID string, quest
 	})
 
 	// 历史对话上下文（最近 6 条）
+	// 安全修复 SEC-03：历史消息按原文落库，回放给 LLM 前必须重新脱敏，
+	// 否则早前轮次的 PII 会绕过当前轮的脱敏直接进入模型上下文。
 	history, _ := s.messageRepo.GetRecentContext(sessionID, 6)
 	for _, h := range history {
+		content := h.Content
+		if h.Role == "assistant" {
+			content = util.SanitizeLLMResponse(content)
+		} else {
+			content = util.SanitizeForLLM(content, 2000)
+		}
 		messages = append(messages, llm.ChatMessage{
 			Role:    h.Role,
-			Content: h.Content,
+			Content: content,
 		})
 	}
 
@@ -391,13 +411,26 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore
 	})
 
-	// 无知识命中时降低置信度
-	if len(results) == 0 {
+	// 判定是否所有命中都是「仅为避免空结果而强留的低置信结果」
+	allLowConfidence := len(results) > 0
+	for _, r := range results {
+		if !r.LowConfidence {
+			allLowConfidence = false
+			break
+		}
+	}
+
+	// 无知识命中、或命中全部为低置信时降低置信度并走兜底
+	if len(results) == 0 || allLowConfidence {
 		card.Confidence = 0.3
 		card.Fallback = true
-		// 如果多智能体也没有来源，替换结论为兜底引导文案（避免 LLM 无依据编造）
+		// CE-02：低置信时清空可能误导的来源，避免弱相关资料被当作权威依据
+		if allLowConfidence {
+			card.Sources = nil
+		}
+		// 如果多智能体也没有来源，替换结论为兜底引导文案（避免 LLM 无依据编造关键数字）
 		if multiAgentResult == nil || len(multiAgentResult.Sources) == 0 {
-			card.Conclusion = `知识库中暂未找到足够信息。建议联系辅导员、学院学工办公室或相关职能部门确认最新要求。`
+			card.Conclusion = `知识库中暂未找到足够匹配的信息，为避免提供不准确的条款或数字，建议联系辅导员、学院学工办公室或相关职能部门确认最新要求。`
 		}
 	}
 
@@ -924,7 +957,8 @@ func filterLowRelevanceResults(results []*repository.SearchResult, question stri
 		}
 	}
 
-	// 如果全部被过滤了，保留分数最高的1条（避免完全无结果，但 LLM 会根据提示词判断是否使用）
+	// 如果全部被过滤了，保留分数最高的1条（避免完全无结果），但标记为低置信，
+	// 让下游走兜底而非基于弱相关资料生成「确定」回答（CE-02）。
 	if len(filtered) == 0 && len(results) > 0 {
 		bestIdx := 0
 		bestScore := -1.0
@@ -935,8 +969,9 @@ func filterLowRelevanceResults(results []*repository.SearchResult, question stri
 				bestIdx = i
 			}
 		}
+		results[bestIdx].LowConfidence = true
 		filtered = append(filtered, results[bestIdx])
-		log.Printf("所有结果相关性均较低，保留最佳: title=%q score=%.3f",
+		log.Printf("所有结果相关性均较低，保留最佳(标记低置信): title=%q score=%.3f",
 			truncateContent(results[bestIdx].Resource.Title, 30), bestScore)
 	}
 

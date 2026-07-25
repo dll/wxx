@@ -513,7 +513,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		secured.Use(middleware.EnsureUserExists(userRepo))
 		{
 			// ── AI 对话（self.chat）──
-			secured.POST("/chat", auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), chatH.Ask)
+			// 安全修复 SEC-02：对话为主要 PII 输入入口，要求已同意隐私政策/用户协议方可访问
+			secured.POST("/chat", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), chatH.Ask)
 
 			// ── 会话/知识/推荐（self.* 能力）──
 			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
@@ -636,8 +637,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				kb.POST("/resources/:id/submit", auth.RequireCapability(auth.UnionKBSubmit), kbH.SubmitForReview)
 			}
 
-			// ── 知识导出（self.export.self，所有人）──
-			secured.GET("/kb/export", auth.RequireCapability(auth.SelfExportSelf), exportH.Export)
+			// ── 知识同步导出（school.kb.sync.export，学校级运维）──
+			// 安全修复 RB-01：知识全量导出不再对所有登录用户开放，仅学校级同步能力可用，并在服务层按 scope 过滤
+			secured.GET("/kb/export", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.Export)
 
 			// ── 智能体管理（school.agent.write）──
 			agents := secured.Group("/agents")
@@ -655,8 +657,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				secured.POST("/voice/tts", auth.RequireCapability(auth.SelfVoice), voiceH.TTS)
 			}
 
-			// ── 通用导出（self.export.self）──
-			secured.GET("/export", auth.RequireCapability(auth.SelfExportSelf), exportH.Export)
+			// ── 知识资源导出（school.kb.sync.export，同 /kb/export，学校级同步）──
+			// 安全修复 RB-01：与 /kb/export 同一 handler，统一收敛到学校级同步能力
+			secured.GET("/export", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.Export)
+			// 导出本人回答卡片（self.export.self）——仅处理调用者自行提交的卡片数据，无越权风险
 			secured.POST("/export/answer", auth.RequireCapability(auth.SelfExportSelf), exportH.ExportAnswer)
 
 			// ── 校外系统对接（counselor.integration.read）──

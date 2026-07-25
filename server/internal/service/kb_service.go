@@ -373,9 +373,10 @@ func (s *KBService) ListPending(ctx context.Context, page, pageSize int) ([]*mod
 }
 
 // ExportResources 导出知识资源（无分页，用于同步/备份）
-func (s *KBService) ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error) {
+// 安全修复 RB-01：callerScope/callerOwnerID 由 handler 从 JWT 上下文注入，服务层按调用者数据范围过滤
+func (s *KBService) ExportResources(ctx context.Context, resourceType, sinceCursor, callerScope, callerOwnerID string) ([]*model.KBResource, error) {
 	// 增量查询：通过 SQL WHERE 过滤，避免应用层遍历
-	return s.kbRepo.ListSince(resourceType, sinceCursor, 5000)
+	return s.kbRepo.ListSince(resourceType, sinceCursor, callerScope, callerOwnerID, 5000)
 }
 
 // ════════ 高级查询与批量操作 ════════

@@ -21,7 +21,7 @@ type mockExportService struct {
 	err       error
 }
 
-func (m *mockExportService) ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error) {
+func (m *mockExportService) ExportResources(ctx context.Context, resourceType, sinceCursor, callerScope, callerOwnerID string) ([]*model.KBResource, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

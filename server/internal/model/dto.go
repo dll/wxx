@@ -56,13 +56,14 @@ type ErrorResponse struct {
 
 // UserContext 从 JWT 中提取的用户上下文，由中间件注入
 type UserContext struct {
-	UserID      int64  // 用户 ID
-	Username    string // 用户名
-	Role        string // 角色
-	OwnerScope  string // 归属范围
-	OwnerID     string // 归属 ID
-	DisplayName string // 显示名
-	Consented   bool   // 是否已同意隐私政策与用户协议
+	UserID       int64  // 用户 ID
+	Username     string // 用户名
+	Role         string // 角色
+	OwnerScope   string // 归属范围
+	OwnerID      string // 归属 ID
+	DisplayName  string // 显示名
+	Consented    bool   // 是否已同意隐私政策与用户协议
+	TokenVersion int    // JWT 令牌版本，用于令牌吊销比对
 }
 
 // ── 知识导出 DTO ──
@@ -431,6 +432,34 @@ type ModelConfigSaveRequest struct {
 	XunfeiTemp      float64 `json:"xunfei_temp"`
 	XunfeiMaxTok    int     `json:"xunfei_max_tokens"`
 	DefaultProvider string  `json:"default_provider" binding:"required,oneof=deepseek zhipu xunfei"`
+}
+
+// ModelConfigView 模型配置脱敏视图（读取时返回，绝不回显密钥明文）
+// 安全修复 SEC-05：密钥字段仅返回掩码 + 是否已配置标志，供前端判断展示。
+type ModelConfigView struct {
+	ID              int64   `json:"id"`
+	UserID          int64   `json:"user_id"`
+	DeepseekKey     string  `json:"deepseek_key"`     // 掩码，如 sk-****abcd
+	DeepseekKeySet  bool    `json:"deepseek_key_set"` // 是否已配置
+	DeepseekModel   string  `json:"deepseek_model"`
+	DeepseekTemp    float64 `json:"deepseek_temp"`
+	DeepseekMaxTok  int     `json:"deepseek_max_tokens"`
+	ZhipuKey        string  `json:"zhipu_key"`
+	ZhipuKeySet     bool    `json:"zhipu_key_set"`
+	ZhipuModel      string  `json:"zhipu_model"`
+	ZhipuTemp       float64 `json:"zhipu_temp"`
+	ZhipuMaxTok     int     `json:"zhipu_max_tokens"`
+	XunfeiAppID     string  `json:"xunfei_app_id"`
+	XunfeiKey       string  `json:"xunfei_key"`
+	XunfeiKeySet    bool    `json:"xunfei_key_set"`
+	XunfeiSecret    string  `json:"xunfei_secret"`
+	XunfeiSecretSet bool    `json:"xunfei_secret_set"`
+	XunfeiModel     string  `json:"xunfei_model"`
+	XunfeiTemp      float64 `json:"xunfei_temp"`
+	XunfeiMaxTok    int     `json:"xunfei_max_tokens"`
+	DefaultProvider string  `json:"default_provider"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 // ── 词元统计 DTO ──

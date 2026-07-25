@@ -757,20 +757,35 @@ func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, u
 				} else {
 					faqList = []map[string]interface{}{}
 				}
-				steps = append(steps, map[string]interface{}{
-					"step":         ps.StepOrder,
-					"title":        ps.Title,
-					"status":       "pending",
-					"materials":    materials,
-					"entry_url":    ps.EntryURL,
-					"deadline":     ps.Deadline,
-					"location":     ps.Location,
-					"notes":        ps.Notes,
-					"contact":      ps.Contact,
-					"phone":        ps.Phone,
-					"office_hours": ps.OfficeHours,
-					"faq":          faqList,
-				})
+				// 媒体资源 JSON 数组解析（办理指引图/视频）
+				mediaList := []string{}
+				if ps.MediaURLs != "" && ps.MediaURLs != "[]" {
+					if err := json.Unmarshal([]byte(ps.MediaURLs), &mediaList); err != nil {
+						mediaList = []string{}
+					}
+				}
+				stepMap := map[string]interface{}{
+					"step":           ps.StepOrder,
+					"title":          ps.Title,
+					"status":         "pending",
+					"materials":      materials,
+					"entry_url":      ps.EntryURL,
+					"deadline":       ps.Deadline,
+					"location":       ps.Location,
+					"notes":          ps.Notes,
+					"contact":        ps.Contact,
+					"phone":          ps.Phone,
+					"contact_wechat": ps.ContactWechat,
+					"office_hours":   ps.OfficeHours,
+					"media_urls":     mediaList,
+					"faq":            faqList,
+				}
+				// 地理坐标仅在已录入（非 0）时透出，避免前端把 0,0 当作有效坐标定位到几内亚湾
+				if ps.GeoLat != 0 || ps.GeoLng != 0 {
+					stepMap["geo_lat"] = ps.GeoLat
+					stepMap["geo_lng"] = ps.GeoLng
+				}
+				steps = append(steps, stepMap)
 			}
 		}
 	}

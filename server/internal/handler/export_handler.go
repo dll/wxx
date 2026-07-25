@@ -14,7 +14,7 @@ import (
 
 // exportService 知识导出服务接口（用于测试 mock）
 type exportService interface {
-	ExportResources(ctx context.Context, resourceType, sinceCursor string) ([]*model.KBResource, error)
+	ExportResources(ctx context.Context, resourceType, sinceCursor, callerScope, callerOwnerID string) ([]*model.KBResource, error)
 }
 
 // ExportHandler 知识导出 HTTP handler
@@ -93,7 +93,8 @@ func (h *ExportHandler) Export(c *gin.Context) {
 		return
 	}
 
-	resources, err := h.kbSvc.ExportResources(c.Request.Context(), resourceType, sinceCursor)
+	// 安全修复 RB-01：以 JWT 上下文的 scope 强制过滤导出范围，忽略客户端可能伪造的参数
+	resources, err := h.kbSvc.ExportResources(c.Request.Context(), resourceType, sinceCursor, userCtx.OwnerScope, userCtx.OwnerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,

@@ -60,6 +60,13 @@ func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo) *AuthServ
 	}
 }
 
+// DebugCodeEcho 是否允许在响应中回显短信验证码。
+// 仅在非生产（debug）模式下为真，用于本地联调；生产环境永远返回 false，
+// 验证码只能通过真实短信通道下发，杜绝验证码经接口泄露。
+func (s *AuthService) DebugCodeEcho() bool {
+	return !s.cfg.IsRelease()
+}
+
 // LoginResult 登录结果
 type LoginResult struct {
 	Token       string `json:"token"`
@@ -77,26 +84,36 @@ func (s *AuthService) SendCode(phone string) (string, error) {
 		return "", fmt.Errorf("手机号格式不正确")
 	}
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
-	smsCodeStore.Store(phone, code)
-	log.Printf("[DEV] 短信验证码 手机=%s code=%s****", maskPhone(phone), code[:2])
+	smsCodeStore.Store(phone, smsCodeEntry{code: code, expiresAt: time.Now().Add(smsCodeTTL)})
+	// 仅记录脱敏手机号，绝不在日志或响应中输出完整验证码，避免验证码泄露。
+	log.Printf("[短信验证码] 已下发 手机=%s（%d 分钟内有效）", maskPhone(phone), int(smsCodeTTL.Minutes()))
 	return code, nil
 }
 
-// VerifyCode 校验短信验证码
+// VerifyCode 校验短信验证码。
+// 安全约束：必须与服务端已下发的验证码精确匹配，且未过期；校验后立即消费（单次有效）。
+// 不再存在“任意 6 位数字均通过”的开发后门。
 func (s *AuthService) VerifyCode(phone, code string) bool {
 	if code == "" || phone == "" {
 		return false
 	}
-	// 开发环境：任意 6 位数字可通过（仅校验格式）
-	if len(code) == 6 {
-		return true
-	}
-	stored, ok := smsCodeStore.Load(phone)
+	v, ok := smsCodeStore.Load(phone)
 	if !ok {
 		return false
 	}
+	entry, ok := v.(smsCodeEntry)
+	if !ok {
+		smsCodeStore.Delete(phone)
+		return false
+	}
+	// 过期即失效并清除，需重新获取验证码。
+	if time.Now().After(entry.expiresAt) {
+		smsCodeStore.Delete(phone)
+		return false
+	}
+	// 单次消费：无论成功与否都删除，防止暴力重试。
 	smsCodeStore.Delete(phone)
-	return stored.(string) == code
+	return entry.code == code
 }
 
 // GuestRegister 游客注册
@@ -206,16 +223,20 @@ func (s *AuthService) ListPendingGuests() ([]*model.User, error) {
 }
 
 // RecordConsent 记录用户同意隐私政策与用户协议
-// 当前用户表无 consented 字段，仅记录日志；不因用户缺失而报错
+// 安全修复 SEC-02：将同意状态持久化到数据库 consented 列，供 RequireConsent 中间件放行。
 func (s *AuthService) RecordConsent(userID int64) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		log.Printf("查询用户失败(consent): %v", err)
-		return nil // 不阻塞前端流程
+		return err
 	}
 	if user == nil {
-		log.Printf("用户不存在(consent): id=%d，跳过记录", userID)
-		return nil
+		log.Printf("用户不存在(consent): id=%d", userID)
+		return fmt.Errorf("用户不存在")
+	}
+	if err := s.userRepo.SetConsented(userID, true); err != nil {
+		log.Printf("持久化同意状态失败: user=%s err=%v", user.Username, err)
+		return err
 	}
 	log.Printf("用户同意隐私政策与用户协议: user=%s role=%s", user.Username, user.Role)
 	return nil

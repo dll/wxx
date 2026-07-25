@@ -230,8 +230,8 @@ func TestKBRepo_ListSince(t *testing.T) {
 		Title: "新资源", Content: "正文",
 	})
 
-	// 用很早的时间作为游标，应返回所有已发布资源
-	resources, err := repo.ListSince("", "2020-01-01T00:00:00Z", 100)
+	// 用很早的时间作为游标，应返回所有已发布资源（school 级调用不做 scope 限制）
+	resources, err := repo.ListSince("", "2020-01-01T00:00:00Z", "school", "", 100)
 	if err != nil {
 		t.Fatalf("ListSince 失败: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestKBRepo_ListSince(t *testing.T) {
 	}
 
 	// 用未来时间作为游标，应返回空
-	resources, err = repo.ListSince("", "2099-01-01T00:00:00Z", 100)
+	resources, err = repo.ListSince("", "2099-01-01T00:00:00Z", "school", "", 100)
 	if err != nil {
 		t.Fatalf("ListSince 失败: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestKBRepo_ListSince_TypeFilter(t *testing.T) {
 		Title: "问答", Content: "正文",
 	})
 
-	resources, err := repo.ListSince("FAQ", "2020-01-01T00:00:00Z", 100)
+	resources, err := repo.ListSince("FAQ", "2020-01-01T00:00:00Z", "school", "", 100)
 	if err != nil {
 		t.Fatalf("ListSince 失败: %v", err)
 	}

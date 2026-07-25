@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -35,6 +36,25 @@ func EnsureUserExists(upserter UserUpserter) gin.HandlerFunc {
 		}
 
 		if err := upserter.UpsertFromContext(userCtx); err != nil {
+			// 账户被停用/拒绝 → 403 禁止访问
+			if errors.Is(err, model.ErrAccountDisabled) {
+				log.Printf("[EnsureUserExists] 账户已停用，拒绝访问 user=%s", maskNameForLog(userCtx.Username))
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"code":    403,
+					"message": "账户已被停用，请联系管理员",
+				})
+				return
+			}
+			// 令牌已被吊销（版本过旧）→ 401 要求重新登录
+			if errors.Is(err, model.ErrTokenRevoked) {
+				log.Printf("[EnsureUserExists] 令牌已吊销 user=%s", maskNameForLog(userCtx.Username))
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":    401,
+					"message": "登录已失效，请重新登录",
+				})
+				return
+			}
+			// 其它错误 → 500
 			log.Printf("[EnsureUserExists] 用户 upsert 失败 user=%s err=%v", maskNameForLog(userCtx.Username), err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"code":    500,

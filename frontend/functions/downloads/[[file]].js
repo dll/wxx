@@ -1,5 +1,13 @@
-const APK_FILE = '蔚小芯-v0.0.4.apk';
-const APK_URL = 'https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.4.apk';
+// 下载路由：动态读取同目录静态 release.json 作为版本单一事实源，
+// 不再硬编码版本号，避免发布新版本后此函数与静态清单/实际 APK 断链（Q-02）。
+//
+// 发布新版本只需：1) 更新 web/downloads/release.json；2) 放入对应 蔚小芯-vX.Y.Z.apk。
+// 本函数无需改动。
+
+// 允许下载的 APK 文件名白名单规则：蔚小芯-vX.Y.Z.apk 或固定分发名 蔚小芯.apk
+function isAllowedApk(name) {
+  return /^蔚小芯-v\d+\.\d+\.\d+\.apk$/.test(name) || name === '蔚小芯.apk';
+}
 
 export async function onRequest(context) {
   const { request, params } = context;
@@ -9,21 +17,31 @@ export async function onRequest(context) {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
 
+  // release.json 直接透传静态资产（单一事实源），仅补充 CORS 头
   if (file === 'release.json') {
-    return jsonResponse({
-      app: '蔚小芯',
-      release_date: '2026-07-20',
-      apk_url: APK_URL,
-      build_number: 4,
-      apk_file: APK_FILE,
-      version: '0.0.4',
-    });
+    const assetResponse = await context.env.ASSETS.fetch(request);
+    if (!assetResponse.ok) {
+      return jsonResponse({ error: '版本信息暂不可用，请稍后重试' }, 502);
+    }
+    const headers = new Headers(assetResponse.headers);
+    applyCorsHeaders(headers);
+    headers.set('Content-Type', 'application/json; charset=utf-8');
+    headers.set('Cache-Control', 'public, max-age=60');
+    return new Response(assetResponse.body, { status: 200, headers });
   }
 
-  if (file !== APK_FILE && file !== encodeURIComponent(APK_FILE)) {
+  // 解码后校验是否为允许的 APK 文件名
+  let decoded = file;
+  try {
+    decoded = decodeURIComponent(file);
+  } catch (_) {
+    // file 非合法编码，保持原值，交由白名单判定
+  }
+  if (!isAllowedApk(decoded)) {
     return new Response('Not Found', { status: 404, headers: corsHeaders() });
   }
 
+  // 交给静态资产服务，由其决定该 APK 是否真实存在
   const assetResponse = await context.env.ASSETS.fetch(request);
   if (!assetResponse.ok || (request.method !== 'HEAD' && !assetResponse.body)) {
     return new Response('APK 暂时不可下载，请稍后重试', {
@@ -35,14 +53,14 @@ export async function onRequest(context) {
   const headers = new Headers(assetResponse.headers);
   applyCorsHeaders(headers);
   headers.set('Content-Type', 'application/vnd.android.package-archive');
-  headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(APK_FILE)}`);
+  headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(decoded)}`);
   headers.set('Cache-Control', 'public, max-age=300');
   return new Response(request.method === 'HEAD' ? null : assetResponse.body, { status: 200, headers });
 }
 
-function jsonResponse(data) {
+function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
-    status: 200,
+    status,
     headers: {
       ...corsHeaders(),
       'Content-Type': 'application/json; charset=utf-8',
