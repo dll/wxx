@@ -41,12 +41,24 @@ jobs:
             "expiresAt": 1
           }
           EOF
-          cat ~/.vercel/auth.json
+          echo "=== 初始凭证 ==="
+          cat ~/.vercel/auth.json | sed 's/"token": "[^"]*"/"token": "***"/g' | sed 's/"refreshToken": "[^"]*"/"refreshToken": "***"/g'
+
+      - name: 测试 Vercel CLI 登录状态
+        run: |
+          echo "=== 测试 vercel whoami ==="
+          vercel whoami 2>&1 || true
+          echo "=== 刷新后的凭证 ==="
+          cat ~/.vercel/auth.json | sed 's/"token": "[^"]*"/"token": "***"/g' | sed 's/"refreshToken": "[^"]*"/"refreshToken": "***"/g' || true
 
       - name: 配置 Vercel 项目
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+          cat .vercel/project.json
 
       - name: 部署到 Vercel（生产环境）
-        run: vercel deploy --prod --yes
+        run: |
+          echo "=== 开始部署 ==="
+          vercel deploy --prod --yes 2>&1
+          echo "=== 部署完成 ==="
