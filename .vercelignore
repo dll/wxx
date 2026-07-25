@@ -1,0 +1,52 @@
+# 忽略前端文件
+frontend/
+
+# 忽略编译产物
+*.exe
+*.apk
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.out
+bin/
+build/
+server/bin/
+server/build/
+server/*.exe
+*.test
+
+# 忽略数据文件
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# 忽略文档
+docs/
+specs/
+knowledge/
+*.md
+*.pdf
+*.docx
+
+# 忽略脚本
+scripts/
+
+# 忽略 IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 忽略 git
+.git/
+.github/
+
+# 忽略其他
+*.log
+*.tmp
+*.cache
+node_modules/
+.vercel/
