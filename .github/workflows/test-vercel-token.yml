@@ -1,0 +1,36 @@
+name: Test Vercel Token Refresh
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-token:
+    name: 测试 Vercel Token 刷新
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: 配置 Vercel 凭证
+        run: |
+          mkdir -p ~/.vercel
+          echo '{
+            "token": "${{ secrets.VERCEL_TOKEN }}",
+            "userId": "PJVOqEooiVdg9cB9rceTyjAF",
+            "refreshToken": "${{ secrets.VERCEL_REFRESH_TOKEN }}",
+            "expiresAt": 1781902460
+          }' > ~/.vercel/auth.json
+          cat ~/.vercel/auth.json
+
+      - name: 测试 Vercel CLI
+        run: vercel whoami 2>&1 || true
+
+      - name: 查看刷新后的凭证
+        run: |
+          cat ~/.vercel/auth.json 2>&1 || true
