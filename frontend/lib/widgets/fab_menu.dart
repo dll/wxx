@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../config/release_config.dart';
 import 'feedback_dialog.dart';
 import 'focus_mode.dart';
 import 'mobile_download_dialog.dart';
@@ -26,6 +29,12 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   double _dy = 120;
 
   static const _items = <_FabItem>[
+    _FabItem(
+      icon: Icons.language_outlined,
+      label: 'Web',
+      color: Color(0xFF1565C0),
+      action: _FabAction.web,
+    ),
     _FabItem(
       icon: Icons.smartphone_outlined,
       label: '移动',
@@ -222,6 +231,8 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   void _onTap(_FabItem item) {
     switch (item.action) {
+      case _FabAction.web:
+        _openWebApp();
       case _FabAction.mobile:
         showMobileDownloadDialog(context);
       case _FabAction.campus:
@@ -235,6 +246,13 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
     }
   }
 
+  void _openWebApp() {
+    launchUrl(
+      Uri.parse(ReleaseConfig.webUrl),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   void _openNavigation(BuildContext context) {
     context.go('/campus');
   }
@@ -242,7 +260,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
 // ── 内部组件 ──
 
-enum _FabAction { mobile, campus, feedback, voice, focus }
+enum _FabAction { web, mobile, campus, feedback, voice, focus }
 
 class _FabItem {
   final IconData icon;
