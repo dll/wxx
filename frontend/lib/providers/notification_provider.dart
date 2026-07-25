@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import '../services/api_service.dart';
@@ -105,7 +106,14 @@ class NotificationProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      if (e is DioException && e.response?.statusCode == 404) {
+        _items = [];
+        _total = 0;
+        _unreadCount = 0;
+        _error = '';
+      } else {
+        _error = e.toString();
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -124,7 +132,9 @@ class NotificationProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      // 静默失败，不影响主流程
+      if (e is DioException && e.response?.statusCode == 404) {
+        _unreadCount = 0;
+      }
     }
   }
 

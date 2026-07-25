@@ -97,6 +97,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	forecastRepo := repository.NewForecastRepo(db)
 	graduationRepo := repository.NewGraduationRepo(db)
 	studentFeaturesRepo := repository.NewStudentFeaturesRepo(db)
+	twinRepo := repository.NewTwinRepo(db)
 
 	// ── 服务层 ──
 	graduationService := service.NewGraduationService(graduationRepo)
@@ -215,6 +216,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc, db)
+	// 数字孪生五维聚合服务（S1.1）：注入现有 StudentHandler，/student/digital-twin 走真实数据，失败兜底 mock
+	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
+	studentHandler.SetTwinService(twinSvc)
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 
 	var teacherSvc *service.TeacherService

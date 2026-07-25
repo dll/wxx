@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -112,9 +113,14 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      setState(() {
-        _studentHomeError = e.toString();
-      });
+      if (e is DioException && e.response?.statusCode == 404) {
+        _studentHomeData = null;
+        _studentHomeError = null;
+      } else {
+        setState(() {
+          _studentHomeError = e.toString();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {

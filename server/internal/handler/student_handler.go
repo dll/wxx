@@ -14,13 +14,19 @@ import (
 
 // StudentHandler 学生角色 AI 功能接口
 type StudentHandler struct {
-	svc *service.StudentService
-	db  *sql.DB
+	svc     *service.StudentService
+	twinSvc *service.TwinService // 数字孪生五维聚合服务，可为 nil（走兜底 mock）
+	db      *sql.DB
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
 func NewStudentHandler(svc *service.StudentService, db *sql.DB) *StudentHandler {
 	return &StudentHandler{svc: svc, db: db}
+}
+
+// SetTwinService 注入数字孪生服务（可选依赖，装配期调用）
+func (h *StudentHandler) SetTwinService(twinSvc *service.TwinService) {
+	h.twinSvc = twinSvc
 }
 
 // DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
@@ -117,6 +123,18 @@ func (h *StudentHandler) CheckinHistory(c *gin.Context) {
 
 // DigitalTwin 数字孪生
 func (h *StudentHandler) DigitalTwin(c *gin.Context) {
+	// 优先走真实五维聚合服务（S1.1 数字孪生数据底座）
+	if h.twinSvc != nil {
+		if userCtx := middleware.GetUserContext(c); userCtx != nil {
+			result, err := h.twinSvc.GetDigitalTwin(c.Request.Context(), userCtx.UserID)
+			if err == nil && result != nil {
+				c.JSON(http.StatusOK, result)
+				return
+			}
+		}
+	}
+
+	// 兜底：未注入 twinSvc 或聚合异常时返回 mock（保证前端可用，不阻断）
 	c.JSON(http.StatusOK, gin.H{
 		"dimensions": []gin.H{
 			{"name": "学业", "score": 78.5, "label": "良好"},
@@ -134,6 +152,7 @@ func (h *StudentHandler) DigitalTwin(c *gin.Context) {
 		},
 		"ai_summary":  "你的学业和身心维度表现良好，社交和实践维度有提升空间。建议多参加社团活动和实习项目。",
 		"suggestions": []string{"参加下周的企业宣讲会", "加入一个技术社团", "每周运动3次以上"},
+		"fallback":    true,
 	})
 }
 
