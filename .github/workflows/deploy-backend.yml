@@ -30,27 +30,6 @@ jobs:
       - name: 安装 Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: 配置 Vercel 凭证（支持自动刷新 token）
-        run: |
-          mkdir -p ~/.vercel
-          cat > ~/.vercel/auth.json << 'EOF'
-          {
-            "token": "${{ secrets.VERCEL_TOKEN }}",
-            "userId": "${{ secrets.VERCEL_USER_ID }}",
-            "refreshToken": "${{ secrets.VERCEL_REFRESH_TOKEN }}",
-            "expiresAt": 1
-          }
-          EOF
-          echo "=== 初始凭证 ==="
-          cat ~/.vercel/auth.json | sed 's/"token": "[^"]*"/"token": "***"/g' | sed 's/"refreshToken": "[^"]*"/"refreshToken": "***"/g'
-
-      - name: 测试 Vercel CLI 登录状态
-        run: |
-          echo "=== 测试 vercel whoami ==="
-          vercel whoami 2>&1 || true
-          echo "=== 刷新后的凭证 ==="
-          cat ~/.vercel/auth.json | sed 's/"token": "[^"]*"/"token": "***"/g' | sed 's/"refreshToken": "[^"]*"/"refreshToken": "***"/g' || true
-
       - name: 配置 Vercel 项目
         run: |
           mkdir -p .vercel
@@ -58,7 +37,9 @@ jobs:
           cat .vercel/project.json
 
       - name: 部署到 Vercel（生产环境）
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           echo "=== 开始部署 ==="
-          vercel deploy --prod --yes 2>&1
+          vercel deploy --prod --yes --token=$VERCEL_TOKEN 2>&1
           echo "=== 部署完成 ==="
