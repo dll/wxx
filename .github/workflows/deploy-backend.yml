@@ -30,10 +30,23 @@ jobs:
       - name: 安装 Vercel CLI
         run: npm install -g vercel@latest
 
+      - name: 配置 Vercel 凭证（支持自动刷新 token）
+        run: |
+          mkdir -p ~/.vercel
+          cat > ~/.vercel/auth.json << 'EOF'
+          {
+            "token": "${{ secrets.VERCEL_TOKEN }}",
+            "userId": "${{ secrets.VERCEL_USER_ID }}",
+            "refreshToken": "${{ secrets.VERCEL_REFRESH_TOKEN }}",
+            "expiresAt": 1
+          }
+          EOF
+          cat ~/.vercel/auth.json
+
       - name: 配置 Vercel 项目
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
 
       - name: 部署到 Vercel（生产环境）
-        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes
