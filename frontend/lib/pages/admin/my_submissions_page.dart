@@ -336,43 +336,64 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '共 ${provider.resourceTotal} 条',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  Text(
+                    '共 ${provider.resourceTotal} 条',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(width: 16),
+                  if (stats != null) ...[
+                    _statChip('草稿', stats['draft'] ?? 0, Colors.grey),
+                    _statChip('待审', stats['pending'] ?? 0, Colors.orange),
+                    _statChip('已发', stats['published'] ?? 0, Colors.green),
+                    _statChip('下架', stats['retired'] ?? 0, Colors.red),
+                  ],
+                  const Spacer(),
+                  if (provider.selectedCount > 0) ...[
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '已选 ${provider.selectedCount} 条',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: provider.deselectAllResources,
+                      child: const Text('取消选择', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 16),
-              if (stats != null) ...[
-                _statChip('草稿', stats['draft'] ?? 0, Colors.grey),
-                _statChip('待审', stats['pending'] ?? 0, Colors.orange),
-                _statChip('已发', stats['published'] ?? 0, Colors.green),
-                _statChip('下架', stats['retired'] ?? 0, Colors.red),
-              ],
-              const Spacer(),
-              if (provider.selectedCount > 0) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '已选 ${provider.selectedCount} 条',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: provider.deselectAllResources,
-                  child: const Text('取消选择', style: TextStyle(fontSize: 12)),
+              if (stats != null && stats['by_type'] != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.category_outlined, size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text('类型分布：',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            )),
+                    const SizedBox(width: 4),
+                    ..._buildTypeStats(stats['by_type']),
+                  ],
                 ),
               ],
             ],
@@ -380,6 +401,48 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
         );
       },
     );
+  }
+
+  List<Widget> _buildTypeStats(dynamic byType) {
+    if (byType is! Map) return [];
+    const typeLabels = {
+      'Policy': '政策',
+      'Process': '流程',
+      'FAQ': '问答',
+      'Activity': '活动',
+    };
+    const typeColors = {
+      'Policy': Colors.blue,
+      'Process': Colors.purple,
+      'FAQ': Colors.green,
+      'Activity': Colors.orange,
+    };
+    final widgets = <Widget>[];
+    for (final entry in (byType as Map).entries) {
+      final label = typeLabels[entry.key] ?? entry.key.toString();
+      final color = typeColors[entry.key] ?? Colors.grey;
+      final count = entry.value is int ? entry.value : 0;
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Text('$label $count',
+                style: TextStyle(fontSize: 11, color: color)),
+          ],
+        ),
+      ));
+    }
+    return widgets;
   }
 
   Widget _statChip(String label, dynamic count, Color color) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../config/release_config.dart';
 import '../../providers/update_provider.dart';
@@ -179,18 +180,24 @@ class _AboutPageState extends State<AboutPage> {
                   leading: Icon(Icons.school),
                   title: Text('学业辅导'),
                   subtitle: Text('学习计划、课程表、成绩分析'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () => context.go('/student/study-plan'),
                 ),
                 Divider(height: 1),
                 ListTile(
                   leading: Icon(Icons.favorite),
                   title: Text('心理陪伴'),
                   subtitle: Text('心理健康测评与咨询预约'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () => context.go('/student/mental'),
                 ),
                 Divider(height: 1),
                 ListTile(
                   leading: Icon(Icons.work),
                   title: Text('就业指导'),
                   subtitle: Text('就业政策、岗位推荐、面试技巧'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () => context.go('/student/career'),
                 ),
               ],
             ),

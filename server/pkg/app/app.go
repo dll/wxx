@@ -633,17 +633,17 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 知识库 CRUD（counselor.kb.write）──
 			kb := secured.Group("/kb")
 			{
+				// 高级查询与字典（必须在 /resources/:id 之前注册，避免 "advanced" 被匹配为 :id）
+				kb.GET("/resources/advanced", auth.RequireCapability(auth.CounselorKBWrite), kbH.ListResourcesAdvanced)
+				kb.GET("/dict", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetDictValues)
+				kb.GET("/stats", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetStats)
+
 				kb.GET("/resources", auth.RequireCapability(auth.CounselorKBWrite), kbH.ListResources)
 				kb.POST("/resources", auth.RequireCapability(auth.CounselorKBWrite), kbH.CreateResource)
 				kb.PUT("/resources/:id", auth.RequireCapability(auth.CounselorKBWrite), kbH.UpdateResource)
 				kb.GET("/resources/:id", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetResource)
 				kb.POST("/import", auth.RequireCapability(auth.CounselorKBWrite), kbH.Import)
 				kb.POST("/validate", auth.RequireCapability(auth.CounselorKBWrite), kbH.Validate)
-
-				// 高级查询与字典
-				kb.GET("/resources/advanced", auth.RequireCapability(auth.CounselorKBWrite), kbH.ListResourcesAdvanced)
-				kb.GET("/dict", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetDictValues)
-				kb.GET("/stats", auth.RequireCapability(auth.CounselorKBWrite), kbH.GetStats)
 
 				// 批量操作（counselor.kb.review）
 				kb.POST("/batch/approve", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchApprove)

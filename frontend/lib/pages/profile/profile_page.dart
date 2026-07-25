@@ -639,6 +639,20 @@ class _ProfilePageState extends State<ProfilePage> {
       if (adminCanManage) '功能开关'
     ];
     if (tabs.isEmpty) return const SizedBox.shrink();
+    // Tab 分类图标映射
+    const categoryIcons = <String, IconData>{
+      '常用': Icons.star_outline,
+      '学生服务': Icons.school_outlined,
+      '办事服务': Icons.assignment_outlined,
+      '辅导员服务': Icons.people_outline,
+      '教师服务': Icons.cast_for_education_outlined,
+      '教辅服务': Icons.support_agent_outlined,
+      '学生会服务': Icons.groups_outlined,
+      '知识治理': Icons.library_books_outlined,
+      '校园文化': Icons.palette_outlined,
+      '管理服务': Icons.admin_panel_settings_outlined,
+      '功能开关': Icons.toggle_on_outlined,
+    };
     return DefaultTabController(
       length: tabs.length,
       child: Card(
@@ -650,7 +664,20 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           children: [
             TabBar(
-                isScrollable: true, tabs: [for (final t in tabs) Tab(text: t)]),
+                isScrollable: true,
+                tabs: [
+                  for (final t in tabs)
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(categoryIcons[t] ?? Icons.widgets_outlined, size: 18),
+                          const SizedBox(width: 4),
+                          Text(t),
+                        ],
+                      ),
+                    )
+                ]),
             SizedBox(
               height: 430,
               child: TabBarView(
