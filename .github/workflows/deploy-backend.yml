@@ -1,0 +1,57 @@
+# 蔚小芯 后端自动部署到 Vercel
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'api/**'
+      - 'vercel.json'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 部署到 Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 方式一：通过 Deploy Hook 触发（如已配置）
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK != '' }}
+        run: |
+          curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }} \
+            -H "Content-Type: application/json" \
+            -d '{"force": true}'
+          echo "Deploy Hook 已触发，请前往 Vercel 控制台查看部署状态"
+
+      - name: 方式二：使用 Vercel CLI 部署
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_ORG_ID != '' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 Node.js
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_ORG_ID != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Vercel CLI
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_ORG_ID != '' }}
+        run: npm install -g vercel@latest
+
+      - name: 部署到 Vercel（生产环境）
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_ORG_ID != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<EOF
+          {"orgId":"$VERCEL_ORG_ID","projectId":"$VERCEL_PROJECT_ID"}
+          EOF
+          vercel deploy --prod --yes --token=$VERCEL_TOKEN
