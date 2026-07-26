@@ -62,11 +62,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// ── 2. 初始化 SQLite 数据库 ──
+	// ── 2. 初始化数据库 ──
+	// initDB 自动识别协议：libsql:// → Turso 云数据库，其他 → 本地 SQLite
 	dbPath := cfg.SQLitePath
 	if os.Getenv("VERCEL") != "" {
-		dbPath = "/tmp/wxx.db"
-		log.Printf("Vercel 环境：数据库路径 %s", dbPath)
+		log.Printf("Vercel 环境：使用配置的数据库路径 %s", dbPath)
 	}
 
 	db, err := initDB(dbPath)
