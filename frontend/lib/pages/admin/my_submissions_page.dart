@@ -694,6 +694,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                 onPrint: () => _printResource(provider, resource),
                 onSubmit: () =>
                     _handleSubmit(provider, resource.resourceId),
+                onDelete: () => _handleDelete(provider, resource),
               );
             },
           ),
@@ -840,6 +841,38 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     }
   }
 
+  Future<void> _handleDelete(
+      KnowledgeProvider provider, KnowledgeCard resource) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定删除「${resource.title}」吗？\n该操作不可恢复！'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await provider.deleteResource(resource.resourceId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '删除成功' : '删除失败')),
+      );
+    }
+  }
+
   void _showCreateDialog() {
     showDialog(context: context, builder: (_) => const _CreateResourceDialog())
         .then((_) {
@@ -868,6 +901,7 @@ class _ResourceTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onPrint;
   final VoidCallback onSubmit;
+  final VoidCallback onDelete;
 
   const _ResourceTile({
     required this.resource,
@@ -878,6 +912,7 @@ class _ResourceTile extends StatelessWidget {
     required this.onEdit,
     required this.onPrint,
     required this.onSubmit,
+    required this.onDelete,
   });
 
   @override
@@ -942,6 +977,29 @@ class _ResourceTile extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (resource.updatedBy.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '上传者：${resource.updatedBy}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    if (resource.remark.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '备注：${resource.remark}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     if (resource.summary.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
@@ -992,6 +1050,14 @@ class _ResourceTile extends StatelessWidget {
                             onPressed: onPrint,
                             icon: const Icon(Icons.print_outlined, size: 16),
                             label: const Text('打印')),
+                        OutlinedButton.icon(
+                            onPressed: onDelete,
+                            icon: Icon(Icons.delete_outline,
+                                size: 16,
+                                color: theme.colorScheme.error),
+                            label: Text('删除',
+                                style: TextStyle(
+                                    color: theme.colorScheme.error))),
                         FilledButton.tonal(
                             onPressed: submitted ? null : onSubmit,
                             child: Text(submitted ? '已提交' : '提交审核')),
@@ -1103,6 +1169,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
   final _summaryCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
   final _tagsCtrl = TextEditingController();
+  final _remarkCtrl = TextEditingController();
   String _type = 'FAQ';
   String _scope = 'school';
   final String _roleScope = 'student';
@@ -1121,6 +1188,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       _summaryCtrl.text = r.summary;
       _contentCtrl.text = r.content;
       _tagsCtrl.text = r.tags.join(',');
+      _remarkCtrl.text = r.remark;
       if (['Policy', 'Process', 'FAQ', 'Activity'].contains(r.resourceType))
         _type = r.resourceType;
     }
@@ -1132,6 +1200,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     _summaryCtrl.dispose();
     _contentCtrl.dispose();
     _tagsCtrl.dispose();
+    _remarkCtrl.dispose();
     super.dispose();
   }
 
@@ -1247,6 +1316,13 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                         labelText: '标签（逗号分隔）',
                         border: OutlineInputBorder(),
                         isDense: true)),
+                const SizedBox(height: 10),
+                TextFormField(
+                    controller: _remarkCtrl,
+                    decoration: const InputDecoration(
+                        labelText: '备注（上传者说明）',
+                        border: OutlineInputBorder(),
+                        isDense: true)),
               ],
             ),
           ),
@@ -1284,6 +1360,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       'owner_id': '',
       'role_scope': '["$_roleScope"]',
       'tags': jsonEncode(tags),
+      'remark': _remarkCtrl.text.trim(),
     };
     final provider = context.read<KnowledgeProvider>();
     final ok = _isEdit

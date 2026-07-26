@@ -374,6 +374,28 @@ class KnowledgeProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteResource(String resourceId) async {
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchDelete,
+        data: {'ids': [resourceId]},
+      );
+      if (response.data['code'] == 0) {
+        _selectedResourceIds.remove(resourceId);
+        await searchResources(refresh: true);
+        fetchStats();
+        return true;
+      }
+      _resourceError = response.data['message'] ?? '删除失败';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── 审核（counselor+）──
 
   final List<KnowledgeCard> _pendingReviews = [];

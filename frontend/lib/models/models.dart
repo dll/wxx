@@ -425,6 +425,10 @@ class KnowledgeCard {
   final String status;
   final List<String> tags;
   final String sourceLink;
+  final String remark;
+  final String updatedBy;
+  final String createdAt;
+  final String updatedAt;
 
   KnowledgeCard({
     required this.resourceId,
@@ -435,6 +439,10 @@ class KnowledgeCard {
     this.status = '',
     this.tags = const [],
     this.sourceLink = '',
+    this.remark = '',
+    this.updatedBy = '',
+    this.createdAt = '',
+    this.updatedAt = '',
   });
 
   factory KnowledgeCard.fromJson(Map<String, dynamic> json) {
@@ -447,6 +455,10 @@ class KnowledgeCard {
       status: json['status'] ?? '',
       tags: _parseTags(json['tags']),
       sourceLink: json['source_link'] ?? '',
+      remark: json['remark'] ?? '',
+      updatedBy: json['updated_by'] ?? '',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
     );
   }
 
