@@ -10,35 +10,55 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
-	_ "modernc.org/sqlite"
+	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso 云数据库驱动
+	_ "modernc.org/sqlite"                               // 本地 SQLite 驱动
 )
 
 func main() {
-	log.Println("蔚小芯 SQLite 迁移工具")
+	log.Println("蔚小芯数据库迁移工具")
 
 	// 加载环境变量
 	_ = godotenv.Load("../../.env")
 
-	dbPath := os.Getenv("SQLITE_PATH")
+	// 优先从 DB_PATH 读取，兼容 SQLITE_PATH
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = os.Getenv("SQLITE_PATH")
+	}
 	if dbPath == "" {
 		dbPath = "./data/wxx.db"
 	}
 
-	// 确保数据目录存在
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		log.Fatalf("创建数据目录失败: %v", err)
+	// 根据协议选择驱动
+	var driverName, dsn string
+	isTurso := strings.HasPrefix(dbPath, "libsql://")
+
+	if isTurso {
+		driverName = "libsql"
+		dsn = dbPath
+		log.Printf("使用 Turso 云数据库")
+	} else {
+		driverName = "sqlite"
+		dsn = dbPath + "?_journal_mode=WAL&_busy_timeout=5000"
+		// 确保数据目录存在
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+			log.Fatalf("创建数据目录失败: %v", err)
+		}
+		log.Printf("使用本地 SQLite 文件: %s", dbPath)
 	}
 
 	// 打开数据库连接
-	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	db, err := sql.Open(driverName, dsn)
 	if err != nil {
 		log.Fatalf("打开数据库失败: %v", err)
 	}
 	defer db.Close()
 
-	// 启用 WAL 模式（提高并发性能）
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		log.Printf("警告：设置 WAL 模式失败: %v", err)
+	// 本地 SQLite 启用 WAL 模式（Turso 不支持 PRAGMA）
+	if !isTurso {
+		if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+			log.Printf("警告：设置 WAL 模式失败: %v", err)
+		}
 	}
 
 	// 读取 migrations 目录

@@ -23,7 +23,8 @@ import (
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 
-	_ "modernc.org/sqlite" // 纯 Go SQLite 驱动（含 FTS5）
+	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso 云数据库驱动（libsql:// 协议）
+	_ "modernc.org/sqlite"                               // 纯 Go SQLite 驱动（本地文件 + FTS5）
 )
 
 var (
@@ -290,26 +291,32 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 }
 
 // initDB 初始化数据库连接
-// 支持本地 SQLite 文件和 Turso 云数据库（libsql:// 协议）
+// 自动识别 DSN 协议选择驱动：
+//   - libsql:// 开头 → Turso 云数据库（libsql 驱动，适合 Vercel 等无服务器环境）
+//   - 其他 → 本地 SQLite 文件（modernc.org/sqlite 驱动，适合本地开发/自托管）
 func initDB(dbPath string) (*sql.DB, error) {
-	var dsn string
-	var isTurso bool
+	var driverName, dsn string
+	isTurso := strings.HasPrefix(dbPath, "libsql://")
 
-	if strings.HasPrefix(dbPath, "libsql://") {
-		isTurso = true
+	if isTurso {
+		// Turso 云数据库：DSN 直接使用，无需 pragma 参数
+		driverName = "libsql"
 		dsn = dbPath
 	} else {
+		// 本地 SQLite 文件：确保目录存在，附加 pragma 参数
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 			return nil, err
 		}
+		driverName = "sqlite"
 		dsn = dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)"
 	}
 
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open(driverName, dsn)
 	if err != nil {
 		return nil, err
 	}
 
+	// 连接池配置：Turso 支持并发连接，本地 SQLite 限制单连接
 	if isTurso {
 		db.SetMaxOpenConns(5)
 		db.SetMaxIdleConns(10)

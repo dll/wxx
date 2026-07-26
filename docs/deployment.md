@@ -1,7 +1,96 @@
 # 部署指南 — 蔚小芯
 
-> 蔚小芯采用轻量单机部署，不依赖 Docker/容器/集群。
-> 后端走 systemd / 自托管二进制；前端 Web 部署到 Vercel；移动端打 APK。
+> 蔚小芯支持两种部署模式：
+> - **Vercel + Turso**（推荐用于快速部署）：后端部署在 Vercel 无服务器函数，数据库使用 Turso 云数据库
+> - **Linux 单机部署**（推荐用于生产环境）：后端走 systemd / 自托管二进制，数据库使用本地 SQLite 文件
+
+## 部署模式对比
+
+| 特性 | Vercel + Turso | Linux 单机 |
+|------|---------------|------------|
+| 数据持久化 | Turso 云端 | 本地 SQLite 文件 |
+| 冷启动 | 有（无服务器函数） | 无（常驻进程） |
+| 运维成本 | 低（免运维） | 中（需维护服务器） |
+| FTS5 全文检索 | 支持 | 支持 |
+| 适用场景 | 开发/测试/小规模 | 生产环境 |
+
+## Vercel + Turso 部署（推荐）
+
+### 1. 创建 Turso 云数据库
+
+```bash
+# 安装 Turso CLI
+curl -sSfL https://get.tur.so/install.sh | bash
+
+# 登录
+turso auth login
+
+# 创建数据库
+turso db create wxx-agent
+
+# 获取连接 URL
+turso db show wxx-agent --url
+# 输出: libsql://wxx-agent-<your-org>.turso.io
+
+# 创建 Auth Token
+turso db tokens create wxx-agent
+# 输出: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+```
+
+### 2. 初始化数据库 Schema
+
+```bash
+# 设置环境变量
+export DB_PATH="libsql://wxx-agent-<your-org>.turso.io?authToken=<your-token>"
+
+# 执行数据库迁移
+cd server && go run cmd/migrate/main.go
+```
+
+### 3. 配置 Vercel 环境变量
+
+在 Vercel 项目设置 → Environment Variables 中添加：
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `DB_PATH` | `libsql://wxx-agent-xxx.turso.io?authToken=xxx` | Turso 数据库连接串 |
+| `JWT_SECRET` | `<你的密钥>` | JWT 签名密钥（至少32字符） |
+| `ZHIPU_API_KEY` | `<你的密钥>` | 智谱 API Key |
+| `DEEPSEEK_API_KEY` | `<你的密钥>` | DeepSeek API Key |
+| `APP_MODE` | `release` | 生产模式 |
+| `CORS_ALLOWED_ORIGINS` | `https://wxx-agent.pages.dev` | 允许的前端域名 |
+
+### 4. 部署后端到 Vercel
+
+```bash
+# 安装 Vercel CLI
+npm i -g vercel
+
+# 在项目根目录部署
+vercel --prod
+```
+
+### 5. 验证部署
+
+```bash
+# 检查健康状态
+curl -s https://wxx-server.vercel.app/api/v1/health
+# 应返回 status=ok, sqlite=ok, fts5=ok
+
+# 检查知识库数据
+curl -s https://wxx-server.vercel.app/api/v1/kb/stats
+# 应返回 44 条种子数据
+```
+
+### 技术实现说明
+
+后端通过 DSN 协议自动选择数据库驱动：
+- `libsql://` 开头 → 使用 Turso 云数据库（`libsql-client-go` 驱动）
+- 其他 → 使用本地 SQLite 文件（`modernc.org/sqlite` 驱动）
+
+代码位置：`server/pkg/app/app.go` → `initDB()` 函数
+
+---
 
 ## 应用命名规范（强制）
 
