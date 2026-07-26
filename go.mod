@@ -1,6 +1,6 @@
 module github.com/dll/wxx
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/gin-gonic/gin v1.10.0
@@ -8,7 +8,9 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/stretchr/testify v1.11.1
+	github.com/xuri/excelize/v2 v2.11.0
 	go.temporal.io/sdk v1.43.0
 	golang.org/x/crypto v0.53.0
 	golang.org/x/time v0.3.0
@@ -36,7 +38,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
-	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -54,7 +55,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
-	github.com/xuri/excelize/v2 v2.11.0 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.temporal.io/api v1.62.11 // indirect
 	golang.org/x/arch v0.8.0 // indirect
