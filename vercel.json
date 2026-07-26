@@ -1,11 +1,14 @@
 {
   "version": 2,
-  "buildCommand": "go build -o api/main api/index.go",
-  "outputDirectory": ".",
+  "functions": {
+    "api/index.go": {
+      "runtime": "@vercel/go@2"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.go"
     }
   ]
 }
