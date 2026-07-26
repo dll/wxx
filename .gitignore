@@ -181,6 +181,7 @@ build-log.json
 deploy-detail.json
 device_code.json
 response.txt
+docs/*Fable5*
 
 # Gradle build output
 frontend/android/gradle_err.txt
