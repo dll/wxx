@@ -70,7 +70,7 @@ func kbResultsToSources(results []*repository.SearchResult) []model.Source {
 			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
-			RelevanceScore: -r.Score,
+			RelevanceScore: normalizeRelevanceScore(-r.Score),
 			EffectiveAt:    r.Resource.EffectiveAt,
 			Snippet:        r.Resource.Summary,
 		})
@@ -84,4 +84,16 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return string(runes[:maxLen]) + "..."
+}
+
+// normalizeRelevanceScore 将 BM25 原始分数归一化到 0~1 范围
+func normalizeRelevanceScore(rawScore float64) float64 {
+	if rawScore <= 0 {
+		return 0
+	}
+	normalized := rawScore / 20.0
+	if normalized > 1.0 {
+		normalized = 1.0
+	}
+	return normalized
 }

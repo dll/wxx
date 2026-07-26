@@ -117,7 +117,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
 				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
 				kb.content, kb.source_link, kb.source_version,
-				kb.effective_at, kb.expired_at, kb.tags,
+				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
 				kb.updated_by, kb.created_at, kb.updated_at,
 				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0) AS score
 			 FROM kb_fts
@@ -143,7 +143,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 			&sr.Score,
 		); err != nil {
@@ -381,7 +381,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
 				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
 				kb.content, kb.source_link, kb.source_version,
-				kb.effective_at, kb.expired_at, kb.tags,
+				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
 				kb.updated_by, kb.created_at, kb.updated_at,
 				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0) AS score
 			 FROM kb_fts
@@ -408,7 +408,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 			&sr.Score,
 		); err != nil {
@@ -505,7 +505,7 @@ func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, 
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
 			role_scope, version, status, title, summary,
 			content, source_link, source_version,
-			effective_at, expired_at, tags,
+			effective_at, expired_at, tags, remark,
 			updated_by, created_at, updated_at
 		 FROM kb_resources WHERE 1=1`
 	args := []interface{}{}
@@ -543,7 +543,7 @@ func (r *KBRepo) List(ownerScope, ownerID, status, resourceType string, offset, 
 			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -562,7 +562,7 @@ func (r *KBRepo) ListSince(resourceType, sinceCursor, callerScope, callerOwnerID
 	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
 			role_scope, version, status, title, summary,
 			content, source_link, source_version,
-			effective_at, expired_at, tags,
+			effective_at, expired_at, tags, remark,
 			updated_by, created_at, updated_at
 		 FROM kb_resources WHERE status = 'published'`
 	args := []interface{}{}
@@ -602,7 +602,7 @@ func (r *KBRepo) ListSince(resourceType, sinceCursor, callerScope, callerOwnerID
 			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -648,14 +648,14 @@ func (r *KBRepo) GetByResourceID(resourceID string) (*model.KBResource, error) {
 		`SELECT id, resource_id, resource_type, owner_scope, owner_id,
 				role_scope, version, status, title, summary,
 				content, source_link, source_version,
-				effective_at, expired_at, tags,
+				effective_at, expired_at, tags, remark,
 				updated_by, created_at, updated_at
 			 FROM kb_resources WHERE resource_id = ?`, resourceID,
 	).Scan(
 		&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 		&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 		&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-		&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+		&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 		&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -673,11 +673,11 @@ func (r *KBRepo) Create(kb *model.KBResource) (int64, error) {
 		`INSERT INTO kb_resources
 			 (resource_id, resource_type, owner_scope, owner_id, role_scope,
 			  version, status, title, summary, content,
-			  source_link, source_version, effective_at, expired_at, tags, updated_by)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  source_link, source_version, effective_at, expired_at, tags, remark, updated_by)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		kb.ResourceID, kb.ResourceType, kb.OwnerScope, kb.OwnerID, kb.RoleScope,
 		kb.Version, kb.Status, kb.Title, kb.Summary, kb.Content,
-		kb.SourceLink, kb.SourceVersion, kb.EffectiveAt, kb.ExpiredAt, kb.Tags, kb.UpdatedBy,
+		kb.SourceLink, kb.SourceVersion, kb.EffectiveAt, kb.ExpiredAt, kb.Tags, kb.Remark, kb.UpdatedBy,
 	)
 	if err != nil {
 		return 0, err
@@ -692,12 +692,12 @@ func (r *KBRepo) Update(kb *model.KBResource) error {
 				resource_type = ?, owner_scope = ?, owner_id = ?, role_scope = ?,
 				version = ?, status = ?, title = ?, summary = ?, content = ?,
 				source_link = ?, source_version = ?, effective_at = ?, expired_at = ?,
-				tags = ?, updated_by = ?, updated_at = datetime('now')
+				tags = ?, remark = ?, updated_by = ?, updated_at = datetime('now')
 			 WHERE resource_id = ?`,
 		kb.ResourceType, kb.OwnerScope, kb.OwnerID, kb.RoleScope,
 		kb.Version, kb.Status, kb.Title, kb.Summary, kb.Content,
 		kb.SourceLink, kb.SourceVersion, kb.EffectiveAt, kb.ExpiredAt,
-		kb.Tags, kb.UpdatedBy, kb.ResourceID,
+		kb.Tags, kb.Remark, kb.UpdatedBy, kb.ResourceID,
 	)
 	return err
 }
@@ -765,7 +765,7 @@ func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType strin
 	}
 
 	// 分页查询
-	query := `SELECT resource_id, resource_type, title, summary, tags, source_link
+	query := `SELECT resource_id, resource_type, title, summary, tags, remark, source_link
 		 FROM kb_resources` + whereClause + `
 		 ORDER BY resource_type, updated_at DESC`
 	if limit > 0 {
@@ -784,7 +784,7 @@ func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType strin
 		card := &model.KnowledgeCard{}
 		if err := rows.Scan(
 			&card.ResourceID, &card.ResourceType, &card.Title,
-			&card.Summary, &card.Tags, &card.SourceLink,
+			&card.Summary, &card.Tags, &card.Remark, &card.SourceLink,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -843,7 +843,7 @@ func (r *KBRepo) ListAdvanced(q *KBQuery) ([]*model.KBResource, int, error) {
 	listQuery := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
 			role_scope, version, status, title, summary,
 			content, source_link, source_version,
-			effective_at, expired_at, tags,
+			effective_at, expired_at, tags, remark,
 			updated_by, created_at, updated_at` + baseQuery
 	var args []interface{}
 
@@ -936,7 +936,7 @@ func (r *KBRepo) ListAdvanced(q *KBQuery) ([]*model.KBResource, int, error) {
 			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
 			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
 			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
-			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
 			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
 		); err != nil {
 			return nil, 0, err

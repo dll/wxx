@@ -305,10 +305,10 @@ function bytesToSize(bytes) {
 
 async function proxyToBackend(request, url, context) {
   const backendPath = url.pathname === '/api/health' ? '/health' : url.pathname;
-  const targetUrl = 'https://wxx-server.vercel.app' + backendPath + url.search;
+  const targetUrl = 'https://api.pydaydayup.xyz' + backendPath + url.search;
 
   const headers = new Headers(request.headers);
-  headers.set('Host', 'wxx-server.vercel.app');
+  headers.set('Host', 'api.pydaydayup.xyz');
 
   let requestBody;
   if (request.method !== 'GET' && request.method !== 'HEAD') {

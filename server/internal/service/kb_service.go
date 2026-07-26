@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,11 +23,12 @@ var validStatuses = map[string]bool{
 // 由调用方控制重试策略。
 type KBService struct {
 	kbRepo *repository.KBRepo
+	db     *sql.DB
 }
 
 // NewKBService 创建知识库服务
-func NewKBService(kbRepo *repository.KBRepo) *KBService {
-	return &KBService{kbRepo: kbRepo}
+func NewKBService(kbRepo *repository.KBRepo, db *sql.DB) *KBService {
+	return &KBService{kbRepo: kbRepo, db: db}
 }
 
 // List 分页查询知识资源
@@ -200,7 +202,77 @@ func (s *KBService) SubmitForReview(ctx context.Context, resourceID, username st
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
 	log.Printf("知识资源已提交审核 resource_id=%s by=%s", resourceID, username)
+
+	// 发送审核通知给学院管理员
+	go s.sendReviewNotification(existing, username)
+
 	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// sendReviewNotification 发送知识审核通知给学院管理员
+func (s *KBService) sendReviewNotification(kb *model.KBResource, submitter string) {
+	if s.db == nil {
+		return
+	}
+	title := "新知识待审核"
+	content := fmt.Sprintf("用户「%s」提交了知识资源「%s」（%s），请及时审核。", submitter, kb.Title, kb.ResourceID)
+
+	// 查询所有学院管理员和学校管理员角色的用户
+	rows, err := s.db.Query(
+		`SELECT id FROM users WHERE role IN ('college_admin', 'school_admin', 'sys_admin') AND status = 'active'`,
+	)
+	if err != nil {
+		log.Printf("查询审核管理员失败: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var adminIDs []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		adminIDs = append(adminIDs, id)
+	}
+
+	for _, adminID := range adminIDs {
+		_, err := s.db.Exec(
+			`INSERT INTO user_notifications (user_id, title, content, type, related_type, related_id, is_read)
+			 VALUES (?, ?, ?, 'kb_review', 'kb_resource', ?, 0)`,
+			adminID, title, content, kb.ID,
+		)
+		if err != nil {
+			log.Printf("发送审核通知失败: admin_id=%d resource_id=%s err=%v", adminID, kb.ResourceID, err)
+		}
+	}
+	log.Printf("审核通知已发送: resource_id=%s admin_count=%d", kb.ResourceID, len(adminIDs))
+}
+
+// sendReviewResultNotification 发送审核结果通知给上传者
+func (s *KBService) sendReviewResultNotification(kb *model.KBResource, title string, content string) {
+	if s.db == nil || kb.UpdatedBy == "" {
+		return
+	}
+	// 根据用户名查找用户ID
+	var userID int64
+	err := s.db.QueryRow(
+		`SELECT id FROM users WHERE username = ?`,
+		kb.UpdatedBy,
+	).Scan(&userID)
+	if err != nil || userID == 0 {
+		log.Printf("查找上传者用户失败: username=%s err=%v", kb.UpdatedBy, err)
+		return
+	}
+
+	_, err = s.db.Exec(
+		`INSERT INTO user_notifications (user_id, title, content, type, related_type, related_id, is_read)
+		 VALUES (?, ?, ?, 'kb_result', 'kb_resource', ?, 0)`,
+		userID, title, content, kb.ID,
+	)
+	if err != nil {
+		log.Printf("发送审核结果通知失败: user_id=%d resource_id=%s err=%v", userID, kb.ResourceID, err)
+	}
 }
 
 // ApproveResource 审核通过知识资源（pending → published）
@@ -223,6 +295,10 @@ func (s *KBService) ApproveResource(ctx context.Context, resourceID, username st
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
 	log.Printf("知识资源审核通过 resource_id=%s by=%s", resourceID, username)
+
+	// 通知上传者审核通过
+	go s.sendReviewResultNotification(existing, "审核通过", fmt.Sprintf("您提交的知识资源「%s」已通过审核。", existing.Title))
+
 	return s.kbRepo.GetByResourceID(resourceID)
 }
 
@@ -246,6 +322,10 @@ func (s *KBService) RejectResource(ctx context.Context, resourceID, username, re
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
 	log.Printf("知识资源已驳回 resource_id=%s by=%s reason=%s", resourceID, username, reason)
+
+	// 通知上传者审核驳回
+	go s.sendReviewResultNotification(existing, "审核驳回", fmt.Sprintf("您提交的知识资源「%s」被驳回，原因：%s。", existing.Title, reason))
+
 	return s.kbRepo.GetByResourceID(resourceID)
 }
 

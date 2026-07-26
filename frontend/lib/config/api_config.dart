@@ -3,10 +3,16 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// API 配置常量
 class ApiConfig {
   /// 后端基础地址
+  /// 
+  /// 本地开发模式（FLUTTER_APP_LOCAL_DEV=true）：指向本地 Go 后端 http://localhost:8080
   /// Web 端：空字符串（同域 Cloudflare Pages Functions 代理）
   /// Android/iOS：通过 Cloudflare Pages 代理转发到 Vercel 后端
   /// （国内直连 Vercel 被墙，必须走 Cloudflare 中转）
   static String get baseUrl {
+    const String localDev = String.fromEnvironment('FLUTTER_APP_LOCAL_DEV', defaultValue: 'false');
+    if (localDev == 'true') {
+      return 'http://localhost:8080';
+    }
     if (kIsWeb) return '';
     return 'https://wxx-agent.pages.dev';
   }

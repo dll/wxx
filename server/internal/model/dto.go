@@ -146,6 +146,7 @@ type KnowledgeCard struct {
 	Title        string `json:"title"`         // 标题
 	Summary      string `json:"summary"`       // 摘要（卡片展示用）
 	Tags         string `json:"tags"`          // 标签（JSON 数组字符串）
+	Remark       string `json:"remark"`        // 上传者备注
 	SourceLink   string `json:"source_link"`   // 原文链接
 }
 

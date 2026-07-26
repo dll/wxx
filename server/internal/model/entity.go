@@ -60,6 +60,7 @@ type KBResource struct {
 	EffectiveAt   *string `json:"effective_at" db:"effective_at"`     // 生效时间（可空）
 	ExpiredAt     *string `json:"expired_at" db:"expired_at"`         // 失效时间（可空）
 	Tags          string  `json:"tags" db:"tags"`                     // JSON 数组
+	Remark        string  `json:"remark" db:"remark"`                 // 上传者备注
 	UpdatedBy     string  `json:"updated_by" db:"updated_by"`
 	CreatedAt     string  `json:"created_at" db:"created_at"`
 	UpdatedAt     string  `json:"updated_at" db:"updated_at"`

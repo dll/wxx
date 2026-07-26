@@ -133,7 +133,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// Service 层
 	authSvc := service.NewAuthService(cfg, userRepo)
 	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
-	kbSvc := service.NewKBService(kbRepo)
+	kbSvc := service.NewKBService(kbRepo, db)
 	forecastSvc := service.NewForecastService(db, forecastRepo, emotionRepo, feedbackRepo, llmClient)
 
 	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
@@ -289,27 +289,46 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	return router, nil
 }
 
-// initDB 初始化 SQLite 连接
+// initDB 初始化数据库连接
+// 支持本地 SQLite 文件和 Turso 云数据库（libsql:// 协议）
 func initDB(dbPath string) (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return nil, err
+	var dsn string
+	var isTurso bool
+
+	if strings.HasPrefix(dbPath, "libsql://") {
+		isTurso = true
+		dsn = dbPath
+	} else {
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+			return nil, err
+		}
+		dsn = dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)"
 	}
 
-	dsn := dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(2)
-	db.SetConnMaxLifetime(0)
+	if isTurso {
+		db.SetMaxOpenConns(5)
+		db.SetMaxIdleConns(10)
+		db.SetConnMaxLifetime(time.Minute * 5)
+	} else {
+		db.SetMaxOpenConns(1)
+		db.SetMaxIdleConns(2)
+		db.SetConnMaxLifetime(0)
+	}
 
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
-	log.Printf("SQLite 数据库已连接: %s", dbPath)
+	if isTurso {
+		log.Printf("Turso 云数据库已连接: %s", dbPath)
+	} else {
+		log.Printf("SQLite 数据库已连接: %s", dbPath)
+	}
 	return db, nil
 }
 

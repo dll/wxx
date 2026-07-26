@@ -389,7 +389,7 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
-			RelevanceScore: -r.Score,
+			RelevanceScore: normalizeRelevanceScore(-r.Score),
 			EffectiveAt:    r.Resource.EffectiveAt,
 			Snippet:        r.Resource.Summary,
 		})
@@ -520,7 +520,7 @@ func (s *ChatService) fallbackAnswerWithSources(traceID string, question string,
 			ResourceType:   r.Resource.ResourceType,
 			Version:        r.Resource.Version,
 			SourceLink:     r.Resource.SourceLink,
-			RelevanceScore: -r.Score,
+			RelevanceScore: normalizeRelevanceScore(-r.Score),
 			EffectiveAt:    r.Resource.EffectiveAt,
 			Snippet:        r.Resource.Summary,
 		})
@@ -1033,4 +1033,19 @@ func extractChineseBigramsFromQuestion(q string) []string {
 		}
 	}
 	return bigrams
+}
+
+// normalizeRelevanceScore 将 BM25 原始分数归一化到 0~1 范围
+// SQLite FTS5 的 BM25 分数为负数（越小越相关），转换后范围约为 0~20
+// 将其映射到 0~1，使得前端显示百分比时不会超过 100%
+func normalizeRelevanceScore(rawScore float64) float64 {
+	if rawScore <= 0 {
+		return 0
+	}
+	// BM25 原始分数范围约为 0~20，映射到 0~1
+	normalized := rawScore / 20.0
+	if normalized > 1.0 {
+		normalized = 1.0
+	}
+	return normalized
 }

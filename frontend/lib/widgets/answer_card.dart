@@ -571,7 +571,7 @@ class _SourceCard extends StatelessWidget {
                             size: 12, color: theme.colorScheme.outline),
                         const SizedBox(width: 3),
                         Text(
-                          'v${source.version}',
+                          source.version,
                           style: TextStyle(
                             fontSize: 11,
                             color: theme.colorScheme.outline,
