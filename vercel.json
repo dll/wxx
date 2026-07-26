@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": null,
+  "buildCommand": "go build -o api/main api/index.go",
+  "outputDirectory": ".",
   "rewrites": [
     {
       "source": "/(.*)",
