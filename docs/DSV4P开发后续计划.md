@@ -11,8 +11,8 @@
 | 编号 | 组件 | 问题描述 | 状态 |
 |------|------|----------|------|
 | B-01 | `kb_handler.go` | 导入 `repository` 包，违反分层 | ✅ 已修复 (v1 B1-B3, v2 残余) |
-| B-02 | `admin_handler.go` | 导入 `repository` 包，违反分层 | ⏳ |
-| B-03 | `study_plan_handler.go` | 导入 `llm` 包，直接持有 `llm.ChatClient` | ⏳ |
+| B-02 | `admin_handler.go` | 导入 `repository` 包，违反分层 | ✅ 已修复 |
+| B-03 | `study_plan_handler.go` | 导入 `llm` 包，直接持有 `llm.ChatClient` | ✅ 已修复 |
 | B-04 | `GetPublishedCards` | 缺失 `json_valid` 守卫（第 732 行） | ✅ 已修复 |
 | B-05 | `user_upsert.go` | PII 明文记录到日志 | ✅ 已修复 |
 
@@ -122,7 +122,7 @@
 ## 执行路线图
 
 ```
-P0（本轮） → 已修复 B-01/B-04/B-05，进行中 B-02/B-03
+P0（本轮） → 全部 5 个阻断级已修复 ✅
    │
    ▼
 P1（本周） → 架构合规 + 安全加固 + 知识管道中高问题

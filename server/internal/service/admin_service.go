@@ -169,7 +169,7 @@ func (s *AdminService) DeleteUser(userID int64, deletedBy string) error {
 }
 
 // ListUsersAdvanced 高级用户查询（搜索+多条件筛选+排序）
-func (s *AdminService) ListUsersAdvanced(q *repository.UserQuery) ([]*model.User, int, error) {
+func (s *AdminService) ListUsersAdvanced(q *model.UserQuery) ([]*model.User, int, error) {
 	users, total, err := s.userRepo.ListAdvanced(q)
 	if err != nil {
 		return nil, 0, fmt.Errorf("查询用户列表失败: %w", err)

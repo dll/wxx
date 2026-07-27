@@ -18,21 +18,6 @@ func NewKBRepo(db *sql.DB) *KBRepo {
 	return &KBRepo{db: db}
 }
 
-// KBQuery 知识资源高级查询参数
-type KBQuery struct {
-	Keyword      string
-	ResourceType string
-	Status       string
-	OwnerScope   string
-	OwnerID      string
-	UpdatedBy    string
-	Tag          string
-	SortBy       string
-	SortOrder    string
-	Page         int
-	PageSize     int
-}
-
 // KBStats 知识资源统计
 type KBStats struct {
 	Total     int            `json:"total"`
@@ -837,7 +822,7 @@ func escapeQuery(q string) string {
 // ════════ 高级查询与批量操作 ════════
 
 // ListAdvanced 高级知识资源查询（搜索+多条件筛选+排序+分页）
-func (r *KBRepo) ListAdvanced(q *KBQuery) ([]*model.KBResource, int, error) {
+func (r *KBRepo) ListAdvanced(q *model.KBQuery) ([]*model.KBResource, int, error) {
 	baseQuery := ` FROM kb_resources WHERE 1=1`
 	countQuery := `SELECT COUNT(*)` + baseQuery
 	listQuery := `SELECT id, resource_id, resource_type, owner_scope, owner_id,

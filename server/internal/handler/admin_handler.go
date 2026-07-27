@@ -10,7 +10,6 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -213,7 +212,7 @@ func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
 		ownerID = userCtx.OwnerID
 	}
 
-	q := &repository.UserQuery{
+	q := &model.UserQuery{
 		Keyword:        c.Query("keyword"),
 		Role:           c.Query("role"),
 		OwnerScope:     ownerScope,

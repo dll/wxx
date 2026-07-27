@@ -510,3 +510,37 @@ type SubordinateTokenStatsResponse struct {
 	Message string                  `json:"message"`
 	Data    []SubordinateTokenStats `json:"data"`
 }
+
+// ── 高级查询参数（从 repository 迁移至此处，消除 handler→repository 依赖） ──
+
+// UserQuery 用户高级查询参数
+type UserQuery struct {
+	Keyword        string // 关键词：模糊匹配姓名/学号/学院/专业/班级
+	Role           string
+	OwnerScope     string
+	OwnerID        string
+	College        string
+	Major          string
+	ClassName      string
+	EnrollmentYear string
+	Status         string
+	SortBy         string // id / username / display_name / created_at
+	SortOrder      string // asc / desc
+	Offset         int
+	Limit          int
+}
+
+// KBQuery 知识资源高级查询参数
+type KBQuery struct {
+	Keyword      string
+	ResourceType string
+	Status       string
+	OwnerScope   string
+	OwnerID      string
+	UpdatedBy    string
+	Tag          string
+	SortBy       string
+	SortOrder    string
+	Page         int
+	PageSize     int
+}

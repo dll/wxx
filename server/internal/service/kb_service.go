@@ -462,9 +462,9 @@ func (s *KBService) ExportResources(ctx context.Context, resourceType, sinceCurs
 // ════════ 高级查询与批量操作 ════════
 
 // ListAdvanced 高级知识资源查询（搜索+多条件筛选+排序+分页）
-func (s *KBService) ListAdvanced(ctx context.Context, q *repository.KBQuery) ([]*model.KBResource, int, error) {
+func (s *KBService) ListAdvanced(ctx context.Context, q *model.KBQuery) ([]*model.KBResource, int, error) {
 	if q == nil {
-		q = &repository.KBQuery{}
+		q = &model.KBQuery{}
 	}
 	list, total, err := s.kbRepo.ListAdvanced(q)
 	if err != nil {

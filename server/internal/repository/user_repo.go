@@ -105,25 +105,8 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 	return users, rows.Err()
 }
 
-// UserQuery 用户高级查询参数
-type UserQuery struct {
-	Keyword        string // 关键词：模糊匹配姓名/学号/学院/专业/班级
-	Role           string
-	OwnerScope     string
-	OwnerID        string
-	College        string
-	Major          string
-	ClassName      string
-	EnrollmentYear string
-	Status         string
-	SortBy         string // id / username / display_name / created_at
-	SortOrder      string // asc / desc
-	Offset         int
-	Limit          int
-}
-
 // ListAdvanced 高级用户查询（搜索+多条件筛选+排序）
-func (r *UserRepo) ListAdvanced(q *UserQuery) ([]*model.User, int, error) {
+func (r *UserRepo) ListAdvanced(q *model.UserQuery) ([]*model.User, int, error) {
 	query := `SELECT ` + userCols + ` FROM users WHERE 1=1`
 	countQuery := `SELECT COUNT(*) FROM users WHERE 1=1`
 	var args []interface{}

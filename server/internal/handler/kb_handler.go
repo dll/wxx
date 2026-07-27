@@ -8,7 +8,6 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
@@ -536,7 +535,7 @@ func (h *KBHandler) ListResourcesAdvanced(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	q := &repository.KBQuery{
+	q := &model.KBQuery{
 		Keyword:      c.Query("keyword"),
 		ResourceType: c.Query("resource_type"),
 		Status:       c.Query("status"),

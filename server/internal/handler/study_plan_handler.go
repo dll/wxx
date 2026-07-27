@@ -1,32 +1,28 @@
 package handler
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 // StudyPlanHandler 学习计划与校历 HTTP handler
-// 直接依赖 *sql.DB（沿用 education_handler.go 的风格），同时注入可选的 LLM 客户端用于 AI 生成计划
 type StudyPlanHandler struct {
-	db        *sql.DB
-	llmClient llm.ChatClient
+	db           *sql.DB
+	studyPlanSvc *service.StudyPlanService
 }
 
 // NewStudyPlanHandler 创建学习计划 handler
-func NewStudyPlanHandler(db *sql.DB, llmClient llm.ChatClient) *StudyPlanHandler {
-	return &StudyPlanHandler{db: db, llmClient: llmClient}
+func NewStudyPlanHandler(db *sql.DB, studyPlanSvc *service.StudyPlanService) *StudyPlanHandler {
+	return &StudyPlanHandler{db: db, studyPlanSvc: studyPlanSvc}
 }
 
 // ═══════════════════════════════════════════════
@@ -832,21 +828,6 @@ type AIGeneratePlanRequest struct {
 	FocusCourses []string `json:"focus_courses"` // 关注的课程（可选）
 }
 
-// aiGeneratedPlanSchema LLM 返回的 JSON 计划结构
-type aiGeneratedPlanSchema struct {
-	Title  string `json:"title"`
-	Goals  []string `json:"goals"`
-	Tasks  []struct {
-		CourseID          string `json:"course_id"`
-		CourseName        string `json:"course_name"`
-		Title             string `json:"title"`
-		Description       string `json:"description"`
-		ScheduledDate     string `json:"scheduled_date"`
-		ScheduledDuration int    `json:"scheduled_duration"`
-		SortOrder         int    `json:"sort_order"`
-	} `json:"tasks"`
-}
-
 // AIGeneratePlan AI生成学习计划
 // POST /api/v1/study/plans/ai-generate
 func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
@@ -856,7 +837,7 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		return
 	}
 
-	if h.llmClient == nil {
+	if !h.studyPlanSvc.IsAvailable() {
 		c.JSON(http.StatusServiceUnavailable, model.ErrorResponse{Code: 503, Message: "LLM 客户端未配置，AI 生成计划不可用"})
 		return
 	}
@@ -874,16 +855,6 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		return
 	}
 
-	// 收集上下文：当前学期、教学周、课表、考试事件
-	calendar, currentWeek, err := h.resolveCurrentCalendar()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询当前校历失败: " + err.Error()})
-		return
-	}
-	if req.SemesterCode == "" && calendar != nil {
-		req.SemesterCode = calendar.SemesterCode
-	}
-
 	// 日期范围：未传则按 plan_type 推算
 	today := time.Now()
 	if req.StartDate == "" {
@@ -893,82 +864,24 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		req.EndDate = calcDefaultEndDate(req.PlanType, today)
 	}
 
-	timetable, _ := h.listUserTimetable(userCtx.UserID, req.SemesterCode)
-	upcomingExams := h.listUpcomingExams(req.SemesterCode)
-
-	// 构建 Prompt
-	prompt := h.buildAIGeneratePrompt(&req, calendar, currentWeek, timetable, upcomingExams)
-
-	// 调用 LLM
-	resp, err := h.llmClient.Chat(context.Background(), &llm.ChatRequest{
-		Messages: []llm.ChatMessage{
-			{
-				Role:    "system",
-				Content: "你是一名高校学业规划助手，根据学生的课表、教学周和考试安排生成可执行的学习计划。请严格按 JSON 格式返回，不要包含额外说明或代码块标记。",
-			},
-			{Role: "user", Content: prompt},
-		},
-		Temperature: 0.7,
-		MaxTokens:   2500,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "LLM 调用失败: " + err.Error()})
-		return
-	}
-
-	// 解析 JSON
-	planSchema, err := parseAIGeneratedPlan(resp.Content)
-	if err != nil {
-		log.Printf("解析 AI 学习计划失败: %v, 原始内容: %s", err, resp.Content)
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "解析 AI 生成的计划失败"})
-		return
-	}
-
-	// 持久化到 study_plans + study_plan_tasks
-	goals := planSchema.Goals
-	if len(goals) == 0 {
-		goals = req.Goals
-	}
-	if goals == nil {
-		goals = []string{}
-	}
-	goalsJSON, _ := json.Marshal(goals)
-
-	title := planSchema.Title
-	if title == "" {
-		title = "AI 生成 " + req.PlanType + " 计划"
-	}
-
-	now := time.Now().Format("2006-01-02 15:04:05")
-	var semesterCode sql.NullString
-	if req.SemesterCode != "" {
-		semesterCode = sql.NullString{String: req.SemesterCode, Valid: true}
-	}
-
-	res, err := h.db.Exec(
-		"INSERT INTO study_plans (user_id, title, plan_type, semester_code, start_date, end_date, goals_json, progress, ai_generated, status, created_at, updated_at) "+
-			"VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, 'active', ?, ?)",
-		userCtx.UserID, title, req.PlanType, semesterCode, req.StartDate, req.EndDate,
-		string(goalsJSON), now, now,
+	result, err := h.studyPlanSvc.AIGeneratePlan(
+		c.Request.Context(),
+		userCtx.UserID,
+		req.PlanType,
+		req.SemesterCode,
+		req.StartDate,
+		req.EndDate,
+		req.Goals,
+		req.FocusCourses,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "保存 AI 计划失败"})
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: err.Error()})
 		return
 	}
-	planID, _ := res.LastInsertId()
 
-	for _, t := range planSchema.Tasks {
-		_, _ = h.db.Exec(
-			"INSERT INTO study_plan_tasks (plan_id, course_id, course_name, title, description, scheduled_date, scheduled_duration, actual_duration, status, sort_order, created_at) "+
-				"VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?)",
-			planID, t.CourseID, t.CourseName, t.Title, t.Description, t.ScheduledDate,
-			t.ScheduledDuration, t.SortOrder, now,
-		)
-	}
-
-	plan, _ := h.getPlanByID(planID, userCtx.UserID)
+	plan, _ := h.getPlanByID(result.PlanID, userCtx.UserID)
 	if plan != nil {
-		tasks, _ := h.listTasksByPlan(planID)
+		tasks, _ := h.listTasksByPlan(result.PlanID)
 		plan.Tasks = tasks
 		h.fillPlanTaskStats(plan)
 	}
@@ -977,79 +890,10 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		"code":          0,
 		"message":       "AI 学习计划生成成功",
 		"data":          plan,
-		"llm_provider":  h.llmClient.Name(),
-		"prompt_tokens": resp.PromptTokens,
-		"output_tokens": resp.OutputTokens,
+		"llm_provider":  result.LLMProvider,
+		"prompt_tokens": result.PromptTokens,
+		"output_tokens": result.OutputTokens,
 	})
-}
-
-// buildAIGeneratePrompt 构建 AI 生成学习计划的 Prompt
-func (h *StudyPlanHandler) buildAIGeneratePrompt(req *AIGeneratePlanRequest, cal *AcademicCalendar, currentWeek int, timetable []*CourseScheduleItem, exams []*CalendarEvent) string {
-	var sb strings.Builder
-	sb.WriteString("请根据以下信息生成一份" + req.PlanType + "学习计划：\n\n")
-
-	sb.WriteString(fmt.Sprintf("计划类型：%s\n", req.PlanType))
-	sb.WriteString(fmt.Sprintf("开始日期：%s\n", req.StartDate))
-	sb.WriteString(fmt.Sprintf("结束日期：%s\n", req.EndDate))
-	if cal != nil {
-		sb.WriteString(fmt.Sprintf("当前学期：%s（%s ~ %s）\n", cal.SemesterName, cal.StartDate, cal.EndDate))
-	}
-	if currentWeek > 0 {
-		sb.WriteString(fmt.Sprintf("当前教学周：第 %d 周\n", currentWeek))
-	}
-
-	if len(req.Goals) > 0 {
-		sb.WriteString("用户目标：\n")
-		for i, g := range req.Goals {
-			sb.WriteString(fmt.Sprintf("  %d. %s\n", i+1, g))
-		}
-	}
-	if len(req.FocusCourses) > 0 {
-		sb.WriteString("重点关注课程：" + strings.Join(req.FocusCourses, "、") + "\n")
-	}
-
-	// 课表概要
-	if len(timetable) > 0 {
-		sb.WriteString("\n学生本周课表：\n")
-		for _, t := range timetable {
-			sb.WriteString(fmt.Sprintf("  周%d 第%d-%d节 %s（%s, %s）周次:%s\n",
-				t.Weekday, t.StartPeriod, t.EndPeriod, t.CourseName, t.Teacher, t.Location, t.WeeksPattern))
-		}
-	}
-
-	// 考试事件
-	if len(exams) > 0 {
-		sb.WriteString("\n近期考试/事件安排：\n")
-		for _, e := range exams {
-			sb.WriteString(fmt.Sprintf("  %s ~ %s %s（%s）\n", e.StartDate, e.EndDate, e.EventName, e.EventType))
-		}
-	}
-
-	sb.WriteString(`
-请按以下 JSON 格式返回（只返回 JSON，不要 Markdown 代码块）：
-{
-  "title": "计划标题",
-  "goals": ["目标1", "目标2"],
-  "tasks": [
-    {
-      "course_id": "课程ID（如无则留空）",
-      "course_name": "课程名称",
-      "title": "任务标题",
-      "description": "任务描述",
-      "scheduled_date": "YYYY-MM-DD",
-      "scheduled_duration": 60,
-      "sort_order": 1
-    }
-  ]
-}
-
-要求：
-1. 任务要具体可执行，结合课表与考试安排合理分配时间
-2. 优先安排考试周前的复习任务
-3. 每个 task 的 scheduled_date 必须在计划起止日期内
-4. 任务总时长不要超过计划周期可用时间
-`)
-	return sb.String()
 }
 
 // ═══════════════════════════════════════════════
@@ -1313,89 +1157,6 @@ func (h *StudyPlanHandler) recalcPlanProgress(planID int64) {
 		"UPDATE study_plans SET progress = ?, updated_at = ? WHERE id = ?",
 		progress, now, planID,
 	)
-}
-
-// listUserTimetable 查询学生课表
-func (h *StudyPlanHandler) listUserTimetable(userID int64, semesterCode string) ([]*CourseScheduleItem, error) {
-	if semesterCode == "" {
-		return nil, nil
-	}
-	rows, err := h.db.Query(
-		"SELECT id, user_id, course_id, course_name, semester_code, weekday, start_period, end_period, "+
-			"weeks_pattern, location, teacher, color, created_at "+
-			"FROM course_schedules WHERE user_id = ? AND semester_code = ? ORDER BY weekday ASC, start_period ASC, id ASC",
-		userID, semesterCode,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var list []*CourseScheduleItem
-	for rows.Next() {
-		item := &CourseScheduleItem{}
-		var location, teacher sql.NullString
-		if err := rows.Scan(&item.ID, &item.UserID, &item.CourseID, &item.CourseName,
-			&item.SemesterCode, &item.Weekday, &item.StartPeriod, &item.EndPeriod,
-			&item.WeeksPattern, &location, &teacher, &item.Color, &item.CreatedAt); err != nil {
-			continue
-		}
-		if location.Valid {
-			item.Location = location.String
-		}
-		if teacher.Valid {
-			item.Teacher = teacher.String
-		}
-		list = append(list, item)
-	}
-	return list, nil
-}
-
-// listUpcomingExams 查询学期内的考试事件
-func (h *StudyPlanHandler) listUpcomingExams(semesterCode string) []*CalendarEvent {
-	if semesterCode == "" {
-		return nil
-	}
-	rows, err := h.db.Query(
-		"SELECT id, semester_code, event_name, event_type, start_date, end_date, week_no, affects_classes, description, created_at "+
-			"FROM academic_calendar_events WHERE semester_code = ? AND event_type IN ('exam','deadline') "+
-			"ORDER BY start_date ASC, id ASC",
-		semesterCode,
-	)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	return scanCalendarEvents(rows)
-}
-
-// parseAIGeneratedPlan 解析 LLM 返回的 JSON 计划（容忍代码块标记）
-func parseAIGeneratedPlan(content string) (*aiGeneratedPlanSchema, error) {
-	s := strings.TrimSpace(content)
-	// 去除可能的 markdown 代码块
-	if strings.HasPrefix(s, "```") {
-		// 移除首行 ``` 或 ```json
-		if idx := strings.Index(s, "\n"); idx != -1 {
-			s = s[idx+1:]
-		}
-		if strings.HasSuffix(s, "```") {
-			s = s[:len(s)-3]
-		}
-		s = strings.TrimSpace(s)
-	}
-	// 提取首个 { 到最后一个 }
-	start := strings.Index(s, "{")
-	end := strings.LastIndex(s, "}")
-	if start == -1 || end == -1 || end <= start {
-		return nil, fmt.Errorf("AI 响应中未找到 JSON 对象")
-	}
-	jsonStr := s[start : end+1]
-
-	plan := &aiGeneratedPlanSchema{}
-	if err := json.Unmarshal([]byte(jsonStr), plan); err != nil {
-		return nil, fmt.Errorf("JSON 解析失败: %w", err)
-	}
-	return plan, nil
 }
 
 // isValidPlanType 校验计划类型

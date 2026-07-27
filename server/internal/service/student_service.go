@@ -571,7 +571,7 @@ func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID i
 	}
 
 	// 优先同专业，其次同学院，查询真实同学（排除自己、仅学生角色、活跃账号）
-	q := &repository.UserQuery{
+	q := &model.UserQuery{
 		Role:   "student",
 		Status: "active",
 		Limit:  30,
