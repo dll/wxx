@@ -13,9 +13,6 @@ jobs:
   deploy:
     name: 构建并部署
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
 
     steps:
       - name: 检出代码
@@ -29,21 +26,23 @@ jobs:
 
       - name: 安装依赖
         run: flutter pub get
+        working-directory: ./frontend
 
       - name: 构建 Web
         run: flutter build web --release
+        working-directory: ./frontend
 
       - name: 复制 Functions 到构建目录
         run: |
-          cp -r functions build/web/functions
+          cp -r frontend/functions frontend/build/web/functions
           echo "=== Functions 目录结构 ==="
-          ls -la build/web/functions/
-          ls -la build/web/functions/api/
+          ls -la frontend/build/web/functions/
+          ls -la frontend/build/web/functions/api/
+
+      - name: 安装 Wrangler
+        run: npm install -g wrangler
 
       - name: 部署到 Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name wxx-agent --branch main
-          workingDirectory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: wrangler pages deploy frontend/build/web --project-name wxx-agent --branch main
