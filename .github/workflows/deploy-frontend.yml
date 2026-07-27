@@ -1,4 +1,3 @@
-# 蔚小芯 前端自动部署到 Cloudflare Pages
 name: Deploy Frontend
 
 on:
@@ -13,8 +12,9 @@ on:
 
 jobs:
   deploy:
-    name: 构建并部署
+    name: 构建并部署到 Cloudflare Pages
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: 检出代码
@@ -30,13 +30,19 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
-      - name: 构建 Web
-        run: flutter build web --release
+      - name: 构建 Web 版本
+        run: flutter build web --release --web-renderer canvaskit
         working-directory: ./frontend
+
+      - name: 创建 functions 目录
+        run: mkdir -p frontend/build/web/functions
+
+      - name: 复制 Functions 文件到构建目录
+        run: cp -r functions/* frontend/build/web/functions/
 
       - name: 部署到 Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy
+          command: pages deploy frontend/build/web --project-name=wxx-agent
