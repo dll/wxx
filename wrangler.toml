@@ -1,7 +1,5 @@
 name = "wxx-agent"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "frontend/build/web"
-pages_functions_dir = "functions"
 
 [vars]
 TURSO_DB_URL = "libsql://wxx-agent-czldl.aws-ap-northeast-1.turso.io"

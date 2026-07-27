@@ -6,9 +6,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
-      - 'functions/**'
       - '.github/workflows/deploy-frontend.yml'
-      - 'wrangler.toml'
   workflow_dispatch:
 
 jobs:
@@ -34,10 +32,13 @@ jobs:
         run: flutter build web --release
         working-directory: ./frontend
 
+      - name: 复制 Functions 到构建目录
+        run: cp -r frontend/functions frontend/build/web/functions
+
       - name: 安装 Wrangler
         run: npm install -g wrangler
 
       - name: 部署到 Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: wrangler pages deploy
+        run: wrangler pages deploy frontend/build/web --project-name wxx-agent --branch main
