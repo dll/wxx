@@ -11,7 +11,7 @@ let db = null;
 function getDb(context) {
   if (db) return db;
   const dbUrl = context.env.TURSO_DB_URL || 'libsql://wxx-agent-czldl.aws-ap-northeast-1.turso.io';
-  const dbToken = context.env.TURSO_DB_TOKEN || '';
+  const dbToken = context.env.TURSO_DB_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODUwNjk1NjEsImlkIjoiMDE5ZjllNmYtNmEwMS03MDIyLTg3OGEtNWI4NzgxOTY2MDk3Iiwia2lkIjoiUUI0MFdrbDBrcDJObV80RHR3eWZoMzV2RXQwZXI5ejF1N1VBUTlyTGU5byIsInJpZCI6IjZiOTNlMmFhLTI0MjEtNGMxOS1iNzljLTM1MzlkZGFmZWE3MyJ9.x_OgL5_1__Pd6cc51Cfxy42jDMesuJ48xcHpMJAowjuHehS3OrY3NkaeHwBrhRgZaszr4horjXQSBouqI3hpDg';
   db = new TursoClient(dbUrl, dbToken);
   return db;
 }
