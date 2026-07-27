@@ -33,6 +33,9 @@ jobs:
       - name: 构建 Web
         run: flutter build web --release
 
+      - name: 复制 Functions 到构建目录
+        run: cp -r functions build/web/functions
+
       - name: 部署到 Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
