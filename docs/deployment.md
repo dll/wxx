@@ -1,18 +1,21 @@
 # 部署指南 — 蔚小芯
 
-> 蔚小芯支持两种部署模式：
-> - **Vercel + Turso**（推荐用于快速部署）：后端部署在 Vercel 无服务器函数，数据库使用 Turso 云数据库
-> - **Linux 单机部署**（推荐用于生产环境）：后端走 systemd / 自托管二进制，数据库使用本地 SQLite 文件
+> 蔚小芯支持以下部署模式：
+> - **Cloudflare Pages + Vercel + Turso**（**当前正式方案**）：前端 Cloudflare Pages 静态托管 + Functions 代理，后端 Vercel Serverless，数据库 Turso 云数据库
+> - **Vercel + Turso**（备选）：后端部署在 Vercel 无服务器函数，数据库使用 Turso 云数据库
+> - **Linux 单机部署**（推荐用于纯自托管）：后端走 systemd / 自托管二进制，数据库使用本地 SQLite 文件
 
 ## 部署模式对比
 
-| 特性 | Vercel + Turso | Linux 单机 |
-|------|---------------|------------|
-| 数据持久化 | Turso 云端 | 本地 SQLite 文件 |
-| 冷启动 | 有（无服务器函数） | 无（常驻进程） |
-| 运维成本 | 低（免运维） | 中（需维护服务器） |
-| FTS5 全文检索 | 支持 | 支持 |
-| 适用场景 | 开发/测试/小规模 | 生产环境 |
+| 特性 | Cloudflare Pages + Vercel + Turso | Vercel + Turso | Linux 单机 |
+|------|----------------------------------|---------------|------------|
+| 前端托管 | Cloudflare Pages（国内加速） | Vercel（国内访问受限） | Nginx / 自托管 |
+| 后端运行 | Vercel Serverless | Vercel Serverless | systemd 常驻 |
+| 数据持久化 | Turso 云端 | Turso 云端 | 本地 SQLite 文件 |
+| 冷启动 | 有（无服务器函数） | 有（无服务器函数） | 无（常驻进程） |
+| 运维成本 | 低（免运维） | 低（免运维） | 中（需维护服务器） |
+| FTS5 全文检索 | 支持 | 支持 | 支持 |
+| 适用场景 | **当前正式方案** | 开发/测试 | 生产环境（自托管） |
 
 ## Vercel + Turso 部署（推荐）
 
@@ -185,6 +188,30 @@ Web + APK 联合发布请使用：
 make deploy-release
 ```
 
+### 绑定自定义域名
+
+生产环境建议绑定学校官方子域名（如 `wxx-agent.chzu.edu.cn`），避免依赖 `*.pages.dev` 第三方域名。
+
+```bash
+# 1. 打开 Cloudflare Dashboard → Workers & Pages → wxx-agent
+# 2. 进入 Custom domains 选项卡
+# 3. 点击 Set up custom domain
+# 4. 输入域名（例如 wxx-agent.chzu.edu.cn），点击 Continue
+# 5. Cloudflare 自动检测 DNS 记录：
+#    - 如果域名在 Cloudflare 托管 → 自动添加 CNAME 到 pages.dev
+#    - 如果域名不在 Cloudflare 托管 → 显示 DNS 目标 (CNAME)，需在 DNS 提供商手动添加
+# 6. 等待 SSL 证书自动下发（Let's Encrypt，约 1–5 分钟）
+# 7. 验证域名解析
+dig wxx-agent.chzu.edu.cn CNAME +short  # 应返回 wxx-agent.pages.dev
+curl -I https://wxx-agent.chzu.edu.cn   # 应返回 200
+```
+
+**注意**：
+- 自定义域名绑定后，`*.pages.dev` 域名仍有效，两者均可访问。
+- 如果之前设置过 `CORS_ALLOWED_ORIGINS` 环境变量，需追加自定义域名。
+- 如需自定义域名为唯一入口，可在 Cloudflare 添加 Page Rule 将 `*.pages.dev` 301 重定向到自定义域名。
+- 自定义域名变更后需同步更新 `frontend/lib/config/api_config.dart` 中的 `baseUrl`（非 Web 端），以及 `frontend/functions/api/[[route]].js` 中的 `targetUrl`（如果走代理模式）。
+
 ### 仅推送已构建产物
 
 ```bash
@@ -322,13 +349,18 @@ sudo journalctl -u wxx -f
 
 ### 前端部署
 
-Flutter Web 构建产物为静态文件，可通过以下方式部署：
+Flutter Web 构建产物为静态文件，当前正式方案通过 Cloudflare Pages 部署：
 
 ```bash
-# 方式一：由 Go 后端内嵌提供（推荐）
+# 方式一：Cloudflare Pages（当前正式方案）
+# 见上方 §Cloudflare Pages 前端部署
+cd frontend && flutter build web --release
+npx wrangler pages deploy build/web --project-name wxx-agent --branch main
+
+# 方式二（备选）：由 Go 后端内嵌提供
 # 在 Go 代码中使用 embed 包嵌入 frontend/build/web/
 
-# 方式二：Nginx 反向代理
+# 方式三（备选）：Nginx 反向代理
 # 将 frontend/build/web/ 复制到 Nginx 静态目录
 ```
 

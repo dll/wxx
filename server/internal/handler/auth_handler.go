@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/dll/wxx/server/internal/auth"
@@ -44,9 +45,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			util.FailUnauthorized(c, "账号或密码错误")
 			return
 		} else if errors.Is(err, service.ErrAccountUnavailable) {
-			util.FailForbidden(c, err.Error())
+			log.Printf("账号不可用: %v", err)
+			util.FailForbidden(c, "该账号已被禁用，请联系管理员")
 			return
 		}
+		log.Printf("登录失败: %v", err)
 		util.FailInternalError(c, message)
 		return
 	}
@@ -134,11 +137,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := h.authSvc.ChangePassword(userCtx.UserID, req.OldPassword, req.NewPassword); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		log.Printf("修改密码失败 user_id=%d: %v", userCtx.UserID, err)
+		util.FailBadRequest(c, "密码修改失败，请检查原密码是否正确")
 		return
 	}
 
@@ -172,11 +172,8 @@ func (h *AuthHandler) GetVoiceConfig(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		log.Printf("获取语音配置失败 user_id=%d: %v", userCtx.UserID, err)
+		util.FailInternalError(c, "获取语音配置失败")
 		return
 	}
 
@@ -211,11 +208,8 @@ func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
 	}
 
 	if err := h.authSvc.UpdateVoiceConfig(userCtx.UserID, req.VoiceEnabled); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		log.Printf("更新语音配置失败 user_id=%d: %v", userCtx.UserID, err)
+		util.FailBadRequest(c, "更新语音配置失败")
 		return
 	}
 
@@ -252,11 +246,8 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 
 	code, err := h.authSvc.SendCode(req.Phone)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		log.Printf("发送验证码失败 phone=%s: %v", req.Phone, err)
+		util.FailBadRequest(c, "发送验证码失败")
 		return
 	}
 
@@ -290,11 +281,8 @@ func (h *AuthHandler) GuestRegister(c *gin.Context) {
 
 	result, err := h.authSvc.GuestRegister(req.DisplayName, req.Phone, req.Code)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "游客注册失败：" + err.Error(),
-			TraceID: middleware.GetTraceID(c),
-		})
+		log.Printf("游客注册失败 phone=%s: %v", req.Phone, err)
+		util.FailInternalError(c, "注册失败，请稍后重试")
 		return
 	}
 

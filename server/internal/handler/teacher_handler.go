@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -40,7 +42,7 @@ func (h *TeacherHandler) LessonPrep(c *gin.Context) {
 		CourseID string `json:"course_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 

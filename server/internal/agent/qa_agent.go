@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -26,6 +27,7 @@ func (a *QAAgent) Name() string { return "通用问答" }
 func (a *QAAgent) Execute(ctx context.Context, question string, userCtx *model.UserContext, kbRepo *repository.KBRepo) (*AgentResult, error) {
 	results, err := kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, a.searchTopK)
 	if err != nil {
+		log.Printf("QAAgent 检索失败: %v", err)
 		return &AgentResult{
 			AgentName:  a.Name(),
 			Content:    "",
@@ -38,6 +40,7 @@ func (a *QAAgent) Execute(ctx context.Context, question string, userCtx *model.U
 			AgentName:  a.Name(),
 			Content:    "",
 			Confidence: 0.1,
+			Sources:    []model.Source{},
 		}, nil
 	}
 
@@ -52,11 +55,15 @@ func (a *QAAgent) Execute(ctx context.Context, question string, userCtx *model.U
 	// 构造 sources
 	sources := kbResultsToSources(results)
 
+	confidence := 0.5 + float64(len(results))/float64(a.searchTopK)*0.3
+	if confidence > 0.95 {
+		confidence = 0.95
+	}
 	return &AgentResult{
 		AgentName:  a.Name(),
 		Content:    content,
 		Sources:    sources,
-		Confidence: 0.75,
+		Confidence: confidence,
 	}, nil
 }
 

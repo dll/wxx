@@ -162,7 +162,10 @@ func (s *NotificationService) Publish(ctx context.Context, user *model.UserConte
 
 func (s *NotificationService) Delete(ctx context.Context, user *model.UserContext, id int64) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM notifications WHERE id = ?", id)
-	return err
+	if err != nil {
+		return fmt.Errorf("删除通知失败: %w", err)
+	}
+	return nil
 }
 
 func (s *NotificationService) GetWebhookStatus() []WebhookConfig {

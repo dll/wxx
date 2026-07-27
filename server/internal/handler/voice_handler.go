@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -77,9 +78,10 @@ func (h *VoiceHandler) ASR(c *gin.Context) {
 
 	pcmBytes, err := normalizeASRAudio(audioBytes)
 	if err != nil {
+		log.Printf("voice normalizeASRAudio err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "音频处理失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -126,10 +128,8 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 
 	user, err := h.adminSvc.UpdateUser(userID, &req, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("更新用户失败 user_id=%s: %v", userID, err)
+		util.FailBadRequest(c, "更新用户失败")
 		return
 	}
 
@@ -170,10 +170,8 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := h.adminSvc.DeleteUser(userID, userCtx.Username); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("删除用户失败 user_id=%s: %v", userID, err)
+		util.FailBadRequest(c, "删除用户失败")
 		return
 	}
 
@@ -270,10 +268,8 @@ func (h *AdminHandler) GetUserDict(c *gin.Context) {
 
 	values, err := h.adminSvc.GetUserDictValues(column, role, ownerScope, ownerID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("获取字典值失败 column=%s: %v", column, err)
+		util.FailBadRequest(c, "获取字典值失败")
 		return
 	}
 
@@ -309,10 +305,8 @@ func (h *AdminHandler) BatchUpdateStatus(c *gin.Context) {
 
 	count, err := h.adminSvc.BatchUpdateStatus(req.Ids, req.Status, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("批量更新用户状态失败: %v", err)
+		util.FailBadRequest(c, "批量更新状态失败")
 		return
 	}
 
@@ -348,10 +342,8 @@ func (h *AdminHandler) BatchResetPassword(c *gin.Context) {
 
 	count, err := h.adminSvc.BatchResetPassword(req.Ids, req.NewPassword, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("批量重置密码失败: %v", err)
+		util.FailBadRequest(c, "批量重置密码失败")
 		return
 	}
 
@@ -397,10 +389,8 @@ func (h *AdminHandler) BatchDelete(c *gin.Context) {
 
 	count, err := h.adminSvc.BatchDelete(req.Ids, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("批量删除用户失败: %v", err)
+		util.FailBadRequest(c, "批量删除用户失败")
 		return
 	}
 
@@ -524,10 +514,8 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 	}
 
 	if err := h.authSvc.ResetPassword(userCtx.UserID, userID, req.Password); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("重置密码失败 user_id=%s: %v", userID, err)
+		util.FailBadRequest(c, "重置密码失败")
 		return
 	}
 
@@ -578,10 +566,8 @@ func (h *AdminHandler) ApproveGuest(c *gin.Context) {
 	}
 
 	if err := h.authSvc.ApproveGuest(guestID, req.StudentID); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("审核通过游客失败 guest_id=%s: %v", guestID, err)
+		util.FailBadRequest(c, "审核通过失败")
 		return
 	}
 
@@ -603,10 +589,8 @@ func (h *AdminHandler) RejectGuest(c *gin.Context) {
 	}
 
 	if err := h.authSvc.RejectGuest(guestID); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("拒绝游客失败 guest_id=%s: %v", guestID, err)
+		util.FailBadRequest(c, "拒绝游客失败")
 		return
 	}
 
@@ -678,7 +662,8 @@ func (h *AdminHandler) importStudentsFromFile(c *gin.Context) {
 	// 读取文件到内存
 	data, err := io.ReadAll(file)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "读取文件失败: " + err.Error()})
+		log.Printf("读取导入文件失败: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "读取文件失败"})
 		return
 	}
 
@@ -687,7 +672,8 @@ func (h *AdminHandler) importStudentsFromFile(c *gin.Context) {
 	// 解析 xlsx
 	rows, err := h.adminSvc.ParseStudentXLSX(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "解析文件失败: " + err.Error()})
+		log.Printf("解析学生Excel失败: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "解析文件失败，请检查格式"})
 		return
 	}
 
@@ -695,7 +681,8 @@ func (h *AdminHandler) importStudentsFromFile(c *gin.Context) {
 		rows, defaultPassword, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败: " + err.Error()})
+		log.Printf("导入学生失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败，请检查数据"})
 		return
 	}
 
@@ -737,7 +724,8 @@ func (h *AdminHandler) importStudentsFromJSON(c *gin.Context) {
 		rows, req.DefaultPassword, userCtx.Role, userCtx.OwnerScope, userCtx.OwnerID,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败: " + err.Error()})
+		log.Printf("JSON导入学生失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "导入失败，请检查数据"})
 		return
 	}
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -235,9 +236,10 @@ func (h *FeedbackHandler) LinkResource(c *gin.Context) {
 	}
 
 	if err := h.feedbackSvc.LinkResource(feedbackID, req.ResourceID, req.Note, userCtx.Username); err != nil {
+		log.Printf("feedback LinkResource err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "操作失败",
 		})
 		return
 	}
@@ -271,9 +273,10 @@ func (h *FeedbackHandler) Rate(c *gin.Context) {
 	}
 
 	if err := h.feedbackSvc.Rate(feedbackID, userCtx.UserID, req.Rating, req.Comment); err != nil {
+		log.Printf("feedback Rate err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "操作失败",
 		})
 		return
 	}

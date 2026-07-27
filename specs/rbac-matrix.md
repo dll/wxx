@@ -1,25 +1,16 @@
 # RBAC 矩阵 — 蔚小芯权限定义
 
-> 基线六级角色定义见 `docs/蔚小芯智能体.md`（相对 `WXX/`）§6.6。  
-> 下文 **teacher / assistant** 为 **建议扩展角色**；若产品采纳，需同步修订总纲 §6.6、`roleScope` 枚举及对接 JSON 示例。
+> 全量角色定义见 `server/internal/auth/capabilities.go`，基线六级见 `docs/蔚小芯智能体.md`（相对 `WXX/`）§6.6。  
+> `teacher` / `assistant` 已在能力模型实现中，不再是"建议扩展"。本矩阵以能力模型为基础，按功能模块/端点归纳。
 
 ---
 
-## 是否需要增加「教师 teacher」「教辅 assistant」
+## 角色状态更新
 
-**结论（按分期）**
+> **现状**：`teacher` 与 `assistant` 已在代码中实现完整能力定义与继承关系（`server/internal/auth/capabilities.go`），不再是"建议扩展"角色。  
+> **历史决策**（仅供参考）：原 P0 阶段未强制纳入，后因 SSO 职工类型映射需要提前实现。以下保留说明仅作决策记录。
 
-| 分期 | 是否必须单独两角色 | 说明 |
-|------|-------------------|------|
-| **P0 / 试点 MVP** | **不强制** | 以学工咨询、流程指引、辅导员与学生为主线即可闭环；任课教师若仅需浏览公开政策，可暂时与 **`student` 同级咨询视图** 或通过 **`college_admin`** 代办演示，避免工期膨胀。 |
-| **P1 及以后** | **建议纳入** | 辅导员（counselor）承担思政与个案管理，权责与 **专任教师（学业/科创指导）**、**教辅（教务秘书、实验室管理等行政协办）** 不完全重合；混用 `counselor` 会违背最小权限，也与 SSO 职工类型难以一致映射。 |
-
-**是否「蔚小芯」需要这两个角色？**
-
-- **需要的前提**：产品上明确要为 **任课教师、教辅人员** 提供独立入口或差异化能力（例如教师只看本人授课/指导范围内的摘要洞察、教辅处理材料协办单），且不能与辅导员权限等同。  
-- **可不单独建角色的前提**：校内约定这两类用户 **完全不登录** 蔚小芯，或 **权限与现有六级之一完全一致**（例如全部走学院教务管理员 proxy）。现实中较少满足第二条。
-
-综合：**建议在权限模型中预留 `teacher` 与 `assistant`，实施可分阶段**——枚举与矩阵先占位，P0 可不开放注册或全部关闭菜单，仅避免日后重构 JWT/RBAC。
+**角色已实现**：`teacher`（继承 `student_union`，拥有备课、出题、学情热力图等能力）、`assistant`（继承 `student_union`，拥有排课检查、毕业审核、考试安排等能力）。`college_admin` 同时继承 counselor / teacher / assistant 三线。
 
 ---
 
@@ -37,19 +28,19 @@
 
 ## 角色列表（固化名称）
 
-### 基线六级（与总纲 §6.6 一致）
+### 全部角色（与 server/internal/auth/capabilities.go 一致）
 
-1. 系统管理员（`sys_admin`）  
-2. 学校（`school_admin`）  
-3. 二级学院（`college_admin`）  
-4. 辅导员 / 班主任（`counselor`）  
-5. 学生会 / 班团委（`student_union`）  
-6. 学生（`student`）
+0. 游客（`guest`）— 未登录访问公开信息
+1. 系统管理员（`sys_admin`）
+2. 学校（`school_admin`）
+3. 二级学院（`college_admin`）
+4. 辅导员 / 班主任（`counselor`）
+5. 教师（`teacher`）
+6. 教辅（`assistant`）
+7. 学生会 / 班团委（`student_union`）
+8. 学生（`student`）
 
-### 扩展（建议 P1+，枚举占位）
-
-7. 教师（`teacher`）  
-8. 教辅（`assistant`）
+**继承链**：`sys_admin → school_admin → college_admin → {counselor, teacher, assistant} → student_union → student`，另含 `guest` 独立节点。`college_admin` 多父继承 counselor + teacher + assistant。
 
 ---
 
@@ -109,9 +100,9 @@
 
 ---
 
-## 权限矩阵 — 扩展角色（teacher / assistant）
+## 权限矩阵 — teacher / assistant（已实现）
 
-采纳扩展角色后，补充以下权限（可与上表合并为一张宽表）。
+以下为教师与教辅的高层级权限归纳（对应代码中 `teacher.*` 和 `assistant.*` 能力组）：
 
 | 功能模块 | teacher | assistant |
 |----------|---------|-----------|
@@ -128,4 +119,4 @@
 | 用户管理 | 禁止 | 禁止 |
 | 统计看板 | 本人授课摘要 | 禁止 |
 
-**说明**：具体路由与权限代码命名由业务代码仓库定义；本文件作为 **评审与验收对照表**。采纳扩展角色后请同步更新 `docs/蔚小芯智能体.md` §6.6、`roleScope` 字段说明及附录 JSON 示例。
+**说明**：具体能力定义见 `server/internal/auth/capabilities.go`。本文件作为 **评审与验收对照表**。若修改总纲角色定义请同步更新 `docs/蔚小芯智能体.md` §6.6 及 `roleScope` 说明。

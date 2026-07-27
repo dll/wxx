@@ -159,7 +159,8 @@ func (h *GraduationHandler) SelectTopic(c *gin.Context) {
 		req.TopicID, req.Reason,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		log.Printf("graduation SelectTopic err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "选题失败"})
 		return
 	}
 

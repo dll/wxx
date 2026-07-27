@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"log"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/util"
@@ -10,11 +11,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// PIIMask 中间件：检测请求体中的 PII 并记录审计日志
+// PIIMask 中间件：检测请求中的 PII 并记录
 // 注意：本中间件不修改请求体，仅检测和记录 PII 存在情况
 // 实际脱敏在 service 层调用 SanitizeForLLM 时完成
 func PIIMask() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 检测 GET query 参数中的 PII
+		rawQuery := c.Request.URL.RawQuery
+		if rawQuery != "" && util.DetectPII(rawQuery) {
+			result := util.MaskPIIWithDetail(rawQuery)
+			c.Set("pii_detected", true)
+			c.Set("pii_types", result.PIITypesFound)
+			log.Printf("PII 检测: GET %s 参数含有敏感信息 types=%v", c.Request.URL.Path, result.PIITypesFound)
+		}
+
 		// 仅检测有请求体的 POST/PUT/PATCH 请求
 		if c.Request.Method != "POST" && c.Request.Method != "PUT" && c.Request.Method != "PATCH" {
 			c.Next()
@@ -41,7 +51,6 @@ func PIIMask() gin.HandlerFunc {
 		// 检测 PII
 		bodyStr := string(bodyBytes)
 		if len(bodyStr) > 0 && util.DetectPII(bodyStr) {
-			// 记录 PII 检测到的事实（用于审计，不做拦截）
 			result := util.MaskPIIWithDetail(bodyStr)
 			c.Set("pii_detected", true)
 			c.Set("pii_types", result.PIITypesFound)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/pkg/app"
 )
 
@@ -53,5 +54,8 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("服务关闭异常: %v", err)
 	}
+
+	// 等待审计日志异步写入完成
+	middleware.WaitFlush()
 	log.Println("蔚小芯服务已安全退出")
 }

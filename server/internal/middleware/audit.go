@@ -3,10 +3,18 @@ package middleware
 import (
 	"database/sql"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+var auditWg sync.WaitGroup
+
+// WaitFlush 等待所有未完成的审计日志写入完成（在服务优雅关闭时调用）
+func WaitFlush() {
+	auditWg.Wait()
+}
 
 // AuditLog 审计日志中间件
 // 在请求处理完成后异步记录审计日志到 audit_logs 表
@@ -35,7 +43,9 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// 异步写入审计日志（不阻塞响应）
+		auditWg.Add(1)
 		go func() {
+			defer auditWg.Done()
 			_, err := db.Exec(
 				`INSERT INTO audit_logs (user_id, username, role, action, resource, detail, trace_id, ip, duration_ms, result_code)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

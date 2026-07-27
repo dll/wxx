@@ -37,12 +37,47 @@ func (r *ModelConfigRepo) GetByUserID(userID int64) (*model.UserModelConfig, err
 	if err != nil {
 		return nil, err
 	}
+
+	cfg.DeepseekKey, err = decrypt(cfg.DeepseekKey)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ZhipuKey, err = decrypt(cfg.ZhipuKey)
+	if err != nil {
+		return nil, err
+	}
+	cfg.XunfeiKey, err = decrypt(cfg.XunfeiKey)
+	if err != nil {
+		return nil, err
+	}
+	cfg.XunfeiSecret, err = decrypt(cfg.XunfeiSecret)
+	if err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 
 // Upsert 创建或更新用户模型配置
 func (r *ModelConfigRepo) Upsert(cfg *model.UserModelConfig) error {
-	_, err := r.db.Exec(
+	var err error
+	dk, err := encrypt(cfg.DeepseekKey)
+	if err != nil {
+		return err
+	}
+	zk, err := encrypt(cfg.ZhipuKey)
+	if err != nil {
+		return err
+	}
+	xk, err := encrypt(cfg.XunfeiKey)
+	if err != nil {
+		return err
+	}
+	xs, err := encrypt(cfg.XunfeiSecret)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.Exec(
 		`INSERT INTO user_model_configs (user_id, deepseek_key, deepseek_model, deepseek_temp, deepseek_max_tokens,
 		 zhipu_key, zhipu_model, zhipu_temp, zhipu_max_tokens,
 		 xunfei_app_id, xunfei_key, xunfei_secret, xunfei_model, xunfei_temp, xunfei_max_tokens,
@@ -66,9 +101,9 @@ func (r *ModelConfigRepo) Upsert(cfg *model.UserModelConfig) error {
 		 default_provider=excluded.default_provider,
 		 updated_at=datetime('now')`,
 		cfg.UserID,
-		cfg.DeepseekKey, cfg.DeepseekModel, cfg.DeepseekTemp, cfg.DeepseekMaxTok,
-		cfg.ZhipuKey, cfg.ZhipuModel, cfg.ZhipuTemp, cfg.ZhipuMaxTok,
-		cfg.XunfeiAppID, cfg.XunfeiKey, cfg.XunfeiSecret, cfg.XunfeiModel, cfg.XunfeiTemp, cfg.XunfeiMaxTok,
+		dk, cfg.DeepseekModel, cfg.DeepseekTemp, cfg.DeepseekMaxTok,
+		zk, cfg.ZhipuModel, cfg.ZhipuTemp, cfg.ZhipuMaxTok,
+		cfg.XunfeiAppID, xk, xs, cfg.XunfeiModel, cfg.XunfeiTemp, cfg.XunfeiMaxTok,
 		cfg.DefaultProvider,
 	)
 	return err

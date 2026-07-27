@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
-	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -145,7 +145,7 @@ func (s *AuthService) GuestRegister(displayName, phone, code string) (*LoginResu
 	}
 	user.ID = id
 
-	token, err := middleware.GenerateToken(s.cfg, user)
+	token, err := jwtutil.GenerateToken(s.cfg, user)
 	if err != nil {
 		return nil, fmt.Errorf("签发 token 失败: %w", err)
 	}
@@ -228,7 +228,7 @@ func (s *AuthService) RecordConsent(userID int64) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		log.Printf("查询用户失败(consent): %v", err)
-		return err
+		return fmt.Errorf("查询用户失败(consent): %w", err)
 	}
 	if user == nil {
 		log.Printf("用户不存在(consent): id=%d", userID)
@@ -236,7 +236,7 @@ func (s *AuthService) RecordConsent(userID int64) error {
 	}
 	if err := s.userRepo.SetConsented(userID, true); err != nil {
 		log.Printf("持久化同意状态失败: user=%s err=%v", user.Username, err)
-		return err
+		return fmt.Errorf("持久化同意状态失败: %w", err)
 	}
 	log.Printf("用户同意隐私政策与用户协议: user=%s role=%s", user.Username, user.Role)
 	return nil
@@ -273,7 +273,7 @@ func (s *AuthService) LoginByUsername(username string, _ string, password string
 	}
 
 	// 签发 JWT
-	token, err := middleware.GenerateToken(s.cfg, user)
+	token, err := jwtutil.GenerateToken(s.cfg, user)
 	if err != nil {
 		return nil, fmt.Errorf("签发 token 失败: %w", err)
 	}

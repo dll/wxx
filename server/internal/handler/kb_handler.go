@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -107,6 +108,7 @@ func (h *KBHandler) ListResources(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "查询知识列表失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -129,16 +131,15 @@ func (h *KBHandler) GetResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "资源 ID 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	kb, err := h.kbSvc.Get(c.Request.Context(), resourceID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, model.ErrorResponse{
-			Code:    404,
-			Message: err.Error(),
-		})
+		log.Printf("查询知识资源失败 resource_id=%s: %v", resourceID, err)
+		util.FailNotFound(c, "知识资源不存在")
 		return
 	}
 
@@ -157,6 +158,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败: " + err.Error(),
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -166,6 +168,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -175,6 +178,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "创建知识资源失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -191,16 +195,15 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 func (h *KBHandler) Import(c *gin.Context) {
 	body, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: "读取请求体失败: " + err.Error(),
-		})
+		log.Printf("知识导入读取请求体失败: %v", err)
+		util.FailBadRequest(c, "读取请求体失败")
 		return
 	}
 	if len(body) == 0 {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "请求体为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -210,6 +213,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -224,6 +228,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, model.ErrorResponse{
 				Code:    400,
 				Message: "JSON 格式错误，无法解析请求体",
+				TraceID: middleware.GetTraceID(c),
 			})
 			return
 		}
@@ -231,6 +236,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, model.ErrorResponse{
 				Code:    400,
 				Message: "resources 数组为空",
+				TraceID: middleware.GetTraceID(c),
 			})
 			return
 		}
@@ -247,6 +253,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "导入失败，请检查数据格式后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -262,6 +269,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "资源 ID 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -271,6 +279,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败: " + err.Error(),
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -280,6 +289,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -289,6 +299,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "更新知识资源失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -308,6 +319,7 @@ func (h *KBHandler) Validate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "读取请求体失败",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -383,6 +395,7 @@ func (h *KBHandler) ListPendingReviews(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "查询待审核列表失败",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -407,16 +420,15 @@ func (h *KBHandler) SubmitForReview(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	kb, err := h.kbSvc.SubmitForReview(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("提交审核失败 resource_id=%s: %v", resourceID, err)
+		util.FailBadRequest(c, "提交审核失败，请检查资源状态")
 		return
 	}
 
@@ -437,16 +449,15 @@ func (h *KBHandler) ApproveResource(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	kb, err := h.kbSvc.ApproveResource(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("审核通过失败 resource_id=%s: %v", resourceID, err)
+		util.FailBadRequest(c, "审核通过失败，请检查资源状态")
 		return
 	}
 
@@ -472,6 +483,7 @@ func (h *KBHandler) RejectResource(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -483,10 +495,8 @@ func (h *KBHandler) RejectResource(c *gin.Context) {
 
 	kb, err := h.kbSvc.RejectResource(c.Request.Context(), resourceID, userCtx.Username, req.Reason)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("驳回失败 resource_id=%s: %v", resourceID, err)
+		util.FailBadRequest(c, "驳回失败，请检查资源状态")
 		return
 	}
 
@@ -507,16 +517,15 @@ func (h *KBHandler) RetireResource(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	kb, err := h.kbSvc.RetireResource(c.Request.Context(), resourceID, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: err.Error(),
-		})
+		log.Printf("下架失败 resource_id=%s: %v", resourceID, err)
+		util.FailBadRequest(c, "下架失败，请检查资源状态")
 		return
 	}
 
@@ -554,6 +563,7 @@ func (h *KBHandler) ListResourcesAdvanced(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "查询知识资源失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -576,6 +586,7 @@ func (h *KBHandler) GetDictValues(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "column 参数不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -585,6 +596,7 @@ func (h *KBHandler) GetDictValues(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "获取字典值失败",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -609,6 +621,7 @@ func (h *KBHandler) BatchApprove(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -618,16 +631,15 @@ func (h *KBHandler) BatchApprove(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败：ids 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	count, err := h.kbSvc.BatchApprove(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: err.Error(),
-		})
+		log.Printf("批量审核通过失败: %v", err)
+		util.FailInternalError(c, "批量审核通过失败")
 		return
 	}
 
@@ -646,6 +658,7 @@ func (h *KBHandler) BatchReject(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -655,16 +668,15 @@ func (h *KBHandler) BatchReject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败：ids 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	count, err := h.kbSvc.BatchReject(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: err.Error(),
-		})
+		log.Printf("批量驳回失败: %v", err)
+		util.FailInternalError(c, "批量驳回失败")
 		return
 	}
 
@@ -683,6 +695,7 @@ func (h *KBHandler) BatchRetire(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -692,16 +705,15 @@ func (h *KBHandler) BatchRetire(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败：ids 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	count, err := h.kbSvc.BatchRetire(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: err.Error(),
-		})
+		log.Printf("批量下架失败: %v", err)
+		util.FailInternalError(c, "批量下架失败")
 		return
 	}
 
@@ -720,6 +732,7 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
 			Code:    401,
 			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -729,16 +742,15 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
 			Message: "参数校验失败：ids 不能为空",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
 
 	count, err := h.kbSvc.BatchDelete(c.Request.Context(), req.IDs, userCtx.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: err.Error(),
-		})
+		log.Printf("批量删除失败: %v", err)
+		util.FailInternalError(c, "批量删除失败")
 		return
 	}
 
@@ -757,6 +769,7 @@ func (h *KBHandler) GetStats(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "获取统计数据失败",
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}

@@ -25,6 +25,7 @@ type SearchResult struct {
 	Snippet      string  `json:"snippet"`     // 命中片段（CE-07）
 	EffectiveAt  string  `json:"effective_at"`
 	ExpiredAt    string  `json:"expired_at"`
+	IsStructured bool    `json:"is_structured"` // 结构化匹配结果（高于 FTS 优先级）
 }
 
 // QueryRequest 检索请求
@@ -48,6 +49,7 @@ type QueryResult struct {
 // KBSearcher 知识库检索接口（由 repository 实现）
 type KBSearcher interface {
 	Search(question, ownerScope, ownerID, role string, limit int) ([]KBSearchItem, error)
+	SearchStructured(question, ownerScope, ownerID, role string, limit int) ([]KBSearchItem, error)
 }
 
 // KBSearchItem 知识库搜索条目（适配 repository 返回）
@@ -61,6 +63,7 @@ type KBSearchItem struct {
 	Score        float64
 	EffectiveAt  string
 	ExpiredAt    string
+	IsStructured bool   // 结构化匹配结果标记
 }
 
 // HistoryProvider 历史消息提供接口（CE-10）
@@ -88,7 +91,7 @@ func New(searcher KBSearcher, history HistoryProvider) *Engine {
 	}
 }
 
-// Query 执行完整检索管道：意图分类 → 检索 → 加权重排 → 过滤过期 → 拼装上下文
+// Query 执行完整检索管道：意图分类 → 结构化优先检索 → FTS/BM25 兜底 → 加权重排 → 拼装上下文
 func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, error) {
 	if req.TopK <= 0 {
 		req.TopK = 5
@@ -99,20 +102,40 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	log := logger.WithContext(ctx)
 	log.Info("检索管道启动", "intent", intent.Category, "confidence", intent.Confidence, "question", req.Question)
 
-	// ── 2. FTS/BM25 检索 ──
 	if e.searcher == nil {
 		return &QueryResult{Intent: intent}, nil
 	}
 
-	items, err := e.searcher.Search(req.Question, req.OwnerScope, req.OwnerID, req.Role, req.TopK*2)
+	// ── 2. 结构化优先检索 ──
+	// 按 title/category/tags 直接匹配，不依赖 FTS5 索引
+	structuredItems, err := e.searcher.SearchStructured(req.Question, req.OwnerScope, req.OwnerID, req.Role, req.TopK)
 	if err != nil {
-		return nil, fmt.Errorf("知识检索失败: %w", err)
+		log.Warn("结构化检索失败，回退 FTS", "err", err)
+	}
+	log.Info("结构化检索结果", "count", len(structuredItems))
+
+	// ── 3. FTS/BM25 兜底（结构化结果不足时） ──
+	// 阈值：结构化命中 ≥ ceil(TopK/2) 时不再执行 FTS
+	structuredThreshold := (req.TopK + 1) / 2
+	var ftsItems []KBSearchItem
+	if len(structuredItems) < structuredThreshold {
+		ftsLimit := req.TopK * 2
+		ftsItems, err = e.searcher.Search(req.Question, req.OwnerScope, req.OwnerID, req.Role, ftsLimit)
+		if err != nil {
+			log.Warn("FTS 检索失败", "err", err)
+		}
+		log.Info("FTS/BM25 检索结果", "count", len(ftsItems))
+	} else {
+		log.Info("结构化结果充足，跳过 FTS/BM25", "count", len(structuredItems))
 	}
 
-	// ── 3. 来源可信度加权（CE-09） ──
-	results := make([]*SearchResult, 0, len(items))
+	// ── 4. 合并结果：结构化在前，FTS 在后 ──
+	merged := e.mergeStructuredAndFTS(structuredItems, ftsItems, req.Question)
+
+	// ── 5. 来源可信度加权（CE-09） ──
+	results := make([]*SearchResult, 0, len(merged))
 	now := time.Now()
-	for _, item := range items {
+	for _, item := range merged {
 		// 过滤过期资源（CE-09）
 		if item.ExpiredAt != "" {
 			if t, err := time.Parse("2006-01-02", item.ExpiredAt); err == nil && t.Before(now) {
@@ -131,12 +154,13 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 			EffectiveAt:  item.EffectiveAt,
 			ExpiredAt:    item.ExpiredAt,
 			Snippet:      extractSnippet(item.Content, req.Question),
+			IsStructured: item.IsStructured,
 		}
 		sr.TrustScore = computeTrustScore(sr)
 		results = append(results, sr)
 	}
 
-	// 按 TrustScore 排序（降序）
+	// 按 TrustScore 排序（降序），结构化结果自带 -100 基准分确保排最前
 	sortByTrust(results)
 
 	// 截取 TopK
@@ -144,7 +168,7 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 		results = results[:req.TopK]
 	}
 
-	// ── 4. 上下文拼装（CE-10：智能历史选取） ──
+	// ── 6. 上下文拼装（CE-10：智能历史选取） ──
 	contextStr := e.buildContext(req, results, intent)
 
 	return &QueryResult{
@@ -152,6 +176,28 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 		Intent:     intent,
 		ContextStr: contextStr,
 	}, nil
+}
+
+// mergeStructuredAndFTS 合并结构化结果与 FTS 结果，结构化结果按 -100 + priority 排序在最前
+// 通过 ResourceID 去重（结构化优先保留）
+func (e *Engine) mergeStructuredAndFTS(structured, fts []KBSearchItem, question string) []KBSearchItem {
+	seen := make(map[string]bool)
+	var merged []KBSearchItem
+
+	for _, item := range structured {
+		item.IsStructured = true
+		if !seen[item.ResourceID] {
+			seen[item.ResourceID] = true
+			merged = append(merged, item)
+		}
+	}
+	for _, item := range fts {
+		if !seen[item.ResourceID] {
+			seen[item.ResourceID] = true
+			merged = append(merged, item)
+		}
+	}
+	return merged
 }
 
 // buildContext 拼装 LLM 上下文（知识 + 相关历史）

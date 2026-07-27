@@ -30,15 +30,20 @@ func (m *ResultMerger) Merge(results []*AgentResult) *MergedResult {
 		return &MergedResult{
 			Content:    "抱歉，当前无法处理您的问题。",
 			Confidence: 0,
+			Sources:    []model.Source{},
 		}
 	}
 
 	// 单 Agent 结果直接返回
 	if len(results) == 1 {
 		r := results[0]
+		sources := r.Sources
+		if sources == nil {
+			sources = []model.Source{}
+		}
 		return &MergedResult{
 			Content:    r.Content,
-			Sources:    r.Sources,
+			Sources:    sources,
 			Confidence: r.Confidence,
 			AgentCount: 1,
 		}
@@ -47,6 +52,7 @@ func (m *ResultMerger) Merge(results []*AgentResult) *MergedResult {
 	// 多 Agent 结果汇聚
 	merged := &MergedResult{
 		AgentCount: len(results),
+		Sources:    []model.Source{},
 	}
 
 	// 合并内容（按 Agent 名称分段）

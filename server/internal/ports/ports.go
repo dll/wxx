@@ -13,10 +13,12 @@ import (
 
 // ── 知识库端口 ──
 
-// KBRepository 知识库访问端口（FTS5/BM25 全文检索 + CRUD）
+// KBRepository 知识库访问端口（FTS5/BM25 全文检索 + 结构化查询 + CRUD）
 type KBRepository interface {
 	// Search 全文检索，返回 BM25 相关性排序结果
 	Search(query string, ownerScope string, ownerID string, role string, limit int) ([]*repository.SearchResult, error)
+	// SearchStructured 结构化优先检索：按 title/category/tags 精确/模糊匹配
+	SearchStructured(query string, ownerScope string, ownerID string, role string, limit int) ([]*repository.SearchResult, error)
 	// SearchFAQ 仅在 FAQ 资源中检索（用于持久化问答缓存命中）
 	SearchFAQ(query string, ownerScope string, ownerID string, role string, limit int) ([]*repository.SearchResult, error)
 	// Upsert 幂等导入资源（按 resource_id + version）

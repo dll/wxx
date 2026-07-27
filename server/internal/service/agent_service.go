@@ -136,14 +136,14 @@ func (s *AgentService) Get(agentID string) (*model.Agent, error) {
 func (s *AgentService) Delete(agentID string) error {
 	exist, err := s.agentRepo.GetByAgentID(agentID)
 	if err != nil {
-		return err
+		return fmt.Errorf("initAgent: %w", err)
 	}
 	if exist == nil {
 		return fmt.Errorf("智能体 %s 不存在", agentID)
 	}
 
 	if err := s.agentRepo.Delete(agentID); err != nil {
-		return err
+		return fmt.Errorf("initAgent: %w", err)
 	}
 	log.Printf("智能体已删除 id=%s", agentID)
 	return nil

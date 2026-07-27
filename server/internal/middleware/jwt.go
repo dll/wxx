@@ -8,54 +8,40 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// 自定义 claims（JWT 载荷）
-type CustomClaims struct {
-	UserID      int64  `json:"user_id"`
-	Username    string `json:"username"`
-	Role        string `json:"role"`
-	OwnerScope  string `json:"owner_scope"`
-	OwnerID     string `json:"owner_id"`
-	DisplayName string `json:"display_name"`
-	Consented   bool   `json:"consented"`
-	TokenVersion int   `json:"tv"` // 令牌版本，与数据库 token_version 比对以支持吊销
-	jwt.RegisteredClaims
-}
-
 // contextKey 用于 gin.Context 存取用户信息的键名
 const contextKeyUser = "user_ctx"
 
-// GenerateToken 签发 JWT token
+// GenerateToken 签发 JWT token（委托给 jwtutil）
 func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
+	return jwtutil.GenerateToken(cfg, user)
+}
+
+// parseToken 解析并验证 JWT token，返回 CustomClaims
+func parseToken(tokenStr string, cfg *config.Config) (*jwtutil.CustomClaims, error) {
 	if cfg.JWTSecret == "" {
-		return "", errors.New("JWT_SECRET 未配置")
+		return nil, errors.New("JWT_SECRET 未配置")
 	}
 
-	now := time.Now()
-	claims := CustomClaims{
-		UserID:      user.ID,
-		Username:    user.Username,
-		Role:        user.Role,
-		OwnerScope:  user.OwnerScope,
-		OwnerID:     user.OwnerID,
-		DisplayName: user.DisplayName,
-		// 安全修复 SEC-02：同意状态以数据库为权威（EnsureUserExists 注入），
-		// 此处仅按签发时的数据库值填充，不再无条件置 true。
-		Consented:   user.Consented == 1,
-		TokenVersion: user.TokenVersion,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "wxx",
-		},
+	claims := &jwtutil.CustomClaims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("不支持的签名方法")
+		}
+		return []byte(cfg.JWTSecret), nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(cfg.JWTSecret))
+	if !token.Valid {
+		return nil, errors.New("无效的 token")
+	}
+	return claims, nil
 }
 
 // JWTAuth JWT 认证中间件
@@ -86,9 +72,8 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 
 		// 解析并验证 token
 		tokenStr := parts[1]
-		claims := &CustomClaims{}
+		claims := &jwtutil.CustomClaims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-			// 确保签名算法是 HMAC
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("不支持的签名算法")
 			}

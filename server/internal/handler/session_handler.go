@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -91,9 +92,10 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 
 	messages, err := h.sessionSvc.GetSessionMessages(userCtx.UserID, sessionID, limit)
 	if err != nil {
+		log.Printf("session GetSessionMessages err: %v", err)
 		c.JSON(http.StatusForbidden, model.ErrorResponse{
 			Code:    403,
-			Message: err.Error(),
+			Message: "查询失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -130,9 +132,10 @@ func (h *SessionHandler) DeleteSession(c *gin.Context) {
 	}
 
 	if err := h.sessionSvc.DeleteSession(userCtx.UserID, sessionID); err != nil {
+		log.Printf("session DeleteSession err: %v", err)
 		c.JSON(http.StatusForbidden, model.ErrorResponse{
 			Code:    403,
-			Message: err.Error(),
+			Message: "操作失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -180,9 +183,10 @@ func (h *SessionHandler) RenameSession(c *gin.Context) {
 	}
 
 	if err := h.sessionSvc.RenameSession(userCtx.UserID, sessionID, body.Title); err != nil {
+		log.Printf("session RenameSession err: %v", err)
 		c.JSON(http.StatusForbidden, model.ErrorResponse{
 			Code:    403,
-			Message: err.Error(),
+			Message: "操作失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

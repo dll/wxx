@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -875,7 +876,8 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		req.FocusCourses,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: err.Error()})
+		log.Printf("study_plan GeneratePlan err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "生成学习计划失败"})
 		return
 	}
 

@@ -35,6 +35,8 @@ type SearchResult struct {
 	// LowConfidence 瞬态标记（不落库）：检索相关性全部低于阈值、仅为避免空结果而强留的最佳结果。
 	// 下游据此走兜底，避免基于弱相关资料编造政策关键数字（CE-02）。
 	LowConfidence bool
+	// IsStructured 标记：来自结构化检索（title/category/tags 匹配），具有最高优先级
+	IsStructured bool
 }
 
 // Search 全文检索，使用 FTS5/BM25 算法（增强精准度版）
@@ -90,6 +92,76 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	}
 
 	return filtered, nil
+}
+
+// SearchStructured 结构化优先检索：按 title/category/tags 匹配
+// 不依赖 FTS5 索引，直接对 kb_resources 的结构化字段做精确/模糊匹配。
+// 匹配优先级：title 精确 > title 模糊 > tags 匹配 > category 匹配
+// 返回结果带有 IsStructured=true 标记，Score 设为 -100（最高优先级）。
+func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID string, role string, limit int) ([]*SearchResult, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+
+	likePattern := "%" + query + "%"
+
+	rows, err := r.db.Query(
+		`SELECT
+				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
+				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
+				kb.content, kb.source_link, kb.source_version,
+				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
+				kb.updated_by, kb.created_at, kb.updated_at,
+				CASE
+					WHEN kb.title = ? THEN 1.0
+					WHEN kb.title LIKE ? THEN 2.0
+					WHEN kb.tags LIKE ? THEN 3.0
+					WHEN kb.resource_type LIKE ? THEN 4.0
+					ELSE 5.0
+				END AS priority
+			 FROM kb_resources kb
+			 WHERE kb.status = 'published'
+			   AND (kb.title = ?
+			    OR kb.title LIKE ?
+			    OR kb.tags LIKE ?
+			    OR kb.resource_type LIKE ?)
+			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
+			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			 ORDER BY priority ASC
+			 LIMIT ?`,
+		query, likePattern, likePattern, likePattern,
+		query, likePattern, likePattern, likePattern,
+		ownerScope, ownerID, ownerScope, ownerID, role, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*SearchResult
+	for rows.Next() {
+		sr := &SearchResult{IsStructured: true}
+		kb := &sr.Resource
+		var priority float64
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+			&priority,
+		); err != nil {
+			continue
+		}
+		// 结构化结果优先级远高于 FTS（-100 确保排序在最前）
+		sr.Score = -100.0 + priority
+		results = append(results, sr)
+	}
+	return results, rows.Err()
 }
 
 // searchWithQuery 使用指定 FTS 查询语句执行搜索
@@ -175,8 +247,21 @@ func buildNearQuery(query string) string {
 	return "NEAR(" + strings.Join(parts, " ") + ", 3)"
 }
 
+// escapeFTS 转义 FTS5 保留运算符，防止语法错误或注入
+func escapeFTS(s string) string {
+	s = strings.ToUpper(s)
+	s = strings.ReplaceAll(s, "AND", "")
+	s = strings.ReplaceAll(s, "OR", "")
+	s = strings.ReplaceAll(s, "NOT", "")
+	s = strings.ReplaceAll(s, "NEAR", "")
+	s = strings.ReplaceAll(s, "(", "")
+	s = strings.ReplaceAll(s, ")", "")
+	return s
+}
+
 // buildLooseQuery 构建宽松 OR 匹配查询（兜底召回）
 func buildLooseQuery(query string) string {
+	query = escapeFTS(query)
 	runes := []rune(query)
 	var parts []string
 	for _, r := range runes {
@@ -786,7 +871,8 @@ func escapeQuery(q string) string {
 		return "\"\""
 	}
 
-	// 去除特殊字符
+	// 去除 FTS5 保留运算符与特殊字符
+	q = escapeFTS(q)
 	q = strings.ReplaceAll(q, "\"", "")
 
 	// 对于中文查询，使用 OR 组合每个字的通配符
@@ -1035,7 +1121,7 @@ func (r *KBRepo) GetStats() (*KBStats, error) {
 			stats.Retired = count
 		}
 	}
-	rows.Close()
+	defer rows.Close()
 
 	// 按类型统计
 	typeRows, err := r.db.Query(`SELECT resource_type, COUNT(*) FROM kb_resources GROUP BY resource_type`)

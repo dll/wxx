@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,14 +28,14 @@ func NewUploadHandler(docSvc *service.DocumentService, kbSvc *service.KBService)
 func (h *UploadHandler) Upload(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 
 	resourceType := c.DefaultPostForm("resource_type", "FAQ")
 	if !auth.HasCapability(userCtx.Role, auth.CounselorKBWrite) {
 		if !auth.HasCapability(userCtx.Role, auth.UnionKBSubmit) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "无上传权限"})
+			c.JSON(http.StatusForbidden, model.ErrorResponse{Code: 403, Message: "无上传权限", TraceID: middleware.GetTraceID(c)})
 			return
 		}
 		resourceType = "FAQ"
@@ -41,7 +43,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请选择要上传的文件"})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "请选择要上传的文件", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 
@@ -53,8 +55,10 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		".mp4": true, ".avi": true, ".mov": true, ".mkv": true,
 	}
 	if !allowedExts[ext] {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("不支持的文件类型: %s。支持的格式：TXT, MD, CSV, PDF, DOCX, XLSX, PNG, JPG, GIF, BMP, WEBP, MP4, AVI, MOV, MKV", ext),
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: fmt.Sprintf("不支持的文件类型: %s。支持的格式：TXT, MD, CSV, PDF, DOCX, XLSX, PNG, JPG, GIF, BMP, WEBP, MP4, AVI, MOV, MKV", ext),
+			TraceID: middleware.GetTraceID(c),
 		})
 		return
 	}
@@ -69,13 +73,15 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	if isTextDoc[ext] {
 		parseResult, err = h.docSvc.ParseDocument(file)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "文档解析失败: " + err.Error()})
+			log.Printf("文档解析失败: %v", err)
+			util.FailInternalError(c, "文档解析失败，请稍后重试")
 			return
 		}
 	} else {
 		result, err = h.docSvc.ProcessUpload(file)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			log.Printf("文件上传处理失败: %v", err)
+			util.FailInternalError(c, "文件上传处理失败")
 			return
 		}
 	}

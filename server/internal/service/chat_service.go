@@ -164,27 +164,49 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 		TraceID:   traceID,
 	})
 
+	// │ 内容安全过滤 —— 用户输入检查（必须在 LLM 调用和多智能体编排之前）
+	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
+		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
+		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	}
+
 	// ── 2. 多智能体协同编排（agentID 为空时启用）──
 	var multiAgentResult *agent.MergedResult
 	if agentID == "" && s.orchestrator != nil {
 		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
 	}
 
-	// │ 内容安全过滤 —— 用户输入检查
-	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
-		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
-		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
-	}
-
-	// ── 3. FTS5/BM25 知识检索 ──
-	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
+	// ── 3. 结构化优先检索（MED-KB1：先查结构化字段，再回退 FTS） ──
+	structuredResults, err := s.kbRepo.SearchStructured(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
-		log.Printf("知识检索失败 [trace=%s]: %v", traceID, err)
+		log.Printf("结构化检索失败 [trace=%s]: %v", traceID, err)
+	}
+	log.Printf("结构化检索 [trace=%s] count=%d", traceID, len(structuredResults))
+
+	var searchResults []*repository.SearchResult
+	// 阈值：结构化命中 ≥ 3 条时跳过 FTS
+	if len(structuredResults) >= 3 {
+		searchResults = structuredResults
+		log.Printf("结构化结果充足，跳过 FTS/BM25 [trace=%s]", traceID)
+	} else {
+		ftsResults, ftsErr := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
+		if ftsErr != nil {
+			log.Printf("FTS/BM25 检索失败 [trace=%s]: %v", traceID, ftsErr)
+		}
+		// 合并：结构化在前，FTS 在后，按 ResourceID 去重
+		searchResults = mergeStructuredAndFTS(structuredResults, ftsResults)
 	}
 
 	// ── 3.5 相关性预检 ──
 	// 对检索结果做相关性打分，过滤掉低质量结果，避免误导 LLM
 	searchResults = filterLowRelevanceResults(searchResults, question)
+
+	// ── MED-KB2：检索 + 多智能体均无结果时，跳过 LLM 调用 ──
+	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0
+	if len(searchResults) == 0 && !hasAgentResult {
+		log.Printf("检索结果为空且无多智能体结果，跳过 LLM [trace=%s]", traceID)
+		return s.buildEmptyResultAnswer(traceID), sessionID, nil
+	}
 
 	// ── 4. 拼装 LLM 上下文 ──
 	// 发送给 LLM 前对用户问题进行 PII 脱敏
@@ -438,6 +460,41 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 	card.FollowUps = generateFollowUps(content)
 
 	return card
+}
+
+// buildEmptyResultAnswer 检索结果为空时的直接返回（MED-KB2：不调 LLM）
+func (s *ChatService) buildEmptyResultAnswer(traceID string) *model.AnswerCard {
+	return &model.AnswerCard{
+		Conclusion: "我暂时没有找到相关信息，请换个问题试试",
+		TraceID:    traceID,
+		Confidence: 0.1,
+		Fallback:   true,
+		FollowUps: []string{
+			"联系辅导员的方式是什么？",
+			"学工办公室在哪里？",
+		},
+	}
+}
+
+// mergeStructuredAndFTS 合并结构化结果与 FTS 结果，结构化在前、去重（MED-KB1）
+func mergeStructuredAndFTS(structured, fts []*repository.SearchResult) []*repository.SearchResult {
+	seen := make(map[string]bool)
+	var merged []*repository.SearchResult
+	for _, r := range structured {
+		key := r.Resource.ResourceID + r.Resource.Version
+		if !seen[key] {
+			seen[key] = true
+			merged = append(merged, r)
+		}
+	}
+	for _, r := range fts {
+		key := r.Resource.ResourceID + r.Resource.Version
+		if !seen[key] {
+			seen[key] = true
+			merged = append(merged, r)
+		}
+	}
+	return merged
 }
 
 // buildBlockedAnswer 内容过滤拦截时返回的兜底回答
@@ -708,10 +765,33 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		TraceID:   traceID,
 	})
 
-	// ── 2. FTS5 知识检索 ──
-	searchResults, err := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
+	// │ 内容安全过滤 —— 用户输入检查
+	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
+		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
+		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	}
+
+	// ── 2. 结构化优先检索 ──
+	structuredResults, err := s.kbRepo.SearchStructured(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
-		log.Printf("知识检索失败 [trace=%s]: %v", traceID, err)
+		log.Printf("结构化检索失败 [trace=%s]: %v", traceID, err)
+	}
+
+	var searchResults []*repository.SearchResult
+	if len(structuredResults) >= 3 {
+		searchResults = structuredResults
+	} else {
+		ftsResults, ftsErr := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
+		if ftsErr != nil {
+			log.Printf("FTS/BM25 检索失败 [trace=%s]: %v", traceID, ftsErr)
+		}
+		searchResults = mergeStructuredAndFTS(structuredResults, ftsResults)
+	}
+
+	// MED-KB2：无结果时跳过 LLM
+	if len(searchResults) == 0 {
+		log.Printf("检索结果为空，跳过 LLM [trace=%s]", traceID)
+		return s.buildEmptyResultAnswer(traceID), sessionID, nil
 	}
 
 	// ── 3. 拼装 LLM 上下文 ──
@@ -884,7 +964,7 @@ func (s *ChatService) RetireFAQ(question string) error {
 	}
 	resourceID := faqResourceIDFor(question)
 	if err := s.kbRepo.SetStatus(resourceID, "retired"); err != nil {
-		return err
+		return fmt.Errorf("撤回FAQ状态失败: %w", err)
 	}
 	log.Printf("FAQ 已失效 resource_id=%s", resourceID)
 	return nil

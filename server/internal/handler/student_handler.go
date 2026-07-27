@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -851,6 +852,7 @@ func (h *StudentHandler) getUserInfo(userID int64) HomeStudentUserInfo {
 		userID,
 	).Scan(&displayName, &username, &college, &major, &enrollmentYear)
 	if err != nil {
+		log.Printf("获取用户信息失败 user_id=%d: %v", userID, err)
 		return info
 	}
 	if displayName.Valid {
@@ -893,6 +895,7 @@ func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
 		return calendar, calcHomeCurrentWeek(calendar.StartDate, today)
 	}
 	if err != sql.ErrNoRows {
+		log.Printf("查询当前学期校历失败: %v", err)
 		return nil, 0
 	}
 
@@ -910,6 +913,7 @@ func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
 		return calendar, 0
 	}
 	if err != sql.ErrNoRows {
+		log.Printf("查询未来学期校历失败: %v", err)
 		return nil, 0
 	}
 
@@ -924,9 +928,11 @@ func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
 		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
 		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
 	if err == sql.ErrNoRows {
+		log.Printf("无任何校历记录")
 		return nil, 0
 	}
 	if err != nil {
+		log.Printf("查询过往学期校历失败: %v", err)
 		return nil, 0
 	}
 	return calendar, 0
@@ -1013,6 +1019,7 @@ func (h *StudentHandler) getTodayTasks(userID int64, todayStr string) []HomeStud
 		userID, todayStr,
 	)
 	if err != nil {
+		log.Printf("查询今日任务失败 user_id=%d: %v", userID, err)
 		return tasks
 	}
 	defer rows.Close()
@@ -1086,10 +1093,13 @@ func (h *StudentHandler) getHomeStats(userID int64) HomeStudentStats {
 	}
 
 	// 进行中的学习计划数
-	_ = h.db.QueryRow(
+	countErr := h.db.QueryRow(
 		"SELECT COUNT(*) FROM study_plans WHERE user_id = ? AND status = 'active'",
 		userID,
 	).Scan(&stats.PlansInProgress)
+	if countErr != nil {
+		log.Printf("获取首页统计失败 user_id=%d: %v", userID, countErr)
+	}
 
 	return stats
 }

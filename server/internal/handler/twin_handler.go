@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -24,13 +26,14 @@ func NewTwinHandler(svc *service.TwinService) *TwinHandler {
 func (h *TwinHandler) GetDigitalTwin(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "缺少用户上下文，请重新登录"})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "缺少用户上下文，请重新登录", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 
 	result, err := h.svc.GetDigitalTwin(c.Request.Context(), userCtx.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成数字孪生画像失败：" + err.Error()})
+		log.Printf("生成数字孪生画像失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "生成数字孪生画像失败", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 

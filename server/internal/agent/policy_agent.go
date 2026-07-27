@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -27,6 +28,7 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 	// 优先检索 Policy 类型资源
 	results, err := kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, a.searchTopK)
 	if err != nil {
+		log.Printf("PolicyAgent 检索失败: %v", err)
 		return &AgentResult{
 			AgentName:  a.Name(),
 			Content:    "",
@@ -54,6 +56,7 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 	}
 
 	var parts []string
+	var bestScore float64
 	for _, r := range policyResults {
 		parts = append(parts, fmt.Sprintf(
 			"【%s】%s（版本：%s）\n%s",
@@ -62,6 +65,9 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 			r.Resource.Version,
 			truncate(r.Resource.Content, 1000),
 		))
+		if r.Score < bestScore {
+			bestScore = r.Score
+		}
 	}
 
 	roleHint := rolePerspective(userCtx)
@@ -74,10 +80,24 @@ func (a *PolicyAgent) Execute(ctx context.Context, question string, userCtx *mod
 
 	sources := kbResultsToSources(policyResults)
 
+	countRatio := float64(len(policyResults)) / float64(a.searchTopK)
+	raw := -bestScore
+	if raw < 0 {
+		raw = 0
+	}
+	scoreNorm := raw / 20.0
+	if scoreNorm > 1.0 {
+		scoreNorm = 1.0
+	}
+	confidence := 0.4 + scoreNorm*0.3 + countRatio*0.3
+	if confidence > 0.95 {
+		confidence = 0.95
+	}
+
 	return &AgentResult{
 		AgentName:  a.Name(),
 		Content:    content,
 		Sources:    sources,
-		Confidence: 0.85,
+		Confidence: confidence,
 	}, nil
 }

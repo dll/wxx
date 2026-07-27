@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/dll/wxx/server/internal/middleware"
@@ -63,9 +64,10 @@ func (h *ProcessRecordHandler) StartOrResume(c *gin.Context) {
 
 	rec, err := h.svc.StartOrResume(userCtx.UserID, flowType, body.FlowLabel, body.TotalSteps)
 	if err != nil {
+		log.Printf("process_record StartOrResume err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: err.Error(),
+			Message: "操作失败",
 		})
 		return
 	}
@@ -101,9 +103,10 @@ func (h *ProcessRecordHandler) UpdateProgress(c *gin.Context) {
 
 	rec, err := h.svc.UpdateProgress(userCtx.UserID, flowType, body.CurrentStep, body.CompletedSteps, body.Notes)
 	if err != nil {
+		log.Printf("process_record UpdateProgress err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: err.Error(),
+			Message: "操作失败",
 		})
 		return
 	}

@@ -100,6 +100,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	studentFeaturesRepo := repository.NewStudentFeaturesRepo(db)
 	twinRepo := repository.NewTwinRepo(db)
 	chatMetricsRepo := repository.NewChatMetricsRepo(db)
+	chatMetricsSvc := service.NewChatMetricsService(chatMetricsRepo)
 
 	// ── 服务层 ──
 	graduationService := service.NewGraduationService(graduationRepo)
@@ -192,7 +193,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	kbHandler := handler.NewKBHandler(kbSvc)
 
 	chatHandler := handler.NewChatHandler(chatSvc)
-	chatHandler.SetMetricsRepo(chatMetricsRepo)
+	chatHandler.SetMetricsService(chatMetricsSvc)
 	if emotionSvc != nil {
 		chatHandler.SetEmotionService(emotionSvc)
 	}
@@ -520,9 +521,6 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(db))
 
-	// 反馈截图：从 SQLite blob 流式输出，跨 Vercel 实例可读（取代曾经的本地文件 /uploads）
-	router.GET("/uploads/feedback/:filename", feedbackH.ServeScreenshot)
-
 	// 根路由
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -798,6 +796,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/admin/feedback/stats", auth.RequireCapability(auth.UnionFeedbackRead), feedbackH.Stats)
 			// 管理端关联知识资源
 			secured.PUT("/admin/feedback/:id/link-resource", auth.RequireCapability(auth.UnionFeedbackWrite), feedbackH.LinkResource)
+			// 反馈截图：从 SQLite blob 流式输出（需认证，原公开路由已移入 secured 组修复越权）
+			secured.GET("/uploads/feedback/:filename", feedbackH.ServeScreenshot)
 
 			// ── 办事流程办理记录 ──
 			process := secured.Group("/process/records")
@@ -914,11 +914,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			// ── 文档解析 ──
 			secured.POST("/documents/parse", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.ParseDocument)
-			secured.GET("/documents/formats", documentH.SupportedFormats)
+			secured.GET("/documents/formats", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.SupportedFormats)
 
 			// ── 文档上传与知识入库 ──
 			secured.POST("/kb/upload", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), uploadH.Upload)
-			secured.GET("/kb/formats", uploadH.SupportedFormats)
+			secured.GET("/kb/formats", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), uploadH.SupportedFormats)
 
 			// ── 教师 AI 功能 ──
 			teacher := secured.Group("/teacher")

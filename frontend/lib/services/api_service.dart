@@ -46,8 +46,13 @@ class ApiService {
       onError: (error, handler) {
         if (error.response?.statusCode == 401 &&
             error.requestOptions.path != ApiConfig.login) {
-          // Token 过期或无效，触发退出登录
           onUnauthorized?.call();
+          handler.resolve(Response(
+            requestOptions: error.requestOptions,
+            statusCode: 401,
+            data: {'code': 401, 'message': '未登录或登录已过期'},
+          ));
+          return;
         }
         handler.next(error);
       },

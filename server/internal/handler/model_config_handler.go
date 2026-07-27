@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/dll/wxx/server/internal/middleware"
@@ -68,9 +69,10 @@ func (h *ModelConfigHandler) Save(c *gin.Context) {
 
 	cfg, err := h.svc.Save(userCtx.UserID, &req)
 	if err != nil {
+		log.Printf("model_config Save err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "保存失败",
 		})
 		return
 	}
