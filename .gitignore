@@ -183,6 +183,16 @@ device_code.json
 response.txt
 docs/*Fable5*
 
+# Wrangler / Cloudflare
+.wrangler/
+frontend/.wrangler/
+
+# Serverless API build artifact
+api/
+
+# Doc starter files
+docs/starter.txt
+
 # Gradle build output
 frontend/android/gradle_err.txt
 frontend/android/gradle_out.txt
