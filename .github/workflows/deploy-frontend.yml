@@ -40,6 +40,12 @@ jobs:
       - name: 复制 Functions 文件到构建目录
         run: cp -r functions/* frontend/build/web/functions/
 
+# ── 构建产物中可能包含 _routes.json（由 Flutter Web 构建生成）
+# 其 exclude 列表会将 /api/* 路由排除在 Pages Functions 之外，
+# 导致 API 请求返回 405。这里在部署前移除该文件以确保函数正常路由。  
+      - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
+        run: rm -f frontend/build/web/_routes.json
+
       - name: 部署到 Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
