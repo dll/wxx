@@ -34,10 +34,9 @@ jobs:
         run: flutter build web --release
         working-directory: ./frontend
 
-      - name: 安装 Wrangler
-        run: npm install -g wrangler
-
-      - name: 部署到 Cloudflare Pages（使用 wrangler.toml）
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: wrangler pages deploy
+      - name: 部署到 Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy
