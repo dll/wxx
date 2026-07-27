@@ -34,7 +34,11 @@ jobs:
         run: flutter build web --release
 
       - name: 复制 Functions 到构建目录
-        run: cp -r functions build/web/functions
+        run: |
+          cp -r functions build/web/functions
+          echo "=== Functions 目录结构 ==="
+          ls -la build/web/functions/
+          ls -la build/web/functions/api/
 
       - name: 部署到 Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
