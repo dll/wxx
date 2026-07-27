@@ -33,16 +33,10 @@ jobs:
       - name: 构建 Web
         run: flutter build web --release
 
-      - name: 准备部署目录
-        run: |
-          mkdir -p deploy
-          cp -r build/web/* deploy/
-          cp -r functions deploy/
-
       - name: 部署到 Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy deploy --project-name wxx-agent --branch main
+          command: pages deploy build/web --project-name wxx-agent --branch main --functions-dir functions
           workingDirectory: frontend
