@@ -1,15 +1,7 @@
 {
   "version": 1,
-  "include": ["/*"],
-  "exclude": [
+  "include": [
     "/api/*",
-    "/assets/*",
-    "/icons/*",
-    "/favicon.png",
-    "/manifest.json",
-    "/flutter.js",
-    "/main.dart.js",
-    "/version.json",
-    "/index.html"
+    "/downloads/*"
   ]
 }
