@@ -16,7 +16,13 @@ export class TursoClient {
           type: 'execute',
           stmt: {
             sql,
-            args: args.map(a => ({ value: a })),
+            args: args.map(a => {
+        const t = typeof a;
+        if (a === null) return { type: 'null', value: null };
+        if (t === 'number') return { type: Number.isInteger(a) ? 'integer' : 'float', value: a };
+        if (t === 'boolean') return { type: 'integer', value: a ? 1 : 0 };
+        return { type: 'text', value: String(a) };
+      }),
           },
         },
       ],
