@@ -1,0 +1,9 @@
+{
+  "name": "wxx-functions",
+  "version": "1.0.0",
+  "description": "Cloudflare Pages Functions for 蔚小芯",
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^2.4.3"
+  }
+}

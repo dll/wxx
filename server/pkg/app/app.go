@@ -65,6 +65,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// ── 2. 初始化数据库 ──
 	// initDB 自动识别协议：libsql:// → Turso 云数据库，其他 → 本地 SQLite
 	dbPath := cfg.SQLitePath
+	isTurso := strings.HasPrefix(dbPath, "libsql://")
 	if os.Getenv("VERCEL") != "" {
 		log.Printf("Vercel 环境：使用配置的数据库路径 %s", dbPath)
 	}
@@ -75,7 +76,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	// ── 3. 自动迁移 ──
-	if err := runMigrations(db); err != nil {
+	if err := runMigrations(db, isTurso); err != nil {
 		return nil, err
 	}
 
@@ -342,7 +343,8 @@ func initDB(dbPath string) (*sql.DB, error) {
 }
 
 // runMigrations 从嵌入的迁移文件执行数据库迁移
-func runMigrations(db *sql.DB) error {
+// isTurso=true 时跳过 FTS5 等 Turso 不支持的 SQL 特性
+func runMigrations(db *sql.DB, isTurso bool) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		filename TEXT NOT NULL UNIQUE,
@@ -380,7 +382,7 @@ func runMigrations(db *sql.DB) error {
 			return err
 		}
 
-		if err := execSQL(db, string(content), entry.Name()); err != nil {
+		if err := execSQL(db, string(content), entry.Name(), isTurso); err != nil {
 			return err
 		}
 
@@ -401,13 +403,21 @@ func runMigrations(db *sql.DB) error {
 }
 
 // execSQL 解析并执行 SQL 内容（按分号分割，处理触发器复合语句）
-func execSQL(db *sql.DB, content, filename string) error {
+// isTurso=true 时跳过 FTS5 语句（Turso 不支持虚拟表）
+func execSQL(db *sql.DB, content, filename string, isTurso bool) error {
 	statements := splitSQL(content)
 	for i, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" {
 			continue
 		}
+
+		// Turso 不支持 FTS5 虚拟表及其触发器
+		if isTurso && (strings.Contains(strings.ToUpper(stmt), "FTS5") || strings.Contains(strings.ToUpper(stmt), "KB_FTS")) {
+			log.Printf("迁移 %s 第 %d 条语句跳过（Turso 不支持 FTS5）: %.60s...", filename, i+1, stmt)
+			continue
+		}
+
 		if _, err := db.Exec(stmt); err != nil {
 			// ALTER TABLE ADD COLUMN 重复列名视为非致命错误（列已存在 = 目标状态）
 			if isDuplicateColumnError(err) && strings.Contains(strings.ToUpper(stmt), "ALTER TABLE") {

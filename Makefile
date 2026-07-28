@@ -27,6 +27,12 @@ migrate:
 	@echo "执行 SQLite 迁移..."
 	go run ./server/cmd/migrate
 
+# 同步数据库：将本地 SQLite 的 schema 和数据同步到 Turso
+# 使用 .env 中的 TURSO_DB_URL / TURSO_DB_TOKEN
+sync-db:
+	@echo "同步数据库到 Turso..."
+	go run ./server/cmd/sync-db
+
 clean:
 	rm -rf $(BUILD_DIR)
 
@@ -102,12 +108,14 @@ flutter-test:
 # 标准部署：构建 Flutter Web 后同步 Pages Functions，发布到 wxx-agent 项目
 # 域名: https://wxx-agent.pages.dev （详见 docs/蔚小芯前端重新部署.md）
 deploy-web: flutter-build-web
+	cd $(FLUTTER_DIR)/functions && npm install
 	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
 	@echo "=== 已部署到 https://wxx-agent.pages.dev ==="
 
 # 仅推送已存在的 build/web 产物（不重新编译）
 deploy-web-prebuilt:
+	cd $(FLUTTER_DIR)/functions && npm install
 	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
 	@echo "=== 已部署到 https://wxx-agent.pages.dev ==="
@@ -115,6 +123,7 @@ deploy-web-prebuilt:
 # 发布 Web + APK：版本号 patch 自动 +1，APK 注入 build/web/downloads 后部署 Cloudflare Pages。
 deploy-release:
 	pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1
+	cd $(FLUTTER_DIR)/functions && npm install
 	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
 	@echo "=== 已发布 Web + APK 到 https://wxx-agent.pages.dev ==="

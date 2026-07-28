@@ -1,5 +1,6 @@
 // JWT 认证工具（使用 Web Crypto API，兼容 Cloudflare Workers）
-import { stringToHex, hexToString } from './utils.js';
+// 密码哈希使用 bcryptjs 以与 Go 后端 bcrypt 兼容
+import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = 'wxx-secret-key-change-in-production';
 const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 天
@@ -75,17 +76,12 @@ function base64UrlDecode(str) {
   return decodeURIComponent(escape(atob(base64)));
 }
 
-// 简单的密码哈希（实际项目应使用 bcrypt/argon2）
+// bcrypt 哈希密码（与 Go 后端兼容）
 export async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + JWT_SECRET);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  const salt = bcrypt.genSaltSync(10);
+  return bcrypt.hashSync(password, salt);
 }
 
 export async function verifyPassword(password, hash) {
-  const hashed = await hashPassword(password);
-  return hashed === hash;
+  return bcrypt.compareSync(password, hash);
 }

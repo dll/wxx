@@ -196,3 +196,8 @@ docs/starter.txt
 # Gradle build output
 frontend/android/gradle_err.txt
 frontend/android/gradle_out.txt
+
+# Node (Cloudflare Functions)
+node_modules/
+frontend/functions/node_modules/
+functions/node_modules/

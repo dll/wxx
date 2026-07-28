@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -24,6 +25,10 @@ type Config struct {
 
 	// SQLite
 	SQLitePath string // 数据库文件路径，优先从环境变量 DB_PATH 读取，其次 SQLITE_PATH
+
+	// Turso 云数据库（用于 sync-db 和数据同步）
+	TursoDBUrl   string // libsql://host 格式
+	TursoDBToken string // 认证令牌
 
 	// 智谱清言
 	ZhipuAPIKey  string
@@ -95,6 +100,9 @@ func Load() *Config {
 
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
+		TursoDBUrl:   envOr("TURSO_DB_URL", ""),
+		TursoDBToken: envOr("TURSO_DB_TOKEN", ""),
+
 		ZhipuAPIKey:  envOr("ZHIPU_API_KEY", ""),
 		ZhipuBaseURL: envOr("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
 		ZhipuModel:   envOr("ZHIPU_MODEL", "glm-4"),
@@ -154,6 +162,17 @@ func Load() *Config {
 // IsRelease 判断当前是否为生产模式
 func (c *Config) IsRelease() bool {
 	return c.AppMode == "release"
+}
+
+// TursoDSN 构建包含认证令牌的 Turso 连接字符串
+func (c *Config) TursoDSN() string {
+	if c.TursoDBUrl == "" || c.TursoDBToken == "" {
+		return ""
+	}
+	if strings.Contains(c.TursoDBUrl, "?") {
+		return c.TursoDBUrl + "&authToken=" + c.TursoDBToken
+	}
+	return c.TursoDBUrl + "?authToken=" + c.TursoDBToken
 }
 
 // Validate 集中做配置校验，返回第一个遇到的错误（A-09 增强版）
