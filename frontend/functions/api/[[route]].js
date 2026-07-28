@@ -130,6 +130,11 @@ async function handleAuthenticatedRoutes(db, request, url, path, user, context) 
     return jsonResponse({ code: 0, data: [] });
   }
 
+  // 智能流程引导
+  if (path === '/api/v1/student/process-enhanced' && request.method === 'GET') {
+    return await handleProcessEnhanced(db, url);
+  }
+
   // 默认返回
   return jsonResponse({ code: 404, message: '接口不存在: ' + path }, 404);
 }
@@ -853,6 +858,35 @@ async function handleUserList(db, url) {
       total,
       page,
       page_size: pageSize,
+    },
+  });
+}
+
+async function handleProcessEnhanced(db, url) {
+  const type = url.searchParams.get('type') || 'enrollment';
+  const typeMap = {
+    'enrollment': ['入学', '报名', '报到'],
+    'leave': ['请假', '销假'],
+    'scholarship': ['奖学金', '助学金'],
+    'graduation': ['毕业', '离校'],
+  };
+  const keywords = typeMap[type] || typeMap['enrollment'];
+
+  const processRows = await db.getAll(
+    `SELECT ps.*, kr.title as resource_title, kr.summary as resource_summary
+     FROM process_steps ps
+     JOIN kb_resources kr ON ps.resource_id = kr.resource_id
+     WHERE kr.status = 'published'
+       AND (kr.title LIKE ? OR kr.summary LIKE ?)
+     ORDER BY ps.step_order`,
+    [`%${keywords[0]}%`, `%${keywords[0]}%`]
+  );
+
+  return jsonResponse({
+    code: 0,
+    data: {
+      processes: processRows,
+      type,
     },
   });
 }
