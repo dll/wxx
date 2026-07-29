@@ -20,19 +20,21 @@ export async function onRequest(context) {
   if (context.env.JWT_SECRET) setJWTSecret(context.env.JWT_SECRET);
 
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders() });
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
   const path = url.pathname;
-  const db = getDb(context);
 
   try {
-    if (path === '/health' || path === '/api/health') {
-      return await handleHealth(db);
-    }
-
+    // 根路径不需要数据库，先放行避免触发 getDb 初始化
     if (path === '/' || path === '/api') {
       return jsonResponse({ service: '蔚小芯', version: '1.0.0', docs: '/health' });
+    }
+
+    const db = getDb(context);
+
+    if (path === '/health' || path === '/api/health') {
+      return await handleHealth(db);
     }
 
     if (path === '/api/v1/auth/login' && request.method === 'POST') {
@@ -93,7 +95,7 @@ async function proxyToGoBackend(request, url, context) {
 
   // 透传后端响应头（Content-Disposition 等对导出下载是必需的），再叠加 CORS
   const outHeaders = new Headers(response.headers);
-  for (const [k, v] of Object.entries(corsHeaders())) {
+  for (const [k, v] of Object.entries(CORS_HEADERS)) {
     outHeaders.set(k, v);
   }
 
@@ -170,14 +172,13 @@ function sanitizeUser(user) {
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders(), 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  };
-}
+// CORS 头为部署期间不变的静态常量，提升为模块级常量避免每次响应重复分配对象。
+const CORS_HEADERS = Object.freeze({
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+});

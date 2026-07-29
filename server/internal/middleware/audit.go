@@ -34,11 +34,12 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 		duration := time.Since(start).Milliseconds()
 		user := GetUserContext(c)
 
-		var userID interface{} = nil
+		var userID *string
 		username := ""
 		role := ""
 		if user != nil {
-			userID = strconv.FormatInt(user.UserID, 10)
+			s := strconv.FormatInt(user.UserID, 10)
+			userID = &s
 			username = user.Username
 			role = user.Role
 		}

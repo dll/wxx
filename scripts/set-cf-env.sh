@@ -9,8 +9,13 @@ export CLOUDFLARE_ACCOUNT_ID=$(grep -E '^CLOUDFLARE_ACCOUNT_ID=' .env | cut -d= 
 
 TURSO_URL=$(grep -E '^TURSO_DB_URL=' .env | cut -d= -f2- | tr -d '"\r')
 TURSO_TOKEN=$(grep -E '^TURSO_DB_TOKEN=' .env | cut -d= -f2- | tr -d '"\r')
-JWT=$(cat /tmp/wxx_jwt_secret.txt | tr -d '\n\r')
+JWT=$(grep -E '^JWT_SECRET=' .env | cut -d= -f2- | tr -d '"\r')
 BACKEND="${1:-https://wxx-server-czldl.vercel.app}"
+
+if [ -z "$JWT" ]; then
+  echo "错误：.env 中缺少 JWT_SECRET，请先配置后再运行"
+  exit 1
+fi
 
 W="npx --yes wrangler@4"
 

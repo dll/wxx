@@ -5,9 +5,11 @@ import bcrypt from 'bcryptjs';
 let _jwtSecret = '';
 const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 天
 
-export function setJWTSecret(s) { _jwtSecret = s; }
+// 幂等：已注入后忽略重复调用（CF 每请求都调用一次 setJWTSecret）
+export function setJWTSecret(s) { if (!_jwtSecret) _jwtSecret = s; }
 
-async function getSecret() {
+// 同步即可，不涉及任何 I/O
+function getSecret() {
   if (_jwtSecret) return _jwtSecret;
   _jwtSecret = (typeof JWT_SECRET !== 'undefined') ? JWT_SECRET : 'wxx-secret-key-change-in-production';
   return _jwtSecret;
