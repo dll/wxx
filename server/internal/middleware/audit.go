@@ -3,6 +3,7 @@ package middleware
 import (
 	"database/sql"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -33,11 +34,11 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 		duration := time.Since(start).Milliseconds()
 		user := GetUserContext(c)
 
-		var userID *int64
+		var userID interface{} = nil
 		username := ""
 		role := ""
 		if user != nil {
-			userID = &user.UserID
+			userID = strconv.FormatInt(user.UserID, 10)
 			username = user.Username
 			role = user.Role
 		}
@@ -48,7 +49,7 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 			defer auditWg.Done()
 			_, err := db.Exec(
 				`INSERT INTO audit_logs (user_id, username, role, action, resource, detail, trace_id, ip, duration_ms, result_code)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				userID,
 				username,
 				role,

@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -66,6 +67,16 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// initDB 自动识别协议：libsql:// → Turso 云数据库，其他 → 本地 SQLite
 	dbPath := cfg.SQLitePath
 	isTurso := strings.HasPrefix(dbPath, "libsql://")
+	if isTurso {
+		// 必须显式失败：TursoDSN 缺令牌时返回空串，若继续走下去会退化成
+		// 本地 SQLite 文件，在无服务器环境表现为「数据静默丢失」。
+		dsn := cfg.TursoDSN()
+		if dsn == "" {
+			return nil, fmt.Errorf("检测到 Turso 路径 %s，但 TURSO_DB_URL / TURSO_DB_TOKEN 未配置完整，拒绝回退到本地 SQLite", dbPath)
+		}
+		dbPath = dsn
+		log.Printf("使用 Turso 云数据库: %s", cfg.TursoDBUrl)
+	}
 	if os.Getenv("VERCEL") != "" {
 		log.Printf("Vercel 环境：使用配置的数据库路径 %s", dbPath)
 	}
@@ -1130,9 +1141,9 @@ func healthHandler(db *sql.DB) gin.HandlerFunc {
 			"version": "0.0.1",
 			"uptime":  time.Since(startTime).String(),
 			"dependencies": gin.H{
-				"sqlite":    gin.H{"status": dbStatus, "latency": dbLatency},
-				"fts5":      gin.H{"status": ftsStatus},
-				"llm_api":   gin.H{"status": llmStatus},
+				"sqlite":  gin.H{"status": dbStatus, "latency": dbLatency},
+				"fts5":    gin.H{"status": ftsStatus},
+				"llm_api": gin.H{"status": llmStatus},
 			},
 			"time": time.Now().Format(time.RFC3339),
 		})
