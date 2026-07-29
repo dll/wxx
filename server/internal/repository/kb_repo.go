@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/util"
 )
 
 // KBRepo 知识库数据访问（含 FTS5/BM25 全文检索）
@@ -500,7 +501,14 @@ func (r *KBRepo) SetStatus(resourceID string, status string) error {
 
 // Upsert 幂等导入：resource_id 已存在时按版本号决定更新或跳过
 // 返回 action: "created" / "updated" / "skipped"
+//
+// 覆盖 NDJSON 导入与 ChatService 的 FAQ 缓存写入两条路径，
+// 在写库前统一清洗内容（FTS5 触发器会在写入瞬间索引 title/summary/content）。
 func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
+	kb.Title = util.SanitizeKnowledgeContent(kb.Title)
+	kb.Summary = util.SanitizeKnowledgeContent(kb.Summary)
+	kb.Content = util.SanitizeKnowledgeContentByType(kb.Content, kb.ResourceType)
+
 	// 查询是否已存在同名资源
 	existing, err := r.GetByResourceID(kb.ResourceID)
 	if err != nil {

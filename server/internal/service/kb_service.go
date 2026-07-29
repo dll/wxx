@@ -10,6 +10,7 @@ import (
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
 )
 
@@ -108,6 +109,8 @@ func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, user
 		UpdatedBy:     username,
 	}
 
+	sanitizeKBContent(kb)
+
 	id, err := s.kbRepo.Create(kb)
 	if err != nil {
 		return nil, fmt.Errorf("创建知识资源失败: %w", err)
@@ -117,6 +120,22 @@ func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, user
 
 	// 回查完整记录（包含 created_at 等数据库生成字段）
 	return s.kbRepo.GetByResourceID(resourceID)
+}
+
+// sanitizeKBContent 入库前清洗标题、摘要与正文。
+//
+// 必须在写库前完成：migrations/001_init.sql 的 FTS5 触发器会在 INSERT/UPDATE
+// 时自动索引 title/summary/content（draft 状态也索引），一旦写入即无法阻止污染
+// 内容进入 BM25 排序、各 agent 的系统提示词、sources[] 摘要与导出。
+//
+// FAQ 类型的 content 存放序列化 AnswerCard JSON，按类型跳过标签剥离。
+func sanitizeKBContent(kb *model.KBResource) {
+	if kb == nil {
+		return
+	}
+	kb.Title = util.SanitizeKnowledgeContent(kb.Title)
+	kb.Summary = util.SanitizeKnowledgeContent(kb.Summary)
+	kb.Content = util.SanitizeKnowledgeContentByType(kb.Content, kb.ResourceType)
 }
 
 // Update 更新知识资源
@@ -171,6 +190,8 @@ func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KB
 		existing.Tags = req.Tags
 	}
 	existing.UpdatedBy = username
+
+	sanitizeKBContent(existing)
 
 	if err := s.kbRepo.Update(existing); err != nil {
 		return nil, fmt.Errorf("更新知识资源失败: %w", err)

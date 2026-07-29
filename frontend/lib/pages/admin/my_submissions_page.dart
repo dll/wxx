@@ -1546,6 +1546,13 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                   .toList(),
             ),
           ],
+          const SizedBox(height: 8),
+          Text(
+            '标题、摘要、正文已自动回填，请核对后再提交；长文档建议裁剪正文，仅保留与知识主题相关的段落。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

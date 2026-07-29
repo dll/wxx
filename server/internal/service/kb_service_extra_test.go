@@ -28,7 +28,7 @@ func setupKBServiceBrowseTestDB(t *testing.T) *KBService {
 		notes       TEXT    NOT NULL DEFAULT ''
 	)`)
 
-	return NewKBService(repository.NewKBRepo(db))
+	return NewKBService(repository.NewKBRepo(db), db)
 }
 
 // ── Browse 测试 ──
@@ -58,7 +58,7 @@ func TestKBService_Browse_WithPublishedData(t *testing.T) {
 	)`)
 
 	repo := repository.NewKBRepo(db)
-	svc := NewKBService(repo)
+	svc := NewKBService(repo, db)
 
 	// 创建已发布和草稿资源
 	repo.Create(&model.KBResource{
@@ -98,7 +98,7 @@ func TestKBService_Browse_WithTypeFilter(t *testing.T) {
 	)`)
 
 	repo := repository.NewKBRepo(db)
-	svc := NewKBService(repo)
+	svc := NewKBService(repo, db)
 
 	// 使用 repo 直接创建已发布资源
 	repo.Create(&model.KBResource{
@@ -132,7 +132,7 @@ func TestKBService_ImportResources_SingleValid(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	ndjson := `{"resource_id":"imp-1","resource_type":"Policy","title":"导入测试","content":"导入正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
@@ -164,7 +164,7 @@ func TestKBService_ImportResources_MultipleLines(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	ndjson := `{"resource_id":"multi-1","resource_type":"FAQ","title":"FAQ1","content":"正文1","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 {"resource_id":"multi-2","resource_type":"FAQ","title":"FAQ2","content":"正文2","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
@@ -185,7 +185,7 @@ func TestKBService_ImportResources_InvalidJSON(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	ndjson := `这不是JSON
 {"resource_id":"valid","resource_type":"Policy","title":"有效","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
@@ -206,7 +206,7 @@ func TestKBService_ImportResources_MissingRequiredFields(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 缺少 title 和 content
 	ndjson := `{"resource_id":"no-title","resource_type":"Policy","content":"","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
@@ -224,7 +224,7 @@ func TestKBService_ImportResources_InvalidResourceType(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	ndjson := `{"resource_id":"bad-type","resource_type":"InvalidType","title":"坏类型","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
@@ -241,7 +241,7 @@ func TestKBService_ImportResources_VersionUpsert(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 先导入 v1.0
 	ndjson := `{"resource_id":"ver-test","resource_type":"Policy","title":"v1标题","content":"v1正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
@@ -279,7 +279,7 @@ func TestKBService_ExportResources(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewKBRepo(db)
-	svc := NewKBService(repo)
+	svc := NewKBService(repo, db)
 
 	// 创建已发布资源
 	repo.Create(&model.KBResource{
@@ -301,7 +301,7 @@ func TestKBService_ExportResources_EmptyWithFutureCursor(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 用未来时间作为游标，应返回空
 	resources, err := svc.ExportResources(context.Background(),"", "2099-01-01T00:00:00Z", "school", "")
@@ -318,7 +318,7 @@ func TestKBService_ExportResources_TypeFilter(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewKBRepo(db)
-	svc := NewKBService(repo)
+	svc := NewKBService(repo, db)
 
 	repo.Create(&model.KBResource{
 		ResourceID: "exp-p", ResourceType: "Policy", OwnerScope: "school",

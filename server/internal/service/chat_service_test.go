@@ -131,8 +131,9 @@ func TestChatService_Ask_EmptyKnowledge(t *testing.T) {
 	if !card.Fallback {
 		t.Error("空知识库时应为兜底回答")
 	}
-	if card.Confidence != 0.3 {
-		t.Errorf("空知识库时 confidence 应为 0.3，得到 %f", card.Confidence)
+	// 检索结果为空时走 buildEmptyResultAnswer（MED-KB2：不调 LLM），置信度为 0.1
+	if card.Confidence != 0.1 {
+		t.Errorf("空知识库时 confidence 应为 0.1，得到 %f", card.Confidence)
 	}
 }
 
