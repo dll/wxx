@@ -73,8 +73,14 @@ export class TursoClient {
       const obj = {};
       row.forEach((cell, i) => {
         const key = columns[i];
-        if (cell === null || cell === undefined) {
+        if (cell === null || cell === undefined || cell.type === 'null') {
           obj[key] = null;
+        } else if (cell.type === 'integer') {
+          // Hrana v2 返回整数列时 value 是字符串（避免 i64 精度丢失）；
+          // 统一转为 JS number，调用方无需再手动 parseInt。
+          obj[key] = parseInt(cell.value, 10);
+        } else if (cell.type === 'float') {
+          obj[key] = parseFloat(cell.value);
         } else if (typeof cell.value !== 'undefined') {
           obj[key] = cell.value;
         } else {
