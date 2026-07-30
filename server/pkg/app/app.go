@@ -226,6 +226,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	recHandler := handler.NewRecommendationHandler(recSvc)
 	exportSvc := service.NewExportService()
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
+	if cfg.HMACSecret != "" {
+		exportHandler.SetHMACSecret(cfg.HMACSecret)
+		log.Println("知识导出包 HMAC-SHA256 签名已启用")
+	}
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)

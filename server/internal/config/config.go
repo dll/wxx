@@ -81,6 +81,9 @@ type Config struct {
 
 	// CORS
 	CORSAllowedOrigins string // 允许的跨域来源，逗号分隔，支持通配符子域名如 *.vercel.app，默认 "*"
+
+	// 知识同步包签名（Q-05）
+	HMACSecret string // 知识导出包 HMAC-SHA256 签名密钥（环境变量 HMAC_SECRET）
 }
 
 // Load 加载配置。优先从 .env 文件读取，再从系统环境变量补充。
@@ -146,6 +149,9 @@ func Load() *Config {
 
 		// CORS
 		CORSAllowedOrigins: envOr("CORS_ALLOWED_ORIGINS", "*"),
+
+		// 知识同步包签名（Q-05）
+		HMACSecret: envOr("HMAC_SECRET", ""),
 	}
 
 	if err := cfg.Validate(); err != nil {
