@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
 )
@@ -473,7 +474,11 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 		return nil, fmt.Errorf("%s", result.Error)
 	}
 
-	content := strings.TrimSpace(result.TextContent)
+	// 解析出口统一清洗：剥离残留 OOXML/HTML 标签 + 规整空白。
+	// 所有文档导入消费方（/documents/parse 回填、/kb/upload 自动入库）都经此漏斗，
+	// 因此标题/摘要/关键词全部从已清洗的 content 派生，天然不含标签。
+	// 注意：此处 content 是纯文本（非 FAQ 的 AnswerCard JSON），可安全剥离标签。
+	content := util.SanitizeKnowledgeContent(result.TextContent)
 	title := extractDocTitle(content, result.FileName)
 	summary := generateDocSummary(content, 200)
 	keywords := extractDocKeywords(content, 10)
