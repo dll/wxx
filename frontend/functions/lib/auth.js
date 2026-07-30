@@ -8,11 +8,17 @@ const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 天
 // 幂等：已注入后忽略重复调用（CF 每请求都调用一次 setJWTSecret）
 export function setJWTSecret(s) { if (!_jwtSecret) _jwtSecret = s; }
 
-// 同步即可，不涉及任何 I/O
+// 同步即可，不涉及任何 I/O。
+// 未配置 JWT_SECRET 时直接抛出——宁可认证失败也不使用仓库中已公开的弱密钥。
 function getSecret() {
   if (_jwtSecret) return _jwtSecret;
-  _jwtSecret = (typeof JWT_SECRET !== 'undefined') ? JWT_SECRET : 'wxx-secret-key-change-in-production';
-  return _jwtSecret;
+  if (typeof JWT_SECRET !== 'undefined' && JWT_SECRET) {
+    _jwtSecret = JWT_SECRET;
+    return _jwtSecret;
+  }
+  throw new Error(
+    'JWT_SECRET 未配置：请通过 wrangler pages secret put JWT_SECRET 设置加密环境变量'
+  );
 }
 
 export async function generateToken(payload) {

