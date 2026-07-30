@@ -128,7 +128,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 
 	user, err := h.adminSvc.UpdateUser(userID, &req, userCtx.Username)
 	if err != nil {
-		log.Printf("更新用户失败 user_id=%s: %v", userID, err)
+		log.Printf("更新用户失败 user_id=%d: %v", userID, err)
 		util.FailBadRequest(c, "更新用户失败")
 		return
 	}
@@ -170,7 +170,7 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := h.adminSvc.DeleteUser(userID, userCtx.Username); err != nil {
-		log.Printf("删除用户失败 user_id=%s: %v", userID, err)
+		log.Printf("删除用户失败 user_id=%d: %v", userID, err)
 		util.FailBadRequest(c, "删除用户失败")
 		return
 	}
@@ -514,7 +514,7 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 	}
 
 	if err := h.authSvc.ResetPassword(userCtx.UserID, userID, req.Password); err != nil {
-		log.Printf("重置密码失败 user_id=%s: %v", userID, err)
+		log.Printf("重置密码失败 user_id=%d: %v", userID, err)
 		util.FailBadRequest(c, "重置密码失败")
 		return
 	}
@@ -566,7 +566,7 @@ func (h *AdminHandler) ApproveGuest(c *gin.Context) {
 	}
 
 	if err := h.authSvc.ApproveGuest(guestID, req.StudentID); err != nil {
-		log.Printf("审核通过游客失败 guest_id=%s: %v", guestID, err)
+		log.Printf("审核通过游客失败 guest_id=%d: %v", guestID, err)
 		util.FailBadRequest(c, "审核通过失败")
 		return
 	}
@@ -589,7 +589,7 @@ func (h *AdminHandler) RejectGuest(c *gin.Context) {
 	}
 
 	if err := h.authSvc.RejectGuest(guestID); err != nil {
-		log.Printf("拒绝游客失败 guest_id=%s: %v", guestID, err)
+		log.Printf("拒绝游客失败 guest_id=%d: %v", guestID, err)
 		util.FailBadRequest(c, "拒绝游客失败")
 		return
 	}

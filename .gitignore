@@ -1,6 +1,8 @@
 # Miscellaneous
 *.class
 *.lock
+# Flutter 应用的依赖锁定文件应追踪以确保构建可重现
+!frontend/pubspec.lock
 *.log
 *.pyc
 *.swp

@@ -5,15 +5,17 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
-	"html"
 	"io"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/dll/wxx/server/internal/util"
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
 )
@@ -179,28 +181,11 @@ func (s *DocumentService) readPdf(path string) (string, int, error) {
 }
 
 func (s *DocumentService) readDocx(path string) (string, error) {
-	r, err := zip.OpenReader(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("打开DOCX失败: %w", err)
 	}
-	defer r.Close()
-
-	var b strings.Builder
-	for _, f := range r.File {
-		if f.Name == "word/document.xml" {
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-			defer rc.Close()
-			data, _ := io.ReadAll(rc)
-			content := string(data)
-			text := extractDocxText(content)
-			b.WriteString(text)
-			break
-		}
-	}
-	return b.String(), nil
+	return s.readDocxFromBytes(data)
 }
 
 func (s *DocumentService) readXlsx(path string) (string, error) {
@@ -268,21 +253,24 @@ func (s *DocumentService) readDocxFromBytes(data []byte) (string, error) {
 		return "", fmt.Errorf("打开DOCX失败: %w", err)
 	}
 
-	var b strings.Builder
 	for _, f := range r.File {
-		if f.Name == "word/document.xml" {
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-			defer rc.Close()
-			contentData, _ := io.ReadAll(rc)
-			text := extractDocxText(string(contentData))
-			b.WriteString(text)
-			break
+		if f.Name != "word/document.xml" {
+			continue
 		}
+		rc, err := f.Open()
+		if err != nil {
+			return "", fmt.Errorf("读取DOCX正文失败: %w", err)
+		}
+		defer rc.Close()
+		contentData, err := io.ReadAll(rc)
+		if err != nil {
+			return "", fmt.Errorf("读取DOCX正文失败: %w", err)
+		}
+		return extractDocxText(string(contentData)), nil
 	}
-	return b.String(), nil
+
+	// 缺少 word/document.xml 说明不是有效的 DOCX（可能是 .doc 改名）
+	return "", fmt.Errorf("DOCX 缺少 word/document.xml，可能是旧版 .doc 格式或文件损坏")
 }
 
 func (s *DocumentService) readXlsxFromBytes(data []byte) (string, error) {
@@ -306,34 +294,118 @@ func (s *DocumentService) readXlsxFromBytes(data []byte) (string, error) {
 	return b.String(), nil
 }
 
-// extractDocxText 从 word/document.xml 中提取文本
+// wordprocessingNS 是 OOXML 正文命名空间
+const wordprocessingNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+// extractDocxText 从 word/document.xml 中提取纯文本。
+//
+// 必须按命名空间 + 标签名精确匹配，不能用字符串前缀匹配：
+// OOXML 中以 "w:t" 开头的标签还有 w:tc / w:tcPr / w:tab / w:tbl / w:txbxContent
+// 等上百种（表格、制表位、文本框），前缀匹配会把整段原始 XML 当作正文提取出来。
+//
+// 语义映射：w:t 取文本，w:tab 转制表符，w:br / w:cr 转换行，w:p 结束作段落分隔；
+// w:instrText（域代码）与 w:delText（修订删除内容）不属于正文，整段跳过。
 func extractDocxText(xmlContent string) string {
-	var texts []string
-	for {
-		start := strings.Index(xmlContent, "<w:t")
-		if start == -1 {
-			break
+	decoder := xml.NewDecoder(strings.NewReader(xmlContent))
+	// OOXML 常含 HTML 实体与非标准字符集声明，放宽解码约束避免整篇解析失败
+	decoder.Strict = false
+	decoder.AutoClose = xml.HTMLAutoClose
+	decoder.Entity = xml.HTMLEntity
+
+	var (
+		paragraphs []string
+		buf        strings.Builder
+		// 记录当前是否位于需要采集文本的 w:t 元素内
+		inText bool
+		// 需要整体跳过的元素嵌套深度（w:instrText / w:delText）
+		skipDepth int
+	)
+
+	flushParagraph := func() {
+		text := normalizeDocxParagraph(buf.String())
+		buf.Reset()
+		if text != "" {
+			paragraphs = append(paragraphs, text)
 		}
-		// 找到 > 开头标签结束
-		gt := strings.Index(xmlContent[start:], ">")
-		if gt == -1 {
-			break
-		}
-		contentStart := start + gt + 1
-		end := strings.Index(xmlContent[contentStart:], "</w:t>")
-		if end == -1 {
-			break
-		}
-		text := html.UnescapeString(xmlContent[contentStart : contentStart+end])
-		text = strings.TrimSpace(text)
-		if text == "" {
-			xmlContent = xmlContent[contentStart+end+6:]
-			continue
-		}
-		texts = append(texts, text)
-		xmlContent = xmlContent[contentStart+end+6:]
 	}
-	return strings.Join(texts, " ")
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			// io.EOF 为正常结束；其他错误保留已解析内容，避免整篇丢失
+			break
+		}
+
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Space != wordprocessingNS {
+				continue
+			}
+			if skipDepth > 0 {
+				skipDepth++
+				continue
+			}
+			switch t.Name.Local {
+			case "instrText", "delText":
+				skipDepth = 1
+			case "t":
+				inText = true
+			case "tab":
+				buf.WriteString("\t")
+			case "br", "cr":
+				buf.WriteString("\n")
+			}
+		case xml.EndElement:
+			if t.Name.Space != wordprocessingNS {
+				continue
+			}
+			if skipDepth > 0 {
+				skipDepth--
+				continue
+			}
+			switch t.Name.Local {
+			case "t":
+				inText = false
+			case "p":
+				flushParagraph()
+			}
+		case xml.CharData:
+			// 仅采集 w:t 内的字符数据，其余（如属性间空白）一律忽略
+			if inText && skipDepth == 0 {
+				buf.Write(t)
+			}
+		}
+	}
+
+	// 文档结尾可能缺少闭合 w:p，兜底收尾
+	flushParagraph()
+
+	return strings.Join(paragraphs, "\n\n")
+}
+
+// normalizeDocxParagraph 规整单个段落：折叠段内多余空格，保留制表符与换行
+func normalizeDocxParagraph(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	lines := strings.Split(s, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		// 制表符是 w:tab 的语义（常用于目录、表格对齐），必须保留，
+		// 因此按制表符切分后只折叠各段内部的空格
+		cells := strings.Split(line, "\t")
+		for i, cell := range cells {
+			fields := strings.FieldsFunc(cell, func(r rune) bool {
+				return r == ' ' || r == '\v' || r == '\f' || r == 0xA0
+			})
+			cells[i] = strings.Join(fields, " ")
+		}
+		joined := strings.Join(cells, "\t")
+		if strings.TrimSpace(joined) != "" {
+			kept = append(kept, joined)
+		}
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
 // ConvertToKnowledgeFormat 将文档内容转换为知识库资源 JSON
@@ -402,7 +474,11 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 		return nil, fmt.Errorf("%s", result.Error)
 	}
 
-	content := strings.TrimSpace(result.TextContent)
+	// 解析出口统一清洗：剥离残留 OOXML/HTML 标签 + 规整空白。
+	// 所有文档导入消费方（/documents/parse 回填、/kb/upload 自动入库）都经此漏斗，
+	// 因此标题/摘要/关键词全部从已清洗的 content 派生，天然不含标签。
+	// 注意：此处 content 是纯文本（非 FAQ 的 AnswerCard JSON），可安全剥离标签。
+	content := util.SanitizeKnowledgeContent(result.TextContent)
 	title := extractDocTitle(content, result.FileName)
 	summary := generateDocSummary(content, 200)
 	keywords := extractDocKeywords(content, 10)
@@ -423,21 +499,76 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 	}, nil
 }
 
-// extractDocTitle 从文本中提取标题，优先使用正文第一行，其次使用文件名
+// extractDocTitle 从文本中提取标题。
+//
+// 原实现直接取第一个非空行，实测《学分认证标准》会得到「附件：」这类无意义前缀。
+// 改为在前若干行中挑选长度合理、不以标点结尾的候选行，均不合适时回退文件名。
 func extractDocTitle(content, fileName string) string {
+	const (
+		scanLines    = 10 // 仅在前若干行内寻找标题
+		minTitleRune = 4  // 过短的行（如「附件：」「目录」）不作标题
+		maxTitleRune = 60
+	)
+
+	// 明显的附属前缀行，不能作为标题
+	prefixNoise := []string{"附件", "附录", "附表", "目录", "目 录", "前言", "前 言"}
+
+	var fallback string
 	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			runes := []rune(line)
-			if len(runes) > 100 {
-				return string(runes[:100])
-			}
-			return line
+	scanned := 0
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
 		}
+		scanned++
+		if scanned > scanLines {
+			break
+		}
+
+		// 记录第一个非空行作为次选，保持与原行为兼容
+		if fallback == "" {
+			fallback = line
+		}
+
+		// 去掉「附件：」这类前缀后再判断
+		candidate := line
+		isNoise := false
+		for _, p := range prefixNoise {
+			if strings.HasPrefix(candidate, p) {
+				trimmed := strings.TrimSpace(strings.TrimLeft(candidate[len(p):], "：: 　"))
+				if trimmed == "" {
+					isNoise = true // 整行就是「附件：」，跳过
+				} else {
+					candidate = trimmed
+				}
+				break
+			}
+		}
+		if isNoise {
+			continue
+		}
+
+		runes := []rune(candidate)
+		if len(runes) < minTitleRune || len(runes) > maxTitleRune {
+			continue
+		}
+		// 以句末标点结尾的多为正文句子，不是标题
+		if strings.ContainsRune("。！？；，、,.;!?", runes[len(runes)-1]) {
+			continue
+		}
+		return candidate
 	}
-	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	return title
+
+	if fallback != "" {
+		runes := []rune(fallback)
+		if len(runes) > 100 {
+			return string(runes[:100])
+		}
+		return fallback
+	}
+
+	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
 // generateDocSummary 生成摘要（截取前 maxLen 个字符）
@@ -507,13 +638,14 @@ func extractDocKeywords(content string, topN int) []string {
 					break
 				}
 			}
-			if isChinese && !stopWords[w] {
+			if isChinese && !stopWords[w] && !isOrdinalPhrase(w) {
 				wordFreq[w]++
 			}
 		}
 	}
 
-	// 按频率排序
+	// 按频率排序（原实现为冒泡排序，实测 187k 字文档产生 4.3 万候选词、
+	// 约 9.5 亿次比较，必须用 O(n log n) 排序）
 	type wordCount struct {
 		word  string
 		count int
@@ -525,20 +657,143 @@ func extractDocKeywords(content string, topN int) []string {
 		}
 	}
 
-	for i := 0; i < len(wcList)-1; i++ {
-		for j := i + 1; j < len(wcList); j++ {
-			if wcList[j].count > wcList[i].count {
-				wcList[i], wcList[j] = wcList[j], wcList[i]
+	sort.Slice(wcList, func(i, j int) bool {
+		if wcList[i].count != wcList[j].count {
+			return wcList[i].count > wcList[j].count
+		}
+		// 同频优先取更长的词（信息量更大），再按字典序保证结果稳定
+		ri, rj := []rune(wcList[i].word), []rune(wcList[j].word)
+		if len(ri) != len(rj) {
+			return len(ri) > len(rj)
+		}
+		return wcList[i].word < wcList[j].word
+	})
+
+	// 子串抑制：n-gram 全量枚举会产生大量重叠噪声
+	// （实测「分别」「别计」「分别计」、「一二三等奖」「二三等」「三等奖」同时入选）。
+	//
+	// 必须对「全部候选词」而非「已选词」做判断：碎片词频总是 >= 母词词频，
+	// 排序后碎片反而在前，只跟已选词比较会让碎片先入选、母词随后被误判为冗余。
+	//
+	// 为避免在大文档上退化为平方级比较（实测候选词可达 4 万），
+	// 只在排序后的前若干高频候选中做互相包含检查——低频词本就取不到 topN。
+	inspectLimit := topN * 40
+	if inspectLimit > len(wcList) {
+		inspectLimit = len(wcList)
+	}
+	head := wcList[:inspectLimit]
+
+	isFragment := make(map[string]bool, inspectLimit)
+	for _, short := range head {
+		shortLen := len([]rune(short.word))
+		for _, long := range head {
+			if len([]rune(long.word)) <= shortLen {
+				continue
+			}
+			// 母词包含碎片，且词频接近（碎片没有独立于母词的用法）
+			if strings.Contains(long.word, short.word) &&
+				short.count <= long.count+substringFreqTolerance {
+				isFragment[short.word] = true
+				break
 			}
 		}
 	}
 
 	result := make([]string, 0, topN)
-	for i := 0; i < len(wcList) && i < topN; i++ {
-		result = append(result, wcList[i].word)
+	for _, wc := range head {
+		if len(result) >= topN {
+			break
+		}
+		if isFragment[wc.word] {
+			continue
+		}
+		// 已选词之间做互不重叠校验：
+		// 滑动窗口会在同一短语上产生「二三等奖」「三等奖和」「等奖和优」这类
+		// 首尾交错的窗口，彼此互不包含，仅靠包含判断无法过滤。
+		redundant := false
+		for _, picked := range result {
+			if strings.Contains(picked, wc.word) || strings.Contains(wc.word, picked) ||
+				hasSignificantOverlap(picked, wc.word) {
+				redundant = true
+				break
+			}
+		}
+		if !redundant {
+			result = append(result, wc.word)
+		}
 	}
 
 	return result
+}
+
+// hasSignificantOverlap 判断两个词是否为同一短语上的交错窗口。
+//
+// 例如「二三等奖」与「三等奖和」共享后缀/前缀「三等奖」，长度 3 已达到较短词的
+// 多数字符，应视为重复窗口而非两个独立词。
+func hasSignificantOverlap(a, b string) bool {
+	ra, rb := []rune(a), []rune(b)
+	minLen := len(ra)
+	if len(rb) < minLen {
+		minLen = len(rb)
+	}
+	if minLen < 2 {
+		return false
+	}
+
+	// 重叠长度达到较短词的一半以上即认为是同一短语的窗口
+	threshold := (minLen + 1) / 2
+	for overlap := minLen; overlap >= threshold; overlap-- {
+		// a 的后缀 == b 的前缀
+		if string(ra[len(ra)-overlap:]) == string(rb[:overlap]) {
+			return true
+		}
+		// b 的后缀 == a 的前缀
+		if string(rb[len(rb)-overlap:]) == string(ra[:overlap]) {
+			return true
+		}
+	}
+	return false
+}
+
+// substringFreqTolerance 子串抑制的词频容差：
+// 子串词频不超过「包含它的长词词频 + 容差」时视为碎片
+const substringFreqTolerance = 1
+
+// isOrdinalPhrase 判断是否为条款序号类词组（如「第二」「第十」「二十三」）。
+// 制度文档中这类词高频出现但无检索价值，实测会挤占 top10 关键词位置。
+func isOrdinalPhrase(w string) bool {
+	runes := []rune(w)
+	if len(runes) == 0 {
+		return false
+	}
+
+	// 中文数字与量词字符集
+	numerals := map[rune]bool{
+		'零': true, '一': true, '二': true, '三': true, '四': true, '五': true,
+		'六': true, '七': true, '八': true, '九': true, '十': true, '百': true,
+		'千': true, '万': true, '两': true, '〇': true,
+	}
+	// 序号结构常见的前后缀
+	affixes := map[rune]bool{
+		'第': true, '条': true, '款': true, '项': true, '章': true, '节': true,
+		'编': true, '页': true, '次': true, '届': true, '等': true,
+	}
+
+	numeralCount := 0
+	for _, r := range runes {
+		switch {
+		case numerals[r]:
+			numeralCount++
+		case affixes[r]:
+			// 前后缀本身不计入数字，但允许出现
+		default:
+			// 含有普通汉字，说明是实义词
+			return false
+		}
+	}
+
+	// 全部由数字与序号前后缀组成，且至少含一个数字
+	return numeralCount > 0
 }
 
 // countDocWords 统计字数（中文按字符，英文按单词）

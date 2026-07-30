@@ -1,8 +1,8 @@
 name = "wxx-agent"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "frontend/build/web"
-pages_functions_dir = "frontend/build/web/functions"
 
-[vars]
-TURSO_DB_URL = "libsql://wxx-agent-czldl.aws-ap-northeast-1.turso.io"
-TURSO_DB_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODUwNjk1NjEsImlkIjoiMDE5ZjllNmYtNmEwMS03MDIyLTg3OGEtNWI4NzgxOTY2MDk3Iiwia2lkIjoiUUI0MFdrbDBrcDJObV80RHR3eWZoMzV2RXQwZXI5ejF1N1VBUTlyTGU5byIsInJpZCI6IjZiOTNlMmFhLTI0MjEtNGMxOS1iNzljLTM1MzlkZGFmZWE3MyJ9.x_OgL5_1__Pd6cc51Cfxy42jDMesuJ48xcHpMJAowjuHehS3OrY3NkaeHwBrhRgZaszr4horjXQSBouqI3hpDg"
+# TURSO_DB_URL / TURSO_DB_TOKEN / GO_BACKEND_URL / JWT_SECRET 一律走 Pages 加密环境变量
+# （wrangler pages secret put），不要写在 [vars] 里：
+#   1. [vars] 是明文，会随仓库一起提交，等于凭据泄露
+#   2. [vars] 优先级高于加密变量，会覆盖 secret store 里的值

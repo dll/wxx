@@ -34,10 +34,16 @@ jobs:
         run: flutter build web --release --web-renderer canvaskit
         working-directory: ./frontend
 
+      # bcryptjs 是 Functions 的运行时依赖（与 Go 后端 bcrypt 哈希兼容）。
+      # 必须先安装：否则边缘打包时模块解析失败，登录接口直接 500。
+      - name: 安装 Functions 依赖
+        run: npm install --omit=dev
+        working-directory: ./functions
+
       - name: 创建 functions 目录
         run: mkdir -p frontend/build/web/functions
 
-      - name: 复制 Functions 文件到构建目录
+      - name: 复制 Functions 文件到构建目录（含 node_modules）
         run: cp -r functions/* frontend/build/web/functions/
 
 # ── 构建产物中可能包含 _routes.json（由 Flutter Web 构建生成）

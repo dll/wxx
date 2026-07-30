@@ -325,14 +325,18 @@ func (s *ChatService) buildMessages(ctx context.Context, sessionID string, quest
 	})
 
 	// 历史对话上下文（最近 6 条）
-	// 安全修复 SEC-03：历史消息按原文落库，回放给 LLM 前必须重新脱敏，
-	// 否则早前轮次的 PII 会绕过当前轮的脱敏直接进入模型上下文。
+	// 安全修复 SEC-03/SEC-04：历史消息按原文落库，回放给 LLM 前必须执行二次 PII 脱敏。
+	// 第一次过滤（一次过滤）：用户当轮输入进来时，在 Ask() 调用 util.SanitizeForLLM(question, ...) 完成。
+	// 第二次过滤（二次过滤，本处 SEC-04）：历史轮次消息拼装进 LLM 请求前重新调用 PII 脱敏，
+	//   防止早前轮次的 PII（如学号、手机号、身份证号）绕过当前轮的入参检查直接进入模型上下文。
 	history, _ := s.messageRepo.GetRecentContext(sessionID, 6)
 	for _, h := range history {
 		content := h.Content
 		if h.Role == "assistant" {
+			// 助手消息：脱敏 + trim（防止模型幻觉输出泄漏到历史上下文）
 			content = util.SanitizeLLMResponse(content)
 		} else {
+			// 用户消息：脱敏（调用 util.MaskPII）+ trim + 截断至 2000 字符（二次过滤）
 			content = util.SanitizeForLLM(content, 2000)
 		}
 		messages = append(messages, llm.ChatMessage{

@@ -2,7 +2,7 @@
 // 仅做认证（边缘加速） + 反向代理到 Go 后端（完整业务逻辑）
 
 import { TursoClient } from '../lib/turso.js';
-import { generateToken, verifyToken, verifyPassword } from '../lib/auth.js';
+import { generateToken, verifyToken, verifyPassword, setJWTSecret } from '../lib/auth.js';
 import { now } from '../lib/utils.js';
 
 let db = null;
@@ -17,24 +17,34 @@ export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
 
+  if (context.env.JWT_SECRET) setJWTSecret(context.env.JWT_SECRET);
+
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders() });
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
   const path = url.pathname;
-  const db = getDb(context);
 
   try {
-    if (path === '/health' || path === '/api/health') {
-      return await handleHealth(db);
-    }
-
+    // 根路径不需要数据库，先放行避免触发 getDb 初始化
     if (path === '/' || path === '/api') {
       return jsonResponse({ service: '蔚小芯', version: '1.0.0', docs: '/health' });
     }
 
+    const db = getDb(context);
+
+    if (path === '/health' || path === '/api/health') {
+      return await handleHealth(db);
+    }
+
     if (path === '/api/v1/auth/login' && request.method === 'POST') {
       return await handleLogin(db, request);
+    }
+
+    // 公开路由：与 Go 后端 setupRouter 中未挂 JWTAuth 的路由保持一致，
+    // 直接透传，否则会被边缘 401 拦截而永远到不了后端。
+    if (isPublicPath(path)) {
+      return await proxyToGoBackend(request, url, context);
     }
 
     const user = await getCurrentUser(db, request);
@@ -49,27 +59,49 @@ export async function onRequest(context) {
   }
 }
 
+const PUBLIC_PATHS = new Set([
+  '/api/v1/auth/qr-login',
+  '/api/v1/auth/qr-status',
+  '/api/v1/auth/qr-scan',
+  '/api/v1/auth/send-code',
+  '/api/v1/auth/guest-register',
+  '/api/v1/version/check',
+  '/api/v1/version/latest',
+  '/api/v1/knowledge/public',
+]);
+
+function isPublicPath(path) {
+  return PUBLIC_PATHS.has(path);
+}
+
 async function proxyToGoBackend(request, url, context) {
   const backendUrl = context.env.GO_BACKEND_URL;
   if (!backendUrl) {
     return jsonResponse({ code: 500, message: 'GO_BACKEND_URL 未配置' }, 500);
   }
 
-  const targetUrl = backendUrl + url.pathname + url.search;
+  const targetUrl = backendUrl.replace(/\/+$/, '') + url.pathname + url.search;
   const headers = new Headers(request.headers);
+  // Host 必须由目标地址决定，否则后端会收到 Pages 域名
+  headers.delete('host');
 
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const response = await fetch(targetUrl, {
     method: request.method,
     headers,
-    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.clone().text(),
+    // 用 arrayBuffer 而非 text()，避免语音/文档等二进制上传被破坏
+    body: hasBody ? await request.arrayBuffer() : undefined,
   });
+
+  // 透传后端响应头（Content-Disposition 等对导出下载是必需的），再叠加 CORS
+  const outHeaders = new Headers(response.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+    outHeaders.set(k, v);
+  }
 
   return new Response(response.body, {
     status: response.status,
-    headers: {
-      ...corsHeaders(),
-      'Content-Type': response.headers.get('Content-Type') || 'application/json; charset=utf-8',
-    },
+    headers: outHeaders,
   });
 }
 
@@ -105,7 +137,7 @@ async function handleLogin(db, request) {
   }
 
   const token = await generateToken({
-    user_id: user.id,
+    user_id: parseInt(user.id, 10),
     username: user.username,
     role: user.role,
   });
@@ -140,14 +172,13 @@ function sanitizeUser(user) {
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders(), 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  };
-}
+// CORS 头为部署期间不变的静态常量，提升为模块级常量避免每次响应重复分配对象。
+const CORS_HEADERS = Object.freeze({
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+});

@@ -32,12 +32,20 @@ class _ImportStudentDialogState extends State<ImportStudentDialog> {
   }
 
   Future<void> _pickFile() async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['xlsx'],
-      allowMultiple: false,
-      withData: true,
-    );
+    // 选择器初始化失败时（如 Web 端插件未注册）会同步抛错，
+    // 必须捕获后给出提示，否则用户只会看到「点击无反应」。
+    FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['xlsx'],
+        allowMultiple: false,
+        withData: true,
+      );
+    } catch (e) {
+      if (mounted) _showMessage('无法打开文件选择器：$e');
+      return;
+    }
     if (!mounted || picked == null || picked.files.isEmpty) return;
 
     final file = picked.files.single;

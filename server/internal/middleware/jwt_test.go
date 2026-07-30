@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -211,7 +212,7 @@ func TestClaims_Expiry(t *testing.T) {
 	token, _ := GenerateToken(cfg, user)
 
 	// 验证 token 的过期时间大致正确
-	claims := &CustomClaims{}
+	claims := &jwtutil.CustomClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(cfg.JWTSecret), nil
 	})

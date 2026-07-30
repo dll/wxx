@@ -1379,18 +1379,30 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
   }
 
   Future<void> _handleUpload() async {
-    final picked = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: const [
-        'txt',
-        'md',
-        'pdf',
-        'docx',
-        'csv',
-        'xlsx',
-      ],
-    );
+    // 选择器初始化失败时（如 Web 端插件未注册）会同步抛错，
+    // 必须捕获后给出提示，否则用户只会看到「点击无反应」。
+    FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const [
+          'txt',
+          'md',
+          'pdf',
+          'docx',
+          'csv',
+          'xlsx',
+        ],
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('无法打开文件选择器：$e')),
+        );
+      }
+      return;
+    }
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.single;
     final bytes = file.bytes;
@@ -1534,6 +1546,13 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                   .toList(),
             ),
           ],
+          const SizedBox(height: 8),
+          Text(
+            '标题、摘要、正文已自动回填，请核对后再提交；长文档建议裁剪正文，仅保留与知识主题相关的段落。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

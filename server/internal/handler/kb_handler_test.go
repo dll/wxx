@@ -29,7 +29,7 @@ func setupKBTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 	}
 
 	kbRepo := repository.NewKBRepo(db)
-	kbSvc := service.NewKBService(kbRepo)
+	kbSvc := service.NewKBService(kbRepo, db)
 	kbHandler := NewKBHandler(kbSvc)
 
 	r := gin.New()
@@ -334,7 +334,7 @@ func setupKBBrowseTestRouter(t *testing.T) (*gin.Engine, *config.Config, *reposi
 	}
 
 	kbRepo := repository.NewKBRepo(db)
-	kbSvc := service.NewKBService(kbRepo)
+	kbSvc := service.NewKBService(kbRepo, db)
 	kbHandler := NewKBHandler(kbSvc)
 
 	r := gin.New()

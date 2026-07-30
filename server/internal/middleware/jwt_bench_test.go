@@ -6,6 +6,7 @@ import (
 	jwtlib "github.com/golang-jwt/jwt/v5"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -52,7 +53,7 @@ func BenchmarkParseToken(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		claims := &CustomClaims{}
+		claims := &jwtutil.CustomClaims{}
 		_, err := jwtlib.ParseWithClaims(tokenStr, claims, func(t *jwtlib.Token) (interface{}, error) {
 			return []byte(cfg.JWTSecret), nil
 		})

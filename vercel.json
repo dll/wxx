@@ -1,16 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/index.go": {
-      "runtime": "@vercel/go@3"
-    }
-  },
-  "buildCommand": null,
-  "outputDirectory": null,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.go"
-    }
-  ]
+  "version": 2
 }

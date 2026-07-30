@@ -13,7 +13,7 @@ func TestKBService_List(t *testing.T) {
 	db := testutil.NewTestDBFull(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	list, total, err := svc.List(context.Background(),"", "", "published", "", 1, 10)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestKBService_List_Pagination(t *testing.T) {
 	db := testutil.NewTestDBFull(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 每页 1 条
 	list, total, err := svc.List(context.Background(),"", "", "published", "", 1, 1)
@@ -50,7 +50,7 @@ func TestKBService_Get(t *testing.T) {
 	db := testutil.NewTestDBFull(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	kb, err := svc.Get(context.Background(),"policy-scholarship-2026")
 	if err != nil {
@@ -65,7 +65,7 @@ func TestKBService_Get_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	_, err := svc.Get(context.Background(),"nonexistent")
 	if err == nil {
@@ -77,7 +77,7 @@ func TestKBService_Create(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	req := &model.KBCreateRequest{
 		ResourceType: "Policy",
@@ -109,7 +109,7 @@ func TestKBService_Update(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 先创建
 	created, _ := svc.Create(context.Background(), &model.KBCreateRequest{
@@ -145,7 +145,7 @@ func TestKBService_Update_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 
-	svc := NewKBService(repository.NewKBRepo(db))
+	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	_, err := svc.Update(context.Background(),"nonexistent", &model.KBUpdateRequest{Title: "x"}, "admin")
 	if err == nil {

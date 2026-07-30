@@ -1,6 +1,21 @@
 // Turso 数据库客户端（通过 HTTP API 访问）
 // 适用于 Cloudflare Pages Functions / Workers 环境
 
+// Hrana v2 协议要求 integer 的 value 必须是 JSON 字符串（避免 i64 精度丢失），
+// 传原始数字会被服务端拒绝：expected a borrowed string。
+function encodeArg(a) {
+  if (a === null || a === undefined) return { type: 'null', value: null };
+  const t = typeof a;
+  if (t === 'bigint') return { type: 'integer', value: a.toString() };
+  if (t === 'number') {
+    return Number.isInteger(a)
+      ? { type: 'integer', value: String(a) }
+      : { type: 'float', value: a };
+  }
+  if (t === 'boolean') return { type: 'integer', value: a ? '1' : '0' };
+  return { type: 'text', value: String(a) };
+}
+
 export class TursoClient {
   constructor(dbUrl, authToken) {
     // 将 libsql:// 转换为 https://
@@ -16,13 +31,7 @@ export class TursoClient {
           type: 'execute',
           stmt: {
             sql,
-            args: args.map(a => {
-        const t = typeof a;
-        if (a === null) return { type: 'null', value: null };
-        if (t === 'number') return { type: Number.isInteger(a) ? 'integer' : 'float', value: a };
-        if (t === 'boolean') return { type: 'integer', value: a ? 1 : 0 };
-        return { type: 'text', value: String(a) };
-      }),
+            args: args.map(encodeArg),
           },
         },
       ],
@@ -64,8 +73,14 @@ export class TursoClient {
       const obj = {};
       row.forEach((cell, i) => {
         const key = columns[i];
-        if (cell === null || cell === undefined) {
+        if (cell === null || cell === undefined || cell.type === 'null') {
           obj[key] = null;
+        } else if (cell.type === 'integer') {
+          // Hrana v2 返回整数列时 value 是字符串（避免 i64 精度丢失）；
+          // 统一转为 JS number，调用方无需再手动 parseInt。
+          obj[key] = parseInt(cell.value, 10);
+        } else if (cell.type === 'float') {
+          obj[key] = parseFloat(cell.value);
         } else if (typeof cell.value !== 'undefined') {
           obj[key] = cell.value;
         } else {
