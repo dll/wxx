@@ -17,8 +17,8 @@ import (
 type StudentHandler struct {
 	svc            *service.StudentService
 	twinSvc        *service.TwinService        // 数字孪生五维聚合服务，可为 nil（走兜底 mock）
-	checkinSvc     *service.CheckinService      // 打卡服务，可为 nil
-	personalitySvc *service.PersonalityService  // 性格洞察服务，可为 nil
+	checkinSvc     *service.CheckinService     // 打卡服务，可为 nil
+	personalitySvc *service.PersonalityService // 性格洞察服务，可为 nil
 	db             *sql.DB
 }
 
@@ -817,7 +817,7 @@ func (h *StudentHandler) Home(c *gin.Context) {
 		"code":    0,
 		"message": "success",
 		"data": gin.H{
-			"user_info":       userInfo,
+			"user_info": userInfo,
 			"today": HomeStudentToday{
 				Date:         todayStr,
 				Weekday:      weekdayNames[weekday],

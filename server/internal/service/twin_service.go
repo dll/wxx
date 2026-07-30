@@ -37,15 +37,15 @@ type TwinDimension struct {
 
 // TwinResult 数字孪生完整结果（返回给前端）
 type TwinResult struct {
-	UserID       int64           `json:"user_id"`
-	DisplayName  string          `json:"display_name"`
-	OverallScore float64         `json:"overall_score"` // 五维加权总分
-	Dimensions   []TwinDimension `json:"dimensions"`
-	Interpretation string        `json:"interpretation"` // AI/规则状态解读
-	GapAnalysis  []string        `json:"gap_analysis"`   // 差距点
-	StageAdvice  []string        `json:"stage_advice"`   // 阶段建议
-	ComputedAt   string          `json:"computed_at"`
-	Fallback     bool            `json:"fallback"` // 是否为规则兜底（LLM 未参与解读）
+	UserID         int64           `json:"user_id"`
+	DisplayName    string          `json:"display_name"`
+	OverallScore   float64         `json:"overall_score"` // 五维加权总分
+	Dimensions     []TwinDimension `json:"dimensions"`
+	Interpretation string          `json:"interpretation"` // AI/规则状态解读
+	GapAnalysis    []string        `json:"gap_analysis"`   // 差距点
+	StageAdvice    []string        `json:"stage_advice"`   // 阶段建议
+	ComputedAt     string          `json:"computed_at"`
+	Fallback       bool            `json:"fallback"` // 是否为规则兜底（LLM 未参与解读）
 }
 
 // 五维权重（总和为 1）：学业最重，其次能力，情感与思想社交次之

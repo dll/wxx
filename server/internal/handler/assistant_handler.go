@@ -176,8 +176,8 @@ func (h *AssistantHandler) WorkflowAutomation(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"workflow": workflowType,
-		"status":  "pending",
+		"workflow":    workflowType,
+		"status":      "pending",
 		"data_source": "fallback",
 	})
 }
@@ -193,8 +193,8 @@ func (h *AssistantHandler) ProcessStepsManage(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"process_id": processID,
-		"steps":      []gin.H{},
+		"process_id":  processID,
+		"steps":       []gin.H{},
 		"data_source": "fallback",
 	})
 }

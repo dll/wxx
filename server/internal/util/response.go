@@ -10,10 +10,10 @@ import (
 
 // ApiResponse 统一 API 响应结构体
 type ApiResponse struct {
-	Code    int         `json:"code"`              // 状态码：0=成功，其他=失败
-	Message string      `json:"message"`           // 状态描述
-	Data    interface{} `json:"data,omitempty"`    // 响应数据（成功时返回）
-	TraceID string      `json:"trace_id,omitempty"`// 追踪 ID（用于链路追踪）
+	Code    int         `json:"code"`               // 状态码：0=成功，其他=失败
+	Message string      `json:"message"`            // 状态描述
+	Data    interface{} `json:"data,omitempty"`     // 响应数据（成功时返回）
+	TraceID string      `json:"trace_id,omitempty"` // 追踪 ID（用于链路追踪）
 }
 
 // getTraceID 从 gin.Context 中获取 TraceID

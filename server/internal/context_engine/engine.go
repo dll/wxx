@@ -63,7 +63,7 @@ type KBSearchItem struct {
 	Score        float64
 	EffectiveAt  string
 	ExpiredAt    string
-	IsStructured bool   // 结构化匹配结果标记
+	IsStructured bool // 结构化匹配结果标记
 }
 
 // HistoryProvider 历史消息提供接口（CE-10）

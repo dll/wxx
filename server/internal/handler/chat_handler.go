@@ -16,8 +16,8 @@ import (
 // ChatHandler 对话 handler
 type ChatHandler struct {
 	chatSvc    *service.ChatService
-	emotionSvc *service.EmotionService        // 可选：情感分析服务
-	metricsSvc *service.ChatMetricsService    // 可选：质量指标写入
+	emotionSvc *service.EmotionService     // 可选：情感分析服务
+	metricsSvc *service.ChatMetricsService // 可选：质量指标写入
 }
 
 // NewChatHandler 创建对话 handler

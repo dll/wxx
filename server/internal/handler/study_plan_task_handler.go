@@ -108,15 +108,15 @@ func (h *StudyPlanHandler) UpdateTask(c *gin.Context) {
 	}
 
 	var req struct {
-		Title             string  `json:"title"`
-		Description       string  `json:"description"`
-		ScheduledDate     string  `json:"scheduled_date"`
-		ScheduledDuration *int    `json:"scheduled_duration"`
-		ActualDuration    *int    `json:"actual_duration"`
-		Status            string  `json:"status"`
-		Evidence          string  `json:"evidence"`
-		Reflection        string  `json:"reflection"`
-		SortOrder         *int    `json:"sort_order"`
+		Title             string `json:"title"`
+		Description       string `json:"description"`
+		ScheduledDate     string `json:"scheduled_date"`
+		ScheduledDuration *int   `json:"scheduled_duration"`
+		ActualDuration    *int   `json:"actual_duration"`
+		Status            string `json:"status"`
+		Evidence          string `json:"evidence"`
+		Reflection        string `json:"reflection"`
+		SortOrder         *int   `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
@@ -233,11 +233,11 @@ func (h *StudyPlanHandler) GetPlansOverview(c *gin.Context) {
 
 // AIGeneratePlanRequest AI生成学习计划请求
 type AIGeneratePlanRequest struct {
-	PlanType     string `json:"plan_type"`      // 默认 weekly
-	SemesterCode string `json:"semester_code"`  // 默认当前学期
-	StartDate    string `json:"start_date"`     // 可选，默认今天
-	EndDate      string `json:"end_date"`       // 可选，默认按 plan_type 推算
-	Goals        []string `json:"goals"`        // 用户指定目标
+	PlanType     string   `json:"plan_type"`     // 默认 weekly
+	SemesterCode string   `json:"semester_code"` // 默认当前学期
+	StartDate    string   `json:"start_date"`    // 可选，默认今天
+	EndDate      string   `json:"end_date"`      // 可选，默认按 plan_type 推算
+	Goals        []string `json:"goals"`         // 用户指定目标
 	FocusCourses []string `json:"focus_courses"` // 关注的课程（可选）
 }
 

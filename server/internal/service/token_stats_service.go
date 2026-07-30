@@ -17,11 +17,11 @@ type TokenStatsService struct {
 	userRepo  *repository.UserRepo
 
 	// 配额管理（内存计数）
-	quotaMu     sync.RWMutex
-	dailyCounts map[int64]map[string]int // userID -> YYYY-MM-DD -> count
+	quotaMu       sync.RWMutex
+	dailyCounts   map[int64]map[string]int // userID -> YYYY-MM-DD -> count
 	monthlyCounts map[int64]map[string]int // userID -> YYYY-MM -> count
-	dailyQuota   int // 每日上限，0 表示不限
-	monthlyQuota int // 每月上限，0 表示不限
+	dailyQuota    int                      // 每日上限，0 表示不限
+	monthlyQuota  int                      // 每月上限，0 表示不限
 }
 
 // NewTokenStatsService 创建词元统计服务

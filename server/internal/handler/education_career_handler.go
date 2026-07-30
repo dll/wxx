@@ -105,22 +105,22 @@ func (h *EducationHandler) GetCareerPolicy(c *gin.Context) {
 	}
 
 	type PolicyDetail struct {
-		ID             int64   `json:"id"`
-		PolicyID       string  `json:"policy_id"`
-		Title          string  `json:"title"`
-		Category       string  `json:"category"`
-		Level          string  `json:"level"`
-		Source         string  `json:"source"`
-		Content        string  `json:"content"`
-		Summary        string  `json:"summary"`
-		PublishDate    *string `json:"publish_date"`
-		EffectiveDate  *string `json:"effective_date"`
-		ExpiryDate     *string `json:"expiry_date"`
-		Tags           string  `json:"tags"`
-		Status         string  `json:"status"`
-		ViewCount      int     `json:"view_count"`
-		CreatedAt      string  `json:"created_at"`
-		UpdatedAt      string  `json:"updated_at"`
+		ID            int64   `json:"id"`
+		PolicyID      string  `json:"policy_id"`
+		Title         string  `json:"title"`
+		Category      string  `json:"category"`
+		Level         string  `json:"level"`
+		Source        string  `json:"source"`
+		Content       string  `json:"content"`
+		Summary       string  `json:"summary"`
+		PublishDate   *string `json:"publish_date"`
+		EffectiveDate *string `json:"effective_date"`
+		ExpiryDate    *string `json:"expiry_date"`
+		Tags          string  `json:"tags"`
+		Status        string  `json:"status"`
+		ViewCount     int     `json:"view_count"`
+		CreatedAt     string  `json:"created_at"`
+		UpdatedAt     string  `json:"updated_at"`
 	}
 
 	detail := &PolicyDetail{}
@@ -253,31 +253,31 @@ func (h *EducationHandler) GetJobPosting(c *gin.Context) {
 	}
 
 	type JobDetail struct {
-		ID                int64   `json:"id"`
-		JobID             string  `json:"job_id"`
-		CompanyName       string  `json:"company_name"`
-		CompanyLogo       string  `json:"company_logo"`
-		CompanyIntro      string  `json:"company_intro"`
-		PositionName      string  `json:"position_name"`
-		PositionType      string  `json:"position_type"`
-		Industry          string  `json:"industry"`
-		SalaryMin         int     `json:"salary_min"`
-		SalaryMax         int     `json:"salary_max"`
-		SalaryUnit        string  `json:"salary_unit"`
-		Location          string  `json:"location"`
-		Education         string  `json:"education"`
-		MajorRequirement  string  `json:"major_requirement"`
-		Description       string  `json:"description"`
-		Requirement       string  `json:"requirement"`
-		Benefits          string  `json:"benefits"`
-		ApplicationURL    string  `json:"application_url"`
-		Deadline          *string `json:"deadline"`
-		Source            string  `json:"source"`
-		Status            string  `json:"status"`
-		ViewCount         int     `json:"view_count"`
-		ApplyCount        int     `json:"apply_count"`
-		CreatedAt         string  `json:"created_at"`
-		UpdatedAt         string  `json:"updated_at"`
+		ID               int64   `json:"id"`
+		JobID            string  `json:"job_id"`
+		CompanyName      string  `json:"company_name"`
+		CompanyLogo      string  `json:"company_logo"`
+		CompanyIntro     string  `json:"company_intro"`
+		PositionName     string  `json:"position_name"`
+		PositionType     string  `json:"position_type"`
+		Industry         string  `json:"industry"`
+		SalaryMin        int     `json:"salary_min"`
+		SalaryMax        int     `json:"salary_max"`
+		SalaryUnit       string  `json:"salary_unit"`
+		Location         string  `json:"location"`
+		Education        string  `json:"education"`
+		MajorRequirement string  `json:"major_requirement"`
+		Description      string  `json:"description"`
+		Requirement      string  `json:"requirement"`
+		Benefits         string  `json:"benefits"`
+		ApplicationURL   string  `json:"application_url"`
+		Deadline         *string `json:"deadline"`
+		Source           string  `json:"source"`
+		Status           string  `json:"status"`
+		ViewCount        int     `json:"view_count"`
+		ApplyCount       int     `json:"apply_count"`
+		CreatedAt        string  `json:"created_at"`
+		UpdatedAt        string  `json:"updated_at"`
 	}
 
 	detail := &JobDetail{}
@@ -349,21 +349,21 @@ func (h *EducationHandler) ListInfoSessions(c *gin.Context) {
 	defer rows.Close()
 
 	type SessionItem struct {
-		ID              int64   `json:"id"`
-		SessionID       string  `json:"session_id"`
-		CompanyName     string  `json:"company_name"`
-		CompanyLogo     string  `json:"company_logo"`
-		Title           string  `json:"title"`
-		Date            string  `json:"date"`
-		TimeStart       string  `json:"time_start"`
-		TimeEnd         string  `json:"time_end"`
-		Location        string  `json:"location"`
-		Campus          string  `json:"campus"`
-		Description     string  `json:"description"`
-		RegistrationURL string  `json:"registration_url"`
-		Capacity        int     `json:"capacity"`
-		RegisteredCount int     `json:"registered_count"`
-		CreatedAt       string  `json:"created_at"`
+		ID              int64  `json:"id"`
+		SessionID       string `json:"session_id"`
+		CompanyName     string `json:"company_name"`
+		CompanyLogo     string `json:"company_logo"`
+		Title           string `json:"title"`
+		Date            string `json:"date"`
+		TimeStart       string `json:"time_start"`
+		TimeEnd         string `json:"time_end"`
+		Location        string `json:"location"`
+		Campus          string `json:"campus"`
+		Description     string `json:"description"`
+		RegistrationURL string `json:"registration_url"`
+		Capacity        int    `json:"capacity"`
+		RegisteredCount int    `json:"registered_count"`
+		CreatedAt       string `json:"created_at"`
 	}
 
 	var list []*SessionItem

@@ -1667,14 +1667,14 @@ type GrowthMilestone struct {
 // GrowthPathResult 成长路径结果
 type GrowthPathResult struct {
 	UserDisplayName string             `json:"user_display_name"`
-	CurrentStage    string             `json:"current_stage"`    // 当前学业阶段
-	AcademicScore   float64            `json:"academic_score"`   // 五维·学业
-	AbilityScore    float64            `json:"ability_score"`    // 五维·能力
-	StrongestDim    string             `json:"strongest_dim"`    // 最强维度
-	WeakestDim      string             `json:"weakest_dim"`      // 最弱维度
-	Milestones      []*GrowthMilestone `json:"milestones"`       // 分阶段路线图
-	Summary         string             `json:"summary"`          // LLM 个性化总结
-	DataSource      string             `json:"data_source"`      // real/fallback
+	CurrentStage    string             `json:"current_stage"`  // 当前学业阶段
+	AcademicScore   float64            `json:"academic_score"` // 五维·学业
+	AbilityScore    float64            `json:"ability_score"`  // 五维·能力
+	StrongestDim    string             `json:"strongest_dim"`  // 最强维度
+	WeakestDim      string             `json:"weakest_dim"`    // 最弱维度
+	Milestones      []*GrowthMilestone `json:"milestones"`     // 分阶段路线图
+	Summary         string             `json:"summary"`        // LLM 个性化总结
+	DataSource      string             `json:"data_source"`    // real/fallback
 }
 
 // GenerateGrowthPath 生成成长路径（基于数字孪生五维快照 + 学业阶段 → 分阶段里程碑 + LLM 总结）

@@ -23,7 +23,7 @@ func NewStatsHandler(db *sql.DB) *StatsHandler {
 
 // DashboardStats 仪表盘统计数据
 type DashboardStats struct {
-	Users     UserStats     `json:"users"`
+	Users     UserStats      `json:"users"`
 	Knowledge KnowledgeStats `json:"knowledge"`
 	Chat      ChatStats      `json:"chat"`
 	Feedback  FeedbackStats  `json:"feedback"`
@@ -31,10 +31,10 @@ type DashboardStats struct {
 
 // UserStats 用户统计
 type UserStats struct {
-	Total     int            `json:"total"`
-	TodayNew  int            `json:"today_new"`
-	MonthNew  int            `json:"month_new"`
-	ByRole    map[string]int `json:"by_role"`
+	Total    int            `json:"total"`
+	TodayNew int            `json:"today_new"`
+	MonthNew int            `json:"month_new"`
+	ByRole   map[string]int `json:"by_role"`
 }
 
 // KnowledgeStats 知识库统计
@@ -50,11 +50,11 @@ type KnowledgeStats struct {
 
 // ChatStats 对话统计
 type ChatStats struct {
-	TotalSessions  int           `json:"total_sessions"`
-	TotalMessages  int           `json:"total_messages"`
-	TodaySessions  int           `json:"today_sessions"`
-	TodayMessages  int           `json:"today_messages"`
-	WeekTrend      []DayTrendItem `json:"week_trend"`
+	TotalSessions int            `json:"total_sessions"`
+	TotalMessages int            `json:"total_messages"`
+	TodaySessions int            `json:"today_sessions"`
+	TodayMessages int            `json:"today_messages"`
+	WeekTrend     []DayTrendItem `json:"week_trend"`
 }
 
 // DayTrendItem 每日趋势项
@@ -66,12 +66,12 @@ type DayTrendItem struct {
 
 // FeedbackStats 反馈统计
 type FeedbackStats struct {
-	Total     int `json:"total"`
-	Pending   int `json:"pending"`
+	Total      int `json:"total"`
+	Pending    int `json:"pending"`
 	Processing int `json:"processing"`
-	Resolved  int `json:"resolved"`
-	Dismissed int `json:"dismissed"`
-	WeekNew   int `json:"week_new"`
+	Resolved   int `json:"resolved"`
+	Dismissed  int `json:"dismissed"`
+	WeekNew    int `json:"week_new"`
 }
 
 // GetDashboardStats 获取仪表盘统计数据

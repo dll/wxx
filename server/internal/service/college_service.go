@@ -245,7 +245,7 @@ func (s *CollegeService) AnalyzeTeacherEfficiency(ctx context.Context, teacherNa
 			{"rank": 3, "name": "王讲师", "score": 85.0},
 		},
 		Suggestions: []string{"建议增加课堂互动环节", "可参考张教授的教学方法"},
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 
@@ -289,7 +289,7 @@ func (s *CollegeService) GenerateCollegeReport(ctx context.Context, period strin
 			{"type": "健康度下降", "college": "理学院", "change": "-3.2", "reason": "挂科率上升，心理预警增多"},
 		},
 		Suggestions: []string{"建议理学院增加学业辅导资源", "全院范围内推广心理健康活动"},
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 

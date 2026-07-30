@@ -151,8 +151,8 @@ func (h *EducationHandler) SubmitAssessment(c *gin.Context) {
 	}
 
 	var req struct {
-		ScaleID string            `json:"scale_id" binding:"required"`
-		Answers map[string]int    `json:"answers" binding:"required"`
+		ScaleID string         `json:"scale_id" binding:"required"`
+		Answers map[string]int `json:"answers" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
@@ -197,7 +197,7 @@ func (h *EducationHandler) SubmitAssessment(c *gin.Context) {
 		totalScore += float64(score)
 	}
 
-	standardScore := math.Round(totalScore * 1.25 * 100) / 100
+	standardScore := math.Round(totalScore*1.25*100) / 100
 
 	level := "normal"
 	resultSummary := ""
@@ -300,7 +300,7 @@ func (h *EducationHandler) ListMyAssessments(c *gin.Context) {
 // GET /api/v1/mental/counselors
 func (h *EducationHandler) ListCounselors(c *gin.Context) {
 	rows, err := h.db.Query(
-		"SELECT id, counselor_id, name, title, avatar, gender, department, specialties, bio, working_days, available, created_at "+
+		"SELECT id, counselor_id, name, title, avatar, gender, department, specialties, bio, working_days, available, created_at " +
 			"FROM counselors WHERE status = 'active' ORDER BY available DESC, id ASC",
 	)
 	if err != nil {
@@ -508,17 +508,17 @@ func (h *EducationHandler) ListPsychArticles(c *gin.Context) {
 	defer rows.Close()
 
 	type ArticleItem struct {
-		ID          int64  `json:"id"`
-		ArticleID   string `json:"article_id"`
-		Title       string `json:"title"`
-		Category    string `json:"category"`
-		Summary     string `json:"summary"`
-		CoverImage  string `json:"cover_image"`
-		Author      string `json:"author"`
-		ReadCount   int    `json:"read_count"`
-		IsCrisis    int    `json:"is_crisis"`
-		Tags        string `json:"tags"`
-		CreatedAt   string `json:"created_at"`
+		ID         int64  `json:"id"`
+		ArticleID  string `json:"article_id"`
+		Title      string `json:"title"`
+		Category   string `json:"category"`
+		Summary    string `json:"summary"`
+		CoverImage string `json:"cover_image"`
+		Author     string `json:"author"`
+		ReadCount  int    `json:"read_count"`
+		IsCrisis   int    `json:"is_crisis"`
+		Tags       string `json:"tags"`
+		CreatedAt  string `json:"created_at"`
 	}
 
 	var list []*ArticleItem
@@ -599,7 +599,7 @@ func (h *EducationHandler) GetPsychArticle(c *gin.Context) {
 // GET /api/v1/mental/hotlines
 func (h *EducationHandler) ListCrisisHotlines(c *gin.Context) {
 	rows, err := h.db.Query(
-		"SELECT id, hotline_id, name, phone, service_time, description, level, created_at "+
+		"SELECT id, hotline_id, name, phone, service_time, description, level, created_at " +
 			"FROM crisis_hotlines WHERE status = 'active' ORDER BY level ASC, id ASC",
 	)
 	if err != nil {

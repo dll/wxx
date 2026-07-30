@@ -58,16 +58,16 @@ const (
 	SelfClubWrite        Capability = "self.club.write"        // 社团生活操作
 
 	// ── 就业指导模块 ──
-	SelfCareerRead    Capability = "self.career.read"    // 就业指导查看（政策、招聘、宣讲会、面试题）
-	SelfCareerWrite   Capability = "self.career.write"   // 就业指导操作
+	SelfCareerRead  Capability = "self.career.read"  // 就业指导查看（政策、招聘、宣讲会、面试题）
+	SelfCareerWrite Capability = "self.career.write" // 就业指导操作
 
 	// ── 学业学习模块 ──
-	SelfStudyRead     Capability = "self.study.read"     // 学业学习查看（课程、成绩、资源、考试）
-	SelfStudyWrite    Capability = "self.study.write"    // 学业学习操作
+	SelfStudyRead  Capability = "self.study.read"  // 学业学习查看（课程、成绩、资源、考试）
+	SelfStudyWrite Capability = "self.study.write" // 学业学习操作
 
 	// ── 心理健康模块 ──
-	SelfMentalRead    Capability = "self.mental.read"    // 心理健康查看（量表、咨询师、文章、热线）
-	SelfMentalWrite   Capability = "self.mental.write"   // 心理健康操作（测评、预约、情绪日记）
+	SelfMentalRead  Capability = "self.mental.read"  // 心理健康查看（量表、咨询师、文章、热线）
+	SelfMentalWrite Capability = "self.mental.write" // 心理健康操作（测评、预约、情绪日记）
 )
 
 // 学生会能力
@@ -143,10 +143,10 @@ const (
 
 // 学校管理能力
 const (
-	SchoolAgentWrite     Capability = "school.agent.write"      // 智能体管理
-	SchoolUserWrite      Capability = "school.user.write"       // 用户管理（学校级）
-	SchoolUserUpdate     Capability = "school.user.update"      // 修改用户信息（学校级）
-	SchoolKBSyncExport   Capability = "school.kb.sync.export"   // 知识库全量/增量同步导出（学校级运维，区别于 self.export.self 导出本人回答）
+	SchoolAgentWrite   Capability = "school.agent.write"    // 智能体管理
+	SchoolUserWrite    Capability = "school.user.write"     // 用户管理（学校级）
+	SchoolUserUpdate   Capability = "school.user.update"    // 修改用户信息（学校级）
+	SchoolKBSyncExport Capability = "school.kb.sync.export" // 知识库全量/增量同步导出（学校级运维，区别于 self.export.self 导出本人回答）
 )
 
 // 系统管理能力

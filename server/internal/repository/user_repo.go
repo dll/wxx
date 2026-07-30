@@ -557,20 +557,20 @@ func (r *UserRepo) Delete(userID int64) error {
 
 	// 清理关联数据（按外键依赖顺序）
 	assocTables := []string{
-		"chat_records",      // 聊天记录
-		"sessions",          // 会话
-		"process_records",   // 办事记录
-		"plan_progress_records", // 规划进度
-		"student_plans",     // 学生规划
-		"club_members",      // 社团成员
+		"chat_records",                // 聊天记录
+		"sessions",                    // 会话
+		"process_records",             // 办事记录
+		"plan_progress_records",       // 规划进度
+		"student_plans",               // 学生规划
+		"club_members",                // 社团成员
 		"club_activity_registrations", // 活动报名
 		"competition_registrations",   // 竞赛报名
 		"student_topic_selections",    // 选题记录
-		"party_progress",    // 入党进度
-		"party_study_records", // 党建学习记录
-		"mood_diary",        // 情绪日记（如果表存在）
-		"notifications",     // 通知
-		"feedback",          // 反馈
+		"party_progress",              // 入党进度
+		"party_study_records",         // 党建学习记录
+		"mood_diary",                  // 情绪日记（如果表存在）
+		"notifications",               // 通知
+		"feedback",                    // 反馈
 	}
 	for _, table := range assocTables {
 		// 逐表尝试删除，忽略表不存在的错误

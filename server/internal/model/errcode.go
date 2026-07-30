@@ -1,10 +1,11 @@
 // Package model 定义业务错误码注册表（A-01）。
 // 错误码分段：
-//   1xxxx — 认证/授权
-//   2xxxx — 参数校验
-//   3xxxx — 业务逻辑
-//   4xxxx — 外部依赖（LLM / 对接系统）
-//   5xxxx — 系统内部
+//
+//	1xxxx — 认证/授权
+//	2xxxx — 参数校验
+//	3xxxx — 业务逻辑
+//	4xxxx — 外部依赖（LLM / 对接系统）
+//	5xxxx — 系统内部
 //
 // 每个错误码包含：业务码（稳定）、HTTP 状态码、中文消息模板。
 // handler 层统一使用 BizError 返回，前端按 code 字段做 i18n 或展示。
@@ -14,9 +15,9 @@ import "net/http"
 
 // BizError 业务错误（可携带业务码 + HTTP 状态码）
 type BizError struct {
-	Code       int    `json:"code"`        // 业务错误码（稳定，前端可依赖）
-	HTTPStatus int    `json:"-"`           // 对应 HTTP 状态码
-	Message    string `json:"message"`     // 中文错误描述
+	Code       int    `json:"code"`    // 业务错误码（稳定，前端可依赖）
+	HTTPStatus int    `json:"-"`       // 对应 HTTP 状态码
+	Message    string `json:"message"` // 中文错误描述
 }
 
 func (e *BizError) Error() string {
@@ -40,10 +41,10 @@ func NewBizError(code int, msgs ...string) *BizError {
 
 // 1xxxx 认证/授权
 const (
-	ErrCodeUnauthorized    = 10001 // 未登录或令牌过期
-	ErrCodeTokenRevoked    = 10002 // 令牌已吊销
-	ErrCodeAccountDisabled = 10003 // 账户已停用
-	ErrCodeForbidden       = 10004 // 无权限
+	ErrCodeUnauthorized     = 10001 // 未登录或令牌过期
+	ErrCodeTokenRevoked     = 10002 // 令牌已吊销
+	ErrCodeAccountDisabled  = 10003 // 账户已停用
+	ErrCodeForbidden        = 10004 // 无权限
 	ErrCodeRoleInsufficient = 10005 // 角色权限不足
 	ErrCodeCapabilityDenied = 10006 // 能力门控拒绝
 )
@@ -58,32 +59,32 @@ const (
 
 // 3xxxx 业务逻辑
 const (
-	ErrCodeNotFound         = 30001 // 资源不存在
-	ErrCodeDuplicate        = 30002 // 资源已存在（重复创建）
-	ErrCodeQuotaExceeded    = 30003 // 配额已用尽
-	ErrCodeProcessNotFound  = 30004 // 办事流程未定义
-	ErrCodeKBNoResult       = 30005 // 知识库无匹配结果
-	ErrCodeFeedbackClosed   = 30006 // 反馈已关闭不可修改
-	ErrCodeSessionNotFound  = 30007 // 会话不存在
-	ErrCodeLowConfidence    = 30008 // 置信度过低，已兜底
+	ErrCodeNotFound        = 30001 // 资源不存在
+	ErrCodeDuplicate       = 30002 // 资源已存在（重复创建）
+	ErrCodeQuotaExceeded   = 30003 // 配额已用尽
+	ErrCodeProcessNotFound = 30004 // 办事流程未定义
+	ErrCodeKBNoResult      = 30005 // 知识库无匹配结果
+	ErrCodeFeedbackClosed  = 30006 // 反馈已关闭不可修改
+	ErrCodeSessionNotFound = 30007 // 会话不存在
+	ErrCodeLowConfidence   = 30008 // 置信度过低，已兜底
 )
 
 // 4xxxx 外部依赖
 const (
-	ErrCodeLLMUnavailable   = 40001 // LLM 服务不可用
-	ErrCodeLLMTimeout       = 40002 // LLM 请求超时
-	ErrCodeLLMRateLimit     = 40003 // LLM 限流
-	ErrCodeXuegongFailed    = 40004 // 学工系统对接失败
-	ErrCodeYBTFailed        = 40005 // 一表通对接失败
-	ErrCodeSSOFailed        = 40006 // SSO 认证失败
+	ErrCodeLLMUnavailable = 40001 // LLM 服务不可用
+	ErrCodeLLMTimeout     = 40002 // LLM 请求超时
+	ErrCodeLLMRateLimit   = 40003 // LLM 限流
+	ErrCodeXuegongFailed  = 40004 // 学工系统对接失败
+	ErrCodeYBTFailed      = 40005 // 一表通对接失败
+	ErrCodeSSOFailed      = 40006 // SSO 认证失败
 )
 
 // 5xxxx 系统内部
 const (
-	ErrCodeInternal         = 50001 // 服务器内部错误
-	ErrCodeDBError          = 50002 // 数据库操作失败
-	ErrCodeConfigInvalid    = 50003 // 配置校验失败
-	ErrCodeMigrateFailed    = 50004 // 数据库迁移失败
+	ErrCodeInternal      = 50001 // 服务器内部错误
+	ErrCodeDBError       = 50002 // 数据库操作失败
+	ErrCodeConfigInvalid = 50003 // 配置校验失败
+	ErrCodeMigrateFailed = 50004 // 数据库迁移失败
 )
 
 // errRegistry 错误码注册表（内部映射）
@@ -113,18 +114,18 @@ var errRegistry = map[int]*BizError{
 	ErrCodeLowConfidence:   {Code: ErrCodeLowConfidence, HTTPStatus: http.StatusOK, Message: "匹配置信度较低，建议咨询辅导员确认"},
 
 	// 外部依赖
-	ErrCodeLLMUnavailable:  {Code: ErrCodeLLMUnavailable, HTTPStatus: http.StatusServiceUnavailable, Message: "AI 服务暂时不可用，请稍后重试"},
-	ErrCodeLLMTimeout:      {Code: ErrCodeLLMTimeout, HTTPStatus: http.StatusGatewayTimeout, Message: "AI 响应超时，请稍后重试"},
-	ErrCodeLLMRateLimit:    {Code: ErrCodeLLMRateLimit, HTTPStatus: http.StatusTooManyRequests, Message: "AI 服务繁忙，请稍后重试"},
-	ErrCodeXuegongFailed:   {Code: ErrCodeXuegongFailed, HTTPStatus: http.StatusBadGateway, Message: "学工系统对接失败"},
-	ErrCodeYBTFailed:       {Code: ErrCodeYBTFailed, HTTPStatus: http.StatusBadGateway, Message: "一表通系统对接失败"},
-	ErrCodeSSOFailed:       {Code: ErrCodeSSOFailed, HTTPStatus: http.StatusBadGateway, Message: "统一认证服务异常"},
+	ErrCodeLLMUnavailable: {Code: ErrCodeLLMUnavailable, HTTPStatus: http.StatusServiceUnavailable, Message: "AI 服务暂时不可用，请稍后重试"},
+	ErrCodeLLMTimeout:     {Code: ErrCodeLLMTimeout, HTTPStatus: http.StatusGatewayTimeout, Message: "AI 响应超时，请稍后重试"},
+	ErrCodeLLMRateLimit:   {Code: ErrCodeLLMRateLimit, HTTPStatus: http.StatusTooManyRequests, Message: "AI 服务繁忙，请稍后重试"},
+	ErrCodeXuegongFailed:  {Code: ErrCodeXuegongFailed, HTTPStatus: http.StatusBadGateway, Message: "学工系统对接失败"},
+	ErrCodeYBTFailed:      {Code: ErrCodeYBTFailed, HTTPStatus: http.StatusBadGateway, Message: "一表通系统对接失败"},
+	ErrCodeSSOFailed:      {Code: ErrCodeSSOFailed, HTTPStatus: http.StatusBadGateway, Message: "统一认证服务异常"},
 
 	// 系统内部
-	ErrCodeInternal:        {Code: ErrCodeInternal, HTTPStatus: http.StatusInternalServerError, Message: "服务器内部错误"},
-	ErrCodeDBError:         {Code: ErrCodeDBError, HTTPStatus: http.StatusInternalServerError, Message: "数据库操作异常"},
-	ErrCodeConfigInvalid:   {Code: ErrCodeConfigInvalid, HTTPStatus: http.StatusInternalServerError, Message: "系统配置异常"},
-	ErrCodeMigrateFailed:   {Code: ErrCodeMigrateFailed, HTTPStatus: http.StatusInternalServerError, Message: "数据库迁移失败"},
+	ErrCodeInternal:      {Code: ErrCodeInternal, HTTPStatus: http.StatusInternalServerError, Message: "服务器内部错误"},
+	ErrCodeDBError:       {Code: ErrCodeDBError, HTTPStatus: http.StatusInternalServerError, Message: "数据库操作异常"},
+	ErrCodeConfigInvalid: {Code: ErrCodeConfigInvalid, HTTPStatus: http.StatusInternalServerError, Message: "系统配置异常"},
+	ErrCodeMigrateFailed: {Code: ErrCodeMigrateFailed, HTTPStatus: http.StatusInternalServerError, Message: "数据库迁移失败"},
 }
 
 // LookupError 按错误码查询注册表（供中间件 / 工具函数使用）

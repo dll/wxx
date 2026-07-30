@@ -136,7 +136,7 @@ func TestKBService_ImportResources_SingleValid(t *testing.T) {
 
 	ndjson := `{"resource_id":"imp-1","resource_type":"Policy","title":"导入测试","content":"导入正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestKBService_ImportResources_SingleValid(t *testing.T) {
 	}
 
 	// 验证已入库
-	kb, err := svc.Get(context.Background(),"imp-1")
+	kb, err := svc.Get(context.Background(), "imp-1")
 	if err != nil {
 		t.Fatalf("导入后 Get 失败: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestKBService_ImportResources_MultipleLines(t *testing.T) {
 	ndjson := `{"resource_id":"multi-1","resource_type":"FAQ","title":"FAQ1","content":"正文1","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 {"resource_id":"multi-2","resource_type":"FAQ","title":"FAQ2","content":"正文2","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestKBService_ImportResources_InvalidJSON(t *testing.T) {
 	ndjson := `这不是JSON
 {"resource_id":"valid","resource_type":"Policy","title":"有效","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestKBService_ImportResources_MissingRequiredFields(t *testing.T) {
 	// 缺少 title 和 content
 	ndjson := `{"resource_id":"no-title","resource_type":"Policy","content":"","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestKBService_ImportResources_InvalidResourceType(t *testing.T) {
 
 	ndjson := `{"resource_id":"bad-type","resource_type":"InvalidType","title":"坏类型","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestKBService_ImportResources_VersionUpsert(t *testing.T) {
 	// 先导入 v1.0
 	ndjson := `{"resource_id":"ver-test","resource_type":"Policy","title":"v1标题","content":"v1正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(),ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
 	if err != nil {
 		t.Fatalf("首次导入失败: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestKBService_ImportResources_VersionUpsert(t *testing.T) {
 	}
 
 	// 验证内容已更新
-	kb, _ := svc.Get(context.Background(),"ver-test")
+	kb, _ := svc.Get(context.Background(), "ver-test")
 	if kb.Title != "v2标题" {
 		t.Errorf("期望 Title=v2标题，得到 %s", kb.Title)
 	}
@@ -288,7 +288,7 @@ func TestKBService_ExportResources(t *testing.T) {
 		Title: "导出资源", Content: "导出正文",
 	})
 
-	resources, err := svc.ExportResources(context.Background(),"", "2020-01-01T00:00:00Z", "school", "")
+	resources, err := svc.ExportResources(context.Background(), "", "2020-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestKBService_ExportResources_EmptyWithFutureCursor(t *testing.T) {
 	svc := NewKBService(repository.NewKBRepo(db), db)
 
 	// 用未来时间作为游标，应返回空
-	resources, err := svc.ExportResources(context.Background(),"", "2099-01-01T00:00:00Z", "school", "")
+	resources, err := svc.ExportResources(context.Background(), "", "2099-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}
@@ -331,7 +331,7 @@ func TestKBService_ExportResources_TypeFilter(t *testing.T) {
 		Title: "问答", Content: "问答正文",
 	})
 
-	resources, err := svc.ExportResources(context.Background(),"FAQ", "2020-01-01T00:00:00Z", "school", "")
+	resources, err := svc.ExportResources(context.Background(), "FAQ", "2020-01-01T00:00:00Z", "school", "")
 	if err != nil {
 		t.Fatalf("ExportResources 失败: %v", err)
 	}

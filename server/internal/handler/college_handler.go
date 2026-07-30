@@ -150,8 +150,8 @@ func (h *CollegeHandler) ProcessStepEdit(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"process_id": processID,
-		"steps":      []gin.H{},
+		"process_id":  processID,
+		"steps":       []gin.H{},
 		"data_source": "fallback",
 	})
 }

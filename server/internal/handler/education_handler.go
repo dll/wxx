@@ -246,18 +246,18 @@ func (h *EducationHandler) GetGradeSummary(c *gin.Context) {
 	}
 
 	type GradeSummary struct {
-		TotalGPA          float64 `json:"total_gpa"`
-		TotalCredits      float64 `json:"total_credits"`
-		EarnedCredits     float64 `json:"earned_credits"`
-		TotalCourses      int     `json:"total_courses"`
-		PassedCourses     int     `json:"passed_courses"`
-		FailedCourses     int     `json:"failed_courses"`
-		AverageScore      float64 `json:"average_score"`
-		ClassRank         int     `json:"class_rank"`
-		ClassTotal        int     `json:"class_total"`
-		CurrentSemester   string  `json:"current_semester"`
-		SemesterGPA       float64 `json:"semester_gpa"`
-		SemesterCredits   float64 `json:"semester_credits"`
+		TotalGPA        float64 `json:"total_gpa"`
+		TotalCredits    float64 `json:"total_credits"`
+		EarnedCredits   float64 `json:"earned_credits"`
+		TotalCourses    int     `json:"total_courses"`
+		PassedCourses   int     `json:"passed_courses"`
+		FailedCourses   int     `json:"failed_courses"`
+		AverageScore    float64 `json:"average_score"`
+		ClassRank       int     `json:"class_rank"`
+		ClassTotal      int     `json:"class_total"`
+		CurrentSemester string  `json:"current_semester"`
+		SemesterGPA     float64 `json:"semester_gpa"`
+		SemesterCredits float64 `json:"semester_credits"`
 	}
 
 	summary := &GradeSummary{}
@@ -355,19 +355,19 @@ func (h *EducationHandler) ListLearningResources(c *gin.Context) {
 	defer rows.Close()
 
 	type ResourceItem struct {
-		ID             int64  `json:"id"`
-		ResourceID     string `json:"resource_id"`
-		CourseID       string `json:"course_id"`
-		CourseName     string `json:"course_name"`
-		Title          string `json:"title"`
-		ResourceType   string `json:"resource_type"`
-		Chapter        string `json:"chapter"`
-		FileURL        string `json:"file_url"`
-		Author         string `json:"author"`
-		DownloadCount  int    `json:"download_count"`
-		ViewCount      int    `json:"view_count"`
-		Tags           string `json:"tags"`
-		CreatedAt      string `json:"created_at"`
+		ID            int64  `json:"id"`
+		ResourceID    string `json:"resource_id"`
+		CourseID      string `json:"course_id"`
+		CourseName    string `json:"course_name"`
+		Title         string `json:"title"`
+		ResourceType  string `json:"resource_type"`
+		Chapter       string `json:"chapter"`
+		FileURL       string `json:"file_url"`
+		Author        string `json:"author"`
+		DownloadCount int    `json:"download_count"`
+		ViewCount     int    `json:"view_count"`
+		Tags          string `json:"tags"`
+		CreatedAt     string `json:"created_at"`
 	}
 
 	var list []*ResourceItem

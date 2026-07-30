@@ -46,14 +46,14 @@ func (r *ChatMetricsRepo) Insert(m *ChatMetric) error {
 
 // AggregatedMetrics 聚合指标结果
 type AggregatedMetrics struct {
-	TotalQuestions  int64
-	AvgConfidence   float64
-	FallbackCount   int64
-	FallbackRate    float64
-	SourceHitCount  int64
-	SourceHitRate   float64
-	AvgDurationMs   int64
-	P95DurationMs   int64
+	TotalQuestions int64
+	AvgConfidence  float64
+	FallbackCount  int64
+	FallbackRate   float64
+	SourceHitCount int64
+	SourceHitRate  float64
+	AvgDurationMs  int64
+	P95DurationMs  int64
 }
 
 // Aggregate 聚合最近 sinceDays 天的质量指标

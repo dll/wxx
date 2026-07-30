@@ -103,7 +103,7 @@ func (s *UnionService) GeneratePoster(ctx context.Context, title, style string) 
 		Copy:        "诚邀您的参与！\n时间：2026年5月\n地点：信息楼报告厅",
 		ColorScheme: styleConfig["colors"],
 		Layout:      styleConfig["layout"],
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 
@@ -189,7 +189,7 @@ func (s *UnionService) TrackHotTopics(ctx context.Context) *HotTopicTrackData {
 			{"topic": "暑期社会实践", "heat": 75, "trend": "rising", "related_events": "报名即将截止"},
 		},
 		Suggestions: []string{"建议尽快发布期末复习资料整理通知", "暑期社会实践报名宣传可结合榜样案例"},
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 
@@ -214,6 +214,6 @@ func (s *UnionService) AnalyzeActivity(ctx context.Context, eventName string) *A
 		Demographic: map[string]interface{}{"大一": 40, "大二": 35, "大三": 20, "大四": 5},
 		Report:      fmt.Sprintf("%s活动整体参与度良好，报名率达85%%，到场率72%%。大一大二学生为主要参与群体。建议优化活动时间安排以提升到场率。", eventName),
 		Suggestions: []string{"优化时间安排，避开考试周", "增加线上参与渠道", "提前一周加大宣传力度"},
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }

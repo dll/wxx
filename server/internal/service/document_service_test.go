@@ -287,6 +287,7 @@ func TestExtractDocKeywordsPerformance(t *testing.T) {
 		t.Error("真实文档未提取到任何关键词")
 	}
 }
+
 // TestHasSignificantOverlap 交错窗口判定的正负样本
 func TestHasSignificantOverlap(t *testing.T) {
 	overlapping := [][2]string{

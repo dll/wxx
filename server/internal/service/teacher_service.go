@@ -329,7 +329,7 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 		StudentCount:   42,
 		LastReflection: "上次课程学生对递归的理解较好，但动态规划部分还需加强练习。",
 		KeyKnowledge:   []string{"二叉树遍历算法", "树的递归定义", "遍历的非递归实现"},
-		DataSource: "reference",
+		DataSource:     "reference",
 	}
 }
 
