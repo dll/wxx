@@ -191,3 +191,35 @@ func TestExportHandler_Export_ServiceError(t *testing.T) {
 		t.Errorf("期望 500，得到 %d: %s", resp.Code, resp.Body.String())
 	}
 }
+
+// TestVerifyExportSignature 覆盖 HMAC-SHA256 签名的生成与校验往返，
+// 同时锁定接收方（蔚园智答导入侧）会调用的 VerifyExportSignature 契约。
+func TestVerifyExportSignature(t *testing.T) {
+	const secret = "test-hmac-secret-key"
+	body := []byte(`{"resources":[{"title":"请假流程"}]}`)
+
+	// 正确签名：computeHMACSHA256 生成、VerifyExportSignature 校验，必须往返通过
+	sig := "sha256=" + computeHMACSHA256(body, secret)
+	if !VerifyExportSignature(body, sig, secret) {
+		t.Error("合法签名校验失败，期望通过")
+	}
+
+	cases := []struct {
+		name string
+		body []byte
+		sig  string
+		sec  string
+	}{
+		{"缺少sha256前缀", body, computeHMACSHA256(body, secret), secret},
+		{"密钥不匹配", body, sig, "wrong-secret"},
+		{"报文被篡改", []byte(`{"resources":[{"title":"篡改"}]}`), sig, secret},
+		{"空签名头", body, "", secret},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if VerifyExportSignature(tc.body, tc.sig, tc.sec) {
+				t.Errorf("%s：非法签名却校验通过", tc.name)
+			}
+		})
+	}
+}
