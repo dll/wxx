@@ -86,7 +86,7 @@ func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string
 		PassedItems:     []string{"公共必修课(40学分)", "专业必修课(60学分)", "专业选修课(30学分)", "毕业论文(10学分)", "大学英语四级(425+)"},
 		PendingItems:    []string{"公共选修课差2学分", "创新创业学分差2分", "志愿服务时长差10小时"},
 		CanGraduate:     false,
-		DataSource: "reference",
+		DataSource:      "reference",
 	}
 
 	remaining := result.RequiredCredits - result.TotalCredits
@@ -141,7 +141,7 @@ func (s *AssistantService) GenerateNotification(ctx context.Context, channel, to
 		Content:     "【通知】" + topic + "：请大家注意相关安排，按时完成。详情请查看教务系统公告。",
 		SendTime:    time.Now().Add(2 * time.Hour).Format("15:04"),
 		TargetCount: 240,
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 
@@ -317,14 +317,14 @@ func (s *AssistantService) AutomateWorkflow(ctx context.Context, workflowType st
 
 // ProcessStepDetail 流程步骤详情
 type ProcessStepDetail struct {
-	StepID      int64    `json:"step_id"`
-	Title       string   `json:"title"`
-	Contact     string   `json:"contact"`
-	Location    string   `json:"location"`
-	Materials   []string `json:"materials"`
-	FAQ         []string `json:"faq"`
-	MediaURLs   []string `json:"media_urls"`
-	DataSource  string   `json:"data_source"`
+	StepID     int64    `json:"step_id"`
+	Title      string   `json:"title"`
+	Contact    string   `json:"contact"`
+	Location   string   `json:"location"`
+	Materials  []string `json:"materials"`
+	FAQ        []string `json:"faq"`
+	MediaURLs  []string `json:"media_urls"`
+	DataSource string   `json:"data_source"`
 }
 
 // ProcessStepManageResult 流程步骤管理结果
@@ -351,10 +351,10 @@ func (s *AssistantService) ManageProcessSteps(ctx context.Context, processID str
 
 // MusicRadioResult 音乐电台
 type MusicRadioResult struct {
-	NowPlaying  map[string]interface{}   `json:"now_playing"`
-	Playlist    []map[string]interface{} `json:"playlist"`
-	Categories  []string                 `json:"categories"`
-	DataSource  string                   `json:"data_source"`
+	NowPlaying map[string]interface{}   `json:"now_playing"`
+	Playlist   []map[string]interface{} `json:"playlist"`
+	Categories []string                 `json:"categories"`
+	DataSource string                   `json:"data_source"`
 }
 
 // GetMusicRadio 音乐电台

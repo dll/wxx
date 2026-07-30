@@ -29,19 +29,19 @@ func NewStudyPlanHandler(db *sql.DB, studyPlanSvc *service.StudyPlanService) *St
 
 // AcademicCalendar 学期校历
 type AcademicCalendar struct {
-	ID            int64  `json:"id"`
-	AcademicYear  int    `json:"academic_year"`
-	Semester      int    `json:"semester"`
-	SemesterCode  string `json:"semester_code"`
-	SemesterName  string `json:"semester_name"`
-	StartDate     string `json:"start_date"`
-	EndDate       string `json:"end_date"`
-	RegisterDate  string `json:"register_date,omitempty"`
-	TotalWeeks    int    `json:"total_weeks"`
-	WeekStartDay  string `json:"week_start_day"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	ID           int64  `json:"id"`
+	AcademicYear int    `json:"academic_year"`
+	Semester     int    `json:"semester"`
+	SemesterCode string `json:"semester_code"`
+	SemesterName string `json:"semester_name"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date"`
+	RegisterDate string `json:"register_date,omitempty"`
+	TotalWeeks   int    `json:"total_weeks"`
+	WeekStartDay string `json:"week_start_day"`
+	Status       string `json:"status"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
 }
 
 // CalendarEvent 校历事件
@@ -60,42 +60,42 @@ type CalendarEvent struct {
 
 // CourseScheduleItem 课表项
 type CourseScheduleItem struct {
-	ID            int64  `json:"id"`
-	UserID        int64  `json:"user_id"`
-	CourseID      string `json:"course_id"`
-	CourseName    string `json:"course_name"`
-	SemesterCode  string `json:"semester_code"`
-	Weekday       int    `json:"weekday"`
-	StartPeriod   int    `json:"start_period"`
-	EndPeriod     int    `json:"end_period"`
-	WeeksPattern  string `json:"weeks_pattern"`
-	Location      string `json:"location,omitempty"`
-	Teacher       string `json:"teacher,omitempty"`
-	Color         string `json:"color"`
-	CreatedAt     string `json:"created_at"`
+	ID           int64  `json:"id"`
+	UserID       int64  `json:"user_id"`
+	CourseID     string `json:"course_id"`
+	CourseName   string `json:"course_name"`
+	SemesterCode string `json:"semester_code"`
+	Weekday      int    `json:"weekday"`
+	StartPeriod  int    `json:"start_period"`
+	EndPeriod    int    `json:"end_period"`
+	WeeksPattern string `json:"weeks_pattern"`
+	Location     string `json:"location,omitempty"`
+	Teacher      string `json:"teacher,omitempty"`
+	Color        string `json:"color"`
+	CreatedAt    string `json:"created_at"`
 }
 
 // StudyPlan 学习计划
 type StudyPlan struct {
-	ID            int64           `json:"id"`
-	UserID        int64           `json:"user_id"`
-	Title         string          `json:"title"`
-	PlanType      string          `json:"plan_type"`
-	SemesterCode  string          `json:"semester_code,omitempty"`
-	StartDate     string          `json:"start_date"`
-	EndDate       string          `json:"end_date"`
-	Goals         []string        `json:"goals"`
-	Progress      float64         `json:"progress"`
-	AIGenerated   bool            `json:"ai_generated"`
-	Status        string          `json:"status"`
-	LinkedPlanID  *int64          `json:"linked_plan_id,omitempty"`
-	CreatedAt     string          `json:"created_at"`
-	UpdatedAt     string          `json:"updated_at"`
+	ID           int64    `json:"id"`
+	UserID       int64    `json:"user_id"`
+	Title        string   `json:"title"`
+	PlanType     string   `json:"plan_type"`
+	SemesterCode string   `json:"semester_code,omitempty"`
+	StartDate    string   `json:"start_date"`
+	EndDate      string   `json:"end_date"`
+	Goals        []string `json:"goals"`
+	Progress     float64  `json:"progress"`
+	AIGenerated  bool     `json:"ai_generated"`
+	Status       string   `json:"status"`
+	LinkedPlanID *int64   `json:"linked_plan_id,omitempty"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
 	// 任务统计（列表场景）
-	TaskTotal     int             `json:"task_total,omitempty"`
-	TaskDone      int             `json:"task_done,omitempty"`
-	TaskPending   int             `json:"task_pending,omitempty"`
-	Tasks         []*StudyPlanTask `json:"tasks,omitempty"`
+	TaskTotal   int              `json:"task_total,omitempty"`
+	TaskDone    int              `json:"task_done,omitempty"`
+	TaskPending int              `json:"task_pending,omitempty"`
+	Tasks       []*StudyPlanTask `json:"tasks,omitempty"`
 }
 
 // StudyPlanTask 学习计划任务
@@ -120,7 +120,7 @@ type StudyPlanTask struct {
 type PlanOverviewItem struct {
 	PlanType  string  `json:"plan_type"`
 	PlanCount int     `json:"plan_count"`
-	Progress  float64 `json:"progress"`  // 平均进度
+	Progress  float64 `json:"progress"` // 平均进度
 	TaskTotal int     `json:"task_total"`
 	TaskDone  int     `json:"task_done"`
 }

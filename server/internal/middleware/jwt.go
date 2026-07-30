@@ -111,13 +111,13 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 
 		// 注入用户上下文
 		userCtx := &model.UserContext{
-			Consented:   claims.Consented,
-			UserID:      claims.UserID,
-			Username:    claims.Username,
-			Role:        claims.Role,
-			OwnerScope:  claims.OwnerScope,
-			OwnerID:     claims.OwnerID,
-			DisplayName: claims.DisplayName,
+			Consented:    claims.Consented,
+			UserID:       claims.UserID,
+			Username:     claims.Username,
+			Role:         claims.Role,
+			OwnerScope:   claims.OwnerScope,
+			OwnerID:      claims.OwnerID,
+			DisplayName:  claims.DisplayName,
 			TokenVersion: claims.TokenVersion,
 		}
 		c.Set(contextKeyUser, userCtx)

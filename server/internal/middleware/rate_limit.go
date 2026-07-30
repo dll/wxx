@@ -197,7 +197,6 @@ func ChatUserRateLimiter() gin.HandlerFunc {
 	return UserThrottleMiddleware(ChatUserRPS, ChatUserBurst)
 }
 
-
 // RateLimitByMinute 快捷函数：按分钟速率创建 IP 限流中间件
 func RateLimitByMinute(reqPerMin int) gin.HandlerFunc {
 	rps := float64(reqPerMin) / 60.0

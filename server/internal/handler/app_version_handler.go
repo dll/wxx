@@ -29,9 +29,9 @@ type CheckUpdateRequest struct {
 
 // CheckUpdateResponse 检查更新响应
 type CheckUpdateResponse struct {
-	HasUpdate   bool              `json:"has_update"`
-	IsForce     bool              `json:"is_force"`
-	Latest      *model.AppVersion `json:"latest,omitempty"`
+	HasUpdate bool              `json:"has_update"`
+	IsForce   bool              `json:"is_force"`
+	Latest    *model.AppVersion `json:"latest,omitempty"`
 }
 
 // CheckUpdate 检查版本更新（公开接口，无需登录）
@@ -88,8 +88,8 @@ func (h *AppVersionHandler) GetLatestVersion(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"data": latest,
+		"code":    0,
+		"data":    latest,
 		"message": "ok",
 	})
 }
@@ -111,9 +111,9 @@ func (h *AppVersionHandler) ListVersions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"list":  list,
-			"total": total,
-			"page":  page,
+			"list":      list,
+			"total":     total,
+			"page":      page,
 			"page_size": pageSize,
 		},
 		"message": "ok",

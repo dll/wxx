@@ -21,11 +21,11 @@ type CheckinResult struct {
 	Success       bool     `json:"success"`
 	Message       string   `json:"message"`
 	Date          string   `json:"date"`
-	Streak        int      `json:"streak"`          // 当前连续天数
-	TotalDays     int      `json:"total_days"`      // 累计打卡天数
-	LongestStreak int      `json:"longest_streak"`  // 历史最长连续
-	TodayChecked  bool     `json:"today_checked"`   // 今日是否已打卡
-	Milestones    []string `json:"milestones"`      // 达成的里程碑
+	Streak        int      `json:"streak"`         // 当前连续天数
+	TotalDays     int      `json:"total_days"`     // 累计打卡天数
+	LongestStreak int      `json:"longest_streak"` // 历史最长连续
+	TodayChecked  bool     `json:"today_checked"`  // 今日是否已打卡
+	Milestones    []string `json:"milestones"`     // 达成的里程碑
 }
 
 // DoCheckin 执行每日打卡

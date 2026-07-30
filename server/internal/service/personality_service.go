@@ -31,17 +31,17 @@ func NewPersonalityService(
 
 // PersonalityResult 返回给前端的性格洞察结果
 type PersonalityResult struct {
-	PersonalityType   string   `json:"type"`
-	TypeLabel         string   `json:"label"`
-	Description       string   `json:"description"`
-	Strengths         []string `json:"strengths"`
-	Weaknesses        []string `json:"weaknesses"`
-	CareerSuggestions []string `json:"career_suggestions"`
-	LearningStyle     string   `json:"learning_style"`
-	VARK              VARKScore `json:"vark"`
+	PersonalityType   string       `json:"type"`
+	TypeLabel         string       `json:"label"`
+	Description       string       `json:"description"`
+	Strengths         []string     `json:"strengths"`
+	Weaknesses        []string     `json:"weaknesses"`
+	CareerSuggestions []string     `json:"career_suggestions"`
+	LearningStyle     string       `json:"learning_style"`
+	VARK              VARKScore    `json:"vark"`
 	BigFive           BigFiveScore `json:"big_five"`
-	DataSource        string   `json:"data_source"`
-	ComputedAt        string   `json:"computed_at"`
+	DataSource        string       `json:"data_source"`
+	ComputedAt        string       `json:"computed_at"`
 }
 
 // VARKScore VARK 学习风格分数

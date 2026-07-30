@@ -68,15 +68,15 @@ type KBResource struct {
 
 // ProcessStep 流程步骤，对应 process_steps 表
 type ProcessStep struct {
-	ID          int64  `json:"id" db:"id"`
-	ResourceID  string `json:"resource_id" db:"resource_id"`
-	StepOrder   int    `json:"step_order" db:"step_order"` // 步骤序号
-	Title       string `json:"title" db:"title"`
-	Materials   string `json:"materials" db:"materials"` // JSON 数组：所需材料
-	EntryURL    string `json:"entry_url" db:"entry_url"` // 办理入口
-	Deadline    string `json:"deadline" db:"deadline"`
-	Location    string `json:"location" db:"location"` // 办理地点
-	Notes       string `json:"notes" db:"notes"`
+	ID            int64   `json:"id" db:"id"`
+	ResourceID    string  `json:"resource_id" db:"resource_id"`
+	StepOrder     int     `json:"step_order" db:"step_order"` // 步骤序号
+	Title         string  `json:"title" db:"title"`
+	Materials     string  `json:"materials" db:"materials"` // JSON 数组：所需材料
+	EntryURL      string  `json:"entry_url" db:"entry_url"` // 办理入口
+	Deadline      string  `json:"deadline" db:"deadline"`
+	Location      string  `json:"location" db:"location"` // 办理地点
+	Notes         string  `json:"notes" db:"notes"`
 	Contact       string  `json:"contact" db:"contact"`               // 联系人
 	Phone         string  `json:"phone" db:"phone"`                   // 联系电话
 	ContactWechat string  `json:"contact_wechat" db:"contact_wechat"` // 联系人微信/企业微信
@@ -143,27 +143,27 @@ type SyncCursor struct {
 
 // Feedback 用户反馈，对应 feedback 表
 type Feedback struct {
-	ID                int64   `json:"id" db:"id"`
-	FeedbackID        string  `json:"feedback_id" db:"feedback_id"`
-	UserID            int64   `json:"user_id" db:"user_id"`
-	Username          string  `json:"username" db:"username"`
-	MessageID         string  `json:"message_id" db:"message_id"`
-	ResourceID        string  `json:"resource_id" db:"resource_id"`
-	Category          string  `json:"category" db:"category"`
-	Content           string  `json:"content" db:"content"`
-	ScreenshotURL     string  `json:"screenshot_url" db:"screenshot_url"` // 截图存储路径
-	Status            string  `json:"status" db:"status"`
-	ResolvedBy        string  `json:"resolved_by" db:"resolved_by"`
-	ResolvedAt        *string `json:"resolved_at" db:"resolved_at"`
-	Reply             string  `json:"reply" db:"reply"` // 管理员回复
-	Rating            int     `json:"rating" db:"rating"`
-	RatingComment     string  `json:"rating_comment" db:"rating_comment"`
-	RatedAt           *string `json:"rated_at" db:"rated_at"`
-	LinkedResourceNote string `json:"linked_resource_note" db:"linked_resource_note"`
-	LinkedAt          *string `json:"linked_at" db:"linked_at"`
-	LinkedBy          string  `json:"linked_by" db:"linked_by"`
-	CreatedAt         string  `json:"created_at" db:"created_at"`
-	UpdatedAt         string  `json:"updated_at" db:"updated_at"`
+	ID                 int64   `json:"id" db:"id"`
+	FeedbackID         string  `json:"feedback_id" db:"feedback_id"`
+	UserID             int64   `json:"user_id" db:"user_id"`
+	Username           string  `json:"username" db:"username"`
+	MessageID          string  `json:"message_id" db:"message_id"`
+	ResourceID         string  `json:"resource_id" db:"resource_id"`
+	Category           string  `json:"category" db:"category"`
+	Content            string  `json:"content" db:"content"`
+	ScreenshotURL      string  `json:"screenshot_url" db:"screenshot_url"` // 截图存储路径
+	Status             string  `json:"status" db:"status"`
+	ResolvedBy         string  `json:"resolved_by" db:"resolved_by"`
+	ResolvedAt         *string `json:"resolved_at" db:"resolved_at"`
+	Reply              string  `json:"reply" db:"reply"` // 管理员回复
+	Rating             int     `json:"rating" db:"rating"`
+	RatingComment      string  `json:"rating_comment" db:"rating_comment"`
+	RatedAt            *string `json:"rated_at" db:"rated_at"`
+	LinkedResourceNote string  `json:"linked_resource_note" db:"linked_resource_note"`
+	LinkedAt           *string `json:"linked_at" db:"linked_at"`
+	LinkedBy           string  `json:"linked_by" db:"linked_by"`
+	CreatedAt          string  `json:"created_at" db:"created_at"`
+	UpdatedAt          string  `json:"updated_at" db:"updated_at"`
 }
 
 // FeedbackLog 反馈处理记录，对应 feedback_logs 表
@@ -178,12 +178,12 @@ type FeedbackLog struct {
 
 // FeedbackStats 反馈统计数据
 type FeedbackStats struct {
-	Total           int               `json:"total"`
-	ByStatus        map[string]int    `json:"by_status"`
-	ByCategory      map[string]int    `json:"by_category"`
-	WeekTrend       []WeekTrendItem   `json:"week_trend"`
-	TopIssues       []TopIssueItem    `json:"top_issues"`
-	AvgResolveHours float64           `json:"avg_resolve_hours"`
+	Total           int             `json:"total"`
+	ByStatus        map[string]int  `json:"by_status"`
+	ByCategory      map[string]int  `json:"by_category"`
+	WeekTrend       []WeekTrendItem `json:"week_trend"`
+	TopIssues       []TopIssueItem  `json:"top_issues"`
+	AvgResolveHours float64         `json:"avg_resolve_hours"`
 }
 
 // WeekTrendItem 周趋势数据项

@@ -920,7 +920,7 @@ func (s *CounselorService) GenerateClassProfile(ctx context.Context, className s
 		},
 		Characteristics: []string{"整体偏理性思维", "团队协作意愿强", "创新意识较好"},
 		Suggestions:     []string{"多组织团队活动促进内向同学融入", "利用分析型同学带动学术氛围"},
-		DataSource: "reference",
+		DataSource:      "reference",
 	}
 }
 
@@ -965,7 +965,7 @@ func (s *CounselorService) GenerateHotTopicSense(ctx context.Context) *HotTopicS
 		},
 		Keywords:    []string{"考试", "实习", "焦虑", "空调", "选课"},
 		AlertTopics: []map[string]interface{}{{"title": "期中考试焦虑", "reason": "多名学生表达负面情绪，需关注心理状态"}},
-		DataSource: "reference",
+		DataSource:  "reference",
 	}
 }
 
