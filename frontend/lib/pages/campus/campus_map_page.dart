@@ -362,6 +362,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
         final steps = _buildStepsPanel(theme);
         if (desktop) {
           return Row(
+            // 让地图和步骤栏都占满整屏高度，避免地图被压矮
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(flex: 7, child: map),
               VerticalDivider(
@@ -373,7 +375,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            SizedBox(height: 520, child: map),
+            // 地图面板：高度拉到接近整屏，地图尽量大
+            SizedBox(height: 800, child: map),
             const SizedBox(height: 12),
             SizedBox(height: 640, child: steps),
           ],
