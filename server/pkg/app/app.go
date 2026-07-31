@@ -178,8 +178,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		uploadDir = "/tmp/uploads"
 		log.Printf("Vercel 环境：上传目录 %s", uploadDir)
 	}
-	docSvc := service.NewDocumentService(uploadDir, 50)
-	docParseSvc := service.NewDocumentService(uploadDir, 10)
+	docSvc := service.NewDocumentService(uploadDir, 100)
+	docParseSvc := service.NewDocumentService(uploadDir, 100)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired

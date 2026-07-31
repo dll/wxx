@@ -97,7 +97,7 @@ func (h *DocumentHandler) SupportedFormats(c *gin.Context) {
 			"formats": []string{
 				"txt", "md", "pdf", "docx", "csv", "xlsx",
 			},
-			"max_size_mb": 10,
+			"max_size_mb": 100,
 			"note":        "支持的文档格式，解析后返回标题、摘要、关键词、字数、段落数等信息",
 		},
 	})
