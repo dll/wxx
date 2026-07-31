@@ -51,10 +51,13 @@ jobs:
       - name: 复制 Functions 文件到构建目录（含 node_modules）
         run: cp -r functions/* frontend/build/web/functions/
 
-      # _routes.json 会将 /api/* 排除在 Pages Functions 之外，
-      # 导致 API 请求返回 405，部署前必须移除
-      - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
-        run: rm -f frontend/build/web/_routes.json
+      # Flutter 生成的 _routes.json 把 /api/* 排除在 Function 外（导致 405）；
+      # 删除后写入正确路由：明确告诉 CF Pages 只把 /api/* 交给 Function 处理
+      - name: 写入正确的 _routes.json（/api/* → Function，其余静态文件）
+        run: |
+          rm -f frontend/build/web/_routes.json
+          printf '{"version":1,"include":["/api/*"],"exclude":[]}\n' \
+            > frontend/build/web/_routes.json
 
       # APK 文件 57 MiB，超出 CF Pages 单文件 25 MiB 限制
       # APK 由 build-apk job 上传到 GitHub Artifacts，不部署到 CF Pages
