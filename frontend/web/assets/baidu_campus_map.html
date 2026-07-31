@@ -176,10 +176,16 @@ function setStep(idx){
   _cur=idx;updateStatus();
   if(_ovs[idx])_map.panTo(_ovs[idx]._pt)}
 
-/* ════ 向 Flutter 发送消息 ════ */
+/* ════ 向 Flutter 发送消息（Web iframe + Android WebView 两路）════ */
 function notify(type,data){
   var msg=Object.assign({type:type},data);
-  (window.parent||window.top||window).postMessage(msg,'*')}
+  // Android WebView：webview_flutter 注入的 JavaScript 通道
+  if(typeof FlutterBridge!=='undefined'){
+    try{FlutterBridge.postMessage(JSON.stringify(msg))}catch(e){}
+  }
+  // Web iframe 路径
+  try{(window.parent||window.top||window).postMessage(msg,'*')}catch(e){}
+}
 
 /* ════ 接收来自 Flutter 的消息 ════ */
 window.addEventListener('message',function(e){

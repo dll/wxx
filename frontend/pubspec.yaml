@@ -61,6 +61,7 @@ dependencies:
 
   # 外部链接跳转（地图/抖音/VR全景）
   url_launcher: ^6.3.0
+  webview_flutter: ^4.10.0
 
   # Excel 文件选择（Web / Android / iOS / 桌面）
   file_picker: ^8.0.7
