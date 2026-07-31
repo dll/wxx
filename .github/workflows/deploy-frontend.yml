@@ -39,32 +39,38 @@ jobs:
           --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      # 安装 bcryptjs 等 Functions 依赖（wrangler 打包时需解析 import 'bcryptjs'）
+      # Functions 源码在 frontend/functions/（git 追踪）
+      # bcryptjs 等依赖须安装，wrangler 打包时才能解析 import
       - name: 安装 Functions 依赖
         run: npm install --omit=dev
         working-directory: ./frontend/functions
 
-      # 复制 Functions（含 node_modules）到构建输出目录，wrangler 才能解析 import
+      # 复制 Functions（含 node_modules）到构建输出目录
       - name: 复制 Functions 到构建目录
         run: |
           mkdir -p frontend/build/web/functions
           cp -r frontend/functions/* frontend/build/web/functions/
 
-      # 只删除 Flutter 生成的 _routes.json，不写替代版——wrangler 自动生成正确路由
-      - name: 删除 Flutter 生成的 _routes.json
+      # Flutter 生成 _routes.json 的 exclude 路由到 Functions（导致 405）。
+      # 删除后写入正确版本：由 wrangler 在 frontend/ 目录运行时通过
+      # frontend/functions/ 源码目录自动生成。
+      - name: 删除 Flutter 的 _routes.json（wrangler 自动生成）
         run: rm -f frontend/build/web/_routes.json
 
       # APK 文件 57 MiB，超出 CF Pages 单文件 25 MiB 限制
       - name: 移除 downloads 目录（APK 超 CF Pages 25 MiB 限制）
         run: rm -rf frontend/build/web/downloads/
 
+      # wrangler 从 frontend/ 目录运行 → 自动发现 frontend/functions/
+      # 合并构建输出目录中的函数副本 + 源码目录的路由生成
       - name: 部署到 Cloudflare Pages（wrangler v3）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          cd frontend
           npm install -g wrangler@3
-          wrangler pages deploy frontend/build/web --project-name=wxx-agent --commit-dirty=true
+          wrangler pages deploy build/web --project-name=wxx-agent --commit-dirty=true
 
   # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
   build-apk:
