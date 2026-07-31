@@ -5,15 +5,14 @@ class ApiConfig {
   /// 后端基础地址
   /// 
   /// 本地开发模式（FLUTTER_APP_LOCAL_DEV=true）：指向本地 Go 后端 http://localhost:8080
-  /// Web 端：直接调用腾讯云 Go 后端（绕过 CF Pages Functions WAF/503 问题）
-  /// Android/iOS：使用固定正式域名
+  /// Web 端：同域调用（走 CF Pages → CF Functions → Go 后端）
+  /// Android/iOS：直连正式域名
   static String get baseUrl {
     const String localDev = String.fromEnvironment('FLUTTER_APP_LOCAL_DEV', defaultValue: 'false');
     if (localDev == 'true') {
       return 'http://localhost:8080';
     }
-    // CF Functions 不稳定时，浏览器端直连腾讯云服务器
-    if (kIsWeb) return 'https://www.wxx-agent.online';
+    if (kIsWeb) return '';
     return 'https://www.wxx-agent.online';
   }
 
