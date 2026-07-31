@@ -39,28 +39,32 @@ jobs:
           --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      # bcryptjs 是 Functions 运行时依赖（与 Go 后端 bcrypt 哈希兼容）。
-      # 安装到 functions/ 目录，由 wrangler --functions-dir 在部署时独立打包；
-      # 不再复制 node_modules 到静态目录，避免文件超 CF Pages 25 MiB 限制。
+      # bcryptjs 是 Functions 运行时依赖（与 Go 后端 bcrypt 哈希兼容）
+      # 必须先安装：否则边缘打包时模块解析失败，登录接口直接 500
       - name: 安装 Functions 依赖
         run: npm install --omit=dev
         working-directory: ./functions
+
+      - name: 创建 functions 目录
+        run: mkdir -p frontend/build/web/functions
+
+      - name: 复制 Functions 文件到构建目录（含 node_modules）
+        run: cp -r functions/* frontend/build/web/functions/
 
       # _routes.json 会将 /api/* 排除在 Pages Functions 之外，
       # 导致 API 请求返回 405，部署前必须移除
       - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
         run: rm -f frontend/build/web/_routes.json
 
-      # 直接安装并运行 wrangler，绕过 wrangler-action 触发的 npx 交互确认问题
-      - name: 部署到 Cloudflare Pages
+      # wrangler v4 对文件大小检查更严格，会拒绝 node_modules 中较大的文件；
+      # v3 是线上手动部署一直在用的稳定版本，CI 与手动部署行为保持一致
+      - name: 部署到 Cloudflare Pages（wrangler v3）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npm install -g wrangler
-          wrangler pages deploy frontend/build/web \
-            --project-name=wxx-agent \
-            --functions-dir=functions
+          npm install -g wrangler@3
+          wrangler pages deploy frontend/build/web --project-name=wxx-agent
 
   # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
   build-apk:
