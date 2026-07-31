@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ── Job 1：构建 Web 并部署到 Cloudflare Pages ──────────────────────────────
+  # ── Job 1：构建 Web 并部署到 Cloudflare Pages ────────────────────────────
   deploy-web:
     name: 构建并部署到 Cloudflare Pages
     runs-on: ubuntu-latest
@@ -32,11 +32,11 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
-      - name: 构建 Web 版本
-        run: |
-          flutter build web --release \
-            --web-renderer canvaskit \
-            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+      - name: 构建 Web 版本（注入百度地图 AK）
+        run: >-
+          flutter build web --release
+          --web-renderer canvaskit
+          --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
       # bcryptjs 是 Functions 运行时依赖（与 Go 后端 bcrypt 哈希兼容）
@@ -51,7 +51,7 @@ jobs:
       - name: 复制 Functions 文件到构建目录（含 node_modules）
         run: cp -r functions/* frontend/build/web/functions/
 
-      # _routes.json 会将 /api/* 排除在 Pages Functions 之外，
+      # _routes.json 会将 /api/* 排除在 Pages Functions 之外
       # 导致 API 请求返回 405，部署前必须移除
       - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
         run: rm -f frontend/build/web/_routes.json
@@ -63,7 +63,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy frontend/build/web --project-name=wxx-agent
 
-  # ── Job 2：构建 Android APK 并上传制品 ───────────────────────────────────
+  # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
   build-apk:
     name: 构建 Android APK
     runs-on: ubuntu-latest
@@ -90,39 +90,22 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
-      # ── Release 签名（可选）────────────────────────────────────────────────
-      # 如已在 GitHub Secrets 中配置以下四项，则使用 Release 签名：
-      #   KEYSTORE_BASE64  — base64 编码的 .jks/.keystore 文件内容
-      #   KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD
-      # 未配置时自动退回 Debug 签名（仅供内部测试）
-      - name: 配置 Release 签名（如已设置 Secrets）
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > frontend/android/app/release.keystore
-          cat >> frontend/android/key.properties << EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=release.keystore
-          EOF
-
-      - name: 构建 APK
-        run: |
-          flutter build apk --release \
-            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+      - name: 构建 APK（注入百度地图 AK）
+        run: >-
+          flutter build apk --release
+          --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      - name: 重命名 APK（蔚小芯-vX.X.X.apk）
+      - name: 读取版本号并重命名 APK
         run: |
           VERSION=$(grep "^version:" frontend/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           mkdir -p dist
-          cp frontend/build/app/outputs/flutter-apk/app-release.apk \
-             "dist/蔚小芯-v${VERSION}.apk"
-          echo "APK_NAME=蔚小芯-v${VERSION}.apk" >> $GITHUB_ENV
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/weixiaoxin-v${VERSION}.apk"
+          echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: 上传 APK 制品（可在 Actions 页面下载）
+      - name: 上传 APK 制品（Actions 页面可下载，保留 30 天）
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APK_NAME }}
+          name: weixiaoxin-v${{ env.APK_VERSION }}-apk
           path: dist/*.apk
           retention-days: 30
