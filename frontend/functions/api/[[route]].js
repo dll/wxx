@@ -1,17 +1,8 @@
 // 蔚小芯后端 API - Cloudflare Pages Functions 版本
-// 仅做认证（边缘加速） + 反向代理到 Go 后端（完整业务逻辑）
+// 角色：JWT 边缘验证 + 反向代理到 Go 后端（完整业务逻辑）
+// 登录/注册等公开路由直接透传，Go 后端负责签发 JWT
 
-import { TursoClient } from '../lib/turso.js';
-import { generateToken, verifyToken, verifyPassword, setJWTSecret } from '../lib/auth.js';
-import { now } from '../lib/utils.js';
-
-let db = null;
-
-function getDb(context) {
-  if (db) return db;
-  db = new TursoClient(context.env.TURSO_DB_URL, context.env.TURSO_DB_TOKEN);
-  return db;
-}
+import { verifyToken, setJWTSecret } from '../lib/auth.js';
 
 export async function onRequest(context) {
   const { request } = context;
@@ -19,6 +10,7 @@ export async function onRequest(context) {
 
   if (context.env.JWT_SECRET) setJWTSecret(context.env.JWT_SECRET);
 
+  // CORS 预检直接放行
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -26,28 +18,16 @@ export async function onRequest(context) {
   const path = url.pathname;
 
   try {
-    // 根路径不需要数据库，先放行避免触发 getDb 初始化
     if (path === '/' || path === '/api') {
-      return jsonResponse({ service: '蔚小芯', version: '1.0.0', docs: '/health' });
+      return jsonResponse({ service: '蔚小芯', version: '1.0.0', docs: '/api/health' });
     }
 
-    const db = getDb(context);
-
-    if (path === '/health' || path === '/api/health') {
-      return await handleHealth(db);
-    }
-
-    if (path === '/api/v1/auth/login' && request.method === 'POST') {
-      return await handleLogin(db, request);
-    }
-
-    // 公开路由：与 Go 后端 setupRouter 中未挂 JWTAuth 的路由保持一致，
-    // 直接透传，否则会被边缘 401 拦截而永远到不了后端。
+    // 所有需要透传的路由（login 已迁移至 Go 后端，不再走 Turso 边缘认证）
     if (isPublicPath(path)) {
       return await proxyToGoBackend(request, url, context);
     }
 
-    const user = await getCurrentUser(db, request);
+    const user = await getCurrentUser(request);
     if (!user) {
       return jsonResponse({ code: 401, message: '未登录或登录已过期' }, 401);
     }
@@ -60,6 +40,7 @@ export async function onRequest(context) {
 }
 
 const PUBLIC_PATHS = new Set([
+  '/api/v1/auth/login',        // 登录已迁移至 Go 后端，边缘直接透传
   '/api/v1/auth/qr-login',
   '/api/v1/auth/qr-status',
   '/api/v1/auth/qr-scan',
@@ -105,68 +86,12 @@ async function proxyToGoBackend(request, url, context) {
   });
 }
 
-async function handleHealth(db) {
-  try {
-    await db.query('SELECT 1 as ok');
-    return jsonResponse({ status: 'ok', database: 'connected', timestamp: now() });
-  } catch (e) {
-    return jsonResponse({ status: 'error', database: 'disconnected', error: e.message }, 500);
-  }
-}
-
-async function handleLogin(db, request) {
-  const body = await request.json();
-  const { username, password } = body;
-
-  if (!username || !password) {
-    return jsonResponse({ code: 400, message: '用户名和密码不能为空' }, 400);
-  }
-
-  const user = await db.getOne('SELECT * FROM users WHERE username = ?', [username]);
-  if (!user) {
-    return jsonResponse({ code: 401, message: '用户名或密码错误' }, 401);
-  }
-
-  const valid = await verifyPassword(password, user.password_hash);
-  if (!valid) {
-    return jsonResponse({ code: 401, message: '用户名或密码错误' }, 401);
-  }
-
-  if (user.status === 'disabled') {
-    return jsonResponse({ code: 403, message: '账号已被禁用' }, 403);
-  }
-
-  const token = await generateToken({
-    user_id: parseInt(user.id, 10),
-    username: user.username,
-    role: user.role,
-  });
-
-  return jsonResponse({
-    code: 0,
-    message: '登录成功',
-    data: { token, user: sanitizeUser(user) },
-  });
-}
-
-async function getCurrentUser(db, request) {
+async function getCurrentUser(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-
+  // JWT payload 已包含 user_id/username/role，无需再查数据库
   const payload = await verifyToken(authHeader.substring(7));
-  if (!payload) return null;
-
-  const user = await db.getOne('SELECT * FROM users WHERE id = ?', [payload.user_id]);
-  return user ? sanitizeUser(user) : null;
-}
-
-function sanitizeUser(user) {
-  return {
-    id: user.id, username: user.username, display_name: user.display_name,
-    role: user.role, owner_scope: user.owner_scope, owner_id: user.owner_id,
-    avatar: user.avatar, email: user.email, phone: user.phone,
-    status: user.status, created_at: user.created_at, updated_at: user.updated_at,
-  };
+  return payload || null;
 }
 
 function jsonResponse(data, status = 200) {
