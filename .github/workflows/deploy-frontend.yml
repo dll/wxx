@@ -56,15 +56,18 @@ jobs:
       - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
         run: rm -f frontend/build/web/_routes.json
 
-      # wrangler v4 对文件大小检查更严格，会拒绝 node_modules 中较大的文件；
-      # v3 是线上手动部署一直在用的稳定版本，CI 与手动部署行为保持一致
+      # APK 文件 57 MiB，超出 CF Pages 单文件 25 MiB 限制
+      # APK 由 build-apk job 上传到 GitHub Artifacts，不部署到 CF Pages
+      - name: 移除 downloads 目录（APK 超 CF Pages 25 MiB 限制）
+        run: rm -rf frontend/build/web/downloads/
+
       - name: 部署到 Cloudflare Pages（wrangler v3）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npm install -g wrangler@3
-          wrangler pages deploy frontend/build/web --project-name=wxx-agent
+          wrangler pages deploy frontend/build/web --project-name=wxx-agent --commit-dirty=true
 
   # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
   build-apk:
