@@ -7,6 +7,6 @@ class ReleaseConfig {
   static const int buildNumber = 9;
   static const String releaseDate = '2026-07-30';
   static const String apkFileName = '蔚小芯-v0.0.9.apk';
-  static const String apkDownloadUrl = 'https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.9.apk';
-  static const String webUrl = 'https://wxx-agent.pages.dev';
+  static const String apkDownloadUrl = 'https://www.wxx-agent.online/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.9.apk';
+  static const String webUrl = 'https://www.wxx-agent.online';
 }

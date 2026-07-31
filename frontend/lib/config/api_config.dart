@@ -5,25 +5,25 @@ class ApiConfig {
   /// 后端基础地址
   /// 
   /// 本地开发模式（FLUTTER_APP_LOCAL_DEV=true）：指向本地 Go 后端 http://localhost:8080
-  /// Web 端：空字符串（同域 Cloudflare Pages Functions 代理）
-  /// Android/iOS：通过 Cloudflare Pages 代理转发到 Vercel 后端
-  /// （国内直连 Vercel 被墙，必须走 Cloudflare 中转）
+  /// Web 端：空字符串（同域 Cloudflare Pages Functions 代理，保持当前访问域名）
+  /// Android/iOS：通过 Cloudflare Pages 代理转发到腾讯云 Lighthouse 后端
+  /// （用固定正式域名，客户端无当前域名概念）
   static String get baseUrl {
     const String localDev = String.fromEnvironment('FLUTTER_APP_LOCAL_DEV', defaultValue: 'false');
     if (localDev == 'true') {
       return 'http://localhost:8080';
     }
     if (kIsWeb) return '';
-    return 'https://wxx-agent.pages.dev';
+    return 'https://www.wxx-agent.online';
   }
 
   // API 版本前缀
   static const String apiPrefix = '/api/v1';
 
   // 超时设置（毫秒）
-  // Vercel 冷启动 + 跨境延迟较长，连接超时适当放大
+  // 大模型长响应（SSE 之外的同步接口）可能较慢，超时适当放大
   static const int connectTimeout = 90000;
-  static const int receiveTimeout = 120000; // Vercel 冷启动与模型响应可能较慢
+  static const int receiveTimeout = 120000; // 大模型响应可能较慢
 
   // ── 接口路径 ──
   static const String login = '$apiPrefix/auth/login';
@@ -337,6 +337,16 @@ class ApiConfig {
   static String notificationRead(String id) => '$apiPrefix/notifications/$id/read';
   static const String notificationsReadAll = '$apiPrefix/notifications/read-all';
   static const String adminNotificationSend = '$apiPrefix/admin/notifications/send';
+
+  // ── 校园报到步骤 ──
+  static const String campusSteps = '$apiPrefix/campus/steps';
+  static const String adminCampusSteps = '$apiPrefix/admin/campus/steps';
+  static String adminCampusStep(String id) =>
+      '$apiPrefix/admin/campus/steps/$id';
+  static String adminCampusStepSubmit(String id) =>
+      '$apiPrefix/admin/campus/steps/$id/submit';
+  static String adminCampusStepPublish(String id) =>
+      '$apiPrefix/admin/campus/steps/$id/publish';
 
   // ── 版本更新 ──
   static const String versionCheck = '$apiPrefix/version/check';

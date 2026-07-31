@@ -841,7 +841,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         _qrSessionId = sessionId;
         _qrPollSecret = data['poll_secret'] as String?;
         final encodedUrl = Uri.encodeComponent(
-            'https://wxx-agent.pages.dev/#/login?qr=$sessionId');
+            '${Uri.base.origin}/#/login?qr=$sessionId');
         setState(() {
           _qrImageUrl =
               'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
@@ -861,7 +861,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
   /// 显示备用二维码
   void _showFallbackQR(String message) {
     final encodedUrl =
-        Uri.encodeComponent('https://wxx-agent.pages.dev/#/login');
+        Uri.encodeComponent('${Uri.base.origin}/#/login');
     setState(() {
       _qrImageUrl =
           'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';

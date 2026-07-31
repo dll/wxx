@@ -297,13 +297,15 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	appVersionRepo := repository.NewAppVersionRepo(db)
 	appVersionService := service.NewAppVersionService(appVersionRepo)
 	appVersionHandler := handler.NewAppVersionHandler(appVersionService)
+	// 校园报到步骤（直接注入 db，无独立 Service 层）
+	campusHandler := handler.NewCampusHandler(repository.NewCampusRepository(db))
 
 	// ── 5. 构建路由 ──
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler)
 
 	return router, nil
 }
@@ -534,6 +536,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	statsH *handler.StatsHandler,
 	userNotificationH *handler.UserNotificationHandler,
 	appVersionH *handler.AppVersionHandler,
+	campusH *handler.CampusHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -575,6 +578,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		// 版本更新（公开）
 		v1.GET("/version/check", appVersionH.CheckUpdate)
 		v1.GET("/version/latest", appVersionH.GetLatestVersion)
+
+		// 校园报到步骤（公开，无需登录）
+		v1.GET("/campus/steps", campusH.ListPublicSteps)
 
 		// 知识大厅（公开，仅返回全校公开已发布资源）
 		v1.GET("/knowledge/public", kbH.BrowseKnowledgePublic)
@@ -795,6 +801,17 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.PUT("/guests/:id/reject", auth.RequireCapability(auth.CollegeUserRead), adminH.RejectGuest)
 				// 学生导入（除学生和游客外的组织角色均可用）
 				admin.POST("/users/import", auth.RequireCapability(auth.CounselorImportStudent), adminH.ImportStudents)
+
+				// ── 校园报到步骤管理（college_admin+）──
+				campusAdmin := admin.Group("/campus")
+				{
+					campusAdmin.GET("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.ListAdminSteps)
+					campusAdmin.POST("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.CreateStep)
+					campusAdmin.PUT("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStep)
+					campusAdmin.POST("/steps/:id/submit", auth.RequireCapability(auth.CollegeUserRead), campusH.SubmitStep)
+					campusAdmin.POST("/steps/:id/publish", auth.RequireCapability(auth.CollegeDataAnalysis), campusH.PublishStep)
+					campusAdmin.DELETE("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStep)
+				}
 			}
 
 			// ── 知识审核 ──

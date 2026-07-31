@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../widgets/campus_map_embed.dart';
+import '../../widgets/baidu_campus_map_embed.dart';
 
 class CampusMapPage extends StatefulWidget {
   const CampusMapPage({super.key});
@@ -271,9 +272,24 @@ class _CampusMapPageState extends State<CampusMapPage> {
   int _currentStep = 0;
   final Set<int> _completed = {};
   String _copiedText = '';
+  /// 地图控制器，用于从外部（如管理员编辑后）同步刷新标注。
+  final _mapController = BaiduCampusMapController();
 
   _CampusPlan get _campus => _campuses[_campusIndex];
   List<_CheckinStep> get _steps => _campus.steps;
+
+  /// 将步骤列表转为地图 HTML 期望的 Map 格式（WGS-84 坐标）。
+  List<Map<String, dynamic>> get _stepsForMap => _steps
+      .asMap()
+      .entries
+      .map((e) => {
+            'id': e.key,
+            'title': e.value.title,
+            'location': e.value.location,
+            'lat': e.value.lat,
+            'lng': e.value.lng,
+          })
+      .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -478,45 +494,54 @@ class _CampusMapPageState extends State<CampusMapPage> {
     }
 
     return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFFE7F4EC),
-                theme.colorScheme.primaryContainer.withOpacity(0.38),
-                const Color(0xFFEAF2FF),
-              ],
+      builder: (_, __) {
+        const baiduAk =
+            String.fromEnvironment('BAIDU_MAP_AK', defaultValue: '');
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(children: [
+            // ── 真实百度地图底图 + 脉冲标注 ──
+            Positioned.fill(
+              child: BaiduCampusMapEmbed(
+                baiduAk: baiduAk,
+                steps: _stepsForMap,
+                currentStep: _currentStep,
+                controller: _mapController,
+                onStepSelected: (idx) =>
+                    setState(() => _currentStep = idx),
+              ),
             ),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
+            // ── 未配置 AK 时的友好提示 ──
+            if (baiduAk.isEmpty)
               Positioned.fill(
-                  child: CustomPaint(
-                      painter: _CampusMapPainter(
-                          theme, _steps, _currentStep, _completed))),
-              Positioned(
-                right: 14,
-                top: 14,
-                child: _buildMapMiniCard(theme),
+                child: Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.key_off_outlined,
+                          color: Colors.white, size: 40),
+                      const SizedBox(height: 8),
+                      const Text('地图需要百度 AK',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      const Text(
+                          '构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 11)),
+                    ]),
+                  ),
+                ),
               ),
-              Positioned(
-                left: 18,
-                top: constraints.maxHeight * 0.36,
-                child: _buildCampusGateLabel(theme),
-              ),
-            ],
-          ),
+          ]),
         );
       },
     );
   }
 
+  // _buildMapMiniCard 和 _buildCampusGateLabel 已随 CustomPainter 底图一并移除。
+  // ignore: unused_element
   Widget _buildMapMiniCard(ThemeData theme) {
     return Container(
       width: 180,
@@ -552,6 +577,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCampusGateLabel(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -979,6 +1005,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 }
 
+// CustomPainter 示意图实现已由百度地图 embed 替换，保留供参考。
+// ignore: unused_element
 class _CampusMapPainter extends CustomPainter {
   final ThemeData theme;
   final List<_CheckinStep> steps;
