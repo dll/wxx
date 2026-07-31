@@ -94,45 +94,52 @@ function loadAPI(ak){
 
 /* ════ 自定义脉冲覆盖物 ════ */
 function PulseOv(pt,step,idx){this._pt=pt;this._s=step;this._i=idx;this._el=null}
-PulseOv.prototype=new BMap.Overlay();
-PulseOv.prototype.initialize=function(map){
-  this._map=map;
-  var el=document.createElement('div');
-  el.className='mk st-pending';
-  el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
-    +'<div class="mk-core">'+(this._i+1)+'</div>'
-    +'<div class="mk-label">'+this._s.location+'</div>';
-  var self=this;
-  el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._i})});
-  if(_mode==='edit') this._bindDrag(el);
-  this._el=el;
-  map.getPanes().markerPane.appendChild(el);
-  return el};
-PulseOv.prototype.draw=function(){
-  if(!this._el||!this._map)return;
-  var p=this._map.pointToOverlayPixel(this._pt);
-  this._el.style.left=p.x+'px';
-  this._el.style.top=p.y+'px'};
-PulseOv.prototype.setStatus=function(s){
-  if(this._el)this._el.className='mk st-'+s};
-PulseOv.prototype._bindDrag=function(el){
-  var self=this,dragging=false,sx=0,sy=0,op=null;
-  el.style.cursor='move';
-  el.addEventListener('mousedown',function(e){
-    dragging=true;sx=e.clientX;sy=e.clientY;
-    op=self._map.pointToPixel(self._pt);e.preventDefault()});
-  document.addEventListener('mousemove',function(e){
-    if(!dragging)return;
-    var dx=e.clientX-sx,dy=e.clientY-sy;
-    self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
-    self.draw()});
-  document.addEventListener('mouseup',function(){
-    if(!dragging)return;dragging=false;
-    var w=bd2wgs(self._pt.lng,self._pt.lat);
-    notify('marker_moved',{index:self._i,lat:w[1],lng:w[0]})})};
+
+// BMap 是异步加载的（loadAPI 通过 <script> 注入），顶层不能访问。
+// 此函数在 initMap（BMap 就绪）时调用，设置 Overlay 原型链。
+function setupPulseOv(){
+  if(PulseOv.prototype instanceof BMap.Overlay) return; // 已初始化
+  PulseOv.prototype=new BMap.Overlay();
+  PulseOv.prototype.initialize=function(map){
+    this._map=map;
+    var el=document.createElement('div');
+    el.className='mk st-pending';
+    el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
+      +'<div class="mk-core">'+(this._i+1)+'</div>'
+      +'<div class="mk-label">'+this._s.location+'</div>';
+    var self=this;
+    el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._i})});
+    if(_mode==='edit') this._bindDrag(el);
+    this._el=el;
+    map.getPanes().markerPane.appendChild(el);
+    return el};
+  PulseOv.prototype.draw=function(){
+    if(!this._el||!this._map)return;
+    var p=this._map.pointToOverlayPixel(this._pt);
+    this._el.style.left=p.x+'px';
+    this._el.style.top=p.y+'px'};
+  PulseOv.prototype.setStatus=function(s){
+    if(this._el)this._el.className='mk st-'+s};
+  PulseOv.prototype._bindDrag=function(el){
+    var self=this,dragging=false,sx=0,sy=0,op=null;
+    el.style.cursor='move';
+    el.addEventListener('mousedown',function(e){
+      dragging=true;sx=e.clientX;sy=e.clientY;
+      op=self._map.pointToPixel(self._pt);e.preventDefault()});
+    document.addEventListener('mousemove',function(e){
+      if(!dragging)return;
+      var dx=e.clientX-sx,dy=e.clientY-sy;
+      self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
+      self.draw()});
+    document.addEventListener('mouseup',function(){
+      if(!dragging)return;dragging=false;
+      var w=bd2wgs(self._pt.lng,self._pt.lat);
+      notify('marker_moved',{index:self._i,lat:w[1],lng:w[0]})})};
+}
 
 /* ════ 地图初始化 ════ */
 function initMap(steps,cur,mode){
+  setupPulseOv(); // BMap 就绪后设置 Overlay 原型链
   _steps=steps;_cur=cur;_mode=mode;
   var s0=steps[0]||{lat:32.313,lng:118.31};
   var c=wgs2bd(s0.lng,s0.lat);
