@@ -1,0 +1,41 @@
+# Caddy配置 — 蔚小芯腾讯云集中部署
+# 位置: /etc/caddy/Caddyfile
+#
+# 单一 Caddy 实例同时服务：
+#   - /api/*  → Go 后端 (localhost:8080)
+#   - /*      → Flutter Web 静态文件 (/opt/wxx/frontend/web)
+# ANSI 1f;1mhttp://www.wxx-agent.online, wxx-agent.online {
+www.wxx-agent.online, wxx-agent.online {
+	# 根目录: Flutter Web 构建产物
+	root * /opt/wxx/frontend/web
+
+	# SPA 路由回退: 未匹配到静态文件的请求返回 index.html
+	try_files {path} /index.html
+
+	# API 反向代理: 所有 /api/* 请求转发到 Go 后端
+	handle /api/* {
+		reverse_proxy localhost:8080
+	}
+
+	# 静态文件压缩 (CSS/JS/WASM)
+	encode zstd gzip
+
+	# 安全头
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# 日志
+	log {
+		output file /var/log/caddy/wxx.log
+		format json
+	}
+}
+
+# 强制 www 重定向 (无 www → 有 www)
+# 注意: 如果DNS 已配置 CNAME 指向 CF，删除此节
+wxx-agent.online {
+	redir https://www.wxx-agent.online{uri} permanent
+}

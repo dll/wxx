@@ -1,3 +1,4 @@
+# 蔚小芯前端自动部署到腾讯云 Lighthouse
 name: Deploy Frontend
 
 on:
@@ -5,17 +6,15 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
-      - 'functions/**'
       - '.github/workflows/deploy-frontend.yml'
-      - 'wrangler.toml'
   workflow_dispatch:
 
 jobs:
-  # ── Job 1：构建 Web 并部署到 Cloudflare Pages ────────────────────────────
+  # ── Job 1：构建 Web 并部署到腾讯云 Lighthouse ─────────────────────────
   deploy-web:
-    name: 构建并部署到 Cloudflare Pages
+    name: 构建并部署到腾讯云 Lighthouse
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
 
     steps:
       - name: 检出代码
@@ -33,46 +32,24 @@ jobs:
         working-directory: ./frontend
 
       - name: 构建 Web 版本（注入百度地图 AK）
-        run: >-
-          flutter build web --release
-          --web-renderer canvaskit
-          --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+        run: |
+          flutter build web --release \
+            --web-renderer canvaskit \
+            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      # Functions 源码在 frontend/functions/（git 追踪）
-      # bcryptjs 等依赖须安装，wrangler 打包时才能解析 import
-      - name: 安装 Functions 依赖
-        run: npm install --omit=dev
-        working-directory: ./frontend/functions
+      - name: 上传到腾讯云服务器
+        uses: easingthemes/ssh-deploy@v5.0.3
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: "-rlgoDzvc -i --delete"
+          SOURCE: "frontend/build/web/"
+          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.SERVER_USER }}
+          TARGET: "/opt/wxx/frontend/web"
+          EXCLUDE: "/downloads/"
 
-      # 复制 Functions（含 node_modules）到构建输出目录
-      - name: 复制 Functions 到构建目录
-        run: |
-          mkdir -p frontend/build/web/functions
-          cp -r frontend/functions/* frontend/build/web/functions/
-
-      # Flutter 生成 _routes.json 的 exclude 路由到 Functions（导致 405）。
-      # 删除后写入正确版本：由 wrangler 在 frontend/ 目录运行时通过
-      # frontend/functions/ 源码目录自动生成。
-      - name: 删除 Flutter 的 _routes.json（wrangler 自动生成）
-        run: rm -f frontend/build/web/_routes.json
-
-      # APK 文件 57 MiB，超出 CF Pages 单文件 25 MiB 限制
-      - name: 移除 downloads 目录（APK 超 CF Pages 25 MiB 限制）
-        run: rm -rf frontend/build/web/downloads/
-
-      # wrangler 从 frontend/ 目录运行 → 自动发现 frontend/functions/
-      # 合并构建输出目录中的函数副本 + 源码目录的路由生成
-      - name: 部署到 Cloudflare Pages（wrangler v3）
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          cd frontend
-          npm install -g wrangler@3
-          wrangler pages deploy build/web --project-name=wxx-agent --commit-dirty=true
-
-  # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
+  # ── Job 2：构建 Android APK 并上传制品 ───────────────────────────────
   build-apk:
     name: 构建 Android APK
     runs-on: ubuntu-latest
@@ -100,21 +77,21 @@ jobs:
         working-directory: ./frontend
 
       - name: 构建 APK（注入百度地图 AK）
-        run: >-
-          flutter build apk --release
-          --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+        run: |
+          flutter build apk --release \
+            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
       - name: 读取版本号并重命名 APK
         run: |
           VERSION=$(grep "^version:" frontend/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           mkdir -p dist
-          cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/weixiaoxin-v${VERSION}.apk"
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/wxx-v${VERSION}.apk"
           echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: 上传 APK 制品（Actions 页面可下载，保留 30 天）
         uses: actions/upload-artifact@v4
         with:
-          name: weixiaoxin-v${{ env.APK_VERSION }}-apk
+          name: wxx-v${{ env.APK_VERSION }}-apk
           path: dist/*.apk
           retention-days: 30
