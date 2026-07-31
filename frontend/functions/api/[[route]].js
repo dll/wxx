@@ -63,18 +63,20 @@ async function proxyToGoBackend(request, url, context) {
 
   const targetUrl = backendUrl.replace(/\/+$/, '') + url.pathname + url.search;
   const headers = new Headers(request.headers);
-  // Host 必须由目标地址决定，否则后端会收到 Pages 域名
   headers.delete('host');
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
-  const response = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    // 用 arrayBuffer 而非 text()，避免语音/文档等二进制上传被破坏
-    body: hasBody ? await request.arrayBuffer() : undefined,
-  });
+  let response;
+  try {
+    response = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+    });
+  } catch (e) {
+    return jsonResponse({ code: 502, message: '后端服务不可达: ' + e.message }, 502);
+  }
 
-  // 透传后端响应头（Content-Disposition 等对导出下载是必需的），再叠加 CORS
   const outHeaders = new Headers(response.headers);
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
     outHeaders.set(k, v);
