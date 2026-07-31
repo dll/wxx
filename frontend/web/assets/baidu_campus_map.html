@@ -149,6 +149,15 @@ function initMap(steps,cur,mode){
   _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
   _map.addControl(new BMap.NavigationControl({
     anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
+  // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
+  // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
+  requestAnimationFrame(function(){
+    if(_map){_map.resize();_map.centerAndZoom(_map.getCenter(),_map.getZoom())}});
+  // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
+  if(typeof ResizeObserver!=='undefined'){
+    var obs=new ResizeObserver(function(){
+      if(_map){_map.resize()}});
+    obs.observe(document.getElementById('map'))}
   renderSteps();
   if(mode==='edit'){
     var h=document.getElementById('editHint');
