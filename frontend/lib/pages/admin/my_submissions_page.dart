@@ -1231,7 +1231,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '支持 PDF、Word、TXT、Markdown 等格式，最大 10MB',
+                  '支持 PDF、Word、TXT、Markdown 等格式，最大 100MB',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -1417,7 +1417,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     if (file.size > 10 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('文件大小超过限制（最大 10MB）')),
+          const SnackBar(content: Text('文件大小超过限制（最大 100MB）')),
         );
       }
       return;

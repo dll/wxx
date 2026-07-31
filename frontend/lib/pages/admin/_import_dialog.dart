@@ -17,7 +17,7 @@ class ImportStudentDialog extends StatefulWidget {
 }
 
 class _ImportStudentDialogState extends State<ImportStudentDialog> {
-  static const _maxFileSize = 10 * 1024 * 1024;
+  static const _maxFileSize = 100 * 1024 * 1024;
 
   final _passwordController = TextEditingController();
   Uint8List? _fileBytes;
@@ -50,7 +50,7 @@ class _ImportStudentDialogState extends State<ImportStudentDialog> {
 
     final file = picked.files.single;
     if (file.size <= 0 || file.size > _maxFileSize) {
-      _showMessage('文件大小必须在 10MB 以内');
+      _showMessage('文件大小必须在 100MB 以内');
       return;
     }
     if (file.bytes == null) {

@@ -373,7 +373,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            SizedBox(height: 460, child: map),
+            SizedBox(height: 520, child: map),
             const SizedBox(height: 12),
             SizedBox(height: 640, child: steps),
           ],
@@ -398,9 +398,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
             child: Stack(
               children: [
                 Positioned.fill(child: _buildCampusMapCanvas(theme)),
-                // 地图标牌（右上角，面积小，不遮挡地图中心区域）
-                Positioned(left: 16, top: 16, child: _buildMapBadge(theme)),
-                // _buildCurrentStepOverlay 已移到地图下方，不再覆盖地图
+                // 地图标牌已移除——不再覆盖地图区域
+                // _buildCurrentStepOverlay 已移到地图下方，不遮挡地图
               ],
             ),
           ),
