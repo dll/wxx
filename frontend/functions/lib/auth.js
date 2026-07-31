@@ -98,24 +98,3 @@ function base64UrlFromBytes(bytes) {
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 }
-
-// 以下 bcrypt 函数仅在边缘需要本地验证密码时使用（当前已迁移至 Go 后端）
-let _bcrypt = null;
-async function _ensureBcrypt() {
-  if (!_bcrypt) {
-    _bcrypt = await import('bcryptjs');
-  }
-  return _bcrypt;
-}
-
-// bcrypt 哈希密码（与 Go 后端兼容，仅在必要时通过动态 import 加载 bcryptjs）
-export async function hashPassword(password) {
-  const bcrypt = await _ensureBcrypt();
-  const salt = bcrypt.genSaltSync(10);
-  return bcrypt.hashSync(password, salt);
-}
-
-export async function verifyPassword(password, hash) {
-  const bcrypt = await _ensureBcrypt();
-  return bcrypt.compareSync(password, hash);
-}
