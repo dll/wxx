@@ -398,16 +398,15 @@ class _CampusMapPageState extends State<CampusMapPage> {
             child: Stack(
               children: [
                 Positioned.fill(child: _buildCampusMapCanvas(theme)),
+                // 地图标牌（右上角，面积小，不遮挡地图中心区域）
                 Positioned(left: 16, top: 16, child: _buildMapBadge(theme)),
-                Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    child: _buildCurrentStepOverlay(theme)),
+                // _buildCurrentStepOverlay 已移到地图下方，不再覆盖地图
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          // 当前步骤提示卡 —— 地图下方单独占位，不遮挡地图
+          _buildCurrentStepOverlay(theme),
+          const SizedBox(height: 8),
           _buildNavigationButtons(theme),
         ],
       ),

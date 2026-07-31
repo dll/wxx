@@ -3,7 +3,7 @@ package model
 // CampusStep 校园报到步骤（动态管理，替代前端硬编码常量）
 type CampusStep struct {
 	ID          int64   `json:"id"`
-	CampusID    string  `json:"campus_id"`    // huifeng | langya
+	CampusID    string  `json:"campus_id"` // huifeng | langya
 	StepOrder   int     `json:"step_order"`
 	Title       string  `json:"title"`
 	Location    string  `json:"location"`
@@ -15,7 +15,7 @@ type CampusStep struct {
 	Contact     string  `json:"contact"`
 	Note        string  `json:"note"`
 	IconName    string  `json:"icon_name"`
-	Status      string  `json:"status"`       // draft | pending_review | published
+	Status      string  `json:"status"` // draft | pending_review | published
 	CreatedBy   *int64  `json:"created_by,omitempty"`
 	ReviewedBy  *int64  `json:"reviewed_by,omitempty"`
 	PublishedAt string  `json:"published_at,omitempty"`
