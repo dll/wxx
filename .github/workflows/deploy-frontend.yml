@@ -39,17 +39,16 @@ jobs:
           --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      # frontend/functions/ 包含所有 Function 文件（api/[[route]].js + lib/ + package.json）
+      # frontend/functions/ 包含所有 Function 文件（api/[[route]].js + lib/ + downloads/ + package.json）
       # 且已在 git 中追踪；root functions/api/ 未加入 git，CI checkout 后不存在
       - name: 安装 Functions 依赖
         run: npm install --omit=dev
         working-directory: ./frontend/functions
 
-      - name: 复制 Functions 到构建目录（含 node_modules）
-        run: cp -r frontend/functions/* frontend/build/web/functions/
-
-      - name: 创建 functions 目录（确保目标存在）
-        run: mkdir -p frontend/build/web/functions
+      - name: 创建并复制 Functions 到构建目录（含 node_modules）
+        run: |
+          mkdir -p frontend/build/web/functions
+          cp -r frontend/functions/* frontend/build/web/functions/
 
       # Flutter 生成的 _routes.json 把 /api/* 排除在 Function 外（导致 405）；
       # 删除后写入正确路由：明确告诉 CF Pages 只把 /api/* 交给 Function 处理
