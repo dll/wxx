@@ -82,6 +82,9 @@ type Config struct {
 	// CORS
 	CORSAllowedOrigins string // 允许的跨域来源，逗号分隔，支持通配符子域名如 *.vercel.app，默认 "*"
 
+	// 前端静态文件目录（临时 8080 直连方案）
+	FrontendStaticDir string // Flutter Web 构建产物目录，如 /opt/wxx/frontend/web
+
 	// 知识同步包签名（Q-05）
 	HMACSecret string // 知识导出包 HMAC-SHA256 签名密钥（环境变量 HMAC_SECRET）
 }
@@ -102,6 +105,8 @@ func Load() *Config {
 		JWTExpireHours: envIntOr("JWT_EXPIRE_HOURS", 2),
 
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
+
+		FrontendStaticDir: envOr("FRONTEND_STATIC_DIR", "/opt/wxx/frontend/web"),
 
 		TursoDBUrl:   envOr("TURSO_DB_URL", ""),
 		TursoDBToken: envOr("TURSO_DB_TOKEN", ""),

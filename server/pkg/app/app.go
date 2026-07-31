@@ -561,6 +561,38 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	// 健康检查
 	router.GET("/health", healthHandler(db))
 
+	// ── 前端静态文件服务（临时 8080 直连方案）──
+	// Flutter Web 构建产物位于 FRONTEND_STATIC_DIR（默认 /opt/wxx/frontend/web）
+	// 静态文件目录存在时才挂载；API 路由优先，SPA 路由回退到 index.html
+	staticDir := cfg.FrontendStaticDir
+	if staticDir != "" {
+		if _, err := os.Stat(staticDir); err == nil {
+			// 让 SPA 应用内路由（/campus 等）回退到 index.html
+			router.NoRoute(func(c *gin.Context) {
+				if !strings.HasPrefix(c.Request.URL.Path, "/api/") &&
+					!strings.HasPrefix(c.Request.URL.Path, "/health") {
+					indexPath := filepath.Join(staticDir, "index.html")
+					if _, err := os.Stat(indexPath); err == nil {
+						c.File(indexPath)
+						return
+					}
+				}
+				c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "接口不存在"})
+			})
+			// 静态资源（JS/CSS/图片等）
+			router.Static("/assets", filepath.Join(staticDir, "assets"))
+			router.StaticFile("/index.html", filepath.Join(staticDir, "index.html"))
+			router.StaticFile("/main.dart.js", filepath.Join(staticDir, "main.dart.js"))
+			router.StaticFile("/favicon.png", filepath.Join(staticDir, "favicon.png"))
+			router.StaticFile("/flutter_bootstrap.js", filepath.Join(staticDir, "flutter_bootstrap.js"))
+			router.StaticFile("/flutter_service_worker.js", filepath.Join(staticDir, "flutter_service_worker.js"))
+			router.StaticFile("/manifest.json", filepath.Join(staticDir, "manifest.json"))
+			log.Printf("前端静态文件已挂载: %s", staticDir)
+		} else {
+			log.Printf("警告: 前端静态目录不存在，跳过静态文件服务: %s", staticDir)
+		}
+	}
+
 	// API v1 路由组
 	v1 := router.Group("/api/v1")
 	{
