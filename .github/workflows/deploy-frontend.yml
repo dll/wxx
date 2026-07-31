@@ -51,14 +51,16 @@ jobs:
       - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
         run: rm -f frontend/build/web/_routes.json
 
+      # 直接安装并运行 wrangler，绕过 wrangler-action 触发的 npx 交互确认问题
       - name: 部署到 Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # --functions-dir=functions：wrangler 独立打包 functions/（含 node_modules），
-          # 静态文件目录 frontend/build/web 不含 node_modules，不触发 25 MiB 限制
-          command: pages deploy frontend/build/web --project-name=wxx-agent --functions-dir=functions
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler
+          wrangler pages deploy frontend/build/web \
+            --project-name=wxx-agent \
+            --functions-dir=functions
 
   # ── Job 2：构建 Android APK 并上传制品 ────────────────────────────────────
   build-apk:
