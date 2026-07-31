@@ -1,23 +1,91 @@
 # 部署指南 — 蔚小芯
 
-> 蔚小芯支持以下部署模式：
-> - **Cloudflare Pages + Vercel + Turso**（**当前正式方案**）：前端 Cloudflare Pages 静态托管 + Functions 代理，后端 Vercel Serverless，数据库 Turso 云数据库
-> - **Vercel + Turso**（备选）：后端部署在 Vercel 无服务器函数，数据库使用 Turso 云数据库
-> - **Linux 单机部署**（推荐用于纯自托管）：后端走 systemd / 自托管二进制，数据库使用本地 SQLite 文件
+> 蔚小芯当前正式部署架构（2026-07-31 起）：
+> - **前端**：Cloudflare Pages（项目 `wxx-agent`），正式入口 `https://www.wxx-agent.online`（CF Pages 自定义域名），备用入口 `https://wxx-agent.pages.dev`
+> - **后端**：腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04），Go 二进制 systemd 常驻，Caddy 反向代理 + 自动 HTTPS（`https://www.wxx-agent.online`）
+> - **数据库**：服务器本地 SQLite（`/opt/wxx/data/wxx.db`，含 FTS5）
+> - **代理链路**：用户 → CF Pages（前端）→ CF Functions（JWT 鉴权）→ `http://129.211.223.113:8080`（Go 后端）→ 本地 SQLite
+>
+> 历史方案（Vercel Serverless + Turso）已于 2026-07-31 停用，仅作归档参考，见文末「历史方案」。
+
+## 正式访问地址
+
+| 地址 | 用途 | 状态 |
+|------|------|------|
+| `https://www.wxx-agent.online` | 用户正式入口（CF Pages 自定义域名） | 需在 CF Pages 绑定自定义域名后生效 |
+| `https://wxx-agent.pages.dev` | 备用入口（CF Pages 原生域名） | 始终有效 |
+| `https://wxx-agent.pages.dev/downloads/` | Android APK 下载 | 始终有效 |
+| `http://129.211.223.113:8080` | 后端 API（CF Functions 内部代理用，用户不直接访问） | 内部 |
+
+> 登录：用户名 + 密码（由管理员分配）。角色与权限见 `docs/蔚小芯角色功能.md`。
 
 ## 部署模式对比
 
-| 特性 | Cloudflare Pages + Vercel + Turso | Vercel + Turso | Linux 单机 |
-|------|----------------------------------|---------------|------------|
-| 前端托管 | Cloudflare Pages（国内加速） | Vercel（国内访问受限） | Nginx / 自托管 |
-| 后端运行 | Vercel Serverless | Vercel Serverless | systemd 常驻 |
-| 数据持久化 | Turso 云端 | Turso 云端 | 本地 SQLite 文件 |
-| 冷启动 | 有（无服务器函数） | 有（无服务器函数） | 无（常驻进程） |
-| 运维成本 | 低（免运维） | 低（免运维） | 中（需维护服务器） |
-| FTS5 全文检索 | 支持 | 支持 | 支持 |
-| 适用场景 | **当前正式方案** | 开发/测试 | 生产环境（自托管） |
+| 特性 | 腾讯云 Lighthouse + SQLite（**当前正式**） | Vercel + Turso（历史/已停用） |
+|------|-------------------------------------------|------------------------------|
+| 前端托管 | Cloudflare Pages（国内加速） | Cloudflare Pages |
+| 后端运行 | systemd 常驻（无冷启动） | Vercel Serverless（有冷启动） |
+| 数据持久化 | 本地 SQLite `/opt/wxx/data/wxx.db` | Turso 云端 |
+| SQLite 延迟 | ~58µs（本地文件） | ~50ms（网络往返） |
+| FTS5 全文检索 | ✅ `ok` | ⚠️ Turso 上 `unavailable` |
+| LLM 长请求 | ✅ 无超时限制 | ⚠️ Serverless 超时截断 |
+| 运维成本 | 中（需维护服务器，约 ¥150–220/月） | 低（免运维，按量计费） |
+| 适用场景 | **当前正式方案** | 已停用 |
 
-## Vercel + Turso 部署（推荐）
+## 腾讯云 Lighthouse + SQLite 部署（当前正式方案）
+
+详细的服务器迁移与部署过程见 `docs/蔚小芯-后端迁移常驻服务器方案.md` 与 `docs/蔚小芯Fable5审核和开发计划与实现v4.md` §1。核心步骤概览：
+
+```bash
+# 1. 服务器初始化（Ubuntu 22.04）
+apt-get update && apt-get install -y git curl build-essential
+# 安装 Go 1.22+
+wget -q https://go.dev/dl/go1.22.5.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.22.5.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+# 2. 上传源码并编译（GOPROXY 走国内代理避免超时）
+export GOPROXY=https://goproxy.cn,direct
+cd /opt/wxx && go build -tags fts5 -o /opt/wxx/wxx-server ./server/cmd/server
+
+# 3. 环境变量写入 /etc/wxx/env（APP_MODE、APP_PORT=8080、SQLITE_PATH、JWT_SECRET≥32位、各 LLM 密钥、CORS_ALLOWED_ORIGINS）
+# 4. systemd 服务 /etc/systemd/system/wxx.service（EnvironmentFile=/etc/wxx/env，Restart=always）
+systemctl enable --now wxx
+
+# 5. Caddy 自动 HTTPS（/etc/caddy/Caddyfile）
+#    www.wxx-agent.online {
+#        reverse_proxy localhost:8080
+#    }
+systemctl enable --now caddy
+
+# 6. Lighthouse 防火墙放通 TCP 22 / 80 / 443 / 8080
+# 7. 健康检查
+curl -s http://localhost:8080/health   # status=healthy, fts5=ok, sqlite=ok
+```
+
+关键前置条件：
+
+| 条件 | 说明 |
+|------|------|
+| 服务器 | 腾讯云 Lighthouse Ubuntu 22.04，≥2C2G，公网 IP |
+| 域名 | `www.wxx-agent.online`，A 记录指向服务器 IP（或作 CF Pages 自定义域名） |
+| 防火墙 | TCP 22（SSH）、80（Let's Encrypt）、443（HTTPS）、8080（CF 代理） |
+| ICP 备案 | 大陆直连 `www.wxx-agent.online:443` 需备案；经 CF 边缘访问不需要 |
+| GOPROXY | `https://goproxy.cn,direct`（大陆构建避免 GitHub/golang.org 超时） |
+
+## 备份（重要）
+
+SQLite 是唯一数据存储，须定期备份。写入 cron：
+
+```bash
+mkdir -p /opt/wxx/backup
+# 每日 03:00 备份
+echo '0 3 * * * root sqlite3 /opt/wxx/data/wxx.db ".backup /opt/wxx/backup/wxx-$(date +\%F).db" && find /opt/wxx/backup -name "wxx-*.db" -mtime +14 -delete' > /etc/cron.d/wxx-backup
+```
+
+## 历史方案（Vercel + Turso，已停用，仅归档）
+
+> 以下内容为 2026-07-31 前的部署方案，已被腾讯云 Lighthouse 方案取代，保留仅供归档参考。
 
 ### 1. 创建 Turso 云数据库
 
@@ -169,7 +237,7 @@ pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1 -NoVersionBu
 
 ## Cloudflare Pages 前端部署（强制流程）
 
-> 前端唯一正式入口：`https://wxx-agent.pages.dev`。Vercel 前端旧域名已停用，不再作为发布或验收入口。Vercel 后端 `wxx-server` 仍保留运行，通过 Cloudflare Pages Functions 代理访问。
+> 前端正式入口：`https://www.wxx-agent.online`（CF Pages 自定义域名），备用入口 `https://wxx-agent.pages.dev`。后端由 Cloudflare Pages Functions 鉴权后代理至腾讯云 Lighthouse（`129.211.223.113:8080`）。Vercel 前端旧域名与 Vercel 后端均已停用。
 
 ### 标准部署命令（推荐）
 
@@ -190,7 +258,9 @@ make deploy-release
 
 ### 绑定自定义域名
 
-生产环境建议绑定学校官方子域名（如 `wxx-agent.chzu.edu.cn`），避免依赖 `*.pages.dev` 第三方域名。
+生产环境已绑定 `www.wxx-agent.online` 作为 CF Pages 自定义域名（由 Cloudflare 边缘提供，全球可达，无需 ICP 备案即可访问前端）。后续可再绑定学校官方子域名（如 `wxx-agent.chzu.edu.cn`）。
+
+> 注意：`www.wxx-agent.online` 作为**前端入口**时应指向 Cloudflare（CNAME → `wxx-agent.pages.dev`）；而后端 API 经 Caddy 使用同名 HTTPS 时指向服务器 IP。二者不能共用同一 DNS 记录——若前端用此域名，后端另用子域名（如 `api.wxx-agent.online`）或直连 IP。
 
 ```bash
 # 1. 打开 Cloudflare Dashboard → Workers & Pages → wxx-agent
