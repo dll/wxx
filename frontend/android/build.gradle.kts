@@ -1,11 +1,14 @@
 allprojects {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        // CI 环境跳过阿里云镜像（全球 runner 访问 502），本地开发国内加速
+        if (System.getenv("CI") == null) {
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+            maven { url = uri("https://storage.flutter-io.cn/download.flutter.io") }
+        }
         google()
         mavenCentral()
-        maven { url = uri("https://storage.flutter-io.cn/download.flutter.io") }
     }
 }
 
