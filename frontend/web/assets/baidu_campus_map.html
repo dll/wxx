@@ -49,7 +49,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 <div id="editHint">📍 拖动标注调整位置，松手后坐标自动保存</div>
 <script>
 /* ════ 全局状态 ════ */
-var _map=null,_ovs=[],_poly=null,_steps=[],_cur=0,_mode='view';
+var _map=null,_ovs=[],_poly=null,_steps=[],_pts=[],_cur=0,_mode='view';
 var π=Math.PI,_a=6378245,_ee=.006693421623;
 
 /* ════ WGS-84 → GCJ-02 ════ */
@@ -141,18 +141,31 @@ function setupPulseOv(){
 function initMap(steps,cur,mode){
   setupPulseOv(); // BMap 就绪后设置 Overlay 原型链
   _steps=steps;_cur=cur;_mode=mode;
-  var s0=steps[0]||{lat:32.313,lng:118.31};
-  var c=wgs2bd(s0.lng,s0.lat);
   _map=new BMap.Map('map',{enableMapClick:true});
-  _map.centerAndZoom(new BMap.Point(c[0],c[1]),17);
   _map.enableScrollWheelZoom();_map.enableDragging();
   _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
   _map.addControl(new BMap.NavigationControl({
     anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
+  // 以全部步骤点为边界，让整个校园范围完整显示在地图内
+  _pts=[];
+  if(_steps && _steps.length){
+    _pts=_steps.map(function(s){
+      var bd=wgs2bd(s.lng,s.lat);
+      return new BMap.Point(bd[0],bd[1])});
+    var viewport=_map.getViewport(_pts,{margins:[60,60,60,60]});
+    // 用步骤点计算的中心点初始化，再 setViewport 适配全校园
+    var center=viewport.center||_pts[0];
+    _map.centerAndZoom(center,viewport.zoom||16);
+    _map.setViewport(_pts,{margins:[60,60,60,60]});
+  } else {
+    var s0={lat:32.313,lng:118.31};
+    var c=wgs2bd(s0.lng,s0.lat);
+    _map.centerAndZoom(new BMap.Point(c[0],c[1]),17);
+  }
   // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
   // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
   requestAnimationFrame(function(){
-    if(_map){_map.resize();_map.centerAndZoom(_map.getCenter(),_map.getZoom())}});
+    if(_map){_map.resize();if(_pts.length){_map.setViewport(_pts,{margins:[60,60,60,60]})}}});
   // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
   if(typeof ResizeObserver!=='undefined'){
     var obs=new ResizeObserver(function(){

@@ -226,6 +226,9 @@ class _HomePageState extends State<HomePage> {
             else
               _buildGuestBanner(theme),
             const SizedBox(height: 12),
+            // 安卓 APK 下载（置顶，无需滚动即可看到）
+            _buildApkDownloadCard(theme),
+            const SizedBox(height: 20),
             // 学生个性化首页
             if (isStudent && loggedIn) ...[
               _buildStudentHomeContent(theme),
