@@ -61,7 +61,9 @@ dependencies:
 
   # 外部链接跳转（地图/抖音/VR全景）
   url_launcher: ^6.3.0
-  webview_flutter: ^4.10.0
+  # WebView 嵌入百度地图（Android / iOS / Desktop）
+  # 版本上限 <4.9.0：4.9.0+ 要求 Dart >=3.5.0，当前项目 Dart ^3.4.0 不兼容
+  webview_flutter: ">=4.4.4 <4.9.0"
 
   # Excel 文件选择（Web / Android / iOS / 桌面）
   file_picker: ^8.0.7
