@@ -11,7 +11,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # ── Job 1：构建 Web 并部署到 Cloudflare Pages ──────────────────────────────
+  deploy-web:
     name: 构建并部署到 Cloudflare Pages
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -23,19 +24,23 @@ jobs:
       - name: 安装 Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.5'
+          flutter-version: '3.22.0'
           channel: 'stable'
+          cache: true
 
       - name: 安装依赖
         run: flutter pub get
         working-directory: ./frontend
 
       - name: 构建 Web 版本
-        run: flutter build web --release --web-renderer canvaskit --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO
+        run: |
+          flutter build web --release \
+            --web-renderer canvaskit \
+            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
         working-directory: ./frontend
 
-      # bcryptjs 是 Functions 的运行时依赖（与 Go 后端 bcrypt 哈希兼容）。
-      # 必须先安装：否则边缘打包时模块解析失败，登录接口直接 500。
+      # bcryptjs 是 Functions 运行时依赖（与 Go 后端 bcrypt 哈希兼容）
+      # 必须先安装：否则边缘打包时模块解析失败，登录接口直接 500
       - name: 安装 Functions 依赖
         run: npm install --omit=dev
         working-directory: ./functions
@@ -46,9 +51,8 @@ jobs:
       - name: 复制 Functions 文件到构建目录（含 node_modules）
         run: cp -r functions/* frontend/build/web/functions/
 
-# ── 构建产物中可能包含 _routes.json（由 Flutter Web 构建生成）
-# 其 exclude 列表会将 /api/* 路由排除在 Pages Functions 之外，
-# 导致 API 请求返回 405。这里在部署前移除该文件以确保函数正常路由。  
+      # _routes.json 会将 /api/* 排除在 Pages Functions 之外，
+      # 导致 API 请求返回 405，部署前必须移除
       - name: 移除 _routes.json（避免覆盖 Pages Functions 路由）
         run: rm -f frontend/build/web/_routes.json
 
@@ -58,3 +62,67 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy frontend/build/web --project-name=wxx-agent
+
+  # ── Job 2：构建 Android APK 并上传制品 ───────────────────────────────────
+  build-apk:
+    name: 构建 Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Java 17（Android 构建依赖）
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+        working-directory: ./frontend
+
+      # ── Release 签名（可选）────────────────────────────────────────────────
+      # 如已在 GitHub Secrets 中配置以下四项，则使用 Release 签名：
+      #   KEYSTORE_BASE64  — base64 编码的 .jks/.keystore 文件内容
+      #   KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD
+      # 未配置时自动退回 Debug 签名（仅供内部测试）
+      - name: 配置 Release 签名（如已设置 Secrets）
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > frontend/android/app/release.keystore
+          cat >> frontend/android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release.keystore
+          EOF
+
+      - name: 构建 APK
+        run: |
+          flutter build apk --release \
+            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+        working-directory: ./frontend
+
+      - name: 重命名 APK（蔚小芯-vX.X.X.apk）
+        run: |
+          VERSION=$(grep "^version:" frontend/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          mkdir -p dist
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk \
+             "dist/蔚小芯-v${VERSION}.apk"
+          echo "APK_NAME=蔚小芯-v${VERSION}.apk" >> $GITHUB_ENV
+
+      - name: 上传 APK 制品（可在 Actions 页面下载）
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: dist/*.apk
+          retention-days: 30
