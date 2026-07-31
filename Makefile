@@ -48,7 +48,7 @@ flutter-run:
 # 默认构建 — 若项目路径含中文（如"学工"），Flutter SDK 3.35 impellerc
 # 无法编译 shader，请改用 make flutter-build-web-safe 或 flutter-build-web-output
 flutter-build-web:
-	cd $(FLUTTER_DIR) && flutter build web --release
+	cd $(FLUTTER_DIR) && flutter build web --release --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO
 
 # ASCII 安全路径构建 — 复制项目到临时 ASCII 目录构建后拷回
 FLUTTER_BUILD_TMP := E:/wxx_flutter_tmp
@@ -66,7 +66,7 @@ flutter-build-web-safe:
 
 # 指定输出目录构建 — 直接将产物放到 ASCII 路径
 flutter-build-web-output:
-	cd $(FLUTTER_DIR) && flutter build web --release --output $(FLUTTER_BUILD_TMP)
+	cd $(FLUTTER_DIR) && flutter build web --release --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO --output $(FLUTTER_BUILD_TMP)
 	@echo "=== 构建完成: $(FLUTTER_BUILD_TMP) ==="
 
 # 直接构建 APK — 需满足两个前置条件:

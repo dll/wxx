@@ -31,7 +31,7 @@ jobs:
         working-directory: ./frontend
 
       - name: 构建 Web 版本
-        run: flutter build web --release --web-renderer canvaskit
+        run: flutter build web --release --web-renderer canvaskit --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO
         working-directory: ./frontend
 
       # bcryptjs 是 Functions 的运行时依赖（与 Go 后端 bcrypt 哈希兼容）。
