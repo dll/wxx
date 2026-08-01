@@ -85,8 +85,10 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
         // 带版本查询串：地图页文件名固定，靠 ?v= 破除 CDN/浏览器旧缓存
         ..src = '/assets/baidu_campus_map.html?v=2'
         ..style.border = '0'
+        // 初始给一个明确的像素高度，避免 iframe 在 Flutter Web 布局
+        // 确定前塌缩为 0，导致百度地图按 0 高度渲染（窄条/点挤一堆）
         ..style.width = '100%'
-        ..style.height = '100%'
+        ..style.height = '600px'
         ..allow = 'geolocation'
         ..referrerPolicy = 'strict-origin-when-cross-origin';
       _iframe = f;
@@ -135,5 +137,24 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   }
 
   @override
-  Widget build(BuildContext context) => HtmlElementView(viewType: _viewType);
+  Widget build(BuildContext context) {
+    // 给 HtmlElementView 一个明确的尺寸，保证 iframe 有真实高度，
+    // 否则 Flutter Web 下 iframe 高度链断裂，百度地图塌成窄条（1cm 高、点挤一堆）。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        // 同步 iframe 像素尺寸（若已创建）
+        if (_iframe != null && w > 0 && h > 0) {
+          _iframe!.style.width = '${w}px';
+          _iframe!.style.height = '${h}px';
+        }
+        return SizedBox(
+          width: w,
+          height: h > 0 ? h : 600,
+          child: HtmlElementView(viewType: _viewType),
+        );
+      },
+    );
+  }
 }
