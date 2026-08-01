@@ -375,12 +375,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // 地图面板：高度按校园全图实际比例给足
-            // 两校区外接范围约 南北 3.0km × 东西 1.5km（高:宽≈2:1），
-            // 故按容器宽度的 1.6 倍取高，并至少占满一屏，避免被压成窄条。
+            // 地图面板：高度按两校区实际比例（南北2.6km/东西1.23km≈2.1）给足，
+            // 至少占满一屏高度，避免被压成窄条。
             LayoutBuilder(
               builder: (ctx, c) {
-                final byRatio = c.maxWidth * 1.6;
+                final byRatio = c.maxWidth * 1.8;
                 final minH = MediaQuery.of(ctx).size.height * 0.92;
                 return SizedBox(
                   height: byRatio > minH ? byRatio : minH,

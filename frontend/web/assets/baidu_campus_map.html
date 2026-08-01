@@ -168,18 +168,25 @@ function initMap(steps,cur,mode){
     _viewPts=anchorPts.slice();
   }
   _pts=_viewPts.slice();
-  // 取所有点的外接框中心，先定中心再 setViewport 适配全校园
-  var vMinLat=vMinLng=1e9,vMaxLat=vMaxLng=-1e9;
-  _viewPts.forEach(function(p){
-    vMinLat=Math.min(vMinLat,p.lat);vMaxLat=Math.max(vMaxLat,p.lat);
-    vMinLng=Math.min(vMinLng,p.lng);vMaxLng=Math.max(vMaxLng,p.lng)});
-  var vc=new BMap.Point((vMinLng+vMaxLng)/2,(vMinLat+vMaxLat)/2);
-  _map.centerAndZoom(vc,Math.max(13,(vMaxLat-vMinLat)*0.9>0.02?13:15));
-  _map.setViewport(_viewPts,{margins:[50,50,50,50]});
+  // 用外接 Bounds 一次性取景，setViewport 会自动算中心+zoom，
+  // margins 用像素值，保证两校区完整显示且尽量铺满容器。
+  if(_viewPts.length){
+    var _minLat=_viewPts[0].lat,_maxLat=_viewPts[0].lat;
+    var _minLng=_viewPts[0].lng,_maxLng=_viewPts[0].lng;
+    _viewPts.forEach(function(p){
+      if(p.lat<_minLat)_minLat=p.lat;if(p.lat>_maxLat)_maxLat=p.lat;
+      if(p.lng<_minLng)_minLng=p.lng;if(p.lng>_maxLng)_maxLng=p.lng});
+    var sw=new BMap.Point(_minLng,_minLat),ne=new BMap.Point(_maxLng,_maxLat);
+    _map.setViewport(new BMap.Bounds(sw,ne),{margins:[30,30,30,30]});
+  } else {
+    _map.centerAndZoom(new BMap.Point(118.316,32.308),14);
+  }
   // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
   // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
   requestAnimationFrame(function(){
-    if(_map){_map.resize();if(_viewPts.length){_map.setViewport(_viewPts,{margins:[50,50,50,50]})}}});
+    if(_map){_map.resize();if(_viewPts.length){
+      var _b2=_viewPts.slice();
+      _map.setViewport(_b2,{margins:[30,30,30,30]});}}});
   // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
   if(typeof ResizeObserver!=='undefined'){
     var obs=new ResizeObserver(function(){
