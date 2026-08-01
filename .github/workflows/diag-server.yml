@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: 检查防火墙与网络
+      - name: 查看被拒 IP 完整列表
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,14 +14,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 防火墙规则 ---"
-            sudo iptables -L -n 2>/dev/null | head -25
-            echo "--- ufw 状态 ---"
-            sudo ufw status 2>&1 | head -15
-            echo "--- 安全组(腾讯云) ---"
-            sudo cat /etc/firewall/ 2>/dev/null || echo "无"
-            echo "--- caddy 监听详情 ---"
-            sudo ss -tlnp | grep -E ":443|:80"
-            echo "--- 服务器公网 IP ---"
-            curl -s -m 5 ifconfig.me 2>/dev/null || curl -s -m 5 ip.sb 2>/dev/null || echo "无法获取"
+            echo "--- YJ-FIREWALL-INPUT 完整规则 ---"
+            sudo iptables -L YJ-FIREWALL-INPUT -n --line-numbers 2>/dev/null
+            echo "--- 主链 INPUT 引用 ---"
+            sudo iptables -L INPUT -n --line-numbers 2>/dev/null
+            echo "--- 服务器当前公网可达性(本机自测) ---"
+            curl -s -m 5 https://www.baidu.com -o /dev/null -w "外网出站: %{http_code}\n" 2>&1
             echo "DIAG_END"
