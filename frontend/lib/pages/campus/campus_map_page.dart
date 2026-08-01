@@ -395,6 +395,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Stack(
+        fit: StackFit.expand,
         children: [
           // ── 地图画布填满整个面板 ──
           Positioned.fill(
@@ -510,7 +511,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
     };
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: Stack(children: [
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
         // ── 真实地图底图 + 脉冲标注（百度/高德/腾讯三家可切）──
         // ValueKey(provider)：切换地图服务商时强制重建 iframe，
         // 保证不同 provider 加载各自的 HTML 与 AK，不复用旧 iframe。
@@ -552,7 +555,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
               ),
             ),
           ),
-      ]),
+        ],
+      ),
     );
   }
 

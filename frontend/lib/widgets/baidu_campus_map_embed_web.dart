@@ -213,13 +213,20 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
 
   @override
   Widget build(BuildContext context) {
-    // 直接让 HtmlElementView 填满父级 tight 约束（来自外层 Positioned.fill）。
-    // 不再用 LayoutBuilder 包裹：Flutter Web 下 LayoutBuilder 与 platform view
-    // 配合时，flt-platform-view 容器的 CSS 高度可能不与 SizedBox 同步，导致
-    // iframe 塌陷成窄条。SizedBox.expand 强制 HtmlElementView 填满父级约束，
-    // iframe 用 width/height:100% 填满容器（见 _registerView），高度链稳定。
-    return SizedBox.expand(
-      child: HtmlElementView(viewType: _viewType),
+    // 使用 LayoutBuilder 获取父级约束的显式尺寸，传给 SizedBox。
+    // 这样 flt-platform-view 的 CSS 宽高 = SizedBox 的宽高，不会出现 0×0。
+    // 配合外层 Stack(fit: StackFit.expand)，constraints.maxWidth/Height
+    // 必为有限值，SizedBox 拿到精确尺寸后 HtmlElementView 渲染稳定。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+        final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
+        return SizedBox(
+          width: w,
+          height: h,
+          child: HtmlElementView(viewType: _viewType),
+        );
+      },
     );
   }
 }
