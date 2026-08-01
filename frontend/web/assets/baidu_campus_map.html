@@ -8,7 +8,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f0f2f5}
-#map{width:100%;height:100%}
+#map{position:absolute;top:0;left:0;width:100%;height:100%;min-height:300px}
 
 /* ─── 脉冲标注动画 ─── */
 @keyframes ripple1{0%{transform:scale(1);opacity:.85}100%{transform:scale(2.4);opacity:0}}
@@ -137,6 +137,26 @@ function setupPulseOv(){
       notify('marker_moved',{index:self._i,lat:w[1],lng:w[0]})})};
 }
 
+/* ════ 校园全图取景 ════ */
+// 报到步骤点（BD-09 外接范围即两校区全图）：在 _viewPts 中。
+// 此函数强制地图按容器当前尺寸重新取景，解决 iframe 初载
+// 高度为 0 导致 zoom 异常（点挤一堆 / 地图 1cm 高）的问题。
+function fitCampus(){
+  if(!_map||!_viewPts.length)return;
+  _map.resize(); // 先按容器实际尺寸重绘底图
+  var mnLat=_viewPts[0].lat,mxLat=_viewPts[0].lat;
+  var mnLng=_viewPts[0].lng,mxLng=_viewPts[0].lng;
+  for(var i=1;i<_viewPts.length;i++){
+    var p=_viewPts[i];
+    if(p.lat<mnLat)mnLat=p.lat;if(p.lat>mxLat)mxLat=p.lat;
+    if(p.lng<mnLng)mnLng=p.lng;if(p.lng>mxLng)mxLng=p.lng}
+  var sw=new BMap.Point(mnLng,mnLat),ne=new BMap.Point(mxLng,mxLat);
+  // margins 取容器尺寸的 8%（至少 20px），保证两校区完整且尽量铺满
+  var w=_map.getSize().width||400,h=_map.getSize().height||400;
+  var mg=Math.max(20,Math.round(Math.min(w,h)*0.08));
+  _map.setViewport(new BMap.Bounds(sw,ne),{margins:[mg,mg,mg,mg]});
+}
+
 /* ════ 地图初始化 ════ */
 function initMap(steps,cur,mode){
   setupPulseOv(); // BMap 就绪后设置 Overlay 原型链
@@ -168,29 +188,24 @@ function initMap(steps,cur,mode){
     _viewPts=anchorPts.slice();
   }
   _pts=_viewPts.slice();
-  // 用外接 Bounds 一次性取景，setViewport 会自动算中心+zoom，
-  // margins 用像素值，保证两校区完整显示且尽量铺满容器。
-  if(_viewPts.length){
-    var _minLat=_viewPts[0].lat,_maxLat=_viewPts[0].lat;
-    var _minLng=_viewPts[0].lng,_maxLng=_viewPts[0].lng;
-    _viewPts.forEach(function(p){
-      if(p.lat<_minLat)_minLat=p.lat;if(p.lat>_maxLat)_maxLat=p.lat;
-      if(p.lng<_minLng)_minLng=p.lng;if(p.lng>_maxLng)_maxLng=p.lng});
-    var sw=new BMap.Point(_minLng,_minLat),ne=new BMap.Point(_maxLng,_maxLat);
-    _map.setViewport(new BMap.Bounds(sw,ne),{margins:[30,30,30,30]});
-  } else {
-    _map.centerAndZoom(new BMap.Point(118.316,32.308),14);
+  // 先给个合理默认视角（两校区范围中心），避免空视口
+  _map.centerAndZoom(new BMap.Point(118.316,32.308),14);
+  // 关键：iframe 初载容器可能为 0 高度，setViewport 会按 0 高算错 zoom。
+  // 分多次重试取景（0ms / 50ms / 250ms / 800ms），直到容器高度就位。
+  var tries=0;
+  function tryFit(){
+    tries++;
+    var sz=_map.getSize();
+    var h=sz.height||0;
+    if(h>10){ fitCampus(); }
+    else if(tries<8){ setTimeout(tryFit,150); }
+    else { fitCampus(); } // 兜底：无论如何取景一次
   }
-  // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
-  // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
-  requestAnimationFrame(function(){
-    if(_map){_map.resize();if(_viewPts.length){
-      var _b2=_viewPts.slice();
-      _map.setViewport(_b2,{margins:[30,30,30,30]});}}});
-  // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
+  tryFit();
+  // 容器尺寸变化（侧栏收起 / 响应式）时重新取景
   if(typeof ResizeObserver!=='undefined'){
     var obs=new ResizeObserver(function(){
-      if(_map){_map.resize()}});
+      if(_map){fitCampus();}});
     obs.observe(document.getElementById('map'))}
   renderSteps();
   if(mode==='edit'){

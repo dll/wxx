@@ -104,7 +104,7 @@ class _LoginPageState extends State<LoginPage>
 
                   // Tab 内容
                   SizedBox(
-                    height: 350,
+                    height: 320,
                     child: TabBarView(
                       controller: _tabCtrl,
                       children: [
@@ -118,7 +118,7 @@ class _LoginPageState extends State<LoginPage>
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
 
                   // 底部：下载按钮（用 app_icon 图标）+ 版本号
                   Center(

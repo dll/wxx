@@ -93,8 +93,8 @@ jobs:
           # 固定名 weixiaoxin.apk：配合 releases/latest/download 固定下载入口，
           # 前端 release_config.dart 无需随版本改地址
           cp frontend/build/app/outputs/flutter-apk/app-release.apk dist/weixiaoxin.apk
-          # 版本化副本：GitHub Release 资产名会剥掉非 ASCII 字符
-          # （中文名 蔚小芯-vX.Y.Z.apk 会变成残缺的 -vX.Y.Z.apk），故用 ASCII
+          # 版本化副本：GitHub 资产名强制 ASCII（实测中文名会被改成 default.apk），
+          # 中文产品名「蔚小芯」展示在 Release 标题/说明与应用内下载名。
           cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/weixiaoxin-v${VERSION}.apk"
           echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
