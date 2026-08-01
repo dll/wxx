@@ -1,4 +1,4 @@
-# 临时诊断：查看腾讯云服务器 Caddy 配置与后端路由
+# 临时诊断：从 CI 测试公网 HTTPS 访问腾讯云 API
 name: Diag Server
 
 on:
@@ -6,27 +6,15 @@ on:
 
 jobs:
   diag:
-    name: 诊断服务器
+    name: 诊断公网访问
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: SSH 诊断
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "===== Caddyfile 全文 ====="
-            cat /etc/caddy/Caddyfile
-            echo "===== 测试登录接口(本地) ====="
-            curl -s -m 5 -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}' | head -c 500
-            echo ""
-            echo "===== 测试 health 根路径 ====="
-            curl -s -m 5 localhost:8080/api/health | head -c 300
-            echo ""
-            curl -s -m 5 localhost:8080/health | head -c 300
+      - name: 测试公网 HTTPS 登录接口
+        run: |
+          echo "===== www.wxx-agent.online 登录 ====="
+          curl -s -m 30 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' -w "\nHTTP %{http_code}\n" | head -c 600
+          echo ""
+          echo "===== pages.dev 登录 ====="
+          curl -s -m 30 -X POST "https://wxx-agent.pages.dev/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' -w "\nHTTP %{http_code}\n" | head -c 600
