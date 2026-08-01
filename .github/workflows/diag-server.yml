@@ -1,4 +1,4 @@
-# 修复：移除未备案裸域名，重启 Caddy
+# 诊断：本地 HTTPS 000 根因
 name: Diag Server
 
 on:
@@ -6,31 +6,26 @@ on:
 
 jobs:
   diag:
-    name: 修复 Caddy 配置
+    name: 诊断 HTTPS
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: SSH 修复
+      - name: SSH 诊断 HTTPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "===== 备份原 Caddyfile ====="
-            sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak
-            echo "===== 写入新 Caddyfile（base64 解码）====="
-            echo "IyBDYWRkeemFjee9riAtIOiUmuWwj+iKr+iFvuiur+S6kembhuS4remDqOe9sgojIOS7heacjeWKoSB3d3cud3h4LWFnZW50Lm9ubGluZe+8iOijuOWfn+WQjSB3eHgtYWdlbnQub25saW5lIOacquWkh+ahiO+8jAojIOiFvuiur+S6kSBETlMg6L+U5ZueIHdlYmJsb2NrIOaLpuaIqu+8jEFDTUUg5peg5rOV562+5Y+R6K+B5Lmm77yM5bey56e76Zmk5YW256uZ54K55Z2X77yJCgp3d3cud3h4LWFnZW50Lm9ubGluZSB7CiAgICAjIEFQSSDlj43lkJHku6PnkIbkvJjlhYjvvJrmiYDmnIkgL2FwaS8qIOivt+axgui9rOWPkeWIsCBHbyDlkI7nq68KICAgIGhhbmRsZSAvYXBpLyogewogICAgICAgIHJldmVyc2VfcHJveHkgbG9jYWxob3N0OjgwODAKICAgIH0KCiAgICAjIOWFtuS9meivt+axguacjeWKoemdmeaAgeaWh+S7tu+8iEZsdXR0ZXIgV2ViIOaehOW7uuS6p+eJqe+8iQogICAgaGFuZGxlIHsKICAgICAgICByb290ICogL29wdC93eHgvZnJvbnRlbmQvd2ViCiAgICAgICAgdHJ5X2ZpbGVzIHtwYXRofSAvaW5kZXguaHRtbAogICAgICAgIGVuY29kZSB6c3RkIGd6aXAKICAgIH0KCiAgICAjIOWuieWFqOWktAogICAgaGVhZGVyIHsKICAgICAgICBYLUNvbnRlbnQtVHlwZS1PcHRpb25zIG5vc25pZmYKICAgICAgICBYLUZyYW1lLU9wdGlvbnMgREVOWQogICAgICAgIFJlZmVycmVyLVBvbGljeSBzdHJpY3Qtb3JpZ2luLXdoZW4tY3Jvc3Mtb3JpZ2luCiAgICB9CgogICAgIyDml6Xlv5cKICAgIGxvZyB7CiAgICAgICAgb3V0cHV0IGZpbGUgL3Zhci9sb2cvY2FkZHkvd3h4LmxvZwogICAgICAgIGZvcm1hdCBqc29uCiAgICB9Cn0K" | base64 -d | sudo tee /etc/caddy/Caddyfile > /dev/null
-            echo "===== 校验 Caddy 配置 ====="
-            sudo caddy validate --config /etc/caddy/Caddyfile 2>&1 | tail -5
-            echo "===== 重启 Caddy ====="
-            sudo systemctl restart caddy
-            sleep 3
-            echo "===== Caddy 状态 ====="
-            systemctl is-active caddy
-            echo "===== 本地 HTTPS 测试 ====="
-            curl -sk -m 8 -X POST "https://localhost/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrong"}' -w "\nHTTP %{http_code}\n" | head -c 300
+            echo "===== curl -v 详细 HTTPS 失败 ====="
+            curl -vsk -m 8 -X POST "https://localhost/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{}' 2>&1 | head -30
+            echo "===== 证书文件列表 ====="
+            sudo ls -la /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ 2>/dev/null
+            echo "===== 证书有效日期 ====="
+            CERT=$(sudo find /var/lib/caddy -name "*.crt" | head -1)
+            echo "证书: $CERT"
+            sudo openssl x509 -in "$CERT" -noout -dates -subject 2>&1 | head -5
