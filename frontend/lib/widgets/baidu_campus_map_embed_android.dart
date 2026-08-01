@@ -1,6 +1,5 @@
 // Android / iOS / Desktop 平台：用 webview_flutter 加载已部署的地图 HTML。
-// 加载地址为 https://www.wxx-agent.online/assets/baidu_campus_map.html，
-// 该 URL 在百度 AK 域名白名单内，Browser 类型 AK 直接生效，无需 SHA1。
+// 根据 provider 加载对应地图：百度 / 高德 / 腾讯，三套 HTML 共用同一 postMessage 协议。
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -29,6 +28,9 @@ class BaiduCampusMapController {
 
 class BaiduCampusMapEmbed extends StatefulWidget {
   final String baiduAk;
+  final String amapAk; // 高德地图 AK
+  final String tencentAk; // 腾讯地图 AK
+  final String provider; // baidu / amap / tencent
   final List<Map<String, dynamic>> steps;
   final int currentStep;
   final bool editMode;
@@ -40,6 +42,9 @@ class BaiduCampusMapEmbed extends StatefulWidget {
   const BaiduCampusMapEmbed({
     super.key,
     required this.baiduAk,
+    required this.amapAk,
+    required this.tencentAk,
+    required this.provider,
     required this.steps,
     this.currentStep = 0,
     this.editMode = false,
@@ -57,9 +62,25 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
   late final WebViewController _wc;
   bool _ready = false;
 
-  /// 地图 HTML 已部署到 CF Pages 此路径，Baidu AK 域名校验通过。
-  static const _mapUrl =
-      'https://www.wxx-agent.online/assets/baidu_campus_map.html?v=2';
+  /// 根据 provider 返回对应地图 HTML 的线上地址。
+  /// 三套 HTML 均部署在 CF Pages 的 /assets/ 下，Baidu AK 域名校验通过。
+  String get _mapUrl {
+    final base = 'https://www.wxx-agent.online/assets';
+    return switch (widget.provider) {
+      'amap' => '$base/amap_campus_map.html?v=2',
+      'tencent' => '$base/tencent_campus_map.html?v=2',
+      _ => '$base/baidu_campus_map.html?v=4',
+    };
+  }
+
+  /// 根据 provider 返回对应 AK。
+  String get _ak {
+    return switch (widget.provider) {
+      'amap' => widget.amapAk,
+      'tencent' => widget.tencentAk,
+      _ => widget.baiduAk,
+    };
+  }
 
   @override
   void initState() {
@@ -100,7 +121,8 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
   void _sendInit() {
     _send({
       'type': 'init',
-      'ak': widget.baiduAk,
+      'ak': _ak,
+      'provider': widget.provider,
       'steps': widget.steps,
       'currentStep': widget.currentStep,
       'mode': widget.editMode ? 'edit' : 'view',

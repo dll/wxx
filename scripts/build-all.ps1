@@ -86,7 +86,11 @@ Write-Output ""
 Write-Output ">>> [1/2] 构建 Web..."
 $env:FLUTTER_STORAGE_BASE_URL = "https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com"
 Set-Location $frontend
-flutter build web --release --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO *>> $buildLog
+# 注入三家地图 AK：百度/高德/腾讯，校园导航页根据 provider 选择使用。
+flutter build web --release `
+  --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO `
+  --dart-define=GAODE_MAP_AK=a2f48050b8ec16aca88db4d25c035fe6 `
+  --dart-define=TENXUN_MAP_AK=E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR *>> $buildLog
 $webOk = $LASTEXITCODE -eq 0
 
 if ($webOk) {

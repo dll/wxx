@@ -35,11 +35,21 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
-      - name: 构建 Web 版本（注入百度地图 AK）
+      - name: 构建 Web 版本（注入百度/高德/腾讯地图 AK）
+        env:
+          BAIDU_AK: ${{ secrets.BAIDU_MAP_AK }}
+          GAODE_AK: ${{ secrets.GAODE_MAP_AK }}
+          TENXUN_AK: ${{ secrets.TENXUN_MAP_AK }}
         run: |
+          # AK 优先取 GitHub Secrets，未配置则使用 build-all.ps1 中的公开值
+          B_AK="${BAIDU_AK:-OUouSU6WbYExGTlnDEFqqruhTH60KAwO}"
+          G_AK="${GAODE_AK:-a2f48050b8ec16aca88db4d25c035fe6}"
+          T_AK="${TENXUN_AK:-E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR}"
           flutter build web --release \
             --web-renderer canvaskit \
-            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+            --dart-define=BAIDU_MAP_AK="$B_AK" \
+            --dart-define=GAODE_MAP_AK="$G_AK" \
+            --dart-define=TENXUN_MAP_AK="$T_AK"
         working-directory: ./frontend
 
       - name: 上传到腾讯云服务器
@@ -80,10 +90,19 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
-      - name: 构建 APK（注入百度地图 AK）
+      - name: 构建 APK（注入百度/高德/腾讯地图 AK）
+        env:
+          BAIDU_AK: ${{ secrets.BAIDU_MAP_AK }}
+          GAODE_AK: ${{ secrets.GAODE_MAP_AK }}
+          TENXUN_AK: ${{ secrets.TENXUN_MAP_AK }}
         run: |
+          B_AK="${BAIDU_AK:-OUouSU6WbYExGTlnDEFqqruhTH60KAwO}"
+          G_AK="${GAODE_AK:-a2f48050b8ec16aca88db4d25c035fe6}"
+          T_AK="${TENXUN_AK:-E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR}"
           flutter build apk --release \
-            --dart-define=BAIDU_MAP_AK=${{ secrets.BAIDU_MAP_AK }}
+            --dart-define=BAIDU_MAP_AK="$B_AK" \
+            --dart-define=GAODE_MAP_AK="$G_AK" \
+            --dart-define=TENXUN_MAP_AK="$T_AK"
         working-directory: ./frontend
 
       - name: 读取版本号并重命名 APK

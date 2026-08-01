@@ -69,6 +69,20 @@ html,body{width:100%;height:100%;overflow:hidden;
 <div id="editHint">📍 拖动标注调整位置，松手后坐标自动保存</div>
 
 <script>
+/* ════ 控制台静默：百度地图 JS API GL 在加载和运行时会输出大量提示信息
+ *   （如 BMapGL framework loaded、tile 加载状态、SDK 版本等），这里在脚本
+ *   加载前统一重写 console 方法，避免污染浏览器控制台。error 保留以便定位
+ *   真实问题，但百度的 error 多为跨域警告，不影响地图渲染。════ */
+(function(){
+  var noop=function(){};
+  try{
+    if(window.console){
+      console.log=noop;console.info=noop;console.debug=noop;
+      console.warn=noop;console.trace=noop;
+    }
+  }catch(e){}
+})();
+
 /* ════ 全局状态 ════ */
 var _map=null,_ovs=[],_poly=null,_steps=[],_cur=0,_mode='view';
 var _campusId='huifeng',_campusBounds=null;

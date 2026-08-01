@@ -26,8 +26,18 @@ class BaiduCampusMapController {
   void set3D(bool enabled) => _st?._send({'type': 'set_3d', 'enabled': enabled});
 }
 
+/// 多地图服务商校园导航嵌入组件（Web 端）。
+///
+/// 支持三家地图：百度 / 高德 / 腾讯。通过 [provider] 切换，内部根据
+/// provider 加载对应 HTML（baidu_campus_map.html / amap_campus_map.html /
+/// tencent_campus_map.html）并注入对应 AK。三套 HTML 共用同一套 postMessage
+/// 通信协议（init/set_step/refresh/fit_campus/set_3d ↔ ready/step_selected/
+/// marker_moved），切换服务商时父级用 ValueKey 强制重建以重新加载 iframe。
 class BaiduCampusMapEmbed extends StatefulWidget {
   final String baiduAk;
+  final String amapAk; // 高德地图 JS API key
+  final String tencentAk; // 腾讯地图 JS API key
+  final String provider; // baidu / amap / tencent
   final List<Map<String, dynamic>> steps; // {id, title, location, lat, lng}
   final int currentStep;
   final bool editMode;
@@ -39,6 +49,9 @@ class BaiduCampusMapEmbed extends StatefulWidget {
   const BaiduCampusMapEmbed({
     super.key,
     required this.baiduAk,
+    required this.amapAk,
+    required this.tencentAk,
+    required this.provider,
     required this.steps,
     this.currentStep = 0,
     this.editMode = false,
@@ -89,26 +102,50 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   }
 
   void _registerView() {
+    // 根据 provider 选择对应地图 HTML（三套 HTML 共用同一 postMessage 协议）
+    final htmlPath = switch (widget.provider) {
+      'amap' => '/assets/amap_campus_map.html?v=1',
+      'tencent' => '/assets/tencent_campus_map.html?v=1',
+      _ => '/assets/baidu_campus_map.html?v=3',
+    };
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
+      // 用容器 div 包裹 iframe：容器 100% 填满 Flutter 的 flt-platform-view，
+      // iframe 再 100% 填满容器。这样 iframe 高度始终跟随 Flutter 布局，
+      // 不再依赖固定像素值，彻底避免容器高度与 iframe 高度不同步导致的塌陷。
+      final host = html.DivElement()
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.position = 'absolute'
+        ..style.top = '0'
+        ..style.left = '0';
       final f = html.IFrameElement()
         // 带版本查询串：地图页文件名固定，靠 ?v= 破除 CDN/浏览器旧缓存
-        ..src = '/assets/baidu_campus_map.html?v=2'
+        ..src = htmlPath
         ..style.border = '0'
-        // 初始给一个明确的像素高度，避免 iframe 在 Flutter Web 布局
-        // 确定前塌缩为 0，导致百度地图按 0 高度渲染（窄条/点挤一堆）
         ..style.width = '100%'
-        ..style.height = '600px'
+        ..style.height = '100%'
+        ..style.position = 'absolute'
+        ..style.top = '0'
+        ..style.left = '0'
         ..allow = 'geolocation'
         ..referrerPolicy = 'strict-origin-when-cross-origin';
+      host.append(f);
       _iframe = f;
-      return f;
+      return host;
     });
   }
 
   void _sendInit() {
+    // 根据 provider 选择对应地图 AK
+    final ak = switch (widget.provider) {
+      'amap' => widget.amapAk,
+      'tencent' => widget.tencentAk,
+      _ => widget.baiduAk,
+    };
     _send({
       'type': 'init',
-      'ak': widget.baiduAk,
+      'ak': ak,
+      'provider': widget.provider,
       'steps': widget.steps,
       'currentStep': widget.currentStep,
       'mode': widget.editMode ? 'edit' : 'view',
@@ -176,23 +213,13 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
 
   @override
   Widget build(BuildContext context) {
-    // 给 HtmlElementView 一个明确的尺寸，保证 iframe 有真实高度，
-    // 否则 Flutter Web 下 iframe 高度链断裂，百度地图塌成窄条（1cm 高、点挤一堆）。
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        // 同步 iframe 像素尺寸（若已创建）
-        if (_iframe != null && w > 0 && h > 0) {
-          _iframe!.style.width = '${w}px';
-          _iframe!.style.height = '${h}px';
-        }
-        return SizedBox(
-          width: w,
-          height: h > 0 ? h : 600,
-          child: HtmlElementView(viewType: _viewType),
-        );
-      },
+    // 直接让 HtmlElementView 填满父级 tight 约束（来自外层 Positioned.fill）。
+    // 不再用 LayoutBuilder 包裹：Flutter Web 下 LayoutBuilder 与 platform view
+    // 配合时，flt-platform-view 容器的 CSS 高度可能不与 SizedBox 同步，导致
+    // iframe 塌陷成窄条。SizedBox.expand 强制 HtmlElementView 填满父级约束，
+    // iframe 用 width/height:100% 填满容器（见 _registerView），高度链稳定。
+    return SizedBox.expand(
+      child: HtmlElementView(viewType: _viewType),
     );
   }
 }

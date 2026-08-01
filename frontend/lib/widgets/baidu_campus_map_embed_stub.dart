@@ -14,6 +14,9 @@ class BaiduCampusMapEmbed extends StatelessWidget {
   const BaiduCampusMapEmbed({
     super.key,
     required this.baiduAk,
+    required this.amapAk,
+    required this.tencentAk,
+    required this.provider,
     required this.steps,
     this.currentStep = 0,
     this.editMode = false,
@@ -24,6 +27,9 @@ class BaiduCampusMapEmbed extends StatelessWidget {
   });
 
   final String baiduAk;
+  final String amapAk; // 高德地图 AK（非 Web 平台暂未使用）
+  final String tencentAk; // 腾讯地图 AK（非 Web 平台暂未使用）
+  final String provider; // baidu / amap / tencent
   final List<Map<String, dynamic>> steps;
   final int currentStep;
   final bool editMode;
@@ -40,13 +46,14 @@ class BaiduCampusMapEmbed extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Center(
+      child: Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.map_outlined, size: 48, color: Colors.grey),
-          SizedBox(height: 8),
-          Text('地图仅在 Web 端可用', style: TextStyle(color: Colors.grey)),
-          SizedBox(height: 4),
-          Text('Android 地图功能建设中',
+          const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+          const SizedBox(height: 8),
+          Text('$provider 地图仅在 Web 端可用',
+              style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 4),
+          const Text('Android 地图功能建设中',
               style: TextStyle(fontSize: 12, color: Colors.grey)),
         ]),
       ),

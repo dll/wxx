@@ -356,7 +356,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
   Widget _buildCheckinNavigator(ThemeData theme) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final desktop = constraints.maxWidth >= 980;
+        // 桌面阈值 880：MainShell 桌面布局用 ConstrainedBox(maxWidth:900) 限制
+        // 内容区宽度，原阈值 980 会让 campus 在桌面端误走移动端上下布局，
+        // 地图被 Column 固定项挤塌。880 < 900，保证桌面端走左右分栏、地图
+        // stretch 拿全高。
+        final desktop = constraints.maxWidth >= 880;
         final map = _buildMapPanel(theme, desktop);
         final steps = _buildStepsPanel(theme);
         if (desktop) {
@@ -371,13 +375,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ],
           );
         }
-        // 移动端：地图与步骤同时固定（Column），地图不随滚动销毁，
-        // 避免 iframe 反复重建导致 WebGL 上下文泄漏、控制台刷屏。
+        // 移动端：地图给更大比例(7:3)，配合地图内浮动控件避免 Column 固定项挤塌地图。
         return Column(
           children: [
-            Expanded(flex: 6, child: map),
+            Expanded(flex: 7, child: map),
             const Divider(height: 1),
-            Expanded(flex: 4, child: steps),
+            Expanded(flex: 3, child: steps),
           ],
         );
       },
@@ -385,30 +388,34 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   Widget _buildMapPanel(ThemeData theme, bool desktop) {
+    // 桌面端和移动端统一使用「全屏地图 + 浮动控件」布局：
+    // 地图填满整个面板，所有 UI 元素（校区选择、服务商切换、当前步骤等）
+    // 以半透明浮动层叠加在地图上方，不再用 Column 固定项挤占地图高度。
+    // 这样地图始终获得面板 100% 高度，彻底解决「地图太扁」问题。
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(8),
+      child: Stack(
         children: [
-          _buildHeader(theme),
-          const SizedBox(height: 12),
-          _buildCampusSelector(theme),
-          const SizedBox(height: 10),
-          _buildControls(theme),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(child: _buildCampusMapCanvas(theme)),
-                // 地图标牌已移除——不再覆盖地图区域
-                // _buildCurrentStepOverlay 已移到地图下方，不遮挡地图
-              ],
-            ),
+          // ── 地图画布填满整个面板 ──
+          Positioned.fill(
+            child: _buildCampusMapCanvas(theme, desktop: desktop),
           ),
-          // 当前步骤提示卡 —— 地图下方单独占位，不遮挡地图
-          _buildCurrentStepOverlay(theme),
-          const SizedBox(height: 8),
-          _buildNavigationButtons(theme),
+          // ── 顶部浮动控件栏 ──
+          Positioned(
+            top: 8,
+            left: 8,
+            right: 8,
+            child: desktop
+                ? _buildDesktopTopBar(theme)
+                : _buildMobileTopBar(theme),
+          ),
+          // ── 底部浮动当前步骤+操作面板 ──
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: _buildFloatingStepPanel(theme),
+          ),
         ],
       ),
     );
@@ -489,57 +496,75 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildCampusMapCanvas(ThemeData theme) {
-    // 2D/3D 都在同一张百度地图上切换视角（3D=BMapGL 倾斜透视+建筑），
+  Widget _buildCampusMapCanvas(ThemeData theme, {required bool desktop}) {
+    // 2D/3D 都在同一张地图上切换视角（3D=倾斜透视+建筑），
     // VR 全景已由顶部「VR全景」Tab 独立提供，不再占用地图区域。
-    return LayoutBuilder(
-      builder: (_, __) {
-        const baiduAk =
-            String.fromEnvironment('BAIDU_MAP_AK', defaultValue: '');
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(children: [
-            // ── 真实百度地图底图 + 脉冲标注（三种地图类型见地图控件）──
-            Positioned.fill(
-              child: BaiduCampusMapEmbed(
-                baiduAk: baiduAk,
-                steps: _stepsForMap,
-                currentStep: _currentStep,
-                campusId: _campus.id,
-                controller: _mapController,
-                onStepSelected: (idx) =>
-                    setState(() => _currentStep = idx),
+    const baiduAk = String.fromEnvironment('BAIDU_MAP_AK', defaultValue: '');
+    const amapAk = String.fromEnvironment('GAODE_MAP_AK', defaultValue: '');
+    const tencentAk = String.fromEnvironment('TENXUN_MAP_AK', defaultValue: '');
+    final provider = _provider.name; // baidu / amap / tencent
+    final ak = switch (_provider) {
+      _MapProvider.baidu => baiduAk,
+      _MapProvider.amap => amapAk,
+      _MapProvider.tencent => tencentAk,
+    };
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(children: [
+        // ── 真实地图底图 + 脉冲标注（百度/高德/腾讯三家可切）──
+        // ValueKey(provider)：切换地图服务商时强制重建 iframe，
+        // 保证不同 provider 加载各自的 HTML 与 AK，不复用旧 iframe。
+        Positioned.fill(
+          child: BaiduCampusMapEmbed(
+            key: ValueKey('campus-map-$provider'),
+            baiduAk: baiduAk,
+            amapAk: amapAk,
+            tencentAk: tencentAk,
+            provider: provider,
+            steps: _stepsForMap,
+            currentStep: _currentStep,
+            campusId: _campus.id,
+            controller: _mapController,
+            onStepSelected: (idx) => setState(() => _currentStep = idx),
+          ),
+        ),
+        // ── 当前模式角标（2D / 3D）──
+        Positioned(top: 10, right: 10, child: _buildMapBadge(theme)),
+        // ── 未配置 AK 时的友好提示 ──
+        if (ak.isEmpty)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black54,
+              child: Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.key_off_outlined,
+                      color: Colors.white, size: 40),
+                  const SizedBox(height: 8),
+                  Text('地图需要$_providerLabel AK',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                      '构建时添加 --dart-define=$_providerAkName=你的AK',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                ]),
               ),
             ),
-            // ── 当前模式角标（2D / 3D）──
-            Positioned(top: 10, right: 10, child: _buildMapBadge(theme)),
-            // ── 未配置 AK 时的友好提示 ──
-            if (baiduAk.isEmpty)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black54,
-                  child: Center(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.key_off_outlined,
-                          color: Colors.white, size: 40),
-                      const SizedBox(height: 8),
-                      const Text('地图需要百度 AK',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      const Text(
-                          '构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 11)),
-                    ]),
-                  ),
-                ),
-              ),
-          ]),
-        );
-      },
+          ),
+      ]),
     );
+  }
+
+  String get _providerAkName {
+    switch (_provider) {
+      case _MapProvider.baidu:
+        return 'BAIDU_MAP_AK';
+      case _MapProvider.tencent:
+        return 'TENXUN_MAP_AK';
+      case _MapProvider.amap:
+        return 'GAODE_MAP_AK';
+    }
   }
 
   // _buildMapMiniCard 和 _buildCampusGateLabel 已随 CustomPainter 底图一并移除。
@@ -673,33 +698,77 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildCurrentStepOverlay(ThemeData theme) {
+  /// 浮动当前步骤+操作面板（桌面端浮在地图底部、移动端浮在地图底部）。
+  /// 合并原 _buildCurrentStepOverlay 与 _buildNavigationButtons，半透明可读，
+  /// 不再占用 Column 垂直空间，从而避免地图被挤塌。
+  Widget _buildFloatingStepPanel(ThemeData theme) {
     final step = _steps[_currentStep];
-    return Card(
-      elevation: 8,
+    final done = _completed.contains(_currentStep);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.96),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 20)
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(step.icon, color: theme.colorScheme.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('当前步骤：${step.title}',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  Text('${step.location} · ${step.duration}',
-                      style: theme.textTheme.bodySmall),
-                ],
-              ),
+            Row(
+              children: [
+                Icon(step.icon, color: theme.colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('当前步骤：${step.title}',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text('${step.location} · ${step.duration}',
+                          style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                FilledButton.tonal(
+                  onPressed: _markCurrentDone,
+                  child: Text(done ? '已完成' : '完成此步'),
+                ),
+              ],
             ),
-            FilledButton.tonal(
-              onPressed: _markCurrentDone,
-              child: Text(_completed.contains(_currentStep) ? '已完成' : '完成此步'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _openUrl(_routeUrl),
+                  icon: const Icon(Icons.my_location, size: 18),
+                  label: Text('导航到${step.location}'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: _campus.address));
+                    setState(() => _copiedText = '地址已复制');
+                    Future.delayed(const Duration(seconds: 2), () {
+                      if (mounted) setState(() => _copiedText = '');
+                    });
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: Text(_copiedText.isEmpty ? '复制地址' : _copiedText),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _resetProgress,
+                  icon: const Icon(Icons.restart_alt, size: 18),
+                  label: const Text('重置'),
+                ),
+              ],
             ),
           ],
         ),
@@ -707,33 +776,89 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildNavigationButtons(ThemeData theme) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        FilledButton.icon(
-          onPressed: () => _openUrl(_routeUrl),
-          icon: const Icon(Icons.my_location, size: 18),
-          label: Text('从当前位置导航到${_steps[_currentStep].location}'),
-        ),
-        OutlinedButton.icon(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: _campus.address));
-            setState(() => _copiedText = '地址已复制');
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) setState(() => _copiedText = '');
-            });
-          },
-          icon: const Icon(Icons.copy, size: 18),
-          label: Text(_copiedText.isEmpty ? '复制学校地址' : _copiedText),
-        ),
-        OutlinedButton.icon(
-          onPressed: _resetProgress,
-          icon: const Icon(Icons.restart_alt, size: 18),
-          label: const Text('重置报到状态'),
-        ),
-      ],
+  /// 移动端顶部紧凑控件栏：进度+校区+服务商+2D/3D，半透明浮在地图顶部。
+  Widget _buildMobileTopBar(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route, size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(_campus.name,
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              Text('${_completed.length}/${_steps.length}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.primary)),
+              const Spacer(),
+              Wrap(
+                spacing: 6,
+                children: List.generate(_campuses.length, (index) {
+                  final campus = _campuses[index];
+                  final selected = _campusIndex == index;
+                  return ChoiceChip(
+                    selected: selected,
+                    label: Text(campus.name,
+                        style: const TextStyle(fontSize: 11)),
+                    onSelected: (_) => _switchCampus(index),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              SegmentedButton<_MapProvider>(
+                segments: const [
+                  ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
+                  ButtonSegment(
+                      value: _MapProvider.amap, label: Text('高德')),
+                  ButtonSegment(
+                      value: _MapProvider.tencent, label: Text('腾讯')),
+                ],
+                selected: {_provider},
+                onSelectionChanged: (v) => setState(() => _provider = v.first),
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+                ),
+              ),
+              SegmentedButton<_MapMode>(
+                segments: const [
+                  ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
+                  ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (v) {
+                  final m = v.first;
+                  setState(() => _mode = m);
+                  _mapController.set3D(m == _MapMode.threeD);
+                },
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -760,6 +885,79 @@ class _CampusMapPageState extends State<CampusMapPage> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               itemCount: _steps.length,
               itemBuilder: (context, index) => _buildStepCard(theme, index),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 桌面端顶部浮动控件栏：单行紧凑布局，校区+服务商+2D/3D 全部在一行。
+  Widget _buildDesktopTopBar(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.route, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(_campus.name,
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Text('${_completed.length}/${_steps.length}',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.primary)),
+          const SizedBox(width: 14),
+          Wrap(
+            spacing: 6,
+            children: List.generate(_campuses.length, (index) {
+              final campus = _campuses[index];
+              final selected = _campusIndex == index;
+              return ChoiceChip(
+                selected: selected,
+                label: Text(campus.name,
+                    style: const TextStyle(fontSize: 12)),
+                onSelected: (_) => _switchCampus(index),
+                visualDensity: VisualDensity.compact,
+              );
+            }),
+          ),
+          const Spacer(),
+          SegmentedButton<_MapProvider>(
+            segments: const [
+              ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
+              ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
+              ButtonSegment(value: _MapProvider.tencent, label: Text('腾讯')),
+            ],
+            selected: {_provider},
+            onSelectionChanged: (v) => setState(() => _provider = v.first),
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SegmentedButton<_MapMode>(
+            segments: const [
+              ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
+              ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (v) {
+              final m = v.first;
+              setState(() => _mode = m);
+              _mapController.set3D(m == _MapMode.threeD);
+            },
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
             ),
           ),
         ],
