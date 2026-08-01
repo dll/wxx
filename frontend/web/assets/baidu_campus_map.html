@@ -10,7 +10,7 @@ html,body{width:100%;height:100%;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#e8eef4}
 #map{position:absolute;top:0;left:0;width:100%;height:100%;min-height:300px}
 
-/* ─── 脉冲标注动画 ─── */
+/* ─── 脉冲标注动画（GL版外层容器会被百度BMapGL托管位置，这里只写标注本身样式）─── */
 @keyframes ripple1{0%{transform:scale(1);opacity:.85}100%{transform:scale(2.4);opacity:0}}
 @keyframes ripple2{0%{transform:scale(1);opacity:.6}100%{transform:scale(3.1);opacity:0}}
 .mk{position:absolute;width:44px;height:44px;transform:translate(-50%,-56px);cursor:pointer;z-index:100}
@@ -44,7 +44,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 
 /* ─── 瓦片加载检测提示 ─── */
 #tile-alert{position:absolute;top:12px;left:50%;transform:translateX(-50%);
-  max-width:340px;background:rgba(255,255,255,.96);color:#333;
+  max-width:420px;background:rgba(255,255,255,.96);color:#333;
   padding:10px 16px;border-radius:12px;font-size:12px;z-index:200;
   box-shadow:0 4px 16px rgba(0,0,0,.15);display:none;line-height:1.6}
 #tile-alert.show{display:block}
@@ -60,24 +60,22 @@ html,body{width:100%;height:100%;overflow:hidden;
   <span class="ta-close" onclick="document.getElementById('tile-alert').classList.remove('show')">✕</span>
   <div class="ta-title">🗺️ 百度地图底图加载受限</div>
   <div class="ta-body">
-    您的百度地图 AK 为 <code>浏览器端</code> 类型，需在百度控制台配置访问域名：<br>
-    1. 打开 <code>lbsyun.baidu.com</code> → 我的应用<br>
-    2. 将 <code>*</code> 添加到「Referer白名单」<br>
-    3. 保存后刷新页面即可显示底图
+    请检查：<br>
+    1. AK 是否为 <code>浏览器端（JS API GL / 3.0）</code> 类型<br>
+    2. Referer 白名单是否添加 <code>*</code> 并保存<br>
+    3. 保存后 1-2 分钟再刷新本页面
   </div>
 </div>
 <div id="editHint">📍 拖动标注调整位置，松手后坐标自动保存</div>
+
 <script>
 /* ════ 全局状态 ════ */
-var _map=null,_ovs=[],_poly=null,_steps=[],_pts=[],_viewPts=[],_cur=0,_mode='view';
+var _map=null,_ovs=[],_poly=null,_steps=[],_cur=0,_mode='view';
 var _campusId='huifeng',_campusBounds=null;
 var π=Math.PI,_a=6378245,_ee=.006693421623;
+/* 百度 GL 版直接使用 BD-09 经纬度（同 v2.0） */
 
-/* ════ 校区完整范围（WGS-84）════
- * 卫星实测 + 实地踏勘：四至外扩 100 米
- * 会峰校区：东西约 1300m，南北约 1000m
- * 琅琊校区：东西约 1100m，南北约 900m
- * ════ */
+/* ════ 校区完整范围（WGS-84 四至：北/南/东/西，卫星实测）════ */
 var CAMPUS_BOUNDS={
   huifeng:{name:'会峰校区',
     north:32.2975,south:32.2885,east:118.3055,west:118.2940,
@@ -92,7 +90,7 @@ var ALL_BOUNDS={
   east:Math.max(CAMPUS_BOUNDS.huifeng.east,CAMPUS_BOUNDS.langya.east),
   west:Math.min(CAMPUS_BOUNDS.huifeng.west,CAMPUS_BOUNDS.langya.west)};
 
-/* ════ WGS-84 ↔ BD-09 坐标转换 ════ */
+/* ════ 坐标转换 ════ */
 function _dLat(x,y){var r=-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x));
   r+=(20*Math.sin(6*x*π)+20*Math.sin(2*x*π))*2/3;
   r+=(20*Math.sin(y*π)+40*Math.sin(y/3*π))*2/3;
@@ -117,145 +115,152 @@ function bd2wgs(lng,lat){
   var g2=wgs2gcj(gcj[0],gcj[1]);
   return[gcj[0]-(g2[0]-gcj[0]),gcj[1]-(g2[1]-gcj[1])]}
 
-/* ════ 瓦片加载检测（判断百度瓦片是否实际渲染）════
- * 原理：在 initMap 后 3 秒检查百度瓦片图层中是否至少有一张
- * 非空的 <img> 瓦片 DOM（排除 data-tile 属性标记的 DOM）。
- * 若全部瓦片均为空白（百度拦截时返回空白图），则提示用户
- * 到百度控制台配置 Referer 白名单。
- * ════ */
-var _tileWatchdogTimer=null;
-var _tileLoaded=false;
+/* ════ 瓦片加载检测 ════ */
+var _tileWatchdog=null,_tileLoaded=false;
 function startTileWatchdog(){
-  // 先绑定一个全局 img 加载监听
-  var observer=new MutationObserver(function(){
-    // 百度瓦片容器内出现可见瓦片
-    var tiles=document.querySelectorAll('.BMap_bubble_title img, .BMap_map img');
-    tiles.forEach(function(img){
-      if(!img._watched){
-        img._watched=true;
-        img.addEventListener('load',function(){_tileLoaded=true;clearTileWatchdog()});
-        img.addEventListener('error',function(){_tileLoaded=false});
-      }
-    });
-  });
-  observer.observe(document.body,{childList:true,subtree:true});
+  // 监听图片load事件：只要百度瓦片有加载成功就算底图正常
+  var imgHandler=function(e){
+    var img=e.target;if(!(img instanceof HTMLImageElement))return;
+    var src=img.src||'';
+    if(src.indexOf('map.baidu.com')>-1||src.indexOf('bdimg.com')>-1||src.indexOf('api.map.baidu.com')>-1){
+      _tileLoaded=true;clearTileWatchdog()
+    }
+  };
+  document.addEventListener('load',imgHandler,true);
 
-  // 3 秒后检查
-  _tileWatchdogTimer=setTimeout(function(){
-    observer.disconnect();
-    // 二次确认：尝试找百度瓦片 DOM
-    var allImgs=document.querySelectorAll('img');
-    var baiduTile=false;
-    allImgs.forEach(function(img){
-      var src=img.src||'';
-      if(src.indexOf('map.baidu.com')>-1||src.indexOf('api.map.baidu.com')>-1){
-        baiduTile=true;
-      }
+  _tileWatchdog=setTimeout(function(){
+    document.removeEventListener('load',imgHandler,true);
+    // 兜底：检查百度地图canvas层是否有像素渲染（GL版用canvas渲染）
+    var canvases=document.querySelectorAll('#map canvas');
+    var rendered=false;
+    canvases.forEach(function(c){
+      try{
+        var ctx=c.getContext('2d');
+        if(ctx){
+          // 取中心一个像素，如果不是空白说明有渲染
+          var d=ctx.getImageData(c.width/2|0,c.height/2|0,1,1).data;
+          if(d[0]>5||d[1]>5||d[2]>5)rendered=true
+        }
+      }catch(e){/* 跨域canvas忽略 */}
     });
-    if(!baiduTile || !_tileLoaded){
+    if(!_tileLoaded && !rendered){
       showTileAlert();
     }
-  },3500);
+  },4000);
 }
 function clearTileWatchdog(){
-  if(_tileWatchdogTimer){clearTimeout(_tileWatchdogTimer);_tileWatchdogTimer=null}
+  if(_tileWatchdog){clearTimeout(_tileWatchdog);_tileWatchdog=null}
 }
 function showTileAlert(){
   var el=document.getElementById('tile-alert');
   if(el)el.classList.add('show');
 }
 
-/* ════ 加载百度地图 JS API（带超时检测）════
- * 百度地图 API 必须在控制台配置了正确的 Referer 白名单才能正常
- * 加载瓦片。若 6 秒内仍未加载完成（window.BMap 未定义），
- * 则认为 AK 或白名单有问题，显示引导提示。
+/* ════ 加载百度 GL JS API（type=webgl，新版AK必须用这个）════
+ * 注意：JS API GL 版不再使用 BMap 全局，改用 BMapGL。
+ * 新创建的百度「浏览器端」AK 默认只支持 GL 版本。
  * ════ */
-function loadBaiduAPI(ak){
+function loadBaiduGL(ak){
   return new Promise(function(res,rej){
-    if(window.BMap){res();return}
+    if(window.BMapGL){res();return}
     var done=false;
-    window.__bmap_init=function(){if(!done){done=true;res()}};
-    setTimeout(function(){if(!done){done=true;rej(new Error('百度地图API加载超时'))}},6000);
+    window._bmapgl_init=function(){if(!done){done=true;res()}};
+    setTimeout(function(){if(!done){done=true;rej(new Error('百度地图JS API GL加载超时'))}},7000);
     var s=document.createElement('script');
-    s.onerror=function(){if(!done){done=true;rej(new Error('百度地图API脚本加载失败'))}};
-    s.src='https://api.map.baidu.com/api?v=2.0&ak='+encodeURIComponent(ak)+'&callback=__bmap_init';
-    document.head.appendChild(s)
+    s.onerror=function(){if(!done){done=true;rej(new Error('百度地图JS API GL脚本加载失败'))}};
+    s.src='https://api.map.baidu.com/api?type=webgl&v=1.0&ak='+encodeURIComponent(ak)+'&callback=_bmapgl_init';
+    document.head.appendChild(s);
   });
 }
 
-/* ════ 自定义脉冲覆盖物 ════ */
-function PulseOv(pt,step,idx){this._pt=pt;this._s=step;this._i=idx;this._el=null}
-function setupPulseOv(){
-  if(PulseOv.prototype instanceof BMap.Overlay)return;
-  PulseOv.prototype=new BMap.Overlay();
-  PulseOv.prototype.initialize=function(map){
-    this._map=map;
-    var el=document.createElement('div');
-    el.className='mk st-pending';
-    el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
-      +'<div class="mk-core">'+(this._i+1)+'</div>'
-      +'<div class="mk-label">'+this._s.location+'</div>';
-    var self=this;
-    el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._i})});
-    if(_mode==='edit')this._bindDrag(el);
-    this._el=el;
-    map.getPanes().markerPane.appendChild(el);
-    return el};
-  PulseOv.prototype.draw=function(){
-    if(!this._el||!this._map)return;
-    var p=this._map.pointToOverlayPixel(this._pt);
-    this._el.style.left=p.x+'px';
-    this._el.style.top=p.y+'px'};
-  PulseOv.prototype.setStatus=function(s){if(this._el)this._el.className='mk st-'+s};
-  PulseOv.prototype._bindDrag=function(el){
-    var self=this,dragging=false,sx=0,sy=0,op=null;
-    el.style.cursor='move';
-    el.addEventListener('mousedown',function(e){
-      dragging=true;sx=e.clientX;sy=e.clientY;
-      op=self._map.pointToPixel(self._pt);e.preventDefault()});
-    document.addEventListener('mousemove',function(e){
-      if(!dragging)return;
-      var dx=e.clientX-sx,dy=e.clientY-sy;
-      self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
-      self.draw()});
-    document.addEventListener('mouseup',function(){
-      if(!dragging)return;dragging=false;
-      var w=bd2wgs(self._pt.lng,self._pt.lat);
-      notify('marker_moved',{index:self._i,lat:w[1],lng:w[0]})})};
+/* ════ GL 版：自定义脉冲 HTML 覆盖物 ════
+ * BMapGL 使用 BMapGL.Overlay 自定义覆盖物（initialize 需把 DOM 返回给百度，
+ * draw 中百度通过 pixelToPoint / pointToPixel 计算位置，我们设置 left/top 即可）。
+ * ════ */
+function PulseOverlay(bdPt,step,idx){
+  /* bdPt 已经是 BD-09 坐标 */
+  this._pt=bdPt;this._step=step;this._idx=idx;this._el=null;
 }
+PulseOverlay.prototype=new BMapGL.Overlay();
+PulseOverlay.prototype.initialize=function(map){
+  this._map=map;
+  var el=document.createElement('div');
+  el.className='mk st-pending';
+  el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
+    +'<div class="mk-core">'+(this._idx+1)+'</div>'
+    +'<div class="mk-label">'+this._step.location+'</div>';
+  var self=this;
+  el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._idx})});
+  if(_mode==='edit')this._bindDrag(el);
+  this._el=el;
+  map.getPanes().markerPane.appendChild(el);
+  return el;
+};
+PulseOverlay.prototype.draw=function(){
+  if(!this._el||!this._map)return;
+  var pixel=this._map.pointToOverlayPixel(this._pt);
+  this._el.style.left=pixel.x+'px';
+  this._el.style.top=pixel.y+'px';
+};
+PulseOverlay.prototype.setStatus=function(s){
+  if(this._el)this._el.className='mk st-'+s;
+};
+PulseOverlay.prototype._bindDrag=function(el){
+  var self=this,dragging=false,sx=0,sy=0,op=null;
+  el.style.cursor='move';
+  el.addEventListener('mousedown',function(e){
+    dragging=true;sx=e.clientX;sy=e.clientY;
+    op=self._map.pointToPixel(self._pt);e.preventDefault()});
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var dx=e.clientX-sx,dy=e.clientY-sy;
+    self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
+    self.draw()});
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;dragging=false;
+    var w=bd2wgs(self._pt.lng,self._pt.lat);
+    notify('marker_moved',{index:self._idx,lat:w[1],lng:w[0]})
+  });
+};
 
-/* ════ 校园全图取景 ════ */
+/* ════ 校园全图取景（GL版）════
+ * GL 版 setViewport(bounds,{margins}) 用法与 v2.0 基本一致；
+ * 若 setViewport 行为异常，则退化为 fitBounds + setZoom 手动对齐。
+ * ════ */
 function fitCampus(){
   if(!_map)return;
   var b=null;
-  // 优先：当前校区完整地理范围
   if(_campusBounds){
     var sw=wgs2bd(_campusBounds.west,_campusBounds.south);
     var ne=wgs2bd(_campusBounds.east,_campusBounds.north);
-    b=new BMap.Bounds(new BMap.Point(sw[0],sw[1]),new BMap.Point(ne[0],ne[1]));
+    b=new BMapGL.Bounds(new BMapGL.Point(sw[0],sw[1]),new BMapGL.Point(ne[0],ne[1]));
   }
-  // 回退：步骤点包围盒 + 外扩
-  if(!b && _viewPts && _viewPts.length){
-    var mnLat=_viewPts[0].lat,mxLat=_viewPts[0].lat;
-    var mnLng=_viewPts[0].lng,mxLng=_viewPts[0].lng;
-    for(var i=1;i<_viewPts.length;i++){
-      var p=_viewPts[i];
-      if(p.lat<mnLat)mnLat=p.lat;if(p.lat>mxLat)mxLat=p.lat;
-      if(p.lng<mnLng)mnLng=p.lng;if(p.lng>mxLng)mxLng=p.lng}
-    mnLat-=.003;mxLat+=.003;mnLng-=.003;mxLng+=.003;
-    b=new BMap.Bounds(new BMap.Point(mnLng,mnLat),new BMap.Point(mxLng,mxLat));
+  if(!b){
+    var mnLat=1e9,mxLat=-1e9,mnLng=1e9,mxLng=-1e9,has=false;
+    _steps.forEach(function(s){
+      var p=wgs2bd(s.lng,s.lat);
+      if(p[1]<mnLat)mnLat=p[1];if(p[1]>mxLat)mxLat=p[1];
+      if(p[0]<mnLng)mnLng=p[0];if(p[0]>mxLng)mxLng=p[0];has=true});
+    if(has){
+      mnLat-=.003;mxLat+=.003;mnLng-=.003;mxLng+=.003;
+      b=new BMapGL.Bounds(new BMapGL.Point(mnLng,mnLat),new BMapGL.Point(mxLng,mxLat));
+    }
   }
-  // 兜底：两校区合并
   if(!b){
     var s1=wgs2bd(ALL_BOUNDS.west,ALL_BOUNDS.south);
     var n1=wgs2bd(ALL_BOUNDS.east,ALL_BOUNDS.north);
-    b=new BMap.Bounds(new BMap.Point(s1[0],s1[1]),new BMap.Point(n1[0],n1[1]));
+    b=new BMapGL.Bounds(new BMapGL.Point(s1[0],s1[1]),new BMapGL.Point(n1[0],n1[1]));
   }
   var w=_map.getSize().width||400,h=_map.getSize().height||400;
   var mgH=Math.max(36,Math.round(w*0.12));
   var mgV=Math.max(40,Math.round(h*0.15));
-  _map.setViewport(b,{margins:[mgV,mgH,mgV,mgH]});
-  // zoom 限制：16~18，保证看到整个校园
+  try{
+    _map.setViewport(b,{margins:[mgV,mgH,mgV,mgH]});
+  }catch(e){
+    // 部分 GL 版本 setViewport 不支持 margins，退化到 fitBounds
+    _map.fitBounds(b,[mgV,mgH,mgV,mgH]);
+  }
+  // zoom 限制
   if(_campusBounds){
     var z=_map.getZoom();
     var cz=CAMPUS_BOUNDS[_campusId]||_campusBounds;
@@ -271,54 +276,45 @@ function fitCampusById(id){
   fitCampus();
 }
 
-/* ════ 地图初始化 ════ */
+/* ════ 地图初始化（BMapGL）════ */
 function initMap(steps,cur,mode,campusId){
-  setupPulseOv();
-  _steps=steps;_cur=cur;_mode=mode;
-  _map=new BMap.Map('map',{enableMapClick:true});
-  _map.enableScrollWheelZoom();_map.enableDragging();
-  _map.setMinZoom(13);_map.setMaxZoom(20);
-  _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
-  _map.addControl(new BMap.NavigationControl({
-    anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
+  _steps=steps||[];_cur=cur||0;_mode=mode||'view';
 
-  // 校区 ID 推断
+  // 校区推断
   if(campusId && CAMPUS_BOUNDS[campusId]){
     _campusId=campusId;_campusBounds=CAMPUS_BOUNDS[campusId];
-  } else if(steps && steps.length){
-    var lat0=steps[0].lat;
+  } else if(_steps && _steps.length){
+    var lat0=_steps[0].lat;
     _campusId=(lat0>=32.305)?'langya':'huifeng';
     _campusBounds=CAMPUS_BOUNDS[_campusId];
   } else {
     _campusId='huifeng';_campusBounds=CAMPUS_BOUNDS.huifeng;
   }
 
-  _viewPts=[];
-  if(_steps && _steps.length){
-    _steps.forEach(function(s){
-      var bd=wgs2bd(s.lng,s.lat);
-      _viewPts.push(new BMap.Point(bd[0],bd[1]))});
-  } else {
-    var c0=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
-    _viewPts=[new BMap.Point(c0[0],c0[1])];
-  }
-  _pts=_viewPts.slice();
-
-  // 默认中心
+  // 初始化 GL 地图
   var cc=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
-  _map.centerAndZoom(new BMap.Point(cc[0],cc[1]),_campusBounds.defaultZoom||16);
+  _map=new BMapGL.Map('map',{
+    enableMapClick:true,
+    displayOptions:{
+      building:false,    // 关闭3D楼块（避免卡顿）
+      poi:true,
+      road:true
+    }
+  });
+  _map.enableScrollWheelZoom();
+  _map.enableDragging();
+  _map.setMinZoom(13);_map.setMaxZoom(20);
 
-  // 容器就绪后取景
-  var tries=0;
-  function tryFit(){
-    tries++;
-    var sz=_map.getSize();
-    var h=sz.height||0;
-    if(h>200){fitCampus();}
-    else if(tries<10){setTimeout(tryFit,150);}
-    else{fitCampus();}
-  }
-  tryFit();
+  // 默认中心 + zoom（先锁定视角，避免初帧跑偏）
+  _map.centerAndZoom(new BMapGL.Point(cc[0],cc[1]),_campusBounds.defaultZoom||16);
+
+  // 控件（GL版命名空间：BMapGL 下的 ScaleControl / ZoomControl 等）
+  try{
+    _map.addControl(new BMapGL.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
+    _map.addControl(new BMapGL.ZoomControl({
+      anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_ZOOMCONTROL_TYPE_SMALL
+    }));
+  }catch(e){console.warn('控件添加失败（不影响底图）:',e)}
 
   // 容器尺寸变化时重取景
   if(typeof ResizeObserver!=='undefined'){
@@ -326,43 +322,67 @@ function initMap(steps,cur,mode,campusId){
     obs.observe(document.getElementById('map'))
   }
 
-  // 瓦片加载检测（3.5秒后检查是否有百度瓦片渲染）
+  // 延迟一帧再开始取景（容器高 0 问题）
+  var tries=0;
+  function tryFit(){
+    tries++;
+    var sz=_map.getSize();
+    var h=(sz && sz.height)||0;
+    if(h>200){fitCampus();}
+    else if(tries<10){setTimeout(tryFit,150);}
+    else{fitCampus();}
+  }
+  tryFit();
+
+  // 瓦片加载检测
   startTileWatchdog();
 
   // 渲染标注
   renderSteps();
   if(mode==='edit'){
     var h=document.getElementById('editHint');
-    h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)
+    if(h){h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}
   }
   notify('ready',{});
 }
 
-/* ════ 渲染步骤标注 + 路线 ════ */
+/* ════ 渲染步骤标注 + 路线（GL版）═══ */
 function renderSteps(){
-  _ovs.forEach(function(o){_map.removeOverlay(o)});_ovs=[];
-  if(_poly){_map.removeOverlay(_poly);_poly=null}
+  _ovs.forEach(function(o){try{_map.removeOverlay(o)}catch(e){}});_ovs=[];
+  if(_poly){try{_map.removeOverlay(_poly)}catch(e){}_poly=null}
   var pts=[];
   _steps.forEach(function(s,i){
     var bd=wgs2bd(s.lng,s.lat);
-    var pt=new BMap.Point(bd[0],bd[1]);
+    var pt=new BMapGL.Point(bd[0],bd[1]);
     pts.push(pt);
-    var ov=new PulseOv(pt,s,i);
-    _map.addOverlay(ov);_ovs.push(ov)});
+    try{
+      var ov=new PulseOverlay(pt,s,i);
+      _map.addOverlay(ov);_ovs.push(ov);
+    }catch(e){console.error('标注渲染失败:',e)}
+  });
   if(pts.length>1){
-    _poly=new BMap.Polyline(pts,{
-      strokeColor:'#1677FF',strokeWeight:3,
-      strokeOpacity:.5,strokeStyle:'dashed'});
-    _map.addOverlay(_poly)}
-  updateStatus()}
+    try{
+      _poly=new BMapGL.Polyline(pts,{
+        strokeColor:'#1677FF',strokeWeight:3,
+        strokeOpacity:.6,strokeStyle:'dashed'
+      });
+      _map.addOverlay(_poly);
+    }catch(e){console.error('路线渲染失败:',e)}
+  }
+  updateStatus();
+}
 
 function updateStatus(){
-  _ovs.forEach(function(o,i){o.setStatus(i<_cur?'done':i===_cur?'active':'pending')})}
+  _ovs.forEach(function(o,i){try{o.setStatus(i<_cur?'done':i===_cur?'active':'pending')}catch(e){}});
+}
 
-/* ════ 切换步骤 ════ */
+/* ════ 切换当前步骤 ════ */
 function setStep(idx){
-  _cur=idx;updateStatus();
-  if(_ovs[idx])_map.panTo(_ovs[idx]._pt)}
+  _cur=idx||0;updateStatus();
+  if(_ovs[idx] && _ovs[idx]._pt){
+    try{_map.panTo(_ovs[idx]._pt)}catch(e){}
+  }
+}
 
 /* ════ 与 Flutter 通信 ════ */
 function notify(type,data){
@@ -377,8 +397,8 @@ function notify(type,data){
 window.addEventListener('message',function(e){
   var d=e.data||{};
   if(d.type==='init'){
-    loadBaiduAPI(d.ak).then(function(){
-      initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId)
+    loadBaiduGL(d.ak).then(function(){
+      initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId);
     }).catch(function(err){
       console.error(err.message);
       showTileAlert();
@@ -386,9 +406,12 @@ window.addEventListener('message',function(e){
   } else if(d.type==='set_step'){
     setStep(d.index||0);
   } else if(d.type==='refresh'){
-    _steps=d.steps||_steps;_cur=d.currentStep!=null?d.currentStep:_cur;renderSteps()}
-  else if(d.type==='fit_campus'){
-    fitCampusById(d.campusId||d.id)}
+    _steps=d.steps||_steps;
+    _cur=d.currentStep!=null?d.currentStep:_cur;
+    renderSteps();
+  } else if(d.type==='fit_campus'){
+    fitCampusById(d.campusId||d.id);
+  }
 });
 
 window.addEventListener('load',function(){notify('ready',{})});
