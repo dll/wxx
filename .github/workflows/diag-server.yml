@@ -1,31 +1,25 @@
-# 诊断：本地 HTTPS 000 根因
 name: Diag Server
-
-on:
-  workflow_dispatch:
-
+on: workflow_dispatch
 jobs:
   diag:
-    name: 诊断 HTTPS
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: SSH 诊断 HTTPS
+      - uses: actions/checkout@v4
+      - name: HTTPS 精准诊断
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "===== curl -v 详细 HTTPS 失败 ====="
-            curl -vsk -m 8 -X POST "https://localhost/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{}' 2>&1 | head -30
-            echo "===== 证书文件列表 ====="
-            sudo ls -la /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ 2>/dev/null
-            echo "===== 证书有效日期 ====="
-            CERT=$(sudo find /var/lib/caddy -name "*.crt" | head -1)
-            echo "证书: $CERT"
-            sudo openssl x509 -in "$CERT" -noout -dates -subject 2>&1 | head -5
+            echo "DIAG_BEGIN"
+            echo "--- caddy version ---"
+            caddy version
+            echo "--- 证书有效期 ---"
+            sudo openssl x509 -in /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/www.wxx-agent.online/www.wxx-agent.online.crt -noout -dates -subject -issuer 2>&1
+            echo "--- 443 监听 ---"
+            sudo ss -tlnp | grep :443
+            echo "--- 本地 HTTPS 不带 Host ---"
+            curl -vsk -m 6 https://localhost/ 2>&1 | grep -E "SSL|TLS|Connected|error|Recv|HTTP|subject|CN" | head -12
+            echo "DIAG_END"
