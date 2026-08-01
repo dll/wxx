@@ -49,7 +49,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 <div id="editHint">📍 拖动标注调整位置，松手后坐标自动保存</div>
 <script>
 /* ════ 全局状态 ════ */
-var _map=null,_ovs=[],_poly=null,_steps=[],_pts=[],_cur=0,_mode='view';
+var _map=null,_ovs=[],_poly=null,_steps=[],_pts=[],_viewPts=[],_cur=0,_mode='view';
 var π=Math.PI,_a=6378245,_ee=.006693421623;
 
 /* ════ WGS-84 → GCJ-02 ════ */
@@ -178,7 +178,8 @@ function initMap(steps,cur,mode){
   ];
   var anchorPts=CAMPUS_ANCHORS.map(function(c){
     return new BMap.Point(c.lng,c.lat)});
-  var _viewPts=[];
+  // 全局 _viewPts：fitCampus 需读取它（作用域在 initMap 外）
+  _viewPts=[];
   // 优先用步骤点（报到点即校园范围），否则用校区中心
   if(_steps && _steps.length){
     _steps.forEach(function(s){
