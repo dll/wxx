@@ -1,4 +1,4 @@
-# 临时诊断：Caddyfile 全文 + 公网 HTTPS 测试
+# 修复：重新加载 Caddy 证书并重启
 name: Diag Server
 
 on:
@@ -6,25 +6,31 @@ on:
 
 jobs:
   diag:
-    name: 诊断
+    name: 修复 Caddy
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: SSH 获取 Caddyfile
+      - name: SSH 修复 Caddy
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "===== Caddyfile 全文 ====="
-            cat /etc/caddy/Caddyfile
-            echo "===== 本地 HTTPS 测试 ====="
-            curl -sk -m 5 https://localhost/api/v1/auth/login -H "Host: www.wxx-agent.online" -X POST -H "Content-Type: application/json" -d '{"username":"x","password":"y"}' -w "\nHTTP %{http_code}\n" | head -c 300
-            echo ""
-            echo "===== www 证书 ====="
-            ls -la /var/lib/caddy/.local/share/caddy/certificates/ 2>/dev/null || find / -name "*.crt" -path "*caddy*" 2>/dev/null | head
+            echo "===== 检查 www 证书 ====="
+            find /var/lib/caddy -name "*.crt" 2>/dev/null | head -5
+            echo "===== 证书到期时间 ====="
+            for c in $(find /var/lib/caddy -name "*.crt" 2>/dev/null | head -3); do
+              echo "$c:"; openssl x509 -in "$c" -noout -dates 2>/dev/null
+            done
+            echo "===== 尝试强制续期 www ====="
+            sudo caddy renew --all --force 2>&1 | tail -10
+            echo "===== reload caddy ====="
+            sudo systemctl reload caddy 2>&1
+            sleep 2
+            echo "===== 重测本地 HTTPS ====="
+            curl -sk -m 5 -X POST "https://localhost/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrong"}' -w "\nHTTP %{http_code}\n" | head -c 300
