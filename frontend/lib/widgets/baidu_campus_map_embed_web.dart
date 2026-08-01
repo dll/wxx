@@ -1,5 +1,6 @@
 // Web 端百度地图嵌入组件（HtmlElementView + postMessage 通信）
-// 底图为真实百度地图，报到流程以脉冲标注 + 抽象折线叠加其上。
+// 底图为真实百度地图，报到流程以脉冲标注 + 折线叠加其上。
+import 'dart:async';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
@@ -103,36 +104,88 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
 
   void _registerView() {
     // 根据 provider 选择对应地图 HTML（三套 HTML 共用同一 postMessage 协议）
-    final htmlPath = switch (widget.provider) {
-      'amap' => '/assets/amap_campus_map.html?v=1',
-      'tencent' => '/assets/tencent_campus_map.html?v=1',
-      _ => '/assets/baidu_campus_map.html?v=3',
+    // v=6：地图 HTML 改为自动初始化（window.load 时用内嵌 AK 加载），
+    //      不再依赖 postMessage init 传 AK，解决 iframe 时序问题。
+    //      同时通过 URL 参数传 AK 作为备份（HTML 优先读 URL，fallback 到内嵌）。
+    final akParam = switch (widget.provider) {
+      'amap' => widget.amapAk,
+      'tencent' => widget.tencentAk,
+      _ => widget.baiduAk,
     };
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
-      // 用容器 div 包裹 iframe：容器 100% 填满 Flutter 的 flt-platform-view，
-      // iframe 再 100% 填满容器。这样 iframe 高度始终跟随 Flutter 布局，
-      // 不再依赖固定像素值，彻底避免容器高度与 iframe 高度不同步导致的塌陷。
+    final htmlPath = switch (widget.provider) {
+      'amap' => '/assets/amap_campus_map.html?v=3&ak=${Uri.encodeComponent(akParam)}',
+      'tencent' => '/assets/tencent_campus_map.html?v=3&ak=${Uri.encodeComponent(akParam)}',
+      _ => '/assets/baidu_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}',
+    };
+    ui_web.platformViewRegistry.registerViewFactory(_viewType, (viewId) {
+      // 工厂返回的元素会被 Flutter append 到自动创建的 flt-platform-view 里。
+      // Flutter Web canvaskit 下 flt-platform-view 的 CSS 宽高由 RenderBox
+      // 控制，但部分场景下与 RenderBox 同步存在延迟或为 0×0。这里用轮询
+      // 主动读取 host 父元素（flt-platform-view）的实际像素尺寸，并显式
+      // 写到 host 与 iframe 上，保证 iframe 不会塌缩为 0。
       final host = html.DivElement()
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.position = 'absolute'
-        ..style.top = '0'
-        ..style.left = '0';
+        ..style.display = 'block'
+        ..style.overflow = 'hidden';
       final f = html.IFrameElement()
-        // 带版本查询串：地图页文件名固定，靠 ?v= 破除 CDN/浏览器旧缓存
         ..src = htmlPath
         ..style.border = '0'
+        ..style.display = 'block'
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.position = 'absolute'
-        ..style.top = '0'
-        ..style.left = '0'
         ..allow = 'geolocation'
         ..referrerPolicy = 'strict-origin-when-cross-origin';
       host.append(f);
       _iframe = f;
+      _observePlatformView(host, f);
       return host;
     });
+  }
+
+  /// 轮询读取 host 父元素（flt-platform-view）的像素尺寸，显式同步到
+  /// host 与 iframe。如果 flt-platform-view 尺寸为 0（Flutter Web 已知 bug），
+  /// 向上查找有尺寸的祖先元素作为 fallback，并强制设置 flt-platform-view
+  /// 的 CSS 尺寸。确保 iframe 始终有非零尺寸，避免浏览器中止加载。
+  void _observePlatformView(html.Element host, html.IFrameElement iframe) {
+    int attempts = 0;
+    void check() {
+      attempts++;
+      final parent = host.parent;
+      if (parent == null) {
+        if (attempts < 60) Timer(const Duration(milliseconds: 50), check);
+        return;
+      }
+      var rect = parent.getBoundingClientRect();
+      var w = rect.width.toInt();
+      var h = rect.height.toInt();
+      // flt-platform-view 尺寸为 0 时，向上查找有尺寸的祖先元素
+      if (w == 0 || h == 0) {
+        html.Element? p = parent.parent;
+        while (p != null) {
+          final r = p.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) {
+            w = r.width.toInt();
+            h = r.height.toInt();
+            break;
+          }
+          p = p.parent;
+        }
+      }
+      if (w > 0 && h > 0) {
+        iframe.style.width = '${w}px';
+        iframe.style.height = '${h}px';
+        host.style.width = '${w}px';
+        host.style.height = '${h}px';
+        // 强制设置 flt-platform-view 的 CSS 尺寸（覆盖 Flutter 的 0×0）
+        parent.style
+          ..width = '${w}px'
+          ..height = '${h}px';
+      }
+      // 持续监听尺寸变化（窗口缩放、布局重排），最多轮询 60 次 ≈ 6s
+      if (attempts < 60) Timer(const Duration(milliseconds: 100), check);
+    }
+    Timer(const Duration(milliseconds: 50), check);
   }
 
   void _sendInit() {

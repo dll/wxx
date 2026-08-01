@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>地图诊断 - 蔚小芯</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+  background:#f5f7fa;color:#333;padding:20px;line-height:1.6}
+h1{font-size:20px;margin-bottom:16px;color:#1677FF}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card h2{font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.ok{background:#e6ffed;color:#229957}
+.badge.fail{background:#ffebee;color:#c62828}
+.badge.warn{background:#fff8e1;color:#e65100}
+.badge.info{background:#e3f2fd;color:#1565c0}
+.log{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;
+  font-family:'Consolas','Monaco',monospace;font-size:12px;
+  max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.log .err{color:#f48771}
+.log .ok{color:#89d185}
+.log .warn{color:#e2c08d}
+.log .info{color:#75beff}
+#mapTest{width:100%;height:280px;border-radius:8px;border:1px solid #ddd;
+  background:#e8eef4;position:relative;overflow:hidden}
+#mapTest canvas,#mapTest div{max-width:none}
+table{width:100%;border-collapse:collapse;font-size:13px}
+table td,table th{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}
+table th{background:#f9f9f9;font-weight:600;width:140px}
+.kv{display:flex;gap:10px;align-items:center;margin:4px 0;font-size:13px}
+.kv span:first-child{font-weight:600;min-width:120px;color:#666}
+code{background:#f0f0f0;padding:1px 5px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>🗺️ 百度地图底图诊断</h1>
+
+<div class="card">
+  <h2>① 环境信息 <span class="badge info" id="envBadge">检测中</span></h2>
+  <table>
+    <tr><th>访问 URL</th><td id="url"></td></tr>
+    <tr><th>Referer</th><td id="referer"></td></tr>
+    <tr><th>User-Agent</th><td id="ua"></td></tr>
+    <tr><th>WebGL 支持</th><td id="webgl"></td></tr>
+    <tr><th>WebGL2 支持</th><td id="webgl2"></td></tr>
+    <tr><th>屏幕尺寸</th><td id="screen"></td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>② AK 配置 <span class="badge info" id="akBadge">读取中</span></h2>
+  <div class="kv"><span>百度 AK：</span><code id="ak"></code></div>
+  <div class="kv"><span>AK 长度：</span><span id="akLen"></span></div>
+  <div class="kv"><span>AK 格式：</span><span id="akFmt"></span></div>
+</div>
+
+<div class="card">
+  <h2>③ BMapGL 脚本加载 <span class="badge warn" id="scriptBadge">等待中</span></h2>
+  <div class="kv"><span>脚本 URL：</span><code id="scriptUrl"></code></div>
+  <div class="kv"><span>加载状态：</span><span id="scriptStatus">未开始</span></div>
+  <div class="kv"><span>BMapGL 全局：</span><span id="bmapglGlobal">未定义</span></div>
+</div>
+
+<div class="card">
+  <h2>④ 地图初始化测试 <span class="badge warn" id="initBadge">等待中</span></h2>
+  <div id="mapTest"></div>
+  <div class="kv" style="margin-top:10px"><span>初始化结果：</span><span id="initResult">等待脚本加载</span></div>
+  <div class="kv"><span>容器尺寸：</span><span id="containerSize">-</span></div>
+  <div class="kv"><span>地图尺寸：</span><span id="mapSize">-</span></div>
+  <div class="kv"><span>当前缩放：</span><span id="mapZoom">-</span></div>
+  <div class="kv"><span>瓦片请求：</span><span id="tileCount">0 个</span></div>
+</div>
+
+<div class="card">
+  <h2>⑤ 完整日志（未静默 console）</h2>
+  <div class="log" id="consoleLog"></div>
+</div>
+
+<script>
+/* ════ 诊断脚本：不静默任何 console，所有输出同步到页面 ════ */
+var _logEl=document.getElementById('consoleLog');
+var _tileReqs=0;
+var _ak='OUouSU6WbYExGTlnDEFqqruhTH60KAwO'; // 与 .env 中一致
+
+function log(msg,type){
+  var t=type||'info';
+  var line='['+new Date().toLocaleTimeString()+'] ['+t.toUpperCase()+'] '+msg;
+  var span=document.createElement('span');
+  span.className=t;
+  span.textContent=line+'\n';
+  _logEl.appendChild(span);
+  _logEl.scrollTop=_logEl.scrollHeight;
+}
+
+/* 拦截所有 console 输出到页面 */
+['log','info','debug','warn','error','trace'].forEach(function(method){
+  var orig=console[method]?console[method].bind(console):function(){};
+  console[method]=function(){
+    var args=Array.prototype.slice.call(arguments);
+    var msg=args.map(function(a){
+      try{return typeof a==='object'?JSON.stringify(a):String(a)}catch(e){return String(a)}
+    }).join(' ');
+    log(msg,method==='error'?'err':method==='warn'?'warn':'info');
+    try{orig.apply(console,args)}catch(e){}
+  };
+});
+
+window.addEventListener('error',function(e){
+  log('全局错误: '+(e.message||'unknown')+' @ '+(e.filename||'')+':'+(e.lineno||''),'err');
+});
+window.addEventListener('unhandledrejection',function(e){
+  log('未处理 Promise 拒绝: '+(e.reason&&e.reason.message||e.reason||'unknown'),'err');
+});
+
+/* ── ① 环境信息 ── */
+document.getElementById('url').textContent=location.href;
+document.getElementById('referer').textContent=document.referrer||'(空)';
+document.getElementById('ua').textContent=navigator.userAgent;
+
+var gl=document.createElement('canvas').getContext('webgl');
+var gl2=document.createElement('canvas').getContext('webgl2');
+document.getElementById('webgl').innerHTML=gl?'<span class="badge ok">✓ 支持</span>':'<span class="badge fail">✗ 不支持</span>';
+document.getElementById('webgl2').innerHTML=gl2?'<span class="badge ok">✓ 支持</span>':'<span class="badge fail">✗ 不支持</span>';
+document.getElementById('screen').textContent=window.innerWidth+'×'+window.innerHeight;
+document.getElementById('envBadge').className='badge ok';
+document.getElementById('envBadge').textContent='完成';
+
+if(!gl){log('WebGL 不支持！BMapGL 需要 WebGL 才能渲染底图','err')}
+
+/* ── ② AK 配置 ── */
+document.getElementById('ak').textContent=_ak;
+document.getElementById('akLen').textContent=_ak.length+' 字符';
+document.getElementById('akFmt').innerHTML=/^[A-Za-z0-9]{20,40}$/.test(_ak)
+  ?'<span class="badge ok">✓ 格式正常</span>'
+  :'<span class="badge fail">✗ 格式异常</span>';
+document.getElementById('akBadge').className='badge ok';
+document.getElementById('akBadge').textContent='完成';
+log('百度 AK: '+_ak,'info');
+
+/* ── ③ 加载 BMapGL ── */
+var scriptUrl='https://api.map.baidu.com/api?type=webgl&v=1.0&ak='+encodeURIComponent(_ak)+'&callback=_diag_init';
+document.getElementById('scriptUrl').textContent=scriptUrl;
+log('开始加载 BMapGL 脚本: '+scriptUrl,'info');
+
+window._diag_init=function(){
+  log('BMapGL 回调 _diag_init 被调用','ok');
+  document.getElementById('scriptBadge').className='badge ok';
+  document.getElementById('scriptBadge').textContent='加载成功';
+  document.getElementById('scriptStatus').innerHTML='<span class="badge ok">✓ 成功</span>';
+  if(typeof BMapGL!=='undefined'){
+    document.getElementById('bmapglGlobal').innerHTML='<span class="badge ok">✓ 已定义</span>';
+    log('BMapGL 全局对象已定义，version='+(BMapGL.version||'未知'),'ok');
+    testInit();
+  }else{
+    document.getElementById('bmapglGlobal').innerHTML='<span class="badge fail">✗ 未定义</span>';
+    log('BMapGL 回调已调用但全局对象未定义！','err');
+    document.getElementById('initBadge').className='badge fail';
+    document.getElementById('initBadge').textContent='失败';
+    document.getElementById('initResult').innerHTML='<span class="badge fail">BMapGL 全局对象未定义，AK 可能无效或被限制</span>';
+  }
+};
+
+var s=document.createElement('script');
+s.onerror=function(){
+  log('BMapGL 脚本 onerror 触发：脚本加载失败（网络问题或被阻断）','err');
+  document.getElementById('scriptBadge').className='badge fail';
+  document.getElementById('scriptBadge').textContent='加载失败';
+  document.getElementById('scriptStatus').innerHTML='<span class="badge fail">✗ 脚本加载失败</span>';
+  document.getElementById('initBadge').className='badge fail';
+  document.getElementById('initBadge').textContent='失败';
+  document.getElementById('initResult').innerHTML='<span class="badge fail">脚本加载失败，检查网络或 AK 是否有效</span>';
+};
+s.src=scriptUrl;
+document.head.appendChild(s);
+
+log('BMapGL script 标签已添加到 DOM','info');
+
+/* 超时检测 */
+setTimeout(function(){
+  if(typeof BMapGL==='undefined'){
+    log('BMapGL 7秒超时仍未定义！AK 可能无效或 Referer 白名单未通过','err');
+    if(document.getElementById('scriptBadge').textContent!=='加载成功'){
+      document.getElementById('scriptBadge').className='badge fail';
+      document.getElementById('scriptBadge').textContent='超时';
+      document.getElementById('initBadge').className='badge fail';
+      document.getElementById('initBadge').textContent='超时';
+      document.getElementById('initResult').innerHTML='<span class="badge fail">BMapGL 加载超时，AK 无效或 Referer 白名单未包含当前域名</span>';
+    }
+  }
+},7000);
+
+/* ── ④ 初始化测试 ── */
+function testInit(){
+  log('开始测试地图初始化','info');
+  var container=document.getElementById('mapTest');
+  var rect=container.getBoundingClientRect();
+  document.getElementById('containerSize').textContent=
+    Math.round(rect.width)+'×'+Math.round(rect.height);
+
+  if(rect.width<10||rect.height<10){
+    log('容器尺寸为 0，无法初始化','err');
+    document.getElementById('initBadge').className='badge fail';
+    document.getElementById('initBadge').textContent='容器为0';
+    return;
+  }
+
+  try{
+    var map=new BMapGL.Map('mapTest',{
+      enableMapClick:true,
+      displayOptions:{building:false,poi:true,road:true}
+    });
+    map.enableScrollWheelZoom();
+    map.centerAndZoom(new BMapGL.Point(118.3059,32.2961),16);
+    log('BMapGL.Map 构造成功','ok');
+
+    var sz=map.getSize();
+    document.getElementById('mapSize').textContent=
+      (sz.width||0)+'×'+(sz.height||0);
+    document.getElementById('mapZoom').textContent=map.getZoom();
+
+    if(sz.height===0){
+      log('地图尺寸高度为 0！WebGL 上下文可能创建失败','err');
+      document.getElementById('initBadge').className='badge fail';
+      document.getElementById('initBadge').textContent='尺寸为0';
+      document.getElementById('initResult').innerHTML=
+        '<span class="badge fail">地图高度为 0，WebGL 上下文创建失败</span>';
+      return;
+    }
+
+    document.getElementById('initBadge').className='badge ok';
+    document.getElementById('initBadge').textContent='初始化成功';
+    document.getElementById('initResult').innerHTML=
+      '<span class="badge ok">✓ 地图已初始化，等待瓦片加载...</span>';
+    log('地图初始化成功，尺寸 '+sz.width+'×'+sz.height,'ok');
+
+    /* 监听瓦片请求 */
+    var origImage=window.Image;
+    window.Image=function(){
+      var img=new origImage();
+      img.addEventListener('load',function(){
+        if(img.src&&(img.src.indexOf('baidu')>-1||img.src.indexOf('bdimg')>-1)){
+          _tileReqs++;
+          document.getElementById('tileCount').textContent=_tileReqs+' 个';
+          if(_tileReqs===1){
+            log('首个百度瓦片加载成功: '+img.src.substring(0,80),'ok');
+            document.getElementById('initResult').innerHTML=
+              '<span class="badge ok">✓ 底图瓦片已加载！底图正常</span>';
+          }
+        }
+      });
+      img.addEventListener('error',function(){
+        if(img.src&&(img.src.indexOf('baidu')>-1||img.src.indexOf('bdimg')>-1)){
+          log('瓦片加载失败: '+img.src.substring(0,100),'err');
+        }
+      });
+      return img;
+    };
+    window.Image.prototype=origImage.prototype;
+
+    /* 4秒后检查瓦片 */
+    setTimeout(function(){
+      if(_tileReqs===0){
+        log('4秒内无瓦片加载！检查 Network 面板看是否有瓦片请求','warn');
+        document.getElementById('initResult').innerHTML=
+          '<span class="badge fail">✗ 4秒内无瓦片加载，底图不显示。检查 AK 类型是否为"浏览器端"，Referer 白名单是否包含当前域名</span>';
+      }else{
+        log('4秒内加载了 '+_tileReqs+' 个瓦片','ok');
+      }
+    },4000);
+
+  }catch(e){
+    log('地图初始化异常: '+e.message,'err');
+    document.getElementById('initBadge').className='badge fail';
+    document.getElementById('initBadge').textContent='异常';
+    document.getElementById('initResult').innerHTML=
+      '<span class="badge fail">初始化异常: '+e.message+'</span>';
+  }
+}
+</script>
+</body>
+</html>

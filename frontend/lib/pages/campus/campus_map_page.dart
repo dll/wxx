@@ -375,12 +375,14 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ],
           );
         }
-        // 移动端：地图给更大比例(7:3)，配合地图内浮动控件避免 Column 固定项挤塌地图。
+        // 移动端：地图占全部剩余空间（Expanded），步骤栏用固定高度。
+        // 原方案 Expanded(flex:7/3) 在小视口下地图绝对高度仍太小（如 161px），
+        // 改为固定高度步骤栏 + Expanded 地图，保证地图至少占 70% 视口高度。
         return Column(
           children: [
-            Expanded(flex: 7, child: map),
+            Expanded(child: map),
             const Divider(height: 1),
-            Expanded(flex: 3, child: steps),
+            SizedBox(height: 140, child: steps),
           ],
         );
       },

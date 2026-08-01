@@ -41,6 +41,14 @@
       function loadFlutter() {
         if (scriptLoaded) return;
         scriptLoaded = true;
+        // 永久禁用 Service Worker 注册：flutter_bootstrap.js 默认会注册
+        // flutter_service_worker.js 缓存所有资源，导致新版本不生效。
+        // 重写 register 为 no-op，确保每次都从服务器加载最新资源。
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register = function() {
+            return Promise.reject(new Error('SW disabled by app config'));
+          };
+        }
         var el = document.createElement('script');
         el.src = 'flutter_bootstrap.js';
         document.body.appendChild(el);

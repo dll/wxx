@@ -78,7 +78,8 @@ html,body{width:100%;height:100%;overflow:hidden;
   try{
     if(window.console){
       console.log=noop;console.info=noop;console.debug=noop;
-      console.warn=noop;console.trace=noop;
+      console.trace=noop;
+      /* 保留 console.warn 和 console.error 以便定位真实问题 */
     }
   }catch(e){}
 })();
@@ -297,6 +298,15 @@ function fitCampusById(id){
 
 /* ════ 地图初始化（BMapGL）════ */
 function initMap(steps,cur,mode,campusId){
+  // 确保容器有尺寸：BMapGL 在 0×0 容器中初始化时 WebGL 上下文创建失败，
+  // 后续尺寸变化也不会渲染瓦片。Flutter iframe 存在同步问题，init 消息
+  // 可能在容器尺寸还是 0 时到达，必须等待容器有尺寸再初始化。
+  var mapEl=document.getElementById('map');
+  var rect=mapEl.getBoundingClientRect();
+  if(rect.width<10||rect.height<10){
+    setTimeout(function(){initMap(steps,cur,mode,campusId)},100);
+    return;
+  }
   setupPulseOv(); // BMapGL 已就绪，此时才能安全定义覆盖物原型
   _steps=steps||[];_cur=cur||0;_mode=mode||'view';
 
@@ -452,16 +462,27 @@ function notify(type,data){
   try{(window.parent||window.top||window).postMessage(msg,'*')}catch(e){}
 }
 
-/* ════ 消息路由 ════ */
+/* ════ 消息路由 ════
+ * 注意：地图在 window.load 时自动初始化（内嵌 AK），不依赖 init 消息传 AK。
+ * init 消息仅用于更新 steps/campus/mode 等业务数据。
+ * 这解决了 Flutter iframe 中 postMessage 时序不稳定导致地图不渲染的问题。
+ */
+var _pendingInit=null; // init 在地图就绪前到达时暂存
+
 window.addEventListener('message',function(e){
   var d=e.data||{};
   if(d.type==='init'){
-    loadBaiduGL(d.ak).then(function(){
-      initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId);
-    }).catch(function(err){
-      /* 加载失败不打印日志，仅弹出配置引导提示 */
-      showTileAlert();
-    });
+    if(_map){
+      // 地图已初始化，仅更新业务数据
+      _steps=d.steps||_steps;
+      _cur=d.currentStep!=null?d.currentStep:_cur;
+      _mode=d.mode||_mode;
+      if(d.campusId&&d.campusId!==_campusId){fitCampusById(d.campusId)}
+      renderSteps();
+    }else{
+      // 地图尚未就绪，暂存数据，自动初始化完成后会使用
+      _pendingInit=d;
+    }
   } else if(d.type==='set_step'){
     setStep(d.index||0);
   } else if(d.type==='refresh'){
@@ -475,7 +496,34 @@ window.addEventListener('message',function(e){
   }
 });
 
-window.addEventListener('load',function(){notify('ready',{})});
+/* ════ URL 参数读取 ════ */
+function _getUrlParam(name){
+  try{
+    var u=new URL(window.location.href);
+    return u.searchParams.get(name)||'';
+  }catch(e){return ''}
+}
+
+/* ════ 自动初始化（window.load 后立即执行）════
+ * 诊断发现 Flutter iframe 的 postMessage 时序不稳定：
+ *   ready → init 的往返可能因 widget 重建/尺寸同步等问题丢失，
+ *   导致 BMapGL 脚本已加载但 initMap 从未被调用。
+ * 改为 window.load 后直接用内嵌 AK 加载 BMapGL 并初始化地图，
+ * init 消息降级为"数据更新"（见上方的 _pendingInit 逻辑）。
+ */
+var _DEFAULT_BAIDU_AK='OUouSU6WbYExGTlnDEFqqruhTH60KAwO';
+
+window.addEventListener('load',function(){
+  var ak=_getUrlParam('ak')||_DEFAULT_BAIDU_AK;
+  loadBaiduGL(ak).then(function(){
+    var data=_pendingInit||{};
+    initMap(data.steps||[],data.currentStep||0,data.mode||'view',data.campusId||'huifeng');
+    // 地图完全就绪后通知 Flutter（Flutter 收到后会发送 init 更新业务数据）
+    setTimeout(function(){notify('ready',{})},200);
+  }).catch(function(err){
+    showTileAlert();
+  });
+});
 </script>
 </body>
 </html>
