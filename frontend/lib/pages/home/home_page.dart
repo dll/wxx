@@ -226,8 +226,48 @@ class _HomePageState extends State<HomePage> {
             else
               _buildGuestBanner(theme),
             const SizedBox(height: 12),
-            // 安卓 APK 下载（置顶，无需滚动即可看到）
-            _buildApkDownloadCard(theme),
+            // 安卓 APK 下载（紧凑卡片，无需滚动即可看到）
+            GestureDetector(
+              onTap: () => _showApkDownloadDialog(context, theme),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF2E7D32).withOpacity(0.08),
+                      const Color(0xFF2E7D32).withOpacity(0.04),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF2E7D32).withOpacity(0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.android, color: Color(0xFF2E7D32), size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('安卓应用下载',
+                              style: theme.textTheme.labelLarge
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text('扫码下载 APK • v${ReleaseConfig.version}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              )),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 16, color: theme.colorScheme.primary),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             // 学生个性化首页
             if (isStudent && loggedIn) ...[
@@ -444,6 +484,118 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openApkDownload() async {
     final uri = Uri.parse(ReleaseConfig.apkDownloadUrl);
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _showApkDownloadDialog(BuildContext context, ThemeData theme) {
+    final qrData = Uri.encodeComponent(ReleaseConfig.apkDownloadUrl);
+    final qrUrl =
+        'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$qrData&margin=10';
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF2E7D32).withOpacity(0.08),
+                    const Color(0xFF2E7D32).withOpacity(0.04),
+                  ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.android, color: Color(0xFF2E7D32), size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('蔚小芯 APK 下载',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        Text('扫码或点击下方链接下载',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        qrUrl,
+                        width: 160,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox(
+                          width: 160,
+                          height: 160,
+                          child: Icon(Icons.qr_code_2,
+                              size: 96, color: Colors.black54),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '版本 v${ReleaseConfig.version} • ${ReleaseConfig.apkFileName}',
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _openApkDownload,
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: const Text('直接下载 APK'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('关闭'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// 滁州学院快讯（游客横幅）

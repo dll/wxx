@@ -146,18 +146,39 @@ function initMap(steps,cur,mode){
   _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
   _map.addControl(new BMap.NavigationControl({
     anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
-  // 以全部步骤点为边界，让整个校园范围完整显示在地图内
+  // 合并校园边界点 + 步骤点，以同时显示两个校区（琅琊 + 会峰）的全景
   _pts=[];
+  // 琅琊校区边界（北东南西四个角）
+  var langya_bounds=[
+    [32.3160, 118.3120],  // 北
+    [32.3140, 118.3130],  // 东
+    [32.3112, 118.3080],  // 南
+    [32.3125, 118.3070],  // 西
+  ];
+  // 会峰校区边界（北东南西四个角）
+  var huifeng_bounds=[
+    [32.2950, 118.3020],  // 北
+    [32.2950, 118.3020],  // 东
+    [32.2890, 118.2960],  // 南
+    [32.2900, 118.2960],  // 西
+  ];
+  // 合并所有边界点和步骤点
+  var all_pts=langya_bounds.concat(huifeng_bounds);
   if(_steps && _steps.length){
-    _pts=_steps.map(function(s){
-      var bd=wgs2bd(s.lng,s.lat);
-      return new BMap.Point(bd[0],bd[1])});
-    var viewport=_map.getViewport(_pts,{margins:[60,60,60,60]});
-    // 用步骤点计算的中心点初始化，再 setViewport 适配全校园
+    all_pts=all_pts.concat(_steps.map(function(s){return[s.lat,s.lng]}));
+  }
+  // 转换为 BD-09 坐标
+  _pts=all_pts.map(function(p){
+    var bd=wgs2bd(p[1],p[0]);
+    return new BMap.Point(bd[0],bd[1])});
+  // 根据所有点计算视口，使两个校区都完整显示
+  if(_pts.length){
+    var viewport=_map.getViewport(_pts,{margins:[80,80,80,80]});
     var center=viewport.center||_pts[0];
-    _map.centerAndZoom(center,viewport.zoom||16);
-    _map.setViewport(_pts,{margins:[60,60,60,60]});
+    _map.centerAndZoom(center,viewport.zoom||14);
+    _map.setViewport(_pts,{margins:[80,80,80,80]});
   } else {
+    // 默认中心点（琅琊校区）
     var s0={lat:32.313,lng:118.31};
     var c=wgs2bd(s0.lng,s0.lat);
     _map.centerAndZoom(new BMap.Point(c[0],c[1]),17);
@@ -165,7 +186,7 @@ function initMap(steps,cur,mode){
   // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
   // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
   requestAnimationFrame(function(){
-    if(_map){_map.resize();if(_pts.length){_map.setViewport(_pts,{margins:[60,60,60,60]})}}});
+    if(_map){_map.resize();if(_pts.length){_map.setViewport(_pts,{margins:[80,80,80,80]})}}});
   // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
   if(typeof ResizeObserver!=='undefined'){
     var obs=new ResizeObserver(function(){

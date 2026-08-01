@@ -375,8 +375,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // 地图面板：高度拉到接近整屏，地图尽量大
-            SizedBox(height: 800, child: map),
+            // 地图面板：按校园边界自适应高度（琅琊+会峰）
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.65,
+              child: map,
+            ),
             const SizedBox(height: 12),
             SizedBox(height: 640, child: steps),
           ],
