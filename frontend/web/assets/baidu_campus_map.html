@@ -320,6 +320,17 @@ function initMap(steps,cur,mode,campusId){
     _map.addControl(new BMapGL.ZoomControl({
       anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_ZOOMCONTROL_TYPE_SMALL
     }));
+    // ════ 三种地图类型：标准 / 卫星 / 3D地球（BMapGL 原生支持）════
+    // 顶部左侧切换器，用户可自由选择地图底图类型。
+    var maptype=new BMapGL.MapTypeControl({
+      mapTypes:[
+        BMAP_NORMAL_MAP,      // 标准地图
+        BMAP_SATELLITE_MAP,   // 卫星地图
+        BMAP_EARTH_MAP        // 3D 地球（真实三维）
+      ],
+      anchor:BMAP_ANCHOR_TOP_LEFT
+    });
+    _map.addControl(maptype);
   }catch(e){console.warn('控件添加失败（不影响底图）:',e)}
 
   // 容器尺寸变化时重取景
@@ -391,6 +402,33 @@ function setStep(idx){
   }
 }
 
+/* ════ 2D / 3D 视角切换（BMapGL 原生 3D）════
+ * 2D：俯视平面（tilt=0，关闭建筑）
+ * 3D：倾斜透视 + 楼块（tilt=60，开启建筑）
+ * ════ */
+var _is3D=false;
+function set3DMode(enabled){
+  _is3D=!!enabled;
+  if(!_map||typeof BMapGL==='undefined')return;
+  try{
+    if(_is3D){
+      _map.setTilt(60);          // 倾斜视角（真实 3D 透视）
+      _map.setHeading(-20);      // 轻微旋转更有立体感
+      _map.setDisplayOptions({building:true});
+      // 3D 地球模式由 MapTypeControl 的 BMAP_EARTH_MAP 提供，
+      // 这里仅在普通/卫星图上启用倾斜+建筑，实现局部 3D 效果
+    } else {
+      _map.setTilt(0);
+      _map.setHeading(0);
+      _map.setDisplayOptions({building:false});
+    }
+  }catch(e){
+    try{
+      if(_is3D){_map.setTilt(60)}else{_map.setTilt(0)}
+    }catch(e2){console.warn('3D切换失败:',e2)}
+  }
+}
+
 /* ════ 与 Flutter 通信 ════ */
 function notify(type,data){
   var msg=Object.assign({type:type},data||{});
@@ -418,6 +456,8 @@ window.addEventListener('message',function(e){
     renderSteps();
   } else if(d.type==='fit_campus'){
     fitCampusById(d.campusId||d.id);
+  } else if(d.type==='set_3d'){
+    set3DMode(d.enabled===true);
   }
 });
 

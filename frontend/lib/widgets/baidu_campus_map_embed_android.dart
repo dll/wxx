@@ -22,6 +22,9 @@ class BaiduCampusMapController {
   /// 切换到指定校区完整范围取景（huifeng / langya / all）。
   void fitCampus(String campusId) =>
       _st?._send({'type': 'fit_campus', 'campusId': campusId});
+
+  /// 2D/3D 视角切换。
+  void set3D(bool enabled) => _st?._send({'type': 'set_3d', 'enabled': enabled});
 }
 
 class BaiduCampusMapEmbed extends StatefulWidget {

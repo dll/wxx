@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../widgets/campus_map_embed.dart';
 import '../../widgets/baidu_campus_map_embed.dart';
 
 class CampusMapPage extends StatefulWidget {
@@ -489,21 +488,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
           ],
           selected: {_mode},
-          onSelectionChanged: (v) => setState(() => _mode = v.first),
+          onSelectionChanged: (v) {
+            final m = v.first;
+            setState(() => _mode = m);
+            // 通知地图引擎切换 2D/3D 视角（BMapGL 原生倾斜透视+建筑）
+            _mapController.set3D(m == _MapMode.threeD);
+          },
         ),
       ],
     );
   }
 
   Widget _buildCampusMapCanvas(ThemeData theme) {
-    if (_mode == _MapMode.threeD) {
-      return const CampusMapEmbed(
-        key: ValueKey('campus-vr'),
-        url: 'https://www.chzu.edu.cn/vr/index.html',
-        title: '滁州学院 VR 全景',
-      );
-    }
-
+    // 2D/3D 都在同一张百度地图上切换视角（3D=BMapGL 倾斜透视+建筑），
+    // VR 全景已由顶部「VR全景」Tab 独立提供，不再占用地图区域。
     return LayoutBuilder(
       builder: (_, __) {
         const baiduAk =
@@ -511,7 +509,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: Stack(children: [
-            // ── 真实百度地图底图 + 脉冲标注 ──
+            // ── 真实百度地图底图 + 脉冲标注（三种地图类型见地图控件）──
             Positioned.fill(
               child: BaiduCampusMapEmbed(
                 baiduAk: baiduAk,
@@ -523,6 +521,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
                     setState(() => _currentStep = idx),
               ),
             ),
+            // ── 当前模式角标（2D / 3D）──
+            Positioned(top: 10, right: 10, child: _buildMapBadge(theme)),
             // ── 未配置 AK 时的友好提示 ──
             if (baiduAk.isEmpty)
               Positioned.fill(
