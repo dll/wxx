@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Caddy 完整重启与错误日志
+      - name: 检查实际 Caddyfile
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,14 +14,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- caddy 最近错误日志 ---"
-            sudo journalctl -u caddy --no-pager -n 40 2>&1 | grep -iE "tls|cert|handshake|error|alert|fail" | tail -20
-            echo "--- 强制停止并重启 caddy ---"
-            sudo systemctl stop caddy
-            sleep 1
-            sudo systemctl start caddy
-            sleep 4
-            systemctl is-active caddy
-            echo "--- 重启后 HTTPS 测试 ---"
-            curl -vsk -m 6 -X POST https://localhost/api/v1/auth/login -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"a","password":"b"}' 2>&1 | grep -E "TLS|SSL|HTTP|error|Connected|Recv|< |code" | head -15
+            echo "--- 服务器上实际 Caddyfile ---"
+            sudo cat /etc/caddy/Caddyfile
+            echo "--- caddy 启动完整日志(前25行) ---"
+            sudo journalctl -u caddy --no-pager -n 25 2>&1 | head -25
             echo "DIAG_END"
