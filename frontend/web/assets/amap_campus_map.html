@@ -234,13 +234,14 @@ function fitCampus(){
     var n1=wgs2amap(ALL_BOUNDS.east,ALL_BOUNDS.north);
     b=new AMap.Bounds([s1[0],s1[1]],[n1[0],n1[1]]);
   }
-  try{_map.setBounds(b)}catch(e){
-    try{_map.setFitView()}catch(e2){}
+  // 减小 padding 让校园范围更贴边，地图视觉放大（原无 padding 控制）。
+  try{_map.setBounds(b,true,18,18)}catch(e){
+    try{_map.setFitView(null,false,18)}catch(e2){}
   }
   /* 仅限制最大缩放，不强制 minZoom，确保地图范围与校园范围一致 */
   if(_campusBounds){
     var z=_map.getZoom();
-    if(z>18)_map.setZoom(18);
+    if(z>20)_map.setZoom(20);
   }
 }
 
@@ -281,7 +282,7 @@ function initMap(steps,cur,mode,campusId){
     resizeEnable:true,
     showLabel:true
   });
-  _map.setMinZoom(13);_map.setMaxZoom(20);
+  _map.setMinZoom(13);_map.setMaxZoom(21);
 
   /* 控件：仅保留比例尺和缩放，地图类型用自定义按钮切换 */
   try{

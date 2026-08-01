@@ -567,12 +567,31 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	staticDir := cfg.FrontendStaticDir
 	if staticDir != "" {
 		if _, err := os.Stat(staticDir); err == nil {
+			// 缓存控制中间件：入口文件（main.dart.js / index.html /
+			// flutter_bootstrap.js / flutter_service_worker.js）禁止缓存，
+			// 确保浏览器每次都拉取最新版本；/assets/ 下带哈希的资源可长缓存。
+			noCachePaths := map[string]bool{
+				"/main.dart.js":                true,
+				"/index.html":                  true,
+				"/flutter_bootstrap.js":        true,
+				"/flutter_service_worker.js":   true,
+			}
+			router.Use(func(c *gin.Context) {
+				if noCachePaths[c.Request.URL.Path] {
+					c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+					c.Header("Pragma", "no-cache")
+					c.Header("Expires", "0")
+				}
+				c.Next()
+			})
 			// 让 SPA 应用内路由（/campus 等）回退到 index.html
 			router.NoRoute(func(c *gin.Context) {
 				if !strings.HasPrefix(c.Request.URL.Path, "/api/") &&
 					!strings.HasPrefix(c.Request.URL.Path, "/health") {
 					indexPath := filepath.Join(staticDir, "index.html")
 					if _, err := os.Stat(indexPath); err == nil {
+						// SPA 回退的 index.html 也禁止缓存
+						c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 						c.File(indexPath)
 						return
 					}

@@ -271,8 +271,9 @@ function fitCampus(){
     b=new BMapGL.Bounds(new BMapGL.Point(s1[0],s1[1]),new BMapGL.Point(n1[0],n1[1]));
   }
   var w=_map.getSize().width||400,h=_map.getSize().height||400;
-  var mgH=Math.max(36,Math.round(w*0.12));
-  var mgV=Math.max(40,Math.round(h*0.15));
+  // 减小边距让校园范围更贴边，地图视觉放大（原 12%/15% 边距过大）。
+  var mgH=Math.max(16,Math.round(w*0.04));
+  var mgV=Math.max(18,Math.round(h*0.05));
   try{
     _map.setViewport(b,{margins:[mgV,mgH,mgV,mgH]});
   }catch(e){
@@ -282,7 +283,7 @@ function fitCampus(){
   // zoom 限制：仅限制最大缩放，不强制 minZoom，确保地图范围与校园范围一致
   if(_campusBounds){
     var z=_map.getZoom();
-    if(z>18)_map.setZoom(18);
+    if(z>20)_map.setZoom(20);
   }
 }
 
@@ -330,7 +331,7 @@ function initMap(steps,cur,mode,campusId){
   });
   _map.enableScrollWheelZoom();
   _map.enableDragging();
-  _map.setMinZoom(13);_map.setMaxZoom(20);
+  _map.setMinZoom(13);_map.setMaxZoom(21);
 
   // 默认中心 + zoom（先锁定视角，避免初帧跑偏）
   _map.centerAndZoom(new BMapGL.Point(cc[0],cc[1]),_campusBounds.defaultZoom||16);

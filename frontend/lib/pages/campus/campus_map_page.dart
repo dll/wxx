@@ -362,65 +362,52 @@ class _CampusMapPageState extends State<CampusMapPage> {
         // stretch 拿全高。
         final desktop = constraints.maxWidth >= 880;
         final map = _buildMapPanel(theme, desktop);
-        final steps = _buildStepsPanel(theme);
         if (desktop) {
+          // 桌面端：左侧地图区（内含顶部控件栏+地图+底部当前步骤面板），
+          // 右侧独立完整步骤列表。
           return Row(
-            // 让地图和步骤栏都占满整屏高度，避免地图被压矮
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(flex: 7, child: map),
               VerticalDivider(
                   width: 1, color: theme.colorScheme.outlineVariant),
-              SizedBox(width: 390, child: steps),
+              SizedBox(width: 390, child: _buildStepsPanel(theme)),
             ],
           );
         }
-        // 移动端：地图占全部剩余空间（Expanded），步骤栏用固定高度。
-        // 原方案 Expanded(flex:7/3) 在小视口下地图绝对高度仍太小（如 161px），
-        // 改为固定高度步骤栏 + Expanded 地图，保证地图至少占 70% 视口高度。
-        return Column(
-          children: [
-            Expanded(child: map),
-            const Divider(height: 1),
-            SizedBox(height: 140, child: steps),
-          ],
-        );
+        // 移动端：地图区独占全屏（内含顶部控件栏+地图+底部当前步骤面板）。
+        // 不再单独保留 140px 步骤列表栏，让地图获得最大高度（视觉放大），
+        // 用户通过底部当前步骤面板的「完成此步」推进、或点击地图标注切换。
+        return map;
       },
     );
   }
 
   Widget _buildMapPanel(ThemeData theme, bool desktop) {
-    // 桌面端和移动端统一使用「全屏地图 + 浮动控件」布局：
-    // 地图填满整个面板，所有 UI 元素（校区选择、服务商切换、当前步骤等）
-    // 以半透明浮动层叠加在地图上方，不再用 Column 固定项挤占地图高度。
-    // 这样地图始终获得面板 100% 高度，彻底解决「地图太扁」问题。
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // ── 地图画布填满整个面板 ──
-          Positioned.fill(
+    // 控件与地图分层布局（非浮动）：
+    // Flutter Web 下 HtmlElementView 创建的 iframe 是真实 DOM 元素，
+    // z-index 高于 Flutter canvas，浮动在地图上的 Positioned 控件会被
+    // iframe 遮挡无法点击。改为 Column 上下分层：顶部控件栏 → 中间地图
+    // （Expanded 占满）→ 底部当前步骤面板，控件在地图之外可正常点击。
+    // 同时地图获得最大高度，视觉上“放大”。
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+          child:
+              desktop ? _buildDesktopTopBar(theme) : _buildMobileTopBar(theme),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _buildCampusMapCanvas(theme, desktop: desktop),
           ),
-          // ── 顶部浮动控件栏 ──
-          Positioned(
-            top: 8,
-            left: 8,
-            right: 8,
-            child: desktop
-                ? _buildDesktopTopBar(theme)
-                : _buildMobileTopBar(theme),
-          ),
-          // ── 底部浮动当前步骤+操作面板 ──
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: _buildFloatingStepPanel(theme),
-          ),
-        ],
-      ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+          child: _buildFloatingStepPanel(theme),
+        ),
+      ],
     );
   }
 
@@ -512,16 +499,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
       _MapProvider.tencent => tencentAk,
     };
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: Stack(
         fit: StackFit.expand,
         children: [
         // ── 真实地图底图 + 脉冲标注（百度/高德/腾讯三家可切）──
-        // ValueKey(provider)：切换地图服务商时强制重建 iframe，
-        // 保证不同 provider 加载各自的 HTML 与 AK，不复用旧 iframe。
+        // provider 切换由 BaiduCampusMapEmbed.didUpdateWidget 更新 iframe.src
+        // 重新加载对应 HTML（Flutter Web HtmlElementView 下 ValueKey 重建
+        // 不可靠，改用 src 更新）。
         Positioned.fill(
           child: BaiduCampusMapEmbed(
-            key: ValueKey('campus-map-$provider'),
             baiduAk: baiduAk,
             amapAk: amapAk,
             tencentAk: tencentAk,
@@ -533,8 +520,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
             onStepSelected: (idx) => setState(() => _currentStep = idx),
           ),
         ),
-        // ── 当前模式角标（2D / 3D）──
-        Positioned(top: 10, right: 10, child: _buildMapBadge(theme)),
         // ── 未配置 AK 时的友好提示 ──
         if (ak.isEmpty)
           Positioned.fill(
@@ -682,26 +667,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   Widget _buildMapBadge(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_mode == _MapMode.twoD ? Icons.map_outlined : Icons.view_in_ar,
-              size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-              '$_providerLabel · ${_mode == _MapMode.twoD ? '2D 地图' : '3D/全景'}'),
-        ],
-      ),
-    );
+    // 已弃用：原浮动在地图右上角的 2D/3D 角标会被 iframe 遮挡无法显示，
+    // 改为在顶部控件栏中通过 SegmentedButton 体现 provider 与 mode。
+    return const SizedBox.shrink();
   }
 
   /// 浮动当前步骤+操作面板（桌面端浮在地图底部、移动端浮在地图底部）。
@@ -719,63 +687,91 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(step.icon, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
+                Icon(step.icon, color: theme.colorScheme.primary, size: 18),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('当前步骤：${step.title}',
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 2),
-                      Text('${step.location} · ${step.duration}',
-                          style: theme.textTheme.bodySmall),
-                    ],
+                  child: Text(
+                    '${step.title} · ${step.location}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
                 FilledButton.tonal(
                   onPressed: _markCurrentDone,
-                  child: Text(done ? '已完成' : '完成此步'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: Text(done ? '已完成' : '完成此步',
+                      style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            const SizedBox(height: 4),
+            Row(
               children: [
-                FilledButton.icon(
-                  onPressed: () => _openUrl(_routeUrl),
-                  icon: const Icon(Icons.my_location, size: 18),
-                  label: Text('导航到${step.location}'),
+                Icon(Icons.schedule, size: 12,
+                    color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 3),
+                Text(step.duration,
+                    style: theme.textTheme.labelSmall),
+                const Spacer(),
+                _compactBtn(
+                  icon: Icons.my_location,
+                  label: '导航',
+                  onTap: () => _openUrl(_routeUrl),
                 ),
-                OutlinedButton.icon(
-                  onPressed: () {
+                const SizedBox(width: 4),
+                _compactBtn(
+                  icon: Icons.copy,
+                  label: _copiedText.isEmpty ? '复制' : _copiedText,
+                  onTap: () {
                     Clipboard.setData(ClipboardData(text: _campus.address));
-                    setState(() => _copiedText = '地址已复制');
+                    setState(() => _copiedText = '已复制');
                     Future.delayed(const Duration(seconds: 2), () {
                       if (mounted) setState(() => _copiedText = '');
                     });
                   },
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: Text(_copiedText.isEmpty ? '复制地址' : _copiedText),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _resetProgress,
-                  icon: const Icon(Icons.restart_alt, size: 18),
-                  label: const Text('重置'),
+                const SizedBox(width: 4),
+                _compactBtn(
+                  icon: Icons.restart_alt,
+                  label: '重置',
+                  onTap: _resetProgress,
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 底部面板用紧凑文字按钮（无填充，节省高度）。
+  Widget _compactBtn(
+      {required IconData icon,
+      required String label,
+      required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13),
+            const SizedBox(width: 2),
+            Text(label, style: const TextStyle(fontSize: 11)),
           ],
         ),
       ),

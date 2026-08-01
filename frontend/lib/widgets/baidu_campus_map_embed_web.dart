@@ -71,6 +71,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   html.IFrameElement? _iframe;
   html.EventListener? _listener;
   bool _ready = false;
+  String _currentHtmlPath = '';
 
   @override
   void initState() {
@@ -103,24 +104,11 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   }
 
   void _registerView() {
-    // 根据 provider 选择对应地图 HTML（三套 HTML 共用同一 postMessage 协议）
-    // v=8（百度）/v=5（高德、腾讯）：修复 fitCampus 不再强制 minZoom，确保
-    // 地图范围与校园范围一致；高德新增自定义地图类型切换按钮（标准/卫星）。
-    // AK 通过 URL 传，campusId 通过 URL 传，steps 通过 init 消息更新。
-    final akParam = switch (widget.provider) {
-      'amap' => widget.amapAk,
-      'tencent' => widget.tencentAk,
-      _ => widget.baiduAk,
-    };
-    final campusParam = widget.campusId.isEmpty ? 'huifeng' : widget.campusId;
-    final htmlPath = switch (widget.provider) {
-      'amap' =>
-        '/assets/amap_campus_map.html?v=5&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
-      'tencent' =>
-        '/assets/tencent_campus_map.html?v=5&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
-      _ =>
-        '/assets/baidu_campus_map.html?v=8&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
-    };
+    // 根据 provider 选择对应地图 HTML（三套 HTML 共用同一 postMessage 协议）。
+    // provider/campusId 变化时通过 didUpdateWidget 更新 iframe.src 重新加载，
+    // 不依赖 ValueKey 重建（Flutter Web HtmlElementView 下 key 重建不可靠）。
+    final htmlPath = _buildHtmlPath();
+    _currentHtmlPath = htmlPath;
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (viewId) {
       // 工厂返回的元素会被 Flutter append 到自动创建的 flt-platform-view 里。
       // Flutter Web canvaskit 下 flt-platform-view 的 CSS 宽高由 RenderBox
@@ -145,6 +133,24 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       _observePlatformView(host, f);
       return host;
     });
+  }
+
+  /// 根据 provider/campusId/AK 计算 iframe 的 HTML 路径。
+  String _buildHtmlPath() {
+    final akParam = switch (widget.provider) {
+      'amap' => widget.amapAk,
+      'tencent' => widget.tencentAk,
+      _ => widget.baiduAk,
+    };
+    final campusParam = widget.campusId.isEmpty ? 'huifeng' : widget.campusId;
+    return switch (widget.provider) {
+      'amap' =>
+        '/assets/amap_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+      'tencent' =>
+        '/assets/tencent_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+      _ =>
+        '/assets/baidu_campus_map.html?v=9&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+    };
   }
 
   /// 轮询读取 host 父元素（flt-platform-view）的像素尺寸，显式同步到
@@ -217,6 +223,24 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   @override
   void didUpdateWidget(covariant BaiduCampusMapEmbed old) {
     super.didUpdateWidget(old);
+    // provider 或 campusId 变化：直接更新 iframe.src 重新加载对应地图。
+    // Flutter Web HtmlElementView 下 ValueKey 重建不可靠（iframe 不会重新
+    // 创建），改用 src 更新让浏览器重新加载 HTML，新 HTML 的 window.load
+    // 会自动初始化并用 URL 的 ak/campus 参数，ready 后 _sendInit 同步 steps。
+    if (old.provider != widget.provider ||
+        old.campusId != widget.campusId) {
+      final newHtmlPath = _buildHtmlPath();
+      if (newHtmlPath != _currentHtmlPath && _iframe != null) {
+        _currentHtmlPath = newHtmlPath;
+        _ready = false;
+        _iframe!.src = newHtmlPath;
+        if (old.controller != widget.controller) {
+          old.controller?._detach();
+          widget.controller?._attach(this);
+        }
+        return; // src 变化后等新 ready，跳过本次后续消息
+      }
+    }
     if (!_ready) return;
     if (old.currentStep != widget.currentStep) {
       _send({'type': 'set_step', 'index': widget.currentStep});

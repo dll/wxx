@@ -220,15 +220,16 @@ function fitCampus(){
     var n1=wgs2qq(ALL_BOUNDS.east,ALL_BOUNDS.north);
     b=new TMap.LatLngBounds(new TMap.LatLng(s1[1],s1[0]),new TMap.LatLng(n1[1],n1[0]));
   }
+  // 减小 padding 让校园范围更贴边，地图视觉放大（原 padding:60 过大）。
   try{
-    _map.fitBounds(b,{padding:60});
+    _map.fitBounds(b,{padding:20});
   }catch(e){
     try{_map.fitBounds(b)}catch(e2){}
   }
   /* 仅限制最大缩放，不强制 minZoom，确保地图范围与校园范围一致 */
   if(_campusBounds){
     var z=_map.getZoom();
-    if(z>18)_map.setZoom(18);
+    if(z>20)_map.setZoom(20);
   }
 }
 
@@ -268,7 +269,7 @@ function initMap(steps,cur,mode,campusId){
     viewMode:'2D',
     showControl:true
   });
-  _map.setMinZoom(13);_map.setMaxZoom(20);
+  _map.setMinZoom(13);_map.setMaxZoom(21);
 
   /* 容器尺寸变化时重取景 */
   if(typeof ResizeObserver!=='undefined'){
