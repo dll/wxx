@@ -473,11 +473,15 @@ window.addEventListener('message',function(e){
   var d=e.data||{};
   if(d.type==='init'){
     if(_map){
-      // 地图已初始化，仅更新业务数据
+      // 地图已初始化，更新业务数据并重新取景确保范围=校园范围
       _steps=d.steps||_steps;
       _cur=d.currentStep!=null?d.currentStep:_cur;
       _mode=d.mode||_mode;
-      if(d.campusId&&d.campusId!==_campusId){fitCampusById(d.campusId)}
+      if(d.campusId&&d.campusId!==_campusId){
+        fitCampusById(d.campusId);
+      }else{
+        fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
+      }
       renderSteps();
     }else{
       // 地图尚未就绪，暂存数据，自动初始化完成后会使用
@@ -515,9 +519,13 @@ var _DEFAULT_BAIDU_AK='OUouSU6WbYExGTlnDEFqqruhTH60KAwO';
 
 window.addEventListener('load',function(){
   var ak=_getUrlParam('ak')||_DEFAULT_BAIDU_AK;
+  var campus=_getUrlParam('campus')||'huifeng';
   loadBaiduGL(ak).then(function(){
     var data=_pendingInit||{};
-    initMap(data.steps||[],data.currentStep||0,data.mode||'view',data.campusId||'huifeng');
+    // 优先用 URL 的 campus 参数（Flutter 创建 iframe 时传入），
+    // 其次用 init 消息暂存的 campusId，最后默认 huifeng
+    var cid=data.campusId||campus||'huifeng';
+    initMap(data.steps||[],data.currentStep||0,data.mode||'view',cid);
     // 地图完全就绪后通知 Flutter（Flutter 收到后会发送 init 更新业务数据）
     setTimeout(function(){notify('ready',{})},200);
   }).catch(function(err){

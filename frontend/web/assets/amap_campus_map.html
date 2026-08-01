@@ -401,7 +401,11 @@ window.addEventListener('message',function(e){
       _steps=d.steps||_steps;
       _cur=d.currentStep!=null?d.currentStep:_cur;
       _mode=d.mode||_mode;
-      if(d.campusId&&d.campusId!==_campusId){fitCampusById(d.campusId)}
+      if(d.campusId&&d.campusId!==_campusId){
+        fitCampusById(d.campusId);
+      }else{
+        fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
+      }
       renderSteps();
     }else{
       _pendingInit=d;
@@ -432,9 +436,11 @@ var _DEFAULT_AMAP_AK='a2f48050b8ec16aca88db4d25c035fe6';
 
 window.addEventListener('load',function(){
   var ak=_getUrlParam('ak')||_DEFAULT_AMAP_AK;
+  var campus=_getUrlParam('campus')||'huifeng';
   loadAmap(ak).then(function(){
     var data=_pendingInit||{};
-    initMap(data.steps||[],data.currentStep||0,data.mode||'view',data.campusId||'huifeng');
+    var cid=data.campusId||campus||'huifeng';
+    initMap(data.steps||[],data.currentStep||0,data.mode||'view',cid);
     setTimeout(function(){notify('ready',{})},200);
   }).catch(function(err){
     showTileAlert();

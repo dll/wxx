@@ -104,18 +104,22 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
 
   void _registerView() {
     // 根据 provider 选择对应地图 HTML（三套 HTML 共用同一 postMessage 协议）
-    // v=6：地图 HTML 改为自动初始化（window.load 时用内嵌 AK 加载），
-    //      不再依赖 postMessage init 传 AK，解决 iframe 时序问题。
-    //      同时通过 URL 参数传 AK 作为备份（HTML 优先读 URL，fallback 到内嵌）。
+    // v=7（百度）/v=4（高德、腾讯）：URL 增加 campus 参数，自动初始化时
+    // 直接用正确校区，不再依赖 postMessage init 传 campusId（时序不稳定）。
+    // AK 通过 URL 传，campusId 通过 URL 传，steps 通过 init 消息更新。
     final akParam = switch (widget.provider) {
       'amap' => widget.amapAk,
       'tencent' => widget.tencentAk,
       _ => widget.baiduAk,
     };
+    final campusParam = widget.campusId.isEmpty ? 'huifeng' : widget.campusId;
     final htmlPath = switch (widget.provider) {
-      'amap' => '/assets/amap_campus_map.html?v=3&ak=${Uri.encodeComponent(akParam)}',
-      'tencent' => '/assets/tencent_campus_map.html?v=3&ak=${Uri.encodeComponent(akParam)}',
-      _ => '/assets/baidu_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}',
+      'amap' =>
+        '/assets/amap_campus_map.html?v=4&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+      'tencent' =>
+        '/assets/tencent_campus_map.html?v=4&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+      _ =>
+        '/assets/baidu_campus_map.html?v=7&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (viewId) {
       // 工厂返回的元素会被 Flutter append 到自动创建的 flt-platform-view 里。

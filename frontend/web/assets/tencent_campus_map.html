@@ -52,10 +52,24 @@ html,body{width:100%;height:100%;overflow:hidden;
 #tile-alert .ta-body{color:#555}
 #tile-alert .ta-body code{background:#fff3e0;color:#d46b08;padding:1px 4px;border-radius:3px;font-size:11px}
 #tile-alert .ta-close{position:absolute;top:6px;right:10px;cursor:pointer;color:#999;font-size:16px}
+
+/* ─── 地图类型切换按钮（标准/卫星）─── */
+#mapTypeBtn{position:absolute;top:12px;right:12px;z-index:150;
+  display:flex;background:#fff;border-radius:8px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px}
+#mapTypeBtn .mt-item{padding:6px 12px;cursor:pointer;color:#666;
+  transition:all .15s;border-right:1px solid #eee;user-select:none}
+#mapTypeBtn .mt-item:last-child{border-right:0}
+#mapTypeBtn .mt-item.active{background:#1677FF;color:#fff;font-weight:600}
+#mapTypeBtn .mt-item:hover:not(.active){background:#f0f5ff}
 </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="mapTypeBtn">
+  <div class="mt-item active" data-type="normal">标准</div>
+  <div class="mt-item" data-type="satellite">卫星</div>
+</div>
 <div id="tile-alert">
   <span class="ta-close" onclick="document.getElementById('tile-alert').classList.remove('show')">✕</span>
   <div class="ta-title">🗺️ 腾讯地图底图加载受限</div>
@@ -283,7 +297,35 @@ function initMap(steps,cur,mode,campusId){
     var h=document.getElementById('editHint');
     if(h){h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}
   }
+  setupMapTypeToggle();
   notify('ready',{});
+}
+
+/* ════ 地图类型切换（标准/卫星）════
+ * 腾讯地图 GL 通过 setBaseLayer 切换底图类型：
+ *   标准图：new TMap.TileLayer()（默认矢量图）
+ *   卫星图：new TMap.TileLayer({type:'image'})
+ */
+var _curMapType='normal';
+function setupMapTypeToggle(){
+  var btn=document.getElementById('mapTypeBtn');
+  if(!btn)return;
+  var items=btn.querySelectorAll('.mt-item');
+  items.forEach(function(item){
+    item.addEventListener('click',function(){
+      var t=item.getAttribute('data-type');
+      if(t===_curMapType)return;
+      _curMapType=t;
+      items.forEach(function(x){x.classList.toggle('active',x.getAttribute('data-type')===t)});
+      try{
+        if(t==='satellite'){
+          _map.setBaseLayer(new TMap.TileLayer({type:'image'}));
+        }else{
+          _map.setBaseLayer(new TMap.TileLayer());
+        }
+      }catch(e){/* 切换失败静默 */}
+    });
+  });
 }
 
 /* ════ 渲染步骤标注 + 路线 ════ */
@@ -410,7 +452,11 @@ window.addEventListener('message',function(e){
       _steps=d.steps||_steps;
       _cur=d.currentStep!=null?d.currentStep:_cur;
       _mode=d.mode||_mode;
-      if(d.campusId&&d.campusId!==_campusId){fitCampusById(d.campusId)}
+      if(d.campusId&&d.campusId!==_campusId){
+        fitCampusById(d.campusId);
+      }else{
+        fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
+      }
       renderSteps();
     }else{
       _pendingInit=d;
@@ -441,9 +487,11 @@ var _DEFAULT_TENCENT_AK='E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR';
 
 window.addEventListener('load',function(){
   var ak=_getUrlParam('ak')||_DEFAULT_TENCENT_AK;
+  var campus=_getUrlParam('campus')||'huifeng';
   loadTencent(ak).then(function(){
     var data=_pendingInit||{};
-    initMap(data.steps||[],data.currentStep||0,data.mode||'view',data.campusId||'huifeng');
+    var cid=data.campusId||campus||'huifeng';
+    initMap(data.steps||[],data.currentStep||0,data.mode||'view',cid);
     setTimeout(function(){notify('ready',{})},200);
   }).catch(function(err){
     showTileAlert();
