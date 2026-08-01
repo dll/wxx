@@ -145,23 +145,22 @@ function startTileWatchdog(){
 
   _tileWatchdog=setTimeout(function(){
     document.removeEventListener('load',imgHandler,true);
-    // 兜底：检查百度地图canvas层是否有像素渲染（GL版用canvas渲染）
+    // 兜底：BMapGL 用 WebGL canvas 渲染，getContext('2d') 返回 null。
+    // 改为检测 canvas 存在且尺寸有效，即认为底图在渲染。
     var canvases=document.querySelectorAll('#map canvas');
     var rendered=false;
     canvases.forEach(function(c){
-      try{
-        var ctx=c.getContext('2d');
-        if(ctx){
-          // 取中心一个像素，如果不是空白说明有渲染
-          var d=ctx.getImageData(c.width/2|0,c.height/2|0,1,1).data;
-          if(d[0]>5||d[1]>5||d[2]>5)rendered=true
-        }
-      }catch(e){/* 跨域canvas忽略 */}
+      if(c.width>100&&c.height>100)rendered=true;
     });
+    // 同时检测 BMapGL 渲染容器（.BMap_mask 等元素存在说明地图已渲染）
+    if(!rendered){
+      var maskEl=document.querySelector('#map .BMap_mask');
+      if(maskEl)rendered=true;
+    }
     if(!_tileLoaded && !rendered){
       showTileAlert();
     }
-  },4000);
+  },6000);
 }
 function clearTileWatchdog(){
   if(_tileWatchdog){clearTimeout(_tileWatchdog);_tileWatchdog=null}
@@ -280,11 +279,9 @@ function fitCampus(){
     // 部分 GL 版本 setViewport 不支持 margins，退化到 fitBounds
     _map.fitBounds(b,[mgV,mgH,mgV,mgH]);
   }
-  // zoom 限制
+  // zoom 限制：仅限制最大缩放，不强制 minZoom，确保地图范围与校园范围一致
   if(_campusBounds){
     var z=_map.getZoom();
-    var cz=CAMPUS_BOUNDS[_campusId]||_campusBounds;
-    if(z<cz.minZoom)_map.setZoom(cz.minZoom);
     if(z>18)_map.setZoom(18);
   }
 }
