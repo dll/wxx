@@ -143,7 +143,8 @@ function setupPulseOv(){
 // 高度为 0 导致 zoom 异常（点挤一堆 / 地图 1cm 高）的问题。
 function fitCampus(){
   if(!_map||!_viewPts.length)return;
-  _map.resize(); // 先按容器实际尺寸重绘底图
+  // 注意：百度地图 API 2.0 没有 resize() 方法（那是 Leaflet/Google 的 API），
+  // 容器尺寸变化 BMap 会自动感知，直接 setViewport 即可按当前尺寸取景。
   var mnLat=_viewPts[0].lat,mxLat=_viewPts[0].lat;
   var mnLng=_viewPts[0].lng,mxLng=_viewPts[0].lng;
   for(var i=1;i<_viewPts.length;i++){
