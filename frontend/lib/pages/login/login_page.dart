@@ -48,46 +48,6 @@ class _LoginPageState extends State<LoginPage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // APK 下载入口 — 顶部立即可见，无需滚动；点击直接弹二维码+下载链接
-                  GestureDetector(
-                    onTap: () => _showApkQrDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF3DDC84).withOpacity(0.08),
-                            const Color(0xFF3DDC84).withOpacity(0.04),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: const Color(0xFF3DDC84).withOpacity(0.25),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.android,
-                              color: Color(0xFF3DDC84), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '下载手机安卓版本 APK',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: const Color(0xFF2FA968),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.qr_code_2,
-                              color: Color(0xFF2FA968), size: 18),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
                   // Logo
                   Center(
                     child: Column(
@@ -160,7 +120,33 @@ class _LoginPageState extends State<LoginPage>
 
                   const SizedBox(height: 20),
 
-                  // 底部：仅版本号（下载入口已移到页面顶部）
+                  // 底部：下载按钮（用 app_icon 图标）+ 版本号
+                  Center(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showApkQrDialog(context),
+                      icon: Image.asset(
+                        'assets/images/app_icon.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                      ),
+                      label: const Text(
+                        '下载手机安卓版本',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF3DDC84),
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF3DDC84), width: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Center(
                     child: Text(
                       'v${ReleaseConfig.version}',
@@ -174,81 +160,6 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  /// 显示下载方式选择
-  void _showDownloadSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '选择版本',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.language, color: Colors.blue),
-              ),
-              title: const Text('Web 版',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('浏览器直接使用，无需下载'),
-              trailing: const Icon(Icons.open_in_new),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.android, color: Colors.green),
-              ),
-              title: const Text('Android 版',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('扫码下载 APK 安装包'),
-              trailing: const Icon(Icons.qr_code),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showApkQrDialog(context);
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
         ),
       ),
     );
