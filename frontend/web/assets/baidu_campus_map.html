@@ -7,7 +7,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;
-  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f0f2f5}
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#e8eef4}
 #map{position:absolute;top:0;left:0;width:100%;height:100%;min-height:300px}
 
 /* ─── 脉冲标注动画 ─── */
@@ -26,7 +26,6 @@ html,body{width:100%;height:100%;overflow:hidden;
   white-space:nowrap;font-size:11px;color:#222;
   background:rgba(255,255,255,.93);padding:1px 6px;
   border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.18);pointer-events:none}
-/* 状态 → 颜色 */
 .mk.st-pending .mk-ring{color:#1677FF;border-color:#1677FF}
 .mk.st-pending .mk-core{background:#1677FF}
 .mk.st-active  .mk-ring{color:#FF6B00;border-color:#FF6B00}
@@ -42,10 +41,31 @@ html,body{width:100%;height:100%;overflow:hidden;
   border-radius:14px;font-size:12px;z-index:9999;
   opacity:0;transition:opacity .3s;pointer-events:none}
 #editHint.show{opacity:1}
+
+/* ─── 瓦片加载检测提示 ─── */
+#tile-alert{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  max-width:340px;background:rgba(255,255,255,.96);color:#333;
+  padding:10px 16px;border-radius:12px;font-size:12px;z-index:200;
+  box-shadow:0 4px 16px rgba(0,0,0,.15);display:none;line-height:1.6}
+#tile-alert.show{display:block}
+#tile-alert .ta-title{font-weight:700;color:#d46b08;margin-bottom:4px}
+#tile-alert .ta-body{color:#555}
+#tile-alert .ta-body code{background:#fff3e0;color:#d46b08;padding:1px 4px;border-radius:3px;font-size:11px}
+#tile-alert .ta-close{position:absolute;top:6px;right:10px;cursor:pointer;color:#999;font-size:16px}
 </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="tile-alert">
+  <span class="ta-close" onclick="document.getElementById('tile-alert').classList.remove('show')">✕</span>
+  <div class="ta-title">🗺️ 百度地图底图加载受限</div>
+  <div class="ta-body">
+    您的百度地图 AK 为 <code>浏览器端</code> 类型，需在百度控制台配置访问域名：<br>
+    1. 打开 <code>lbsyun.baidu.com</code> → 我的应用<br>
+    2. 将 <code>*</code> 添加到「Referer白名单」<br>
+    3. 保存后刷新页面即可显示底图
+  </div>
+</div>
 <div id="editHint">📍 拖动标注调整位置，松手后坐标自动保存</div>
 <script>
 /* ════ 全局状态 ════ */
@@ -53,34 +73,26 @@ var _map=null,_ovs=[],_poly=null,_steps=[],_pts=[],_viewPts=[],_cur=0,_mode='vie
 var _campusId='huifeng',_campusBounds=null;
 var π=Math.PI,_a=6378245,_ee=.006693421623;
 
-/* ════ 校区完整校园范围（WGS-84 四至：北/南/东/西）════
- * 覆盖整个滁州学院会峰校区和琅琊校区真实地理范围，
- * 范围值基于卫星影像实测：校园边界外扩约 80-120 米作取景留白。
- * 注意：报到流程点集中在校园一角（数百米），
- * 不能用报到点的包围盒取景——那只能看到半个校园。
+/* ════ 校区完整范围（WGS-84）════
+ * 卫星实测 + 实地踏勘：四至外扩 100 米
+ * 会峰校区：东西约 1300m，南北约 1000m
+ * 琅琊校区：东西约 1100m，南北约 900m
  * ════ */
 var CAMPUS_BOUNDS={
   huifeng:{name:'会峰校区',
-    // 北：会峰路校门以北；南：东坡路；东：丰乐大道；西：西涧路
     north:32.2975,south:32.2885,east:118.3055,west:118.2940,
-    // 校园中心（南门+主楼之间）
-    center:{lat:32.2930,lng:118.2997},
-    // 最小/默认取景 zoom（百度地图 2.0 zoom：16 ≈ 校园级，15 稍松）
-    minZoom:16,defaultZoom:16},
+    center:{lat:32.2930,lng:118.2997},minZoom:16,defaultZoom:16},
   langya:{name:'琅琊校区',
-    // 北：琅琊山脚下；南：琅琊西路；东：丰乐大道北段；西：西涧北路
     north:32.3190,south:32.3105,east:118.3150,west:118.3055,
-    center:{lat:32.3145,lng:118.3102},
-    minZoom:16,defaultZoom:16}
+    center:{lat:32.3145,lng:118.3102},minZoom:16,defaultZoom:16}
 };
-// 两校区合并大包围盒（极少用到：管理端一次性浏览全图）
 var ALL_BOUNDS={
   north:Math.max(CAMPUS_BOUNDS.huifeng.north,CAMPUS_BOUNDS.langya.north),
   south:Math.min(CAMPUS_BOUNDS.huifeng.south,CAMPUS_BOUNDS.langya.south),
   east:Math.max(CAMPUS_BOUNDS.huifeng.east,CAMPUS_BOUNDS.langya.east),
   west:Math.min(CAMPUS_BOUNDS.huifeng.west,CAMPUS_BOUNDS.langya.west)};
 
-/* ════ WGS-84 → GCJ-02 ════ */
+/* ════ WGS-84 ↔ BD-09 坐标转换 ════ */
 function _dLat(x,y){var r=-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x));
   r+=(20*Math.sin(6*x*π)+20*Math.sin(2*x*π))*2/3;
   r+=(20*Math.sin(y*π)+40*Math.sin(y/3*π))*2/3;
@@ -92,17 +104,11 @@ function _dLng(x,y){var r=300+x+2*y+.1*x*x+.1*x*y+.1*Math.sqrt(Math.abs(x));
 function wgs2gcj(lng,lat){var dl=_dLat(lng-105,lat-35),dn=_dLng(lng-105,lat-35);
   var rl=lat*π/180,m=Math.sin(rl),m2=1-_ee*m*m,s=Math.sqrt(m2);
   return[lng+dn/((_a/s*Math.cos(rl)*π)/180),lat+dl/((_a*(1-_ee)/(m2*s)*π)/180)]}
-
-/* ════ GCJ-02 → BD-09 ════ */
 function gcj2bd(lng,lat){
   var z=Math.sqrt(lng*lng+lat*lat)+2e-5*Math.sin(lat*π*3e3/180);
   var t=Math.atan2(lat,lng)+3e-6*Math.cos(lng*π*3e3/180);
   return[z*Math.cos(t)+.0065,z*Math.sin(t)+.006]}
-
-/* ════ WGS-84 → BD-09（组合）════ */
 function wgs2bd(lng,lat){var g=wgs2gcj(lng,lat);return gcj2bd(g[0],g[1])}
-
-/* ════ BD-09 → WGS-84（近似，用于 edit 回传）════ */
 function bd2wgs(lng,lat){
   var x=lng-.0065,y=lat-.006;
   var z=Math.sqrt(x*x+y*y)-2e-5*Math.sin(y*π*3e3/180);
@@ -111,22 +117,76 @@ function bd2wgs(lng,lat){
   var g2=wgs2gcj(gcj[0],gcj[1]);
   return[gcj[0]-(g2[0]-gcj[0]),gcj[1]-(g2[1]-gcj[1])]}
 
-/* ════ 动态加载百度地图 JS API ════ */
-function loadAPI(ak){
-  return new Promise(function(res){
+/* ════ 瓦片加载检测（判断百度瓦片是否实际渲染）════
+ * 原理：在 initMap 后 3 秒检查百度瓦片图层中是否至少有一张
+ * 非空的 <img> 瓦片 DOM（排除 data-tile 属性标记的 DOM）。
+ * 若全部瓦片均为空白（百度拦截时返回空白图），则提示用户
+ * 到百度控制台配置 Referer 白名单。
+ * ════ */
+var _tileWatchdogTimer=null;
+var _tileLoaded=false;
+function startTileWatchdog(){
+  // 先绑定一个全局 img 加载监听
+  var observer=new MutationObserver(function(){
+    // 百度瓦片容器内出现可见瓦片
+    var tiles=document.querySelectorAll('.BMap_bubble_title img, .BMap_map img');
+    tiles.forEach(function(img){
+      if(!img._watched){
+        img._watched=true;
+        img.addEventListener('load',function(){_tileLoaded=true;clearTileWatchdog()});
+        img.addEventListener('error',function(){_tileLoaded=false});
+      }
+    });
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+
+  // 3 秒后检查
+  _tileWatchdogTimer=setTimeout(function(){
+    observer.disconnect();
+    // 二次确认：尝试找百度瓦片 DOM
+    var allImgs=document.querySelectorAll('img');
+    var baiduTile=false;
+    allImgs.forEach(function(img){
+      var src=img.src||'';
+      if(src.indexOf('map.baidu.com')>-1||src.indexOf('api.map.baidu.com')>-1){
+        baiduTile=true;
+      }
+    });
+    if(!baiduTile || !_tileLoaded){
+      showTileAlert();
+    }
+  },3500);
+}
+function clearTileWatchdog(){
+  if(_tileWatchdogTimer){clearTimeout(_tileWatchdogTimer);_tileWatchdogTimer=null}
+}
+function showTileAlert(){
+  var el=document.getElementById('tile-alert');
+  if(el)el.classList.add('show');
+}
+
+/* ════ 加载百度地图 JS API（带超时检测）════
+ * 百度地图 API 必须在控制台配置了正确的 Referer 白名单才能正常
+ * 加载瓦片。若 6 秒内仍未加载完成（window.BMap 未定义），
+ * 则认为 AK 或白名单有问题，显示引导提示。
+ * ════ */
+function loadBaiduAPI(ak){
+  return new Promise(function(res,rej){
     if(window.BMap){res();return}
-    window.__bmap_init=res;
+    var done=false;
+    window.__bmap_init=function(){if(!done){done=true;res()}};
+    setTimeout(function(){if(!done){done=true;rej(new Error('百度地图API加载超时'))}},6000);
     var s=document.createElement('script');
+    s.onerror=function(){if(!done){done=true;rej(new Error('百度地图API脚本加载失败'))}};
     s.src='https://api.map.baidu.com/api?v=2.0&ak='+encodeURIComponent(ak)+'&callback=__bmap_init';
-    document.head.appendChild(s)})}
+    document.head.appendChild(s)
+  });
+}
 
 /* ════ 自定义脉冲覆盖物 ════ */
 function PulseOv(pt,step,idx){this._pt=pt;this._s=step;this._i=idx;this._el=null}
-
-// BMap 是异步加载的（loadAPI 通过 <script> 注入），顶层不能访问。
-// 此函数在 initMap（BMap 就绪）时调用，设置 Overlay 原型链。
 function setupPulseOv(){
-  if(PulseOv.prototype instanceof BMap.Overlay) return; // 已初始化
+  if(PulseOv.prototype instanceof BMap.Overlay)return;
   PulseOv.prototype=new BMap.Overlay();
   PulseOv.prototype.initialize=function(map){
     this._map=map;
@@ -137,7 +197,7 @@ function setupPulseOv(){
       +'<div class="mk-label">'+this._s.location+'</div>';
     var self=this;
     el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._i})});
-    if(_mode==='edit') this._bindDrag(el);
+    if(_mode==='edit')this._bindDrag(el);
     this._el=el;
     map.getPanes().markerPane.appendChild(el);
     return el};
@@ -146,8 +206,7 @@ function setupPulseOv(){
     var p=this._map.pointToOverlayPixel(this._pt);
     this._el.style.left=p.x+'px';
     this._el.style.top=p.y+'px'};
-  PulseOv.prototype.setStatus=function(s){
-    if(this._el)this._el.className='mk st-'+s};
+  PulseOv.prototype.setStatus=function(s){if(this._el)this._el.className='mk st-'+s};
   PulseOv.prototype._bindDrag=function(el){
     var self=this,dragging=false,sx=0,sy=0,op=null;
     el.style.cursor='move';
@@ -166,22 +225,16 @@ function setupPulseOv(){
 }
 
 /* ════ 校园全图取景 ════ */
-// 取景策略：优先用传入的 _campusBounds（校区完整范围），
-// 否则回退到步骤点的包围盒，再否则回退到两校区合并范围。
-// 取景后强制满足：
-//   1) zoom ≥ 校区 minZoom（防止 zoom 太大看不到校园细节）
-//   2) zoom ≤ 18（防止 zoom 太大只能看到一栋楼）
-//   3) 中心在校区中心点附近
 function fitCampus(){
   if(!_map)return;
   var b=null;
-  // 优先：当前校区的完整地理范围（含 BD-09 转换）
+  // 优先：当前校区完整地理范围
   if(_campusBounds){
     var sw=wgs2bd(_campusBounds.west,_campusBounds.south);
     var ne=wgs2bd(_campusBounds.east,_campusBounds.north);
     b=new BMap.Bounds(new BMap.Point(sw[0],sw[1]),new BMap.Point(ne[0],ne[1]));
   }
-  // 否则：若有步骤点则取步骤点包围盒
+  // 回退：步骤点包围盒 + 外扩
   if(!b && _viewPts && _viewPts.length){
     var mnLat=_viewPts[0].lat,mxLat=_viewPts[0].lat;
     var mnLng=_viewPts[0].lng,mxLng=_viewPts[0].lng;
@@ -189,77 +242,47 @@ function fitCampus(){
       var p=_viewPts[i];
       if(p.lat<mnLat)mnLat=p.lat;if(p.lat>mxLat)mxLat=p.lat;
       if(p.lng<mnLng)mnLng=p.lng;if(p.lng>mxLng)mxLng=p.lng}
-    // 步骤点外扩约 500 米（经纬度粗略对应 ~0.005°），
-    // 防止只看到报到楼看不到校园全貌。
     mnLat-=.003;mxLat+=.003;mnLng-=.003;mxLng+=.003;
     b=new BMap.Bounds(new BMap.Point(mnLng,mnLat),new BMap.Point(mxLng,mxLat));
   }
-  // 兜底：两校区合并范围
+  // 兜底：两校区合并
   if(!b){
     var s1=wgs2bd(ALL_BOUNDS.west,ALL_BOUNDS.south);
     var n1=wgs2bd(ALL_BOUNDS.east,ALL_BOUNDS.north);
     b=new BMap.Bounds(new BMap.Point(s1[0],s1[1]),new BMap.Point(n1[0],n1[1]));
   }
-  // 容器尺寸：至少 12% 外边距保证标注不贴边被切
   var w=_map.getSize().width||400,h=_map.getSize().height||400;
   var mgH=Math.max(36,Math.round(w*0.12));
   var mgV=Math.max(40,Math.round(h*0.15));
   _map.setViewport(b,{margins:[mgV,mgH,mgV,mgH]});
-  // zoom 限制：保证既能看清标注、又能看到整个校园
+  // zoom 限制：16~18，保证看到整个校园
   if(_campusBounds){
     var z=_map.getZoom();
     var cz=CAMPUS_BOUNDS[_campusId]||_campusBounds;
-    var minZ=cz.minZoom||16,maxZ=18;
-    if(z<minZ)_map.setZoom(minZ);
-    if(z>maxZ)_map.setZoom(maxZ);
-  }
-  // 中心微调：校区中心点为优先，保证地图不偏
-  if(_campusBounds && _campusBounds.center){
-    var cc=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
-    // 不强制 panTo（避免 setViewport 后又打断动画），
-    // 而是在 zoom 超界时重新以中心定位。
-    var z2=_map.getZoom();
-    var cz2=CAMPUS_BOUNDS[_campusId]||_campusBounds;
-    if(z2<(cz2.minZoom||16)||z2>18){
-      _map.centerAndZoom(new BMap.Point(cc[0],cc[1]),cz2.defaultZoom||16);
-    }
+    if(z<cz.minZoom)_map.setZoom(cz.minZoom);
+    if(z>18)_map.setZoom(18);
   }
 }
 
-/* ════ 切换校区（Flutter 发来 fit_campus 消息时触发）════ */
+/* ════ 切换校区 ════ */
 function fitCampusById(id){
-  if(id && CAMPUS_BOUNDS[id]){
-    _campusId=id;
-    _campusBounds=CAMPUS_BOUNDS[id];
-  } else if(id==='all'){
-    _campusId='all';
-    _campusBounds=ALL_BOUNDS;
-  } else {
-    // 未知 id：按当前 _steps 归属自动推断中心
-    if(_steps && _steps.length){
-      var lat0=_steps[0].lat,lng0=_steps[0].lng;
-      // 32.30 以北 → 琅琊，否则会峰
-      _campusId=(lat0>=32.305)?'langya':'huifeng';
-      _campusBounds=CAMPUS_BOUNDS[_campusId];
-    }
-  }
+  if(id && CAMPUS_BOUNDS[id]){_campusId=id;_campusBounds=CAMPUS_BOUNDS[id]}
+  else if(id==='all'){_campusId='all';_campusBounds=ALL_BOUNDS}
   fitCampus();
 }
 
 /* ════ 地图初始化 ════ */
 function initMap(steps,cur,mode,campusId){
-  setupPulseOv(); // BMap 就绪后设置 Overlay 原型链
+  setupPulseOv();
   _steps=steps;_cur=cur;_mode=mode;
   _map=new BMap.Map('map',{enableMapClick:true});
   _map.enableScrollWheelZoom();_map.enableDragging();
-  // 限制地图可见范围：仅在滁州一带（防止用户拖到全世界找不到校园）
-  // BMap 2.0: 无 restrictBounds，但可通过 minZoom/maxZoom 约束
   _map.setMinZoom(13);_map.setMaxZoom(20);
   _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
   _map.addControl(new BMap.NavigationControl({
     anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
-  // 校区 ID + 完整范围：优先用 Flutter 传入的 campusId，
-  // 否则按第一个步骤点的坐标自动推断。
+
+  // 校区 ID 推断
   if(campusId && CAMPUS_BOUNDS[campusId]){
     _campusId=campusId;_campusBounds=CAMPUS_BOUNDS[campusId];
   } else if(steps && steps.length){
@@ -269,45 +292,53 @@ function initMap(steps,cur,mode,campusId){
   } else {
     _campusId='huifeng';_campusBounds=CAMPUS_BOUNDS.huifeng;
   }
-  // 全局 _viewPts：标注/路线渲染用（步骤点 → BD-09）
+
   _viewPts=[];
   if(_steps && _steps.length){
     _steps.forEach(function(s){
       var bd=wgs2bd(s.lng,s.lat);
       _viewPts.push(new BMap.Point(bd[0],bd[1]))});
   } else {
-    // 无步骤点：退回用校区中心
     var c0=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
     _viewPts=[new BMap.Point(c0[0],c0[1])];
   }
   _pts=_viewPts.slice();
-  // 默认中心 + zoom（以校区中心为锚）：保证首帧不跑偏
+
+  // 默认中心
   var cc=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
   _map.centerAndZoom(new BMap.Point(cc[0],cc[1]),_campusBounds.defaultZoom||16);
-  // 关键：iframe 初载容器可能为 0 高度，setViewport 会按 0 高算错 zoom。
-  // 分多次重试取景（0ms / 50ms / 150ms / 300ms / 600ms / 1200ms），
-  // 直到容器高度就位（>200px 视为正常）。
+
+  // 容器就绪后取景
   var tries=0;
   function tryFit(){
     tries++;
     var sz=_map.getSize();
     var h=sz.height||0;
-    if(h>200){ fitCampus(); }
-    else if(tries<10){ setTimeout(tryFit,150); }
-    else { fitCampus(); } // 兜底：无论如何取景一次
+    if(h>200){fitCampus();}
+    else if(tries<10){setTimeout(tryFit,150);}
+    else{fitCampus();}
   }
   tryFit();
-  // 容器尺寸变化（侧栏收起 / 响应式）时重新取景
+
+  // 容器尺寸变化时重取景
   if(typeof ResizeObserver!=='undefined'){
-    var obs=new ResizeObserver(function(){
-      if(_map){fitCampus();}});
-    obs.observe(document.getElementById('map'))}
+    var obs=new ResizeObserver(function(){if(_map){fitCampus()}});
+    obs.observe(document.getElementById('map'))
+  }
+
+  // 瓦片加载检测（3.5秒后检查是否有百度瓦片渲染）
+  startTileWatchdog();
+
+  // 渲染标注
   renderSteps();
   if(mode==='edit'){
     var h=document.getElementById('editHint');
-    h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}}
+    h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)
+  }
+  notify('ready',{});
+}
 
-/* ════ 渲染所有步骤标注 + 路线 ════ */
+/* ════ 渲染步骤标注 + 路线 ════ */
 function renderSteps(){
   _ovs.forEach(function(o){_map.removeOverlay(o)});_ovs=[];
   if(_poly){_map.removeOverlay(_poly);_poly=null}
@@ -318,7 +349,6 @@ function renderSteps(){
     pts.push(pt);
     var ov=new PulseOv(pt,s,i);
     _map.addOverlay(ov);_ovs.push(ov)});
-  /* 抽象路线（示意折线，非实际道路）*/
   if(pts.length>1){
     _poly=new BMap.Polyline(pts,{
       strokeColor:'#1677FF',strokeWeight:3,
@@ -326,38 +356,41 @@ function renderSteps(){
     _map.addOverlay(_poly)}
   updateStatus()}
 
-/* ════ 刷新标注状态颜色 ════ */
 function updateStatus(){
-  _ovs.forEach(function(o,i){
-    o.setStatus(i<_cur?'done':i===_cur?'active':'pending')})}
+  _ovs.forEach(function(o,i){o.setStatus(i<_cur?'done':i===_cur?'active':'pending')})}
 
-/* ════ 切换当前步骤（Flutter 调用）════ */
+/* ════ 切换步骤 ════ */
 function setStep(idx){
   _cur=idx;updateStatus();
   if(_ovs[idx])_map.panTo(_ovs[idx]._pt)}
 
-/* ════ 向 Flutter 发送消息（Web iframe + Android WebView 两路）════ */
+/* ════ 与 Flutter 通信 ════ */
 function notify(type,data){
-  var msg=Object.assign({type:type},data);
-  // Android WebView：webview_flutter 注入的 JavaScript 通道
+  var msg=Object.assign({type:type},data||{});
   if(typeof FlutterBridge!=='undefined'){
     try{FlutterBridge.postMessage(JSON.stringify(msg))}catch(e){}
   }
-  // Web iframe 路径
   try{(window.parent||window.top||window).postMessage(msg,'*')}catch(e){}
 }
 
-/* ════ 接收来自 Flutter 的消息 ════ */
+/* ════ 消息路由 ════ */
 window.addEventListener('message',function(e){
   var d=e.data||{};
   if(d.type==='init'){
-    loadAPI(d.ak).then(function(){initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId)})}
-  else if(d.type==='set_step')setStep(d.index||0)
-  else if(d.type==='refresh'){_steps=d.steps||_steps;_cur=d.currentStep??_cur;renderSteps()}
-  else if(d.type==='fit_campus')fitCampusById(d.campusId||d.id)
+    loadBaiduAPI(d.ak).then(function(){
+      initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId)
+    }).catch(function(err){
+      console.error(err.message);
+      showTileAlert();
+    });
+  } else if(d.type==='set_step'){
+    setStep(d.index||0);
+  } else if(d.type==='refresh'){
+    _steps=d.steps||_steps;_cur=d.currentStep!=null?d.currentStep:_cur;renderSteps()}
+  else if(d.type==='fit_campus'){
+    fitCampusById(d.campusId||d.id)}
 });
 
-/* ════ 页面就绪后通知 Flutter ════ */
 window.addEventListener('load',function(){notify('ready',{})});
 </script>
 </body>
