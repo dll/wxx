@@ -93,8 +93,9 @@ jobs:
           # 固定名 weixiaoxin.apk：配合 releases/latest/download 固定下载入口，
           # 前端 release_config.dart 无需随版本改地址
           cp frontend/build/app/outputs/flutter-apk/app-release.apk dist/weixiaoxin.apk
-          # 产品命名：用户下载后看到的文件名为 蔚小芯-vX.Y.Z.apk
-          cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/蔚小芯-v${VERSION}.apk"
+          # 版本化副本：GitHub Release 资产名会剥掉非 ASCII 字符
+          # （中文名 蔚小芯-vX.Y.Z.apk 会变成残缺的 -vX.Y.Z.apk），故用 ASCII
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/weixiaoxin-v${VERSION}.apk"
           echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: 上传 APK 制品（Actions 页面可下载，保留 30 天）
@@ -113,7 +114,7 @@ jobs:
           body: |
             蔚小芯 Android 客户端 v${{ env.APK_VERSION }}
 
-            下载：[蔚小芯-v${{ env.APK_VERSION }}.apk](https://github.com/${{ github.repository }}/releases/download/v${{ env.APK_VERSION }}/蔚小芯-v${{ env.APK_VERSION }}.apk)
+            下载：[蔚小芯 v${{ env.APK_VERSION }}](https://github.com/${{ github.repository }}/releases/download/v${{ env.APK_VERSION }}/weixiaoxin-v${{ env.APK_VERSION }}.apk)
 
             固定入口（始终指向最新版，应用内二维码使用）：
             https://github.com/${{ github.repository }}/releases/latest/download/weixiaoxin.apk
@@ -121,7 +122,7 @@ jobs:
             Web 端：https://www.wxx-agent.online
           files: |
             dist/weixiaoxin.apk
-            dist/蔚小芯-v${{ env.APK_VERSION }}.apk
+            dist/weixiaoxin-v${{ env.APK_VERSION }}.apk
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
