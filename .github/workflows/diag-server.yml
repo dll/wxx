@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: 服务器自测公网登录
+      - name: 服务器完整登录测试
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,8 +14,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 服务器访问自己的公网 HTTPS ---"
-            curl -vsk -m 8 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' 2>&1 | grep -E "TLS|Connected|HTTP|error|code|message|Recv" | head -15
-            echo "--- 服务器访问自己 IP 的 HTTPS(SNI) ---"
-            curl -vsk -m 8 -X POST "https://129.211.223.113/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' 2>&1 | grep -E "TLS|Connected|HTTP|error|code|message|Recv" | head -15
+            echo "--- 公网登录完整响应 ---"
+            curl -sk -m 8 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' -w "\nHTTP %{http_code}\n" | head -c 400
+            echo ""
+            echo "--- 公网根路径 ---"
+            curl -sk -m 8 -o /dev/null -w "HTTP %{http_code} 大小=%{size_download}\n" "https://www.wxx-agent.online/"
+            echo "--- 后端进程健康 ---"
+            curl -s -m 5 localhost:8080/health
             echo "DIAG_END"
