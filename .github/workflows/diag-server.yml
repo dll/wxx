@@ -23,43 +23,8 @@ jobs:
           script: |
             echo "===== 备份原 Caddyfile ====="
             sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak
-            echo "===== 写入新 Caddyfile（仅 www，移除未备案裸域名块）====="
-            sudo tee /etc/caddy/Caddyfile > /dev/null <<'CADDY'
-# Caddy配置 — 蔚小芯腾讯云集中部署
-# 仅服务 www.wxx-agent.online（裸域名 wxx-agent.online 未备案，
-# 腾讯云 DNS 返回 webblock 拦截，ACME 无法签发证书，已移除其站点块）
-
-www.wxx-agent.online {
-	# API 反向代理优先：所有 /api/* 请求转发到 Go 后端，不参与 SPA fallback
-	handle /api/* {
-		reverse_proxy localhost:8080
-	}
-
-	# 其余请求服务静态文件（Flutter Web 构建产物）
-	handle {
-		root * /opt/wxx/frontend/web
-
-		# SPA 路由回退：未匹配到静态文件的请求返回 index.html
-		try_files {path} /index.html
-
-		# 静态文件压缩
-		encode zstd gzip
-	}
-
-	# 安全头
-	header {
-		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
-		Referrer-Policy strict-origin-when-cross-origin
-	}
-
-	# 日志
-	log {
-		output file /var/log/caddy/wxx.log
-		format json
-	}
-}
-CADDY
+            echo "===== 写入新 Caddyfile（base64 解码）====="
+            echo "IyBDYWRkeemFjee9riAtIOiUmuWwj+iKr+iFvuiur+S6kembhuS4remDqOe9sgojIOS7heacjeWKoSB3d3cud3h4LWFnZW50Lm9ubGluZe+8iOijuOWfn+WQjSB3eHgtYWdlbnQub25saW5lIOacquWkh+ahiO+8jAojIOiFvuiur+S6kSBETlMg6L+U5ZueIHdlYmJsb2NrIOaLpuaIqu+8jEFDTUUg5peg5rOV562+5Y+R6K+B5Lmm77yM5bey56e76Zmk5YW256uZ54K55Z2X77yJCgp3d3cud3h4LWFnZW50Lm9ubGluZSB7CiAgICAjIEFQSSDlj43lkJHku6PnkIbkvJjlhYjvvJrmiYDmnIkgL2FwaS8qIOivt+axgui9rOWPkeWIsCBHbyDlkI7nq68KICAgIGhhbmRsZSAvYXBpLyogewogICAgICAgIHJldmVyc2VfcHJveHkgbG9jYWxob3N0OjgwODAKICAgIH0KCiAgICAjIOWFtuS9meivt+axguacjeWKoemdmeaAgeaWh+S7tu+8iEZsdXR0ZXIgV2ViIOaehOW7uuS6p+eJqe+8iQogICAgaGFuZGxlIHsKICAgICAgICByb290ICogL29wdC93eHgvZnJvbnRlbmQvd2ViCiAgICAgICAgdHJ5X2ZpbGVzIHtwYXRofSAvaW5kZXguaHRtbAogICAgICAgIGVuY29kZSB6c3RkIGd6aXAKICAgIH0KCiAgICAjIOWuieWFqOWktAogICAgaGVhZGVyIHsKICAgICAgICBYLUNvbnRlbnQtVHlwZS1PcHRpb25zIG5vc25pZmYKICAgICAgICBYLUZyYW1lLU9wdGlvbnMgREVOWQogICAgICAgIFJlZmVycmVyLVBvbGljeSBzdHJpY3Qtb3JpZ2luLXdoZW4tY3Jvc3Mtb3JpZ2luCiAgICB9CgogICAgIyDml6Xlv5cKICAgIGxvZyB7CiAgICAgICAgb3V0cHV0IGZpbGUgL3Zhci9sb2cvY2FkZHkvd3h4LmxvZwogICAgICAgIGZvcm1hdCBqc29uCiAgICB9Cn0K" | base64 -d | sudo tee /etc/caddy/Caddyfile > /dev/null
             echo "===== 校验 Caddy 配置 ====="
             sudo caddy validate --config /etc/caddy/Caddyfile 2>&1 | tail -5
             echo "===== 重启 Caddy ====="
