@@ -331,7 +331,7 @@ function initMap(steps,cur,mode,campusId){
       anchor:BMAP_ANCHOR_TOP_LEFT
     });
     _map.addControl(maptype);
-  }catch(e){console.warn('控件添加失败（不影响底图）:',e)}
+  }catch(e){/* 控件添加失败不阻塞地图渲染，静默忽略 */}
 
   // 容器尺寸变化时重取景
   if(typeof ResizeObserver!=='undefined'){
@@ -376,7 +376,7 @@ function renderSteps(){
     try{
       var ov=new PulseOverlay(pt,s,i);
       _map.addOverlay(ov);_ovs.push(ov);
-    }catch(e){console.error('标注渲染失败:',e)}
+    }catch(e){/* 单个标注失败静默忽略 */}
   });
   if(pts.length>1){
     try{
@@ -385,7 +385,7 @@ function renderSteps(){
         strokeOpacity:.6,strokeStyle:'dashed'
       });
       _map.addOverlay(_poly);
-    }catch(e){console.error('路线渲染失败:',e)}
+    }catch(e){/* 路线失败静默忽略 */}
   }
   updateStatus();
 }
@@ -425,7 +425,7 @@ function set3DMode(enabled){
   }catch(e){
     try{
       if(_is3D){_map.setTilt(60)}else{_map.setTilt(0)}
-    }catch(e2){console.warn('3D切换失败:',e2)}
+    }catch(e2){/* 3D 切换失败静默忽略 */}
   }
 }
 
@@ -445,7 +445,7 @@ window.addEventListener('message',function(e){
     loadBaiduGL(d.ak).then(function(){
       initMap(d.steps||[],d.currentStep||0,d.mode||'view',d.campusId);
     }).catch(function(err){
-      console.error(err.message);
+      /* 加载失败不打印日志，仅弹出配置引导提示 */
       showTileAlert();
     });
   } else if(d.type==='set_step'){

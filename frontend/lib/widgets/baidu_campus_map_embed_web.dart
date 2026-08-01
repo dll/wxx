@@ -127,9 +127,16 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
     if (old.currentStep != widget.currentStep) {
       _send({'type': 'set_step', 'index': widget.currentStep});
     }
-    if (old.steps != widget.steps || old.editMode != widget.editMode) {
-      _send({'type': 'refresh', 'steps': widget.steps,
-        'currentStep': widget.currentStep});
+    // steps 每次父级 setState 都是新 List（引用不同），
+    // 必须按内容比较，否则每次点击步骤/完成按钮都触发全量标注重建。
+    if (old.editMode != widget.editMode ||
+        (old.steps != widget.steps &&
+            _stepsJson(old.steps) != _stepsJson(widget.steps))) {
+      _send({
+        'type': 'refresh',
+        'steps': widget.steps,
+        'currentStep': widget.currentStep,
+      });
     }
     // 校区切换：重新取景到对应校区完整范围
     if (old.campusId != widget.campusId) {
@@ -139,6 +146,23 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       old.controller?._detach();
       widget.controller?._attach(this);
     }
+  }
+
+  /// 将步骤列表序列化用于内容比较（忽略每次新建 List 的引用差异）。
+  static String _stepsJson(List<Map<String, dynamic>> steps) {
+    final buf = StringBuffer();
+    for (final s in steps) {
+      buf
+        ..write(s['title'])
+        ..write('|')
+        ..write(s['location'])
+        ..write('|')
+        ..write(s['lat'])
+        ..write(',')
+        ..write(s['lng'])
+        ..write(';');
+    }
+    return buf.toString();
   }
 
   @override

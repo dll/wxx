@@ -371,23 +371,13 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ],
           );
         }
-        return ListView(
-          padding: const EdgeInsets.all(12),
+        // 移动端：地图与步骤同时固定（Column），地图不随滚动销毁，
+        // 避免 iframe 反复重建导致 WebGL 上下文泄漏、控制台刷屏。
+        return Column(
           children: [
-            // 地图面板：高度按两校区实际比例（南北2.6km/东西1.23km≈2.1）给足，
-            // 至少占满一屏高度，避免被压成窄条。
-            LayoutBuilder(
-              builder: (ctx, c) {
-                final byRatio = c.maxWidth * 1.8;
-                final minH = MediaQuery.of(ctx).size.height * 0.92;
-                return SizedBox(
-                  height: byRatio > minH ? byRatio : minH,
-                  child: map,
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(height: 640, child: steps),
+            Expanded(flex: 6, child: map),
+            const Divider(height: 1),
+            Expanded(flex: 4, child: steps),
           ],
         );
       },
