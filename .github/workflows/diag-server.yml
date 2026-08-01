@@ -1,4 +1,4 @@
-# 临时诊断：从 CI 测试公网 HTTPS 访问腾讯云 API
+# 临时诊断：Caddy 服务状态
 name: Diag Server
 
 on:
@@ -6,15 +6,26 @@ on:
 
 jobs:
   diag:
-    name: 诊断公网访问
+    name: 诊断 Caddy
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: 测试公网 HTTPS 登录接口
-        run: |
-          echo "===== www.wxx-agent.online 登录 ====="
-          curl -s -m 30 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' -w "\nHTTP %{http_code}\n" | head -c 600
-          echo ""
-          echo "===== pages.dev 登录 ====="
-          curl -s -m 30 -X POST "https://wxx-agent.pages.dev/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' -w "\nHTTP %{http_code}\n" | head -c 600
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: SSH 诊断 Caddy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "===== Caddy 进程 ====="
+            ps aux | grep caddy | grep -v grep || echo "无 caddy 进程"
+            echo "===== Caddy 监听端口 ====="
+            ss -tlnp | grep -E "80|443" || echo "无 80/443 监听"
+            echo "===== Caddy 服务状态 ====="
+            systemctl status caddy 2>&1 | head -15
+            echo "===== Caddy 日志(最近) ====="
+            journalctl -u caddy --no-pager -n 20 2>&1 | tail -25
