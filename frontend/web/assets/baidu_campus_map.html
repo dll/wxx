@@ -174,54 +174,59 @@ function loadBaiduGL(ak){
 }
 
 /* ════ GL 版：自定义脉冲 HTML 覆盖物 ════
- * BMapGL 使用 BMapGL.Overlay 自定义覆盖物（initialize 需把 DOM 返回给百度，
- * draw 中百度通过 pixelToPoint / pointToPixel 计算位置，我们设置 left/top 即可）。
+ * 注意：BMapGL 是异步加载的，脚本顶层不能用 BMapGL 定义原型！
+ * 必须在 BMapGL 加载完成后（initMap 里）调用 setupPulseOv() 才安全。
  * ════ */
 function PulseOverlay(bdPt,step,idx){
   /* bdPt 已经是 BD-09 坐标 */
   this._pt=bdPt;this._step=step;this._idx=idx;this._el=null;
 }
-PulseOverlay.prototype=new BMapGL.Overlay();
-PulseOverlay.prototype.initialize=function(map){
-  this._map=map;
-  var el=document.createElement('div');
-  el.className='mk st-pending';
-  el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
-    +'<div class="mk-core">'+(this._idx+1)+'</div>'
-    +'<div class="mk-label">'+this._step.location+'</div>';
-  var self=this;
-  el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._idx})});
-  if(_mode==='edit')this._bindDrag(el);
-  this._el=el;
-  map.getPanes().markerPane.appendChild(el);
-  return el;
-};
-PulseOverlay.prototype.draw=function(){
-  if(!this._el||!this._map)return;
-  var pixel=this._map.pointToOverlayPixel(this._pt);
-  this._el.style.left=pixel.x+'px';
-  this._el.style.top=pixel.y+'px';
-};
-PulseOverlay.prototype.setStatus=function(s){
-  if(this._el)this._el.className='mk st-'+s;
-};
-PulseOverlay.prototype._bindDrag=function(el){
-  var self=this,dragging=false,sx=0,sy=0,op=null;
-  el.style.cursor='move';
-  el.addEventListener('mousedown',function(e){
-    dragging=true;sx=e.clientX;sy=e.clientY;
-    op=self._map.pointToPixel(self._pt);e.preventDefault()});
-  document.addEventListener('mousemove',function(e){
-    if(!dragging)return;
-    var dx=e.clientX-sx,dy=e.clientY-sy;
-    self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
-    self.draw()});
-  document.addEventListener('mouseup',function(){
-    if(!dragging)return;dragging=false;
-    var w=bd2wgs(self._pt.lng,self._pt.lat);
-    notify('marker_moved',{index:self._idx,lat:w[1],lng:w[0]})
-  });
-};
+var _pulseOvReady=false;
+function setupPulseOv(){
+  if(_pulseOvReady||typeof BMapGL==='undefined'||!BMapGL.Overlay)return;
+  _pulseOvReady=true;
+  PulseOverlay.prototype=new BMapGL.Overlay();
+  PulseOverlay.prototype.initialize=function(map){
+    this._map=map;
+    var el=document.createElement('div');
+    el.className='mk st-pending';
+    el.innerHTML='<div class="mk-ring"></div><div class="mk-ring r2"></div>'
+      +'<div class="mk-core">'+(this._idx+1)+'</div>'
+      +'<div class="mk-label">'+this._step.location+'</div>';
+    var self=this;
+    el.addEventListener('click',function(e){e.stopPropagation();notify('step_selected',{index:self._idx})});
+    if(_mode==='edit')this._bindDrag(el);
+    this._el=el;
+    map.getPanes().markerPane.appendChild(el);
+    return el;
+  };
+  PulseOverlay.prototype.draw=function(){
+    if(!this._el||!this._map)return;
+    var pixel=this._map.pointToOverlayPixel(this._pt);
+    this._el.style.left=pixel.x+'px';
+    this._el.style.top=pixel.y+'px';
+  };
+  PulseOverlay.prototype.setStatus=function(s){
+    if(this._el)this._el.className='mk st-'+s;
+  };
+  PulseOverlay.prototype._bindDrag=function(el){
+    var self=this,dragging=false,sx=0,sy=0,op=null;
+    el.style.cursor='move';
+    el.addEventListener('mousedown',function(e){
+      dragging=true;sx=e.clientX;sy=e.clientY;
+      op=self._map.pointToPixel(self._pt);e.preventDefault()});
+    document.addEventListener('mousemove',function(e){
+      if(!dragging)return;
+      var dx=e.clientX-sx,dy=e.clientY-sy;
+      self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
+      self.draw()});
+    document.addEventListener('mouseup',function(){
+      if(!dragging)return;dragging=false;
+      var w=bd2wgs(self._pt.lng,self._pt.lat);
+      notify('marker_moved',{index:self._idx,lat:w[1],lng:w[0]})
+    });
+  };
+}
 
 /* ════ 校园全图取景（GL版）════
  * GL 版 setViewport(bounds,{margins}) 用法与 v2.0 基本一致；
@@ -278,6 +283,7 @@ function fitCampusById(id){
 
 /* ════ 地图初始化（BMapGL）════ */
 function initMap(steps,cur,mode,campusId){
+  setupPulseOv(); // BMapGL 已就绪，此时才能安全定义覆盖物原型
   _steps=steps||[];_cur=cur||0;_mode=mode||'view';
 
   // 校区推断
@@ -348,6 +354,7 @@ function initMap(steps,cur,mode,campusId){
 
 /* ════ 渲染步骤标注 + 路线（GL版）═══ */
 function renderSteps(){
+  setupPulseOv(); // 兜底：确保原型已定义（refresh 消息可能先于 init 完成前到达）
   _ovs.forEach(function(o){try{_map.removeOverlay(o)}catch(e){}});_ovs=[];
   if(_poly){try{_map.removeOverlay(_poly)}catch(e){}_poly=null}
   var pts=[];
