@@ -17,6 +17,10 @@ class BaiduCampusMapController {
   /// 管理员编辑后刷新全部标注。
   void refresh(List<Map<String, dynamic>> steps, int cur) =>
       _st?._send({'type': 'refresh', 'steps': steps, 'currentStep': cur});
+
+  /// 切换到指定校区完整范围取景（huifeng / langya / all）。
+  void fitCampus(String campusId) =>
+      _st?._send({'type': 'fit_campus', 'campusId': campusId});
 }
 
 class BaiduCampusMapEmbed extends StatefulWidget {
@@ -24,6 +28,7 @@ class BaiduCampusMapEmbed extends StatefulWidget {
   final List<Map<String, dynamic>> steps; // {id, title, location, lat, lng}
   final int currentStep;
   final bool editMode;
+  final String campusId; // huifeng / langya
   final ValueChanged<int>? onStepSelected;
   final void Function(int index, double lat, double lng)? onMarkerMoved;
   final BaiduCampusMapController? controller;
@@ -34,6 +39,7 @@ class BaiduCampusMapEmbed extends StatefulWidget {
     required this.steps,
     this.currentStep = 0,
     this.editMode = false,
+    this.campusId = 'huifeng',
     this.onStepSelected,
     this.onMarkerMoved,
     this.controller,
@@ -103,6 +109,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       'steps': widget.steps,
       'currentStep': widget.currentStep,
       'mode': widget.editMode ? 'edit' : 'view',
+      'campusId': widget.campusId,
     });
     _ready = true;
   }
@@ -120,6 +127,10 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
     if (old.steps != widget.steps || old.editMode != widget.editMode) {
       _send({'type': 'refresh', 'steps': widget.steps,
         'currentStep': widget.currentStep});
+    }
+    // 校区切换：重新取景到对应校区完整范围
+    if (old.campusId != widget.campusId) {
+      _send({'type': 'fit_campus', 'campusId': widget.campusId});
     }
     if (old.controller != widget.controller) {
       old.controller?._detach();

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class BaiduCampusMapController {
   void setStep(int index) {}
   void refresh(List<Map<String, dynamic>> steps, int cur) {}
+  void fitCampus(String campusId) {}
 }
 
 /// Android 平台提示卡片；后续可替换为 webview_flutter 实现。
@@ -15,6 +16,7 @@ class BaiduCampusMapEmbed extends StatelessWidget {
     required this.steps,
     this.currentStep = 0,
     this.editMode = false,
+    this.campusId = 'huifeng',
     this.onStepSelected,
     this.onMarkerMoved,
     this.controller,
@@ -24,6 +26,7 @@ class BaiduCampusMapEmbed extends StatelessWidget {
   final List<Map<String, dynamic>> steps;
   final int currentStep;
   final bool editMode;
+  final String campusId;
   final ValueChanged<int>? onStepSelected;
   final void Function(int, double, double)? onMarkerMoved;
   final BaiduCampusMapController? controller;

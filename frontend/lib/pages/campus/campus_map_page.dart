@@ -517,6 +517,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 baiduAk: baiduAk,
                 steps: _stepsForMap,
                 currentStep: _currentStep,
+                campusId: _campus.id,
                 controller: _mapController,
                 onStepSelected: (idx) =>
                     setState(() => _currentStep = idx),
@@ -902,6 +903,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
       _currentStep = 0;
       _copiedText = '';
     });
+    // 校区切换：让地图重新取景到新校区完整范围。
+    // widget.campusId 的变化也会通过 didUpdateWidget 触发一次，
+    // 但这里显式调用一次，保证地图在任何状态下都立即响应。
+    _mapController.fitCampus(_campuses[index].id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('已切换到${_campus.name}报到流程')),
     );
