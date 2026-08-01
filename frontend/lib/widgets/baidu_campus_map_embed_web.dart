@@ -82,7 +82,8 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
   void _registerView() {
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
       final f = html.IFrameElement()
-        ..src = '/assets/baidu_campus_map.html'
+        // 带版本查询串：地图页文件名固定，靠 ?v= 破除 CDN/浏览器旧缓存
+        ..src = '/assets/baidu_campus_map.html?v=2'
         ..style.border = '0'
         ..style.width = '100%'
         ..style.height = '100%'

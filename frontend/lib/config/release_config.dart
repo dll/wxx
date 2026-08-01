@@ -7,6 +7,11 @@ class ReleaseConfig {
   static const int buildNumber = 9;
   static const String releaseDate = '2026-07-30';
   static const String apkFileName = '蔚小芯-v0.0.9.apk';
-  static const String apkDownloadUrl = 'https://www.wxx-agent.online/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.9.apk';
+
+  /// APK 由 GitHub Release 分发，不再打进 Web 静态包
+  /// （57MB 超出 Cloudflare Pages 单文件 25MB 限制）。
+  /// `latest/download` 为固定入口，发新版无需改本常量。
+  static const String apkDownloadUrl =
+      'https://github.com/dll/wxx/releases/latest/download/weixiaoxin.apk';
   static const String webUrl = 'https://www.wxx-agent.online';
 }

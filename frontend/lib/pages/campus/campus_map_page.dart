@@ -375,10 +375,18 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // 地图面板：按校园边界自适应高度（琅琊+会峰）
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.65,
-              child: map,
+            // 地图面板：高度按校园全图实际比例给足
+            // 两校区外接范围约 南北 3.0km × 东西 1.5km（高:宽≈2:1），
+            // 故按容器宽度的 1.6 倍取高，并至少占满一屏，避免被压成窄条。
+            LayoutBuilder(
+              builder: (ctx, c) {
+                final byRatio = c.maxWidth * 1.6;
+                final minH = MediaQuery.of(ctx).size.height * 0.92;
+                return SizedBox(
+                  height: byRatio > minH ? byRatio : minH,
+                  child: map,
+                );
+              },
             ),
             const SizedBox(height: 12),
             SizedBox(height: 640, child: steps),

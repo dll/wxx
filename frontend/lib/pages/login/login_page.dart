@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
@@ -40,13 +41,53 @@ class _LoginPageState extends State<LoginPage>
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // APK 下载入口 — 顶部立即可见，无需滚动；点击直接弹二维码+下载链接
+                  GestureDetector(
+                    onTap: () => _showApkQrDialog(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF3DDC84).withOpacity(0.08),
+                            const Color(0xFF3DDC84).withOpacity(0.04),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFF3DDC84).withOpacity(0.25),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.android,
+                              color: Color(0xFF3DDC84), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '下载手机安卓版本 APK',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: const Color(0xFF2FA968),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.qr_code_2,
+                              color: Color(0xFF2FA968), size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Logo
                   Center(
                     child: Column(
@@ -71,7 +112,7 @@ class _LoginPageState extends State<LoginPage>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
 
                   // 登录/注册 Tab
                   Container(
@@ -117,35 +158,9 @@ class _LoginPageState extends State<LoginPage>
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 20),
 
-                  // 底部：版本号 + 下载
-                  Center(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showDownloadSheet(context),
-                      icon: Image.asset(
-                        'assets/images/app_icon.png',
-                        width: 24,
-                        height: 24,
-                        fit: BoxFit.contain,
-                      ),
-                      label: const Text(
-                        '下载手机安卓版本',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF3DDC84),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF3DDC84), width: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  // 底部：仅版本号（下载入口已移到页面顶部）
                   Center(
                     child: Text(
                       'v${ReleaseConfig.version}',
@@ -275,9 +290,28 @@ class _LoginPageState extends State<LoginPage>
               '手机扫码下载安装',
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
+            const SizedBox(height: 12),
+            // 下载链接：可长按/选中复制
+            SelectableText(
+              ReleaseConfig.apkDownloadUrl,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+            ),
           ],
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(
+                  ClipboardData(text: ReleaseConfig.apkDownloadUrl));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('下载链接已复制'),
+                    duration: Duration(seconds: 2)),
+              );
+            },
+            child: const Text('复制链接'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),

@@ -146,47 +146,38 @@ function initMap(steps,cur,mode){
   _map.addControl(new BMap.ScaleControl({anchor:BMAP_ANCHOR_BOTTOM_LEFT}));
   _map.addControl(new BMap.NavigationControl({
     anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_NAVIGATION_CONTROL_SMALL}));
-  // 合并校园边界点 + 步骤点，以同时显示两个校区（琅琊 + 会峰）的全景
-  _pts=[];
-  // 琅琊校区边界（北东南西四个角）
-  var langya_bounds=[
-    [32.3160, 118.3120],  // 北
-    [32.3140, 118.3130],  // 东
-    [32.3112, 118.3080],  // 南
-    [32.3125, 118.3070],  // 西
+  // 校园全图范围：滁州学院两校区实际边界（数据源 OpenStreetMap，已转 BD-09）
+  // 会峰校区 WGS84 lat 32.268755~32.280265 / lon 118.298641~118.311988
+  // 琅琊校区 WGS84 lat 32.291322~32.296202 / lon 118.293120~118.300466
+  var CAMPUS_BOUNDS=[
+    // 会峰校区（西南角、东北角）
+    [32.283195,118.328135],[32.294627,118.341566],
+    // 琅琊校区（西南角、东北角）
+    [32.305752,118.322629],[32.310645,118.329999]
   ];
-  // 会峰校区边界（北东南西四个角）
-  var huifeng_bounds=[
-    [32.2950, 118.3020],  // 北
-    [32.2950, 118.3020],  // 东
-    [32.2890, 118.2960],  // 南
-    [32.2900, 118.2960],  // 西
-  ];
-  // 合并所有边界点和步骤点
-  var all_pts=langya_bounds.concat(huifeng_bounds);
+  // 以两校区外接矩形四角作为默认视口，保证校园全图完整显示
+  var campus_pts=CAMPUS_BOUNDS.map(function(p){
+    return new BMap.Point(p[1],p[0])});
+  var minLat=Math.min(CAMPUS_BOUNDS[0][0],CAMPUS_BOUNDS[2][0]);
+  var maxLat=Math.max(CAMPUS_BOUNDS[1][0],CAMPUS_BOUNDS[3][0]);
+  var minLng=Math.min(CAMPUS_BOUNDS[0][1],CAMPUS_BOUNDS[2][1]);
+  var maxLng=Math.max(CAMPUS_BOUNDS[1][1],CAMPUS_BOUNDS[3][1]);
+  campus_pts.push(new BMap.Point(minLng,minLat));
+  campus_pts.push(new BMap.Point(maxLng,maxLat));
+  // 步骤点（若有）已是 WGS84，需转换后并入视口
+  _pts=campus_pts.slice();
   if(_steps && _steps.length){
-    all_pts=all_pts.concat(_steps.map(function(s){return[s.lat,s.lng]}));
+    _steps.forEach(function(s){
+      var bd=wgs2bd(s.lng,s.lat);
+      _pts.push(new BMap.Point(bd[0],bd[1]))});
   }
-  // 转换为 BD-09 坐标
-  _pts=all_pts.map(function(p){
-    var bd=wgs2bd(p[1],p[0]);
-    return new BMap.Point(bd[0],bd[1])});
-  // 根据所有点计算视口，使两个校区都完整显示
-  if(_pts.length){
-    var viewport=_map.getViewport(_pts,{margins:[80,80,80,80]});
-    var center=viewport.center||_pts[0];
-    _map.centerAndZoom(center,viewport.zoom||14);
-    _map.setViewport(_pts,{margins:[80,80,80,80]});
-  } else {
-    // 默认中心点（琅琊校区）
-    var s0={lat:32.313,lng:118.31};
-    var c=wgs2bd(s0.lng,s0.lat);
-    _map.centerAndZoom(new BMap.Point(c[0],c[1]),17);
-  }
+  // 视口默认覆盖校园全图范围
+  _map.centerAndZoom(new BMap.Point((minLng+maxLng)/2,(minLat+maxLat)/2),14);
+  _map.setViewport(_pts,{margins:[40,40,40,40]});
   // 确保地图容器有正确的宽高：iframe 刚加载时尺寸可能为 0，
   // 等容器确定后重绘一次地图，否则地图会渲染成窄条。
   requestAnimationFrame(function(){
-    if(_map){_map.resize();if(_pts.length){_map.setViewport(_pts,{margins:[80,80,80,80]})}}});
+    if(_map){_map.resize();if(_pts.length){_map.setViewport(_pts,{margins:[40,40,40,40]})}}});
   // 监听容器尺寸变化（响应式布局 / 侧栏收起时），保持地图撑满
   if(typeof ResizeObserver!=='undefined'){
     var obs=new ResizeObserver(function(){

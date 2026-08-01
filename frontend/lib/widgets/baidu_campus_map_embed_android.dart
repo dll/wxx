@@ -50,7 +50,7 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
 
   /// 地图 HTML 已部署到 CF Pages 此路径，Baidu AK 域名校验通过。
   static const _mapUrl =
-      'https://www.wxx-agent.online/assets/baidu_campus_map.html';
+      'https://www.wxx-agent.online/assets/baidu_campus_map.html?v=2';
 
   @override
   void initState() {

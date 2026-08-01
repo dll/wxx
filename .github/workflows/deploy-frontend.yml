@@ -9,6 +9,10 @@ on:
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
+# 发布 Release 需要写权限
+permissions:
+  contents: write
+
 jobs:
   # ── Job 1：构建 Web 并部署到腾讯云 Lighthouse ─────────────────────────
   deploy-web:
@@ -86,6 +90,9 @@ jobs:
         run: |
           VERSION=$(grep "^version:" frontend/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
           mkdir -p dist
+          # 固定名 weixiaoxin.apk：配合 releases/latest/download 固定下载入口，
+          # 前端 release_config.dart 无需随版本改地址
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk dist/weixiaoxin.apk
           cp frontend/build/app/outputs/flutter-apk/app-release.apk "dist/wxx-v${VERSION}.apk"
           echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
@@ -95,3 +102,20 @@ jobs:
           name: wxx-v${{ env.APK_VERSION }}-apk
           path: dist/*.apk
           retention-days: 30
+
+      # APK 走 GitHub Release 分发，不再打进 Web 静态包（超 Pages 25MB 单文件限制）
+      - name: 发布 GitHub Release（APK 分发入口）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APK_VERSION }}
+          name: 蔚小芯 v${{ env.APK_VERSION }}
+          body: |
+            蔚小芯 Android 客户端 v${{ env.APK_VERSION }}
+
+            下载：[weixiaoxin.apk](https://github.com/${{ github.repository }}/releases/latest/download/weixiaoxin.apk)
+
+            Web 端：https://www.wxx-agent.online
+          files: dist/weixiaoxin.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
