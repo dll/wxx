@@ -6,16 +6,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: 检查实际 Caddyfile
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "DIAG_BEGIN"
-            echo "--- 服务器上实际 Caddyfile ---"
-            sudo cat /etc/caddy/Caddyfile
-            echo "--- caddy 启动完整日志(前25行) ---"
-            sudo journalctl -u caddy --no-pager -n 25 2>&1 | head -25
-            echo "DIAG_END"
+      - name: 公网真实域名 HTTPS 测试
+        run: |
+          echo "===== 公网 www.wxx-agent.online ====="
+          curl -sv --max-time 20 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' 2>&1 | grep -E "Connected|SSL|TLS|HTTP|error|Recv|< HTTP|code|message" | head -20
+          echo ""
+          echo "===== 公网根路径 ====="
+          curl -s --max-time 20 -o /dev/null -w "HTTP %{http_code} 大小=%{size_download}\n" "https://www.wxx-agent.online/"
