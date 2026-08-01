@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: 查看被拒 IP 完整列表
+      - name: 服务器自测公网登录
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,10 +14,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- YJ-FIREWALL-INPUT 完整规则 ---"
-            sudo iptables -L YJ-FIREWALL-INPUT -n --line-numbers 2>/dev/null
-            echo "--- 主链 INPUT 引用 ---"
-            sudo iptables -L INPUT -n --line-numbers 2>/dev/null
-            echo "--- 服务器当前公网可达性(本机自测) ---"
-            curl -s -m 5 https://www.baidu.com -o /dev/null -w "外网出站: %{http_code}\n" 2>&1
+            echo "--- 服务器访问自己的公网 HTTPS ---"
+            curl -vsk -m 8 -X POST "https://www.wxx-agent.online/api/v1/auth/login" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' 2>&1 | grep -E "TLS|Connected|HTTP|error|code|message|Recv" | head -15
+            echo "--- 服务器访问自己 IP 的 HTTPS(SNI) ---"
+            curl -vsk -m 8 -X POST "https://129.211.223.113/api/v1/auth/login" -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wrongpass"}' 2>&1 | grep -E "TLS|Connected|HTTP|error|code|message|Recv" | head -15
             echo "DIAG_END"
