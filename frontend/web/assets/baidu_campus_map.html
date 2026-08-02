@@ -90,14 +90,17 @@ var _campusId='huifeng',_campusBounds=null;
 var π=Math.PI,_a=6378245,_ee=.006693421623;
 /* 百度 GL 版直接使用 BD-09 经纬度（同 v2.0） */
 
-/* ════ 校区完整范围（WGS-84 四至：北/南/东/西，卫星实测）════ */
+/* ════ 校区范围（WGS-84 四至，基于报到流程标注点收紧 + 少量边距）════
+ * 范围贴合实际标注点，fitCampus 时地图放大到刚好覆盖所有报到点，
+ * 避免视野过大导致校园只占一小块。边距 ~0.0015°≈170m。
+ */
 var CAMPUS_BOUNDS={
   huifeng:{name:'会峰校区',
-    north:32.2975,south:32.2885,east:118.3055,west:118.2940,
-    center:{lat:32.2930,lng:118.2997},minZoom:16,defaultZoom:16},
+    north:32.2955,south:32.2907,east:118.3020,west:118.2961,
+    center:{lat:32.2929,lng:118.2991},minZoom:16,defaultZoom:17},
   langya:{name:'琅琊校区',
-    north:32.3190,south:32.3105,east:118.3150,west:118.3055,
-    center:{lat:32.3145,lng:118.3102},minZoom:16,defaultZoom:16}
+    north:32.3165,south:32.3126,east:118.3122,west:118.3074,
+    center:{lat:32.3143,lng:118.3098},minZoom:16,defaultZoom:17}
 };
 var ALL_BOUNDS={
   north:Math.max(CAMPUS_BOUNDS.huifeng.north,CAMPUS_BOUNDS.langya.north),
