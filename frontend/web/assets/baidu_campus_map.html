@@ -510,6 +510,18 @@ window.addEventListener('message',function(e){
   } else if(d.type==='refresh'){
     _steps=d.steps||_steps;
     _cur=d.currentStep!=null?d.currentStep:_cur;
+    // 更新编辑模式（Flutter 切换 editMode 时带上 mode 字段）
+    var prevMode=_mode;
+    _mode=d.mode||_mode;
+    if(_mode!==prevMode){
+      // 模式切换：显示/隐藏编辑提示
+      var h=document.getElementById('editHint');
+      if(_mode==='edit'){
+        if(h){h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}
+      }else{
+        if(h){h.classList.remove('show')}
+      }
+    }
     renderSteps();
   } else if(d.type==='fit_campus'){
     fitCampusById(d.campusId||d.id);

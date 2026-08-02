@@ -153,7 +153,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       'tencent' =>
         '/assets/tencent_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       _ =>
-        '/assets/baidu_campus_map.html?v=10&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/baidu_campus_map.html?v=11&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
   }
 
@@ -251,6 +251,8 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
     }
     // steps 每次父级 setState 都是新 List（引用不同），
     // 必须按内容比较，否则每次点击步骤/完成按钮都触发全量标注重建。
+    // editMode 变化也走 refresh：HTML 收到后更新 _mode 并重建标注，
+    // 新标注在 _mode==='edit' 时绑定拖拽，实现编辑模式切换。
     if (old.editMode != widget.editMode ||
         (old.steps != widget.steps &&
             _stepsJson(old.steps) != _stepsJson(widget.steps))) {
@@ -258,6 +260,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
         'type': 'refresh',
         'steps': widget.steps,
         'currentStep': widget.currentStep,
+        'mode': widget.editMode ? 'edit' : 'view',
       });
     }
     // 校区切换：重新取景到对应校区完整范围
