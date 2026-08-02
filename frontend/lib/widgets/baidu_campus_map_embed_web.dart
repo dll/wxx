@@ -29,6 +29,15 @@ class BaiduCampusMapController {
   /// 底图图层切换（'standard'=标准矢量图，'satellite'=卫星影像图）。
   void setLayer(String layer) =>
       _st?._send({'type': 'set_layer', 'layer': layer});
+
+  /// 控制 iframe 可见性。
+  ///
+  /// Flutter Web CanvasKit 下 HtmlElementView（iframe）是真实 DOM 元素，
+  /// z-index 远高于 Flutter canvas，会遮挡所有 Flutter 绘制的弹窗
+  /// （showModalBottomSheet / showDialog 的 barrier 与内容均画在 canvas 上）。
+  /// 弹出 BottomSheet/Dialog 前调用 setVisible(false) 隐藏 iframe，
+  /// 弹窗关闭后调用 setVisible(true) 恢复，避免 iframe 遮挡弹窗。
+  void setVisible(bool visible) => _st?._setVisible(visible);
 }
 
 /// 多地图服务商校园导航嵌入组件（Web 端）。
@@ -225,6 +234,18 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
 
   void _send(Map<String, dynamic> msg) =>
       _iframe?.contentWindow?.postMessage(msg, '*');
+
+  /// 控制 iframe 的 CSS visibility。
+  /// 隐藏时用 visibility:hidden 而非 display:none，避免 iframe 重新加载。
+  /// 同时隐藏 host div 与 flt-platform-view 容器，确保完全不被弹窗遮挡。
+  void _setVisible(bool visible) {
+    final v = visible ? 'visible' : 'hidden';
+    _iframe?.style.visibility = v;
+    // host div（_iframe 的父元素）
+    _iframe?.parent?.style.visibility = v;
+    // flt-platform-view（host div 的父元素，Flutter 创建的容器）
+    _iframe?.parent?.parent?.style.visibility = v;
+  }
 
   @override
   void didUpdateWidget(covariant BaiduCampusMapEmbed old) {

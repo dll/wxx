@@ -456,30 +456,33 @@ class _CampusMapPageState extends State<CampusMapPage> {
   /// 打开报到流程管理面板（管理员专用）。
   /// 面板关闭后重新加载后端步骤，确保地图标注与 CRUD 结果一致。
   ///
-  /// 注意：本方法从 PopupMenuButton.onSelected 回调中调用。Flutter 的
-  /// PopupMenuButton 在点击菜单项时，先调用 onSelected，再执行
-  /// Navigator.pop 关闭菜单路由（含 ~200ms 关闭动画）。若在 onSelected
-  /// 中立即调用 showModalBottomSheet，此时 PopupMenu 路由仍在 Navigator
-  /// 栈中、其 overlay 遮盖尚未移除，会拦截 BottomSheet 的 barrier，
-  /// 表现为"点击菜单项后无弹窗"。
+  /// 关键点：Flutter Web CanvasKit 下 HtmlElementView（地图 iframe）是真实
+  /// DOM 元素，z-index 远高于 Flutter canvas。showModalBottomSheet 的 barrier
+  /// 与 BottomSheet 内容均画在 canvas 上，会被 iframe 完全遮挡——表现为
+  /// "点击菜单项后看不到弹窗"。300ms 延迟只能解决 PopupMenu 时序，解决不了
+  /// iframe 遮挡。
   ///
-  /// 修复策略：
-  ///   1. await endOfFrame —— 等待当前帧结束，确保 onSelected 已返回、
-  ///      PopupMenuButton 内部的 Navigator.pop 已被调用。
-  ///   2. await Future.delayed(300ms) —— 等待 PopupMenu 关闭动画（默认
-  ///      kThemeAnimationDuration=200ms）完成，其 overlay 路由从 Navigator
-  ///      彻底移除，不再遮挡新弹出的 BottomSheet。
+  /// 修复：弹 BottomSheet 前通过 controller 将 iframe 设为 visibility:hidden，
+  /// 弹窗关闭后恢复 visible。用 visibility 而非 display，避免 iframe 重新加载。
   Future<void> _openAdminPanel() async {
+    // 隐藏地图 iframe，避免遮挡 BottomSheet
+    _mapController.setVisible(false);
+    // 等一帧让 DOM visibility 生效
     await WidgetsBinding.instance.endOfFrame;
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
+    if (!mounted) {
+      _mapController.setVisible(true);
+      return;
+    }
     await CampusStepAdminPanel.show(
       context,
       campusId: _campus.id,
       campusName: _campus.name,
     );
-    // 面板关闭后刷新地图标注（CRUD 可能改变了步骤列表/坐标）
-    if (mounted) _loadStepsFromServer();
+    // 恢复地图 iframe 可见性
+    if (mounted) {
+      _mapController.setVisible(true);
+      _loadStepsFromServer();
+    }
   }
 
   /// 将步骤列表转为地图 HTML 期望的 Map 格式（WGS-84 坐标）。
