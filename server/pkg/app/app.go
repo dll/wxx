@@ -576,10 +576,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// flutter_bootstrap.js / flutter_service_worker.js）禁止缓存，
 			// 确保浏览器每次都拉取最新版本；/assets/ 下带哈希的资源可长缓存。
 			noCachePaths := map[string]bool{
-				"/main.dart.js":                true,
-				"/index.html":                  true,
-				"/flutter_bootstrap.js":        true,
-				"/flutter_service_worker.js":   true,
+				"/main.dart.js":              true,
+				"/index.html":                true,
+				"/flutter_bootstrap.js":      true,
+				"/flutter_service_worker.js": true,
 			}
 			router.Use(func(c *gin.Context) {
 				if noCachePaths[c.Request.URL.Path] {
@@ -860,20 +860,20 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.POST("/users/import", auth.RequireCapability(auth.CounselorImportStudent), adminH.ImportStudents)
 
 				// ── 校园报到步骤管理（college_admin+）──
-			campusAdmin := admin.Group("/campus")
-			{
-				campusAdmin.GET("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.ListAdminSteps)
-				campusAdmin.POST("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.CreateStep)
-				campusAdmin.PUT("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStep)
-				campusAdmin.POST("/steps/:id/submit", auth.RequireCapability(auth.CollegeUserRead), campusH.SubmitStep)
-			campusAdmin.POST("/steps/:id/publish", auth.RequireCapability(auth.CollegeDataAnalysis), campusH.PublishStep)
-			// 管理员拖拽校正坐标（college_admin+，不走审核流程，已发布步骤也可调整）
-			campusAdmin.PATCH("/steps/:id/coords", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStepCoords)
-			campusAdmin.DELETE("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStep)
-			// 管理员强制更新/删除（不限状态，已发布步骤也可直接修改内容或删除）
-			campusAdmin.PUT("/steps/:id/force", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStepForce)
-			campusAdmin.DELETE("/steps/:id/force", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStepForce)
-			}
+				campusAdmin := admin.Group("/campus")
+				{
+					campusAdmin.GET("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.ListAdminSteps)
+					campusAdmin.POST("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.CreateStep)
+					campusAdmin.PUT("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStep)
+					campusAdmin.POST("/steps/:id/submit", auth.RequireCapability(auth.CollegeUserRead), campusH.SubmitStep)
+					campusAdmin.POST("/steps/:id/publish", auth.RequireCapability(auth.CollegeDataAnalysis), campusH.PublishStep)
+					// 管理员拖拽校正坐标（college_admin+，不走审核流程，已发布步骤也可调整）
+					campusAdmin.PATCH("/steps/:id/coords", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStepCoords)
+					campusAdmin.DELETE("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStep)
+					// 管理员强制更新/删除（不限状态，已发布步骤也可直接修改内容或删除）
+					campusAdmin.PUT("/steps/:id/force", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStepForce)
+					campusAdmin.DELETE("/steps/:id/force", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStepForce)
+				}
 			}
 
 			// ── 知识审核 ──

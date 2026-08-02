@@ -266,8 +266,8 @@ type KBImportResponse struct {
 
 // KBRefineItemResult 批量精修单条结果
 type KBRefineItemResult struct {
-	ResourceID string `json:"resource_id"` // 资源 ID
-	OK         bool   `json:"ok"`          // 是否成功
+	ResourceID string `json:"resource_id"`       // 资源 ID
+	OK         bool   `json:"ok"`                // 是否成功
 	Title      string `json:"title,omitempty"`   // 精修后标题
 	Summary    string `json:"summary,omitempty"` // 精修后摘要
 	Tags       string `json:"tags,omitempty"`    // 精修后标签（JSON 数组字符串）
@@ -286,8 +286,8 @@ type KBRefineResult struct {
 
 // KBRefineResponse 批量精修响应
 type KBRefineResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
 	Data    *KBRefineResult `json:"data"`
 }
 

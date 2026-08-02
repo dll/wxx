@@ -48,40 +48,40 @@ type DocumentResult struct {
 
 // DocumentParseResult 文档解析增强结果
 type DocumentParseResult struct {
-	Title      string          `json:"title"`      // 文档标题
-	Content    string          `json:"content"`    // 提取的纯文本内容
-	Summary    string          `json:"summary"`    // 自动生成的摘要
-	Keywords   []string        `json:"keywords"`   // 关键词列表
-	WordCount  int             `json:"word_count"` // 字数
-	Paragraphs int             `json:"paragraphs"` // 段落数
-	FileName   string          `json:"file_name"`  // 文件名
-	FileType   string          `json:"file_type"`  // 文件类型
-	FileSize   int64           `json:"file_size"`  // 文件大小
-	Pages      int             `json:"pages,omitempty"`
+	Title      string           `json:"title"`      // 文档标题
+	Content    string           `json:"content"`    // 提取的纯文本内容
+	Summary    string           `json:"summary"`    // 自动生成的摘要
+	Keywords   []string         `json:"keywords"`   // 关键词列表
+	WordCount  int              `json:"word_count"` // 字数
+	Paragraphs int              `json:"paragraphs"` // 段落数
+	FileName   string           `json:"file_name"`  // 文件名
+	FileType   string           `json:"file_type"`  // 文件类型
+	FileSize   int64            `json:"file_size"`  // 文件大小
+	Pages      int              `json:"pages,omitempty"`
 	Quality    *DocumentQuality `json:"quality"` // 内容质量评估（过短/无中文/乱码）
 }
 
 // DocumentQuality 解析内容质量评估。
 // OK=false 表示存在质量问题：正文过短、不含中文或疑似乱码，入库前应强制预览/人工确认。
 type DocumentQuality struct {
-	OK            bool     `json:"ok"`             // 是否通过质量门槛
-	Short         bool     `json:"short"`          // 正文过短
-	NoChinese     bool     `json:"no_chinese"`     // 无中文字符
-	Garbled       bool     `json:"garbled"`        // 疑似乱码/二进制
-	Reasons       []string `json:"reasons"`        // 未通过的原因描述（OK=true 时为空）
-	WordCount     int      `json:"word_count"`     // 有效总字数
-	ChineseRunes  int      `json:"chinese_runes"`  // 中文字符数
-	ControlRatio  float64  `json:"control_ratio"`  // 控制字符（除 \n\t\r）占比
-	SuspiciousRunes int    `json:"suspicious_runes"` // 异常字符数（非 CJK/ASCII/标点/空白）
+	OK              bool     `json:"ok"`               // 是否通过质量门槛
+	Short           bool     `json:"short"`            // 正文过短
+	NoChinese       bool     `json:"no_chinese"`       // 无中文字符
+	Garbled         bool     `json:"garbled"`          // 疑似乱码/二进制
+	Reasons         []string `json:"reasons"`          // 未通过的原因描述（OK=true 时为空）
+	WordCount       int      `json:"word_count"`       // 有效总字数
+	ChineseRunes    int      `json:"chinese_runes"`    // 中文字符数
+	ControlRatio    float64  `json:"control_ratio"`    // 控制字符（除 \n\t\r）占比
+	SuspiciousRunes int      `json:"suspicious_runes"` // 异常字符数（非 CJK/ASCII/标点/空白）
 }
 
 // DocumentRefineResult 文档元数据 LLM 精修结果
 type DocumentRefineResult struct {
-	Title    string   `json:"title"`     // 精修后标题
-	Summary  string   `json:"summary"`   // 精修后摘要
-	Keywords []string `json:"keywords"`  // 精修后关键词
-	Refined  bool     `json:"refined"`   // true = 由 LLM 精修生成
-	Fallback bool     `json:"fallback"`  // true = 回退启发式规则（未配置 LLM / 调用失败）
+	Title    string   `json:"title"`    // 精修后标题
+	Summary  string   `json:"summary"`  // 精修后摘要
+	Keywords []string `json:"keywords"` // 精修后关键词
+	Refined  bool     `json:"refined"`  // true = 由 LLM 精修生成
+	Fallback bool     `json:"fallback"` // true = 回退启发式规则（未配置 LLM / 调用失败）
 }
 
 func NewDocumentService(uploadDir string, maxSizeMB int) *DocumentService {
@@ -540,7 +540,7 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 
 // 质量门槛阈值：正文过短 / 无中文 / 疑似乱码时拒绝或强制预览
 const (
-	minDocRunes        = 20  // 有效正文最小字数
+	minDocRunes        = 20   // 有效正文最小字数
 	maxControlRatio    = 0.05 // 控制字符（除 \n\t\r）占比上限
 	maxSuspiciousRatio = 0.30 // 异常字符占比上限
 )
