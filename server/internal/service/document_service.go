@@ -48,16 +48,31 @@ type DocumentResult struct {
 
 // DocumentParseResult 文档解析增强结果
 type DocumentParseResult struct {
-	Title      string   `json:"title"`      // 文档标题
-	Content    string   `json:"content"`    // 提取的纯文本内容
-	Summary    string   `json:"summary"`    // 自动生成的摘要
-	Keywords   []string `json:"keywords"`   // 关键词列表
-	WordCount  int      `json:"word_count"` // 字数
-	Paragraphs int      `json:"paragraphs"` // 段落数
-	FileName   string   `json:"file_name"`  // 文件名
-	FileType   string   `json:"file_type"`  // 文件类型
-	FileSize   int64    `json:"file_size"`  // 文件大小
-	Pages      int      `json:"pages,omitempty"`
+	Title      string          `json:"title"`      // 文档标题
+	Content    string          `json:"content"`    // 提取的纯文本内容
+	Summary    string          `json:"summary"`    // 自动生成的摘要
+	Keywords   []string        `json:"keywords"`   // 关键词列表
+	WordCount  int             `json:"word_count"` // 字数
+	Paragraphs int             `json:"paragraphs"` // 段落数
+	FileName   string          `json:"file_name"`  // 文件名
+	FileType   string          `json:"file_type"`  // 文件类型
+	FileSize   int64           `json:"file_size"`  // 文件大小
+	Pages      int             `json:"pages,omitempty"`
+	Quality    *DocumentQuality `json:"quality"` // 内容质量评估（过短/无中文/乱码）
+}
+
+// DocumentQuality 解析内容质量评估。
+// OK=false 表示存在质量问题：正文过短、不含中文或疑似乱码，入库前应强制预览/人工确认。
+type DocumentQuality struct {
+	OK            bool     `json:"ok"`             // 是否通过质量门槛
+	Short         bool     `json:"short"`          // 正文过短
+	NoChinese     bool     `json:"no_chinese"`     // 无中文字符
+	Garbled       bool     `json:"garbled"`        // 疑似乱码/二进制
+	Reasons       []string `json:"reasons"`        // 未通过的原因描述（OK=true 时为空）
+	WordCount     int      `json:"word_count"`     // 有效总字数
+	ChineseRunes  int      `json:"chinese_runes"`  // 中文字符数
+	ControlRatio  float64  `json:"control_ratio"`  // 控制字符（除 \n\t\r）占比
+	SuspiciousRunes int    `json:"suspicious_runes"` // 异常字符数（非 CJK/ASCII/标点/空白）
 }
 
 // DocumentRefineResult 文档元数据 LLM 精修结果
@@ -504,6 +519,7 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 	keywords := extractDocKeywordsWithTitle(content, title, 10)
 	wordCount := countDocWords(content)
 	paragraphs := countDocParagraphs(content)
+	quality := assessDocQuality(content)
 
 	return &DocumentParseResult{
 		Title:      title,
@@ -516,7 +532,117 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 		FileType:   result.FileType,
 		FileSize:   result.FileSize,
 		Pages:      result.Pages,
+		Quality:    quality,
 	}, nil
+}
+
+// ── 解析内容质量门槛 ──
+
+// 质量门槛阈值：正文过短 / 无中文 / 疑似乱码时拒绝或强制预览
+const (
+	minDocRunes        = 20  // 有效正文最小字数
+	maxControlRatio    = 0.05 // 控制字符（除 \n\t\r）占比上限
+	maxSuspiciousRatio = 0.30 // 异常字符占比上限
+)
+
+// assessDocQuality 评估解析内容质量：
+//   - 过短：有效字数 < minDocRunes；
+//   - 无中文：中文字符数为 0；
+//   - 乱码：控制字符占比过高，或异常字符（替换符/非常规符号）占比过高。
+//
+// 返回 OK=true 表示可正常入库；否则 Reasons 给出可展示的拒绝原因。
+func assessDocQuality(content string) *DocumentQuality {
+	q := &DocumentQuality{OK: true}
+
+	runes := []rune(strings.TrimSpace(content))
+	total := len(runes)
+	q.WordCount = total
+	if total == 0 {
+		q.OK = false
+		q.Short = true
+		q.Reasons = append(q.Reasons, "解析结果为空")
+		return q
+	}
+	if total < minDocRunes {
+		q.Short = true
+		q.Reasons = append(q.Reasons, fmt.Sprintf("正文过短（仅 %d 字，需 ≥ %d 字）", total, minDocRunes))
+	}
+
+	chinese, control, suspicious := 0, 0, 0
+	for _, r := range runes {
+		if r >= 0x4e00 && r <= 0x9fff {
+			chinese++
+			continue
+		}
+		if r < 0x20 {
+			if r != '\n' && r != '\t' && r != '\r' {
+				control++
+			}
+			continue
+		}
+		if !isNormalDocRune(r) {
+			suspicious++
+		}
+	}
+	q.ChineseRunes = chinese
+	q.SuspiciousRunes = suspicious
+	q.ControlRatio = float64(control) / float64(total)
+
+	if chinese == 0 {
+		q.NoChinese = true
+		q.Reasons = append(q.Reasons, "正文不含中文字符，可能是图片/扫描件或非中文文档")
+	}
+	if q.ControlRatio > maxControlRatio {
+		q.Garbled = true
+		q.Reasons = append(q.Reasons, fmt.Sprintf("控制字符占比过高（%.1f%%），疑似二进制内容或乱码", q.ControlRatio*100))
+	}
+	if float64(suspicious)/float64(total) > maxSuspiciousRatio {
+		q.Garbled = true
+		q.Reasons = append(q.Reasons, fmt.Sprintf("异常字符占比过高（%d 个，含替换符或非常规符号），疑似编码乱码", suspicious))
+	}
+
+	if !q.Short && !q.NoChinese && !q.Garbled {
+		q.OK = true
+	} else {
+		q.OK = false
+	}
+	return q
+}
+
+// isNormalDocRune 判断是否属于中文文档中的正常字符：
+// CJK 扩展区、中日韩标点、全角符号、通用标点、ASCII 可见字符与常用空白。
+// 用于识别 mojibake：UTF-8 误读为 GBK 会产生 C1 控制符与拉丁扩展区字符，
+// GBK 误读为 UTF-8 会产生替换符 U+FFFD，这些都会被判为异常。
+func isNormalDocRune(r rune) bool {
+	// CJK 扩展 A / 兼容 / 补充区
+	if r >= 0x3400 && r <= 0x4dbf {
+		return true
+	}
+	if r >= 0x20000 && r <= 0x2a6df {
+		return true
+	}
+	// 中日韩标点与符号
+	if r >= 0x3000 && r <= 0x303f {
+		return true
+	}
+	// 全角 ASCII 与全角标点
+	if r >= 0xff00 && r <= 0xffef {
+		return true
+	}
+	// 通用标点区
+	if r >= 0x2000 && r <= 0x206f {
+		return true
+	}
+	// ASCII 可见字符与基本空白
+	if r >= 0x20 && r <= 0x7e {
+		return true
+	}
+	// 常用 Unicode 空白
+	switch r {
+	case '\u00a0', '\u2028', '\u2029':
+		return true
+	}
+	return false
 }
 
 // RefineMetadata 使用 LLM 精修文档元数据（标题/摘要/关键词）。

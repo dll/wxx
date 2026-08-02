@@ -1545,6 +1545,23 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       return;
     }
 
+    // 解析质量门槛：正文过短/无中文/疑似乱码时强制用户预览确认，避免低质量内容入库。
+    final quality = result['quality'] as Map<String, dynamic>?;
+    if (quality != null && quality['ok'] != true) {
+      final reasons = (quality['reasons'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>['解析内容质量异常'];
+      final proceed = await _confirmQualityWarning(reasons);
+      if (!mounted) return;
+      if (!proceed) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('已取消导入，请检查文件内容或手动编辑')),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _parseResult = result;
     });
@@ -1570,6 +1587,56 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     messenger.showSnackBar(
       const SnackBar(content: Text('文档已解析并回填，可继续编辑后提交')),
     );
+  }
+
+  /// 解析质量不达标时的强制预览确认对话框。
+  /// 返回 true 表示用户已知晓风险并同意继续编辑，false 表示取消导入。
+  Future<bool> _confirmQualityWarning(List<String> reasons) async {
+    final theme = Theme.of(context);
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: Icon(
+              Icons.warning_amber_rounded,
+              color: theme.colorScheme.error,
+              size: 32,
+            ),
+            title: const Text('解析内容可能存在质量问题'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('检测到以下问题，建议先预览或手动编辑后再提交：'),
+                const SizedBox(height: 12),
+                ...reasons.map(
+                  (r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 16, color: theme.colorScheme.error),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(r)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('取消导入'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('我已知晓，继续编辑'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   /// 调用后端 LLM 精修标题/摘要/关键词并回填编辑表单。
@@ -1630,6 +1697,18 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     );
   }
 
+  bool _parseQualityNotOk(Map<String, dynamic> result) {
+    final quality = result['quality'] as Map<String, dynamic>?;
+    return quality != null && quality['ok'] != true;
+  }
+
+  List<String> _parseQualityReasons(Map<String, dynamic> result) {
+    final quality = result['quality'] as Map<String, dynamic>?;
+    final reasons = quality?['reasons'] as List<dynamic>?;
+    if (reasons == null || reasons.isEmpty) return const ['解析内容质量异常'];
+    return reasons.map((e) => e.toString()).toList();
+  }
+
   Widget _buildParseResultCard() {
     final result = _parseResult!;
     final theme = Theme.of(context);
@@ -1670,6 +1749,44 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
               ),
             ],
           ),
+          if (_parseQualityNotOk(result)) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.error.withOpacity(0.4),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '存在质量问题，提交前请预览并修正',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...(_parseQualityReasons(result)).map(
+                    (r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        '· $r',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Wrap(
             spacing: 12,

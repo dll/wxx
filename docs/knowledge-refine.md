@@ -69,9 +69,16 @@
 - **前端**：知识治理页批量操作栏新增「AI 精修」按钮（canWrite），确认后展示成功/失败统计与失败原因。
 - **兜底**：未注入精修器 / LLM 失败 / 校验不过 → 单条标记失败或 `fallback=true`，保留原值不写库。
 
-## 六、待办（后续增量）
+## 六、解析质量门槛（P1 已完成）
 
-- 解析质量门槛：正文过短/无中文/含乱码时拒绝或强制预览。
+- **评估**：`assessDocQuality`（service 层）基于解析正文判定三档质量问题：
+  - **过短**：有效字数 < 20（空内容恒判过短）；
+  - **无中文**：中文字符数为 0（图片/扫描件/纯外文文档典型特征）；
+  - **乱码**：控制字符（除 `\n\t\r`）占比 > 5%，或异常字符（替换符 U+FFFD、非 CJK/ASCII/标点/空白）占比 > 30%。
+- **信号**：`/documents/parse` 响应新增 `quality` 字段（`ok/short/no_chinese/garbled/reasons/word_count/chinese_runes/control_ratio/suspicious_runes`），解析流程**不阻断**，仅如实上报。
+- **自动入库拒绝**：`/kb/upload` 对文本文档解析后 `quality.ok=false` 时返回 **422** 并附 `reasons`，拒绝污染知识库；传 `force=1` 可显式覆盖（确为英文文档等边缘场景）。
+- **强制预览**：前端创建/编辑弹窗导入文件解析后，若 `quality.ok=false` 弹**质量警告对话框**列出原因，用户确认「我已知晓，继续编辑」才回填表单；解析结果卡片同时展示质量警示条。
+- **测试**：`document_service_test.go` 质量评估 6 组；`upload_handler_test.go` 拒绝/无中文/force 覆盖/正常入库/未认证 5 组。
 
 ## 相关文件
 
@@ -79,9 +86,9 @@
 |----|------|
 | service | `server/internal/service/document_service.go`（RefineMetadata 与规则精修 helper） |
 | service | `server/internal/service/kb_service.go`（BatchRefine / refineOne / MetadataRefiner） |
-| handler | `server/internal/handler/document_handler.go`（RefineDocument）、`kb_handler.go`（BatchRefine） |
+| handler | `server/internal/handler/document_handler.go`（RefineDocument）、`kb_handler.go`（BatchRefine）、`upload_handler.go`（质量门槛） |
 | 路由/装配 | `server/pkg/app/app.go`（SetLLMClient + SetRefiner + 路由注册） |
 | 迁移 | `server/migrations/049_fts_tags.sql` |
 | repository | `server/internal/repository/kb_repo.go`（bm25 权重） |
 | model | `server/internal/model/dto.go`（KBRefineResult / KBRefineResponse） |
-| 前端 | `frontend/lib/pages/admin/my_submissions_page.dart`、`knowledge_provider.dart`、`api_config.dart` |
+| 前端 | `frontend/lib/pages/admin/my_submissions_page.dart`（质量警告对话框 + 警示条）、`knowledge_provider.dart`、`api_config.dart` |

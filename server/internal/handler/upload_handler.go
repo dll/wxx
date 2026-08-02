@@ -77,6 +77,20 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 			util.FailInternalError(c, "文档解析失败，请稍后重试")
 			return
 		}
+
+		// 解析质量门槛：正文过短/无中文/疑似乱码时拒绝自动入库，防止污染知识库。
+		// force=1 可显式覆盖（如确为英文文档等边缘场景）。
+		if parseResult.Quality != nil && !parseResult.Quality.OK {
+			force := c.PostForm("force")
+			if force != "1" && force != "true" {
+				c.JSON(http.StatusUnprocessableEntity, model.ErrorResponse{
+					Code:    422,
+					Message: "解析内容质量不达标，已拒绝自动入库：" + strings.Join(parseResult.Quality.Reasons, "；"),
+					TraceID: middleware.GetTraceID(c),
+				})
+				return
+			}
+		}
 	} else {
 		result, err = h.docSvc.ProcessUpload(file)
 		if err != nil {

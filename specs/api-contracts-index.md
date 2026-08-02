@@ -50,9 +50,10 @@
 | `PUT` | `/kb/resources/:id` | JWT | ≥ counselor | 更新资源（部分字段合并） |
 | `GET` | `/export` | JWT | 全部 | 导出已发布资源 `?resource_type=&since=`，返回 manifest + data |
 | `POST` | `/kb/import` | JWT | ≥ counselor | 导入资源（NDJSON 或 JSON 包裹），返回逐条结果统计 |
-| `POST` | `/documents/parse` | JWT | ≥ counselor | 文档解析（PDF/DOCX/TXT/MD/CSV/XLSX → 标题/摘要/关键词/正文） |
+| `POST` | `/documents/parse` | JWT | ≥ counselor | 文档解析（PDF/DOCX/TXT/MD/CSV/XLSX → 标题/摘要/关键词/正文 + `quality` 质量评估）；`quality.ok=false` 表示过短/无中文/乱码，不阻断解析，由前端强制预览 |
 | `POST` | `/documents/refine` | JWT | ≥ counselor | LLM 精修文档元数据 `{content, title?, summary?, keywords?}` → 精修后标题/摘要/关键词（失败自动回退原值） |
 | `POST` | `/kb/batch/refine` | JWT | ≥ counselor | 批量 AI 精修存量资源元数据 `{ids}`（≤20 条）→ 逐条结果与成功/失败统计；精修结果直接写库 |
+| `POST` | `/kb/upload` | JWT | ≥ counselor | 文件上传自动入库；文本文档解析后 `quality.ok=false` 返回 **422** 拒绝入库（`force=1` 可覆盖） |
 | `GET` | `/integration/status` | JWT | ≥ counselor | 校外系统可用状态 |
 | `GET` | `/integration/xuegong/*path` | JWT | ≥ counselor | 代理学工系统查询 |
 | `GET` | `/integration/ybt/*path` | JWT | ≥ counselor | 代理一表通查询 |

@@ -454,3 +454,70 @@ func TestExtractDocKeywordsTitleBoost(t *testing.T) {
 		t.Errorf("标题主题词未入选，实际结果: %v", got)
 	}
 }
+
+// ═══ 解析质量门槛 ═══
+
+func TestAssessDocQuality_OK(t *testing.T) {
+	content := "为进一步加强校园文化建设，规范本科生第二课堂活动学分认证管理，切实保障学生综合素质评价的公平公正，结合学校实际制定本认证标准。"
+	q := assessDocQuality(content)
+	if !q.OK {
+		t.Errorf("正常文档应通过质量门槛: %+v", q)
+	}
+	if q.NoChinese || q.Garbled || q.Short {
+		t.Errorf("不应标记质量问题: %+v", q)
+	}
+	if q.ChineseRunes == 0 {
+		t.Error("应统计到中文字符")
+	}
+}
+
+func TestAssessDocQuality_TooShort(t *testing.T) {
+	q := assessDocQuality("短文本")
+	if q.OK || !q.Short {
+		t.Errorf("过短文档应未通过并标记 short: %+v", q)
+	}
+	if len(q.Reasons) == 0 {
+		t.Error("应给出原因")
+	}
+}
+
+func TestAssessDocQuality_Empty(t *testing.T) {
+	q := assessDocQuality("   \n  ")
+	if q.OK || !q.Short {
+		t.Errorf("空内容应未通过并标记 short: %+v", q)
+	}
+}
+
+func TestAssessDocQuality_NoChinese(t *testing.T) {
+	q := assessDocQuality("This is an English only document without any Chinese characters in it.")
+	if q.OK || !q.NoChinese {
+		t.Errorf("无中文文档应未通过并标记 no_chinese: %+v", q)
+	}
+}
+
+func TestAssessDocQuality_GarbledReplacement(t *testing.T) {
+	// 大量替换符 U+FFFD 表明解码异常（GBK 误读为 UTF-8 的典型表现）
+	content := strings.Repeat("\uFFFD", 100) + "正常内容"
+	q := assessDocQuality(content)
+	if !q.Garbled {
+		t.Errorf("含替换符的内容应标记乱码: %+v", q)
+	}
+	if q.OK {
+		t.Error("乱码内容不应通过")
+	}
+}
+
+func TestAssessDocQuality_GarbledControlChars(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < 100; i++ {
+		b.WriteRune(rune(0x01)) // 控制字符
+	}
+	b.WriteString("正常中文内容")
+	q := assessDocQuality(b.String())
+	if !q.Garbled {
+		t.Errorf("控制字符占比过高应标记乱码: %+v", q)
+	}
+	if q.OK {
+		t.Error("乱码内容不应通过")
+	}
+}
