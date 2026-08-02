@@ -36,13 +36,21 @@ class SessionProvider extends ChangeNotifier {
     }
   }
 
-  /// 删除会话
+  /// 删除会话（乐观更新）。
+  ///
+  /// 必须先同步从列表移除再发请求：会话列表页使用 [Dismissible]，
+  /// 若列表仍保留已滑出项，重建会触发 "dismissed Dismissible still in tree" 崩溃，
+  /// 页面表现为空白/长时间无响应。移除后再调接口，失败时回滚并提示。
   Future<void> deleteSession(String id) async {
+    final idx = _sessions.indexWhere((s) => s.id == id);
+    if (idx == -1) return;
+    final removed = _sessions.removeAt(idx);
+    notifyListeners();
+
     try {
       await _api.delete(ApiConfig.sessionDelete(id));
-      _sessions.removeWhere((s) => s.id == id);
-      notifyListeners();
     } catch (e) {
+      _sessions.insert(idx, removed);
       _error = '删除会话失败';
       notifyListeners();
     }
