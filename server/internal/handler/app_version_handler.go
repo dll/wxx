@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -124,9 +125,10 @@ func (h *AppVersionHandler) ListVersions(c *gin.Context) {
 func (h *AppVersionHandler) CreateVersion(c *gin.Context) {
 	var v model.AppVersion
 	if err := c.ShouldBindJSON(&v); err != nil {
+		log.Printf("app_version CreateVersion bind err: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "参数错误: " + err.Error(),
+			"message": "参数错误",
 		})
 		return
 	}
@@ -144,9 +146,10 @@ func (h *AppVersionHandler) CreateVersion(c *gin.Context) {
 	}
 
 	if err := h.service.CreateVersion(&v); err != nil {
+		log.Printf("app_version CreateVersion err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "创建版本失败: " + err.Error(),
+			"message": "创建版本失败",
 		})
 		return
 	}
@@ -162,9 +165,10 @@ func (h *AppVersionHandler) CreateVersion(c *gin.Context) {
 func (h *AppVersionHandler) UpdateVersion(c *gin.Context) {
 	var v model.AppVersion
 	if err := c.ShouldBindJSON(&v); err != nil {
+		log.Printf("app_version UpdateVersion bind err: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "参数错误: " + err.Error(),
+			"message": "参数错误",
 		})
 		return
 	}
@@ -178,9 +182,10 @@ func (h *AppVersionHandler) UpdateVersion(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateVersion(&v); err != nil {
+		log.Printf("app_version UpdateVersion err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "更新失败: " + err.Error(),
+			"message": "更新失败",
 		})
 		return
 	}
@@ -204,9 +209,10 @@ func (h *AppVersionHandler) DeleteVersion(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteVersion(id); err != nil {
+		log.Printf("app_version DeleteVersion err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "删除失败: " + err.Error(),
+			"message": "删除失败",
 		})
 		return
 	}

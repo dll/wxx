@@ -126,9 +126,10 @@ type ttsRequest struct {
 func (h *VoiceHandler) TTS(c *gin.Context) {
 	var req ttsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("voice TTS bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

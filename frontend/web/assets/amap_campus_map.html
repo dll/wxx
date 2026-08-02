@@ -211,9 +211,29 @@ function bindDrag(self){
 
 /* ════ 校园全图取景 ════ */
 function fitCampus(){
-  if(!_map)return;
+  if(!_map||typeof AMap==='undefined')return;
   var b=null;
-  if(_campusBounds){
+
+  // ── 会峰校区：以报到节点1水平居中显示 ──
+  if(_campusId==='huifeng' && _steps && _steps.length>0){
+    var s1=_steps[0];
+    var p1=wgs2amap(s1.lng,s1.lat);
+    _map.setCenter(new AMap.LngLat(p1[0],p1[1]));
+    return;
+  }
+
+  // ── 琅琊校区：用所有报到节点的四至作为地图窗口默认范围 ──
+  if(_campusId==='langya' && _steps && _steps.length>0){
+    var mnLat=1e9,mxLat=-1e9,mnLng=1e9,mxLng=-1e9;
+    _steps.forEach(function(s){
+      var p=wgs2amap(s.lng,s.lat);
+      if(p[1]<mnLat)mnLat=p[1];if(p[1]>mxLat)mxLat=p[1];
+      if(p[0]<mnLng)mnLng=p[0];if(p[0]>mxLng)mxLng=p[0];
+    });
+    mnLat-=.003;mxLat+=.003;mnLng-=.003;mxLng+=.003;
+    b=new AMap.Bounds([mnLng,mnLat],[mxLng,mxLat]);
+  } else if(_campusBounds){
+    // 其他校区：用校区四至
     var sw=wgs2amap(_campusBounds.west,_campusBounds.south);
     var ne=wgs2amap(_campusBounds.east,_campusBounds.north);
     b=new AMap.Bounds([sw[0],sw[1]],[ne[0],ne[1]]);
@@ -315,6 +335,7 @@ function initMap(steps,cur,mode,campusId){
     if(h){h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}
   }
   setupMapTypeToggle();
+  _flushPendingMsgs();
   notify('ready',{});
 }
 
@@ -347,6 +368,7 @@ function setupMapTypeToggle(){
 
 /* ════ 渲染步骤标注 + 路线 ════ */
 function renderSteps(){
+  if(!_map||typeof AMap==='undefined')return;
   _mkrs.forEach(function(m){try{_map.remove(m)}catch(e){}});_mkrs=[];
   if(_poly){try{_map.remove(_poly)}catch(e){}_poly=null}
   var pts=[];
@@ -436,23 +458,46 @@ function notify(type,data){
  * init 消息仅用于更新 steps/campus/mode 等业务数据。
  */
 var _pendingInit=null;
+var _pendingMsgs=[];
+
+/// 地图就绪后重放暂存的消息
+function _flushPendingMsgs(){
+  if(!_pendingMsgs.length)return;
+  var msgs=_pendingMsgs.slice();_pendingMsgs=[];
+  msgs.forEach(function(d){
+    try{
+      if(d.type==='set_step'){setStep(d.index||0)}
+      else if(d.type==='refresh'){
+        _steps=d.steps||_steps;
+        _cur=d.currentStep!=null?d.currentStep:_cur;
+        _mode=d.mode||_mode;
+        renderSteps();
+      }
+      else if(d.type==='fit_campus'){fitCampusById(d.campusId||d.id)}
+      else if(d.type==='set_3d'){set3DMode(d.enabled===true)}
+    }catch(e){}
+  });
+}
 
 window.addEventListener('message',function(e){
   var d=e.data||{};
-  if(d.type==='init'){
-    if(_map){
-      _steps=d.steps||_steps;
-      _cur=d.currentStep!=null?d.currentStep:_cur;
-      _mode=d.mode||_mode;
-      if(d.campusId&&d.campusId!==_campusId){
-        fitCampusById(d.campusId);
-      }else{
-        fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
-      }
-      renderSteps();
-    }else{
-      _pendingInit=d;
+  if(!_map){
+    if(d.type==='init'){_pendingInit=d}
+    else if(d.type==='refresh'||d.type==='set_step'||d.type==='fit_campus'||d.type==='set_3d'){
+      _pendingMsgs.push(d);
     }
+    return;
+  }
+  if(d.type==='init'){
+    _steps=d.steps||_steps;
+    _cur=d.currentStep!=null?d.currentStep:_cur;
+    _mode=d.mode||_mode;
+    if(d.campusId&&d.campusId!==_campusId){
+      fitCampusById(d.campusId);
+    }else{
+      fitCampus();
+    }
+    renderSteps();
   } else if(d.type==='set_step'){
     setStep(d.index||0);
   } else if(d.type==='refresh'){

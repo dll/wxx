@@ -38,6 +38,27 @@ void main() async {
     FlutterError.presentError(details);
   };
 
+  // release 模式下 build 异常默认显示空白 ErrorWidget，改为友好的错误占位
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: const Color(0xFFF5F5F5),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text('页面渲染异常',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
+            const SizedBox(height: 8),
+            Text('请刷新页面重试',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          ],
+        ),
+      ),
+    );
+  };
+
   await Storage.init();
   runApp(const WxxApp());
 }

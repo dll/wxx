@@ -337,9 +337,32 @@ function setupPulseOv(){
  * 若 setViewport 行为异常，则退化为 fitBounds + setZoom 手动对齐。
  * ════ */
 function fitCampus(){
-  if(!_map)return;
+  if(!_map||typeof BMapGL==='undefined')return;
   var b=null;
-  if(_campusBounds){
+
+  // ── 会峰校区：以报到节点1水平居中显示 ──
+  // 用户需求：会峰校区以第一个报到节点为水平中心，保持适当 zoom。
+  if(_campusId==='huifeng' && _steps && _steps.length>0){
+    var s1=_steps[0];
+    var p1=wgs2bd(s1.lng,s1.lat);
+    _map.setCenter(new BMapGL.Point(p1[0],p1[1]));
+    // 保持当前 zoom，仅居中
+    return;
+  }
+
+  // ── 琅琊校区：用所有报到节点的四至作为地图窗口默认范围 ──
+  // 用户需求：不使用校区四至，而是根据所有报到节点坐标的四至自适应缩放。
+  if(_campusId==='langya' && _steps && _steps.length>0){
+    var mnLat=1e9,mxLat=-1e9,mnLng=1e9,mxLng=-1e9;
+    _steps.forEach(function(s){
+      var p=wgs2bd(s.lng,s.lat);
+      if(p[1]<mnLat)mnLat=p[1];if(p[1]>mxLat)mxLat=p[1];
+      if(p[0]<mnLng)mnLng=p[0];if(p[0]>mxLng)mxLng=p[0];
+    });
+    mnLat-=.003;mxLat+=.003;mnLng-=.003;mxLng+=.003;
+    b=new BMapGL.Bounds(new BMapGL.Point(mnLng,mnLat),new BMapGL.Point(mxLng,mxLat));
+  } else if(_campusBounds){
+    // 其他校区：用校区四至
     var sw=wgs2bd(_campusBounds.west,_campusBounds.south);
     var ne=wgs2bd(_campusBounds.east,_campusBounds.north);
     b=new BMapGL.Bounds(new BMapGL.Point(sw[0],sw[1]),new BMapGL.Point(ne[0],ne[1]));
@@ -464,11 +487,15 @@ function initMap(steps,cur,mode,campusId){
     var h=document.getElementById('editHint');
     if(h){h.classList.add('show');setTimeout(function(){h.classList.remove('show')},3500)}
   }
+  // 重放地图就绪前到达的 refresh/fit_campus 等消息，确保不丢失
+  _flushPendingMsgs();
   notify('ready',{});
 }
 
 /* ════ 渲染步骤标注 + 路线（GL版）═══ */
 function renderSteps(){
+  // 地图或 BMapGL 未就绪时直接返回，避免 refresh 消息先于 API 加载到达时报错
+  if(!_map||typeof BMapGL==='undefined')return;
   setupPulseOv(); // 兜底：确保原型已定义（refresh 消息可能先于 init 完成前到达）
   _ovs.forEach(function(o){try{_map.removeOverlay(o)}catch(e){}});_ovs=[];
   if(_poly){try{_map.removeOverlay(_poly)}catch(e){}_poly=null}
@@ -569,25 +596,50 @@ function notify(type,data){
  * 这解决了 Flutter iframe 中 postMessage 时序不稳定导致地图不渲染的问题。
  */
 var _pendingInit=null; // init 在地图就绪前到达时暂存
+var _pendingMsgs=[];   // 地图就绪前到达的其他消息（refresh/set_step/fit_campus 等）
+
+/// 地图就绪后重放暂存的消息，确保 Flutter 在 API 加载期间发送的指令不丢失。
+function _flushPendingMsgs(){
+  if(!_pendingMsgs.length)return;
+  var msgs=_pendingMsgs.slice();_pendingMsgs=[];
+  msgs.forEach(function(d){
+    try{
+      if(d.type==='set_step'){setStep(d.index||0)}
+      else if(d.type==='refresh'){
+        _steps=d.steps||_steps;
+        _cur=d.currentStep!=null?d.currentStep:_cur;
+        _mode=d.mode||_mode;
+        renderSteps();
+      }
+      else if(d.type==='fit_campus'){fitCampusById(d.campusId||d.id)}
+      else if(d.type==='set_3d'){set3DMode(d.enabled===true)}
+      else if(d.type==='set_layer'){setMapLayer(d.layer||'standard')}
+    }catch(e){/* 单条重放失败不阻塞后续 */}
+  });
+}
 
 window.addEventListener('message',function(e){
   var d=e.data||{};
-  if(d.type==='init'){
-    if(_map){
-      // 地图已初始化，更新业务数据并重新取景确保范围=校园范围
-      _steps=d.steps||_steps;
-      _cur=d.currentStep!=null?d.currentStep:_cur;
-      _mode=d.mode||_mode;
-      if(d.campusId&&d.campusId!==_campusId){
-        fitCampusById(d.campusId);
-      }else{
-        fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
-      }
-      renderSteps();
-    }else{
-      // 地图尚未就绪，暂存数据，自动初始化完成后会使用
+  // 地图未就绪时：init 暂存到 _pendingInit，其他消息入队等重放
+  if(!_map){
+    if(d.type==='init'){
       _pendingInit=d;
+    }else if(d.type==='refresh'||d.type==='set_step'||d.type==='fit_campus'||d.type==='set_3d'||d.type==='set_layer'){
+      _pendingMsgs.push(d);
     }
+    return;
+  }
+  if(d.type==='init'){
+    // 地图已初始化，更新业务数据并重新取景确保范围=校园范围
+    _steps=d.steps||_steps;
+    _cur=d.currentStep!=null?d.currentStep:_cur;
+    _mode=d.mode||_mode;
+    if(d.campusId&&d.campusId!==_campusId){
+      fitCampusById(d.campusId);
+    }else{
+      fitCampus(); // 同校区也重新取景，确保地图范围与校园范围一致
+    }
+    renderSteps();
   } else if(d.type==='set_step'){
     setStep(d.index||0);
   } else if(d.type==='refresh'){

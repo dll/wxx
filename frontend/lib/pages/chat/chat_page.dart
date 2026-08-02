@@ -752,7 +752,14 @@ $printScript
   }
 
   /// 确认删除当前对话
+  ///
+  /// 流程：弹确认框 → 乐观调 newChat 清空当前对话 → 调 deleteSession 删除后端记录。
+  /// deleteSession 返回 false 表示 API 失败已回滚本地列表，此时提示用户。
   Future<void> _confirmDeleteSession(ChatProvider chat) async {
+    // 在弹框前快照 sessionId，避免弹框期间 provider 状态被其他逻辑修改
+    final sessionId = chat.sessionId;
+    if (sessionId == null) return;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -768,22 +775,22 @@ $printScript
         ],
       ),
     );
-    if (confirm == true && chat.sessionId != null) {
-      final sessionId = chat.sessionId!;
-      chat.newChat();
-      try {
-        await context.read<SessionProvider>().deleteSession(sessionId);
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('对话已删除')));
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败：$e')),
-          );
-        }
-      }
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    // 先清空当前对话界面（乐观更新），再异步删除后端记录
+    chat.newChat();
+    try {
+      final ok = await context.read<SessionProvider>().deleteSession(sessionId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '对话已删除' : '删除失败，请稍后重试')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('删除失败：$e')),
+      );
     }
   }
 

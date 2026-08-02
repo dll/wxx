@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -25,9 +26,10 @@ func NewEmotionHandler(emotionSvc *service.EmotionService) *EmotionHandler {
 func (h *EmotionHandler) Analyze(c *gin.Context) {
 	var req model.EmotionAnalyzeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("emotion Analyze bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -173,9 +175,10 @@ func (h *EmotionHandler) UpdateAlert(c *gin.Context) {
 
 	var req model.EmotionUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("emotion Update bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}

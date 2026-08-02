@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -134,7 +135,8 @@ type PlanOverviewItem struct {
 func (h *StudyPlanHandler) GetCurrentCalendar(c *gin.Context) {
 	calendar, currentWeek, err := h.resolveCurrentCalendar()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询当前校历失败: " + err.Error()})
+		log.Printf("study_plan GetCurrentCalendar err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询当前校历失败，请稍后重试"})
 		return
 	}
 

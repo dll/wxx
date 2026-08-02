@@ -52,9 +52,10 @@ func (h *ExportHandler) ExportAnswer(c *gin.Context) {
 
 	var req model.ExportAnswerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("export ExportAnswer bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数有误：" + err.Error(),
+			Message: "请求参数有误",
 		})
 		return
 	}
@@ -77,9 +78,10 @@ func (h *ExportHandler) ExportAnswer(c *gin.Context) {
 
 	data, mime, err := h.exportSvc.ExportAnswer(req.AnswerCard, format, req.Watermark)
 	if err != nil {
+		log.Printf("export ExportAnswer err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "导出失败：" + err.Error(),
+			Message: "导出失败，请稍后重试",
 		})
 		return
 	}

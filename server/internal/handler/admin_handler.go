@@ -102,9 +102,10 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 
 	var req model.UserUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin UpdateUser bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -287,9 +288,10 @@ func (h *AdminHandler) BatchUpdateStatus(c *gin.Context) {
 		Status string  `json:"status" binding:"required,oneof=active disabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin BatchUpdateStatus bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数错误: " + err.Error(),
+			Message: "参数错误",
 		})
 		return
 	}
@@ -324,9 +326,10 @@ func (h *AdminHandler) BatchResetPassword(c *gin.Context) {
 		NewPassword string  `json:"new_password" binding:"required,min=6,max=64"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin BatchResetPassword bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数错误: " + err.Error(),
+			Message: "参数错误",
 		})
 		return
 	}
@@ -360,9 +363,10 @@ func (h *AdminHandler) BatchDelete(c *gin.Context) {
 		Ids []int64 `json:"ids" binding:"required,min=1"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin BatchDelete bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数错误: " + err.Error(),
+			Message: "参数错误",
 		})
 		return
 	}
@@ -452,9 +456,10 @@ func (h *AdminHandler) GetSettings(c *gin.Context) {
 func (h *AdminHandler) UpdateSettings(c *gin.Context) {
 	var req model.SettingsUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin UpdateSettings bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -497,9 +502,10 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin ResetUserPassword bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 		})
 		return
 	}
@@ -558,9 +564,10 @@ func (h *AdminHandler) ApproveGuest(c *gin.Context) {
 		StudentID string `json:"student_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("admin ApproveGuest bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 		})
 		return
 	}
@@ -702,7 +709,8 @@ func (h *AdminHandler) importStudentsFromJSON(c *gin.Context) {
 	}
 	var req importStudentsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "请求参数错误: " + err.Error()})
+		log.Printf("admin importStudentsFromJSON bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "请求参数错误"})
 		return
 	}
 

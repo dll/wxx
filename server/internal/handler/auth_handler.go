@@ -34,7 +34,8 @@ type loginRequest struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		util.FailBadRequest(c, "请求参数错误："+err.Error())
+		log.Printf("auth Login bind err: %v", err)
+		util.FailBadRequest(c, "请求参数错误")
 		return
 	}
 
@@ -128,9 +129,10 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	var req changePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("auth ChangePassword bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -199,9 +201,10 @@ func (h *AuthHandler) UpdateVoiceConfig(c *gin.Context) {
 
 	var req model.VoiceConfigUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("auth UpdateVoiceConfig bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -236,9 +239,10 @@ type guestRegisterRequest struct {
 func (h *AuthHandler) SendCode(c *gin.Context) {
 	var req sendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("auth SendCode bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -271,9 +275,10 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 func (h *AuthHandler) GuestRegister(c *gin.Context) {
 	var req guestRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("auth GuestRegister bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "请求参数错误：" + err.Error(),
+			Message: "请求参数错误",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

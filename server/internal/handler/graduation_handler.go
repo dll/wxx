@@ -144,7 +144,8 @@ func (h *GraduationHandler) SelectTopic(c *gin.Context) {
 		Reason  string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
+		log.Printf("graduation SelectTopic bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
 		return
 	}
 

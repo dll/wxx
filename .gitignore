@@ -192,6 +192,9 @@ frontend/.wrangler/
 # Serverless API build artifact
 api/
 
+# Server binary (cross-compiled Linux artifact)
+wxx-server-linux
+
 # Doc starter files
 docs/starter.txt
 

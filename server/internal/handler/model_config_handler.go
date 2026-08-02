@@ -60,9 +60,10 @@ func (h *ModelConfigHandler) Save(c *gin.Context) {
 
 	var req model.ModelConfigSaveRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("model_config Save bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}

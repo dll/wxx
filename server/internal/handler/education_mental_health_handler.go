@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -155,7 +156,8 @@ func (h *EducationHandler) SubmitAssessment(c *gin.Context) {
 		Answers map[string]int `json:"answers" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("mental_health bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 
@@ -416,7 +418,8 @@ func (h *EducationHandler) CreateAppointment(c *gin.Context) {
 		Reason          string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("mental_health bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 
@@ -728,7 +731,8 @@ func (h *EducationHandler) CreateMoodDiary(c *gin.Context) {
 		SocialLevel     int     `json:"social_level"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("mental_health bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 

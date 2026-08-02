@@ -156,9 +156,10 @@ func (h *KBHandler) GetResource(c *gin.Context) {
 func (h *KBHandler) CreateResource(c *gin.Context) {
 	var req model.KBCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("kb CreateResource bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -277,9 +278,10 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 
 	var req model.KBUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("kb UpdateResource bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

@@ -44,9 +44,10 @@ func (h *SessionHandler) ListSessions(c *gin.Context) {
 
 	sessions, err := h.sessionSvc.ListSessions(userCtx.UserID, limit)
 	if err != nil {
+		log.Printf("session ListSessions err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询会话列表失败：" + err.Error(),
+			Message: "查询会话列表失败，请稍后重试",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -174,9 +175,10 @@ func (h *SessionHandler) RenameSession(c *gin.Context) {
 		Title string `json:"title"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
+		log.Printf("session RenameSession bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数错误：" + err.Error(),
+			Message: "参数错误",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return

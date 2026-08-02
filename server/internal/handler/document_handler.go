@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -73,9 +74,10 @@ func (h *DocumentHandler) ParseDocument(c *gin.Context) {
 
 	result, err := h.docSvc.ParseDocument(file)
 	if err != nil {
+		log.Printf("document ParseDocument err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "文档解析失败: " + err.Error(),
+			"message": "文档解析失败，请检查文件格式或内容",
 		})
 		return
 	}
@@ -146,9 +148,10 @@ func (h *DocumentHandler) RefineDocument(c *gin.Context) {
 		Keywords []string `json:"keywords"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("document RefineDocument bind err: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "参数错误: " + err.Error(),
+			"message": "参数错误",
 		})
 		return
 	}

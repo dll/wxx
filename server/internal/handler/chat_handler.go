@@ -43,7 +43,8 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 	// 解析请求
 	var req model.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		util.FailBadRequest(c, "请求参数错误："+err.Error())
+		log.Printf("chat Ask bind err: %v", err)
+		util.FailBadRequest(c, "请求参数错误")
 		return
 	}
 
@@ -58,7 +59,7 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 	card, sessionID, err := h.chatSvc.Ask(c.Request.Context(), userCtx, req.SessionID, req.Question, req.AgentID)
 	if err != nil {
 		log.Printf("问答处理失败 trace=%s user=%s session=%s err=%v", middleware.GetTraceID(c), userCtx.Username, req.SessionID, err)
-		util.FailInternalError(c, "问答处理失败："+err.Error())
+		util.FailInternalError(c, "问答处理失败，请稍后重试")
 		return
 	}
 

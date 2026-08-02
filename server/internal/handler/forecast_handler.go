@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -40,9 +41,10 @@ type AnalysisResponse struct {
 func (h *ForecastHandler) Analyze(c *gin.Context) {
 	var req AnalysisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("forecast Analyze bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -91,9 +93,10 @@ func (h *ForecastHandler) Analyze(c *gin.Context) {
 	// 执行分析
 	result, err := h.forecastSvc.Analyze(serviceReq, userCtx.UserID, userCtx.Role)
 	if err != nil {
+		log.Printf("forecast Analyze err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "分析失败: " + err.Error(),
+			Message: "分析失败，请稍后重试",
 		})
 		return
 	}
@@ -140,9 +143,10 @@ func (h *ForecastHandler) ListForecasts(c *gin.Context) {
 
 	forecasts, total, err := h.forecastSvc.ListForecasts(collegeID, category, riskLevel, status, page, pageSize)
 	if err != nil {
+		log.Printf("forecast ListForecasts err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询失败: " + err.Error(),
+			Message: "查询失败，请稍后重试",
 		})
 		return
 	}
@@ -205,9 +209,10 @@ func (h *ForecastHandler) UpdateStatus(c *gin.Context) {
 		Status string `json:"status" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("forecast UpdateStatus bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数校验失败: " + err.Error(),
+			Message: "参数校验失败",
 		})
 		return
 	}
@@ -247,9 +252,10 @@ func (h *ForecastHandler) UpdateStatus(c *gin.Context) {
 
 	err := h.forecastSvc.UpdateStatus(forecastID, req.Status, userCtx.UserID)
 	if err != nil {
+		log.Printf("forecast UpdateStatus err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "更新状态失败: " + err.Error(),
+			Message: "更新状态失败，请稍后重试",
 		})
 		return
 	}
@@ -292,9 +298,10 @@ func (h *ForecastHandler) GetStatistics(c *gin.Context) {
 	// 获取风险分布
 	riskDistribution, err := h.forecastSvc.GetRiskDistribution(collegeID, days)
 	if err != nil {
+		log.Printf("forecast GetRiskDistribution err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "获取风险分布失败: " + err.Error(),
+			Message: "获取风险分布失败，请稍后重试",
 		})
 		return
 	}
@@ -302,9 +309,10 @@ func (h *ForecastHandler) GetStatistics(c *gin.Context) {
 	// 获取分类分布
 	categoryDistribution, err := h.forecastSvc.GetCategoryDistribution(collegeID, days)
 	if err != nil {
+		log.Printf("forecast GetCategoryDistribution err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "获取分类分布失败: " + err.Error(),
+			Message: "获取分类分布失败，请稍后重试",
 		})
 		return
 	}
@@ -312,9 +320,10 @@ func (h *ForecastHandler) GetStatistics(c *gin.Context) {
 	// 获取每日趋势
 	dailyTrend, err := h.forecastSvc.GetDailyTrend(collegeID, days)
 	if err != nil {
+		log.Printf("forecast GetDailyTrend err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "获取每日趋势失败: " + err.Error(),
+			Message: "获取每日趋势失败，请稍后重试",
 		})
 		return
 	}

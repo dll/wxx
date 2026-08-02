@@ -151,11 +151,11 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
     final campusParam = widget.campusId.isEmpty ? 'huifeng' : widget.campusId;
     return switch (widget.provider) {
       'amap' =>
-        '/assets/amap_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/amap_campus_map.html?v=8&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       'tencent' =>
-        '/assets/tencent_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/tencent_campus_map.html?v=8&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       _ =>
-        '/assets/baidu_campus_map.html?v=13&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/baidu_campus_map.html?v=15&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
   }
 

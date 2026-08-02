@@ -33,9 +33,10 @@ func (h *ProcessRecordHandler) ListMine(c *gin.Context) {
 
 	items, err := h.svc.ListMine(userCtx.UserID, 50)
 	if err != nil {
+		log.Printf("process_record ListMine err: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
-			Message: "查询办事记录失败：" + err.Error(),
+			Message: "查询办事记录失败，请稍后重试",
 		})
 		return
 	}
@@ -94,9 +95,10 @@ func (h *ProcessRecordHandler) UpdateProgress(c *gin.Context) {
 		Notes          string `json:"notes"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
+		log.Printf("process_record UpdateProgress bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: "参数错误：" + err.Error(),
+			Message: "参数错误",
 		})
 		return
 	}

@@ -456,13 +456,22 @@ class _CampusMapPageState extends State<CampusMapPage> {
   /// 打开报到流程管理面板（管理员专用）。
   /// 面板关闭后重新加载后端步骤，确保地图标注与 CRUD 结果一致。
   ///
-  /// 注意：本方法可能从 PopupMenuButton.onSelected 回调中调用，
-  /// 此时 PopupMenu 的 overlay 仍在关闭过程中，若立即调用
-  /// showModalBottomSheet，其 barrier 会被 PopupMenu 的遮盖拦截，
-  /// 表现为"点击菜单项后无弹窗"。用 addPostFrameCallback 延迟一帧，
-  /// 等 PopupMenu 完全关闭后再弹出 BottomSheet。
+  /// 注意：本方法从 PopupMenuButton.onSelected 回调中调用。Flutter 的
+  /// PopupMenuButton 在点击菜单项时，先调用 onSelected，再执行
+  /// Navigator.pop 关闭菜单路由（含 ~200ms 关闭动画）。若在 onSelected
+  /// 中立即调用 showModalBottomSheet，此时 PopupMenu 路由仍在 Navigator
+  /// 栈中、其 overlay 遮盖尚未移除，会拦截 BottomSheet 的 barrier，
+  /// 表现为"点击菜单项后无弹窗"。
+  ///
+  /// 修复策略：
+  ///   1. await endOfFrame —— 等待当前帧结束，确保 onSelected 已返回、
+  ///      PopupMenuButton 内部的 Navigator.pop 已被调用。
+  ///   2. await Future.delayed(300ms) —— 等待 PopupMenu 关闭动画（默认
+  ///      kThemeAnimationDuration=200ms）完成，其 overlay 路由从 Navigator
+  ///      彻底移除，不再遮挡新弹出的 BottomSheet。
   Future<void> _openAdminPanel() async {
     await WidgetsBinding.instance.endOfFrame;
+    await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
     await CampusStepAdminPanel.show(
       context,

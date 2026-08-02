@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -54,7 +55,8 @@ func (h *CampusHandler) ListAdminSteps(c *gin.Context) {
 func (h *CampusHandler) CreateStep(c *gin.Context) {
 	var req model.CampusStepRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		log.Printf("campus CreateStep bind err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败"})
 		return
 	}
 	user := middleware.GetUserContext(c)
@@ -64,7 +66,8 @@ func (h *CampusHandler) CreateStep(c *gin.Context) {
 	}
 	id, err := h.repo.Create(&req, user.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建失败: " + err.Error()})
+		log.Printf("campus CreateStep err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"id": id}})
@@ -79,11 +82,13 @@ func (h *CampusHandler) UpdateStep(c *gin.Context) {
 	}
 	var req model.CampusStepRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		log.Printf("campus UpdateStep bind err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败"})
 		return
 	}
 	if err := h.repo.Update(id, &req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus UpdateStep err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "更新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "更新成功"})
@@ -97,7 +102,8 @@ func (h *CampusHandler) SubmitStep(c *gin.Context) {
 		return
 	}
 	if err := h.repo.Submit(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus SubmitStep err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "提交审核失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已提交审核"})
@@ -116,7 +122,8 @@ func (h *CampusHandler) PublishStep(c *gin.Context) {
 		return
 	}
 	if err := h.repo.Publish(id, user.UserID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus PublishStep err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "发布失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "发布成功"})
@@ -130,7 +137,8 @@ func (h *CampusHandler) DeleteStep(c *gin.Context) {
 		return
 	}
 	if err := h.repo.Delete(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus DeleteStep err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "删除失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
@@ -146,11 +154,13 @@ func (h *CampusHandler) UpdateStepForce(c *gin.Context) {
 	}
 	var req model.CampusStepRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		log.Printf("campus UpdateStepForce bind err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败"})
 		return
 	}
 	if err := h.repo.UpdateForce(id, &req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus UpdateStepForce err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "强制更新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已强制更新"})
@@ -165,7 +175,8 @@ func (h *CampusHandler) DeleteStepForce(c *gin.Context) {
 		return
 	}
 	if err := h.repo.DeleteForce(id); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus DeleteStepForce err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "强制删除失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已强制删除"})
@@ -184,7 +195,8 @@ func (h *CampusHandler) UpdateStepCoords(c *gin.Context) {
 		Lng float64 `json:"lng" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		log.Printf("campus UpdateStepCoords bind err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败"})
 		return
 	}
 	// 坐标合理性校验：经纬度必须在中国大致范围内，防止误传导致标注跑到境外
@@ -193,7 +205,8 @@ func (h *CampusHandler) UpdateStepCoords(c *gin.Context) {
 		return
 	}
 	if err := h.repo.UpdateCoords(id, req.Lat, req.Lng); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		log.Printf("campus UpdateStepCoords err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "坐标更新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "坐标已更新"})
