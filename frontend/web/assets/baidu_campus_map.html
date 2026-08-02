@@ -342,17 +342,8 @@ function initMap(steps,cur,mode,campusId){
     _map.addControl(new BMapGL.ZoomControl({
       anchor:BMAP_ANCHOR_TOP_RIGHT,type:BMAP_ZOOMCONTROL_TYPE_SMALL
     }));
-    // ════ 三种地图类型：标准 / 卫星 / 3D地球（BMapGL 原生支持）════
-    // 顶部左侧切换器，用户可自由选择地图底图类型。
-    var maptype=new BMapGL.MapTypeControl({
-      mapTypes:[
-        BMAP_NORMAL_MAP,      // 标准地图
-        BMAP_SATELLITE_MAP,   // 卫星地图
-        BMAP_EARTH_MAP        // 3D 地球（真实三维）
-      ],
-      anchor:BMAP_ANCHOR_TOP_LEFT
-    });
-    _map.addControl(maptype);
+    // 地图类型切换由 Flutter 端「标准/卫星」按钮控制（set_layer 消息），
+    // 不再添加原生 MapTypeControl，避免与 Flutter 控件重复。
   }catch(e){/* 控件添加失败不阻塞地图渲染，静默忽略 */}
 
   // 容器尺寸变化时重取景
@@ -424,9 +415,9 @@ function setStep(idx){
   }
 }
 
-/* ════ 2D / 3D 视角切换（BMapGL 原生 3D）════
+/* ════ 2D / 3D 视角切换（BMapGL 原生 3D 实景导航）════
  * 2D：俯视平面（tilt=0，关闭建筑）
- * 3D：倾斜透视 + 楼块（tilt=60，开启建筑）
+ * 3D：倾斜透视 + 楼块（tilt=65，heading=-25，开启建筑）→ 实景导航效果
  * ════ */
 var _is3D=false;
 function set3DMode(enabled){
@@ -434,20 +425,41 @@ function set3DMode(enabled){
   if(!_map||typeof BMapGL==='undefined')return;
   try{
     if(_is3D){
-      _map.setTilt(60);          // 倾斜视角（真实 3D 透视）
-      _map.setHeading(-20);      // 轻微旋转更有立体感
-      _map.setDisplayOptions({building:true});
-      // 3D 地球模式由 MapTypeControl 的 BMAP_EARTH_MAP 提供，
-      // 这里仅在普通/卫星图上启用倾斜+建筑，实现局部 3D 效果
+      _map.setDisplayOptions({building:true,poi:true,road:true});
+      _map.setTilt(65);           // 更大倾斜角，增强实景透视感
+      _map.setHeading(-25);       // 旋转视角，立体感更强
     } else {
       _map.setTilt(0);
       _map.setHeading(0);
-      _map.setDisplayOptions({building:false});
+      _map.setDisplayOptions({building:false,poi:true,road:true});
     }
   }catch(e){
     try{
-      if(_is3D){_map.setTilt(60)}else{_map.setTilt(0)}
+      if(_is3D){_map.setTilt(65);_map.setDisplayOptions({building:true})}else{_map.setTilt(0);_map.setDisplayOptions({building:false})}
     }catch(e2){/* 3D 切换失败静默忽略 */}
+  }
+}
+
+/* ════ 图层切换：标准 / 卫星 ════
+ * standard：BMAP_NORMAL_MAP（矢量标准图）
+ * satellite：BMAP_SATELLITE_MAP（卫星影像图）
+ * 3D 实景模式下两者均可叠加建筑透视，由 set3DMode 控制。
+ * ════ */
+var _layer='standard';
+function setMapLayer(layer){
+  _layer=(layer==='satellite')?'satellite':'standard';
+  if(!_map||typeof BMapGL==='undefined')return;
+  try{
+    if(_layer==='satellite'){
+      _map.setMapTypeV2(BMAP_SATELLITE_MAP);
+    } else {
+      _map.setMapTypeV2(BMAP_NORMAL_MAP);
+    }
+  }catch(e){
+    try{
+      // 旧版 API 兜底
+      _map.setMapType(_layer==='satellite'?BMAP_SATELLITE_MAP:BMAP_NORMAL_MAP);
+    }catch(e2){/* 图层切换失败静默忽略 */}
   }
 }
 
@@ -495,6 +507,8 @@ window.addEventListener('message',function(e){
     fitCampusById(d.campusId||d.id);
   } else if(d.type==='set_3d'){
     set3DMode(d.enabled===true);
+  } else if(d.type==='set_layer'){
+    setMapLayer(d.layer||'standard');
   }
 });
 

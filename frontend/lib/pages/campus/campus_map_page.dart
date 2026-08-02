@@ -12,7 +12,8 @@ class CampusMapPage extends StatefulWidget {
 
 enum _CampusTab { map, vr, home, yxwz, douyin }
 
-enum _MapProvider { amap, baidu, tencent }
+/// 底图图层：标准矢量图 / 卫星影像图。
+enum _MapLayer { standard, satellite }
 
 enum _MapMode { twoD, threeD }
 
@@ -265,7 +266,7 @@ const _campuses = [
 
 class _CampusMapPageState extends State<CampusMapPage> {
   _CampusTab _currentTab = _CampusTab.map;
-  _MapProvider _provider = _MapProvider.baidu;
+  _MapLayer _layer = _MapLayer.standard;
   _MapMode _mode = _MapMode.twoD;
   int _campusIndex = 0;
   int _currentStep = 0;
@@ -460,14 +461,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SegmentedButton<_MapProvider>(
+        SegmentedButton<_MapLayer>(
           segments: const [
-            ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
-            ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
-            ButtonSegment(value: _MapProvider.tencent, label: Text('腾讯')),
+            ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
+            ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
           ],
-          selected: {_provider},
-          onSelectionChanged: (v) => setState(() => _provider = v.first),
+          selected: {_layer},
+          onSelectionChanged: (v) {
+            final l = v.first;
+            setState(() => _layer = l);
+            // 通知地图切换底图图层（标准矢量 / 卫星影像）
+            _mapController.setLayer(l == _MapLayer.satellite
+                ? 'satellite'
+                : 'standard');
+          },
         ),
         SegmentedButton<_MapMode>(
           segments: const [
@@ -478,7 +485,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
           onSelectionChanged: (v) {
             final m = v.first;
             setState(() => _mode = m);
-            // 通知地图引擎切换 2D/3D 视角（BMapGL 原生倾斜透视+建筑）
+            // 通知地图引擎切换 2D/3D 视角（BMapGL 原生倾斜透视+建筑=实景导航）
             _mapController.set3D(m == _MapMode.threeD);
           },
         ),
@@ -487,75 +494,53 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   Widget _buildCampusMapCanvas(ThemeData theme, {required bool desktop}) {
-    // 2D/3D 都在同一张地图上切换视角（3D=倾斜透视+建筑），
+    // 仅使用百度地图（BMapGL），2D/3D 视角 + 标准/卫星图层切换。
     // VR 全景已由顶部「VR全景」Tab 独立提供，不再占用地图区域。
     const baiduAk = String.fromEnvironment('BAIDU_MAP_AK', defaultValue: '');
-    const amapAk = String.fromEnvironment('GAODE_MAP_AK', defaultValue: '');
-    const tencentAk = String.fromEnvironment('TENXUN_MAP_AK', defaultValue: '');
-    final provider = _provider.name; // baidu / amap / tencent
-    final ak = switch (_provider) {
-      _MapProvider.baidu => baiduAk,
-      _MapProvider.amap => amapAk,
-      _MapProvider.tencent => tencentAk,
-    };
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Stack(
         fit: StackFit.expand,
         children: [
-        // ── 真实地图底图 + 脉冲标注（百度/高德/腾讯三家可切）──
-        // provider 切换由 BaiduCampusMapEmbed.didUpdateWidget 更新 iframe.src
-        // 重新加载对应 HTML（Flutter Web HtmlElementView 下 ValueKey 重建
-        // 不可靠，改用 src 更新）。
-        Positioned.fill(
-          child: BaiduCampusMapEmbed(
-            baiduAk: baiduAk,
-            amapAk: amapAk,
-            tencentAk: tencentAk,
-            provider: provider,
-            steps: _stepsForMap,
-            currentStep: _currentStep,
-            campusId: _campus.id,
-            controller: _mapController,
-            onStepSelected: (idx) => setState(() => _currentStep = idx),
-          ),
-        ),
-        // ── 未配置 AK 时的友好提示 ──
-        if (ak.isEmpty)
+          // ── 百度地图底图 + 脉冲标注 ──
           Positioned.fill(
-            child: Container(
-              color: Colors.black54,
-              child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.key_off_outlined,
-                      color: Colors.white, size: 40),
-                  const SizedBox(height: 8),
-                  Text('地图需要$_providerLabel AK',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(
-                      '构建时添加 --dart-define=$_providerAkName=你的AK',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                ]),
-              ),
+            child: BaiduCampusMapEmbed(
+              baiduAk: baiduAk,
+              amapAk: '',
+              tencentAk: '',
+              provider: 'baidu',
+              steps: _stepsForMap,
+              currentStep: _currentStep,
+              campusId: _campus.id,
+              controller: _mapController,
+              onStepSelected: (idx) => setState(() => _currentStep = idx),
             ),
           ),
+          // ── 未配置 AK 时的友好提示 ──
+          if (baiduAk.isEmpty)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.key_off_outlined,
+                        color: Colors.white, size: 40),
+                    const SizedBox(height: 8),
+                    const Text('地图需要百度地图 AK',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    const Text(
+                        '构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  ]),
+                ),
+              ),
+            ),
         ],
       ),
     );
-  }
-
-  String get _providerAkName {
-    switch (_provider) {
-      case _MapProvider.baidu:
-        return 'BAIDU_MAP_AK';
-      case _MapProvider.tencent:
-        return 'TENXUN_MAP_AK';
-      case _MapProvider.amap:
-        return 'GAODE_MAP_AK';
-    }
   }
 
   // _buildMapMiniCard 和 _buildCampusGateLabel 已随 CustomPainter 底图一并移除。
@@ -826,16 +811,19 @@ class _CampusMapPageState extends State<CampusMapPage> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              SegmentedButton<_MapProvider>(
+              SegmentedButton<_MapLayer>(
                 segments: const [
-                  ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
+                  ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
                   ButtonSegment(
-                      value: _MapProvider.amap, label: Text('高德')),
-                  ButtonSegment(
-                      value: _MapProvider.tencent, label: Text('腾讯')),
+                      value: _MapLayer.satellite, label: Text('卫星')),
                 ],
-                selected: {_provider},
-                onSelectionChanged: (v) => setState(() => _provider = v.first),
+                selected: {_layer},
+                onSelectionChanged: (v) {
+                  final l = v.first;
+                  setState(() => _layer = l);
+                  _mapController.setLayer(
+                      l == _MapLayer.satellite ? 'satellite' : 'standard');
+                },
                 style: const ButtonStyle(
                   visualDensity: VisualDensity.compact,
                   textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
@@ -932,14 +920,18 @@ class _CampusMapPageState extends State<CampusMapPage> {
             }),
           ),
           const Spacer(),
-          SegmentedButton<_MapProvider>(
+          SegmentedButton<_MapLayer>(
             segments: const [
-              ButtonSegment(value: _MapProvider.baidu, label: Text('百度')),
-              ButtonSegment(value: _MapProvider.amap, label: Text('高德')),
-              ButtonSegment(value: _MapProvider.tencent, label: Text('腾讯')),
+              ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
+              ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
             ],
-            selected: {_provider},
-            onSelectionChanged: (v) => setState(() => _provider = v.first),
+            selected: {_layer},
+            onSelectionChanged: (v) {
+              final l = v.first;
+              setState(() => _layer = l);
+              _mapController.setLayer(
+                  l == _MapLayer.satellite ? 'satellite' : 'standard');
+            },
             style: const ButtonStyle(
               visualDensity: VisualDensity.compact,
               textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
@@ -1181,28 +1173,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  String get _providerLabel {
-    switch (_provider) {
-      case _MapProvider.baidu:
-        return '百度地图';
-      case _MapProvider.tencent:
-        return '腾讯地图';
-      case _MapProvider.amap:
-        return '高德地图';
-    }
-  }
-
   String get _routeUrl {
     final step = _steps[_currentStep];
     final encodedName = Uri.encodeComponent('${_campus.name} ${step.title}');
-    switch (_provider) {
-      case _MapProvider.baidu:
-        return 'https://api.map.baidu.com/direction?destination=latlng:${step.lat},${step.lng}|name:$encodedName&mode=walking&output=html&coord_type=wgs84';
-      case _MapProvider.tencent:
-        return 'https://apis.map.qq.com/uri/v1/routeplan?type=walk&to=$encodedName&tolat=${step.lat}&tolng=${step.lng}&referer=wxx';
-      case _MapProvider.amap:
-        return 'https://uri.amap.com/navigation?to=${step.lng},${step.lat},$encodedName&mode=walk&coordinate=gaode';
-    }
+    // 仅使用百度地图导航
+    return 'https://api.map.baidu.com/direction?destination=latlng:${step.lat},${step.lng}|name:$encodedName&mode=walking&output=html&coord_type=wgs84';
   }
 
   Future<void> _openUrl(String url) async {

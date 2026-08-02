@@ -25,6 +25,10 @@ class BaiduCampusMapController {
 
   /// 2D/3D 视角切换（true=3D 倾斜透视+建筑，false=2D 俯视）。
   void set3D(bool enabled) => _st?._send({'type': 'set_3d', 'enabled': enabled});
+
+  /// 底图图层切换（'standard'=标准矢量图，'satellite'=卫星影像图）。
+  void setLayer(String layer) =>
+      _st?._send({'type': 'set_layer', 'layer': layer});
 }
 
 /// 多地图服务商校园导航嵌入组件（Web 端）。

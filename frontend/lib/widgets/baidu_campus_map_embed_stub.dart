@@ -7,6 +7,7 @@ class BaiduCampusMapController {
   void refresh(List<Map<String, dynamic>> steps, int cur) {}
   void fitCampus(String campusId) {}
   void set3D(bool enabled) {}
+  void setLayer(String layer) {}
 }
 
 /// Android 平台提示卡片；后续可替换为 webview_flutter 实现。
