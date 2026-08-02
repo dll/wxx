@@ -348,6 +348,9 @@ class ApiConfig {
       '$apiPrefix/admin/campus/steps/$id/submit';
   static String adminCampusStepPublish(String id) =>
       '$apiPrefix/admin/campus/steps/$id/publish';
+  // 管理员拖拽校正节点坐标（已发布步骤也可直接调整，不走审核流程）
+  static String adminCampusStepCoords(String id) =>
+      '$apiPrefix/admin/campus/steps/$id/coords';
 
   // ── 版本更新 ──
   static const String versionCheck = '$apiPrefix/version/check';

@@ -157,3 +157,22 @@ func (r *CampusRepository) transition(id int64, from, to string) error {
 	}
 	return nil
 }
+
+// UpdateCoords 仅更新坐标（管理员拖拽校正专用，不受 draft 状态限制）
+// 用于已发布步骤的实地位置微调，不改其他字段，不走审核流程。
+func (r *CampusRepository) UpdateCoords(id int64, lat, lng float64) error {
+	res, err := r.db.Exec(
+		`UPDATE campus_checkin_steps
+		SET lat=?,lng=?,updated_at=?
+		WHERE id=?`,
+		lat, lng, time.Now().Format(time.DateTime), id,
+	)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("步骤 %d 不存在", id)
+	}
+	return nil
+}

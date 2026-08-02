@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../config/api_config.dart';
+import '../../services/api_service.dart';
+import '../../utils/storage.dart';
 import '../../widgets/baidu_campus_map_embed.dart';
+import 'campus_step_admin_panel.dart';
 
 class CampusMapPage extends StatefulWidget {
   const CampusMapPage({super.key});
@@ -96,7 +100,8 @@ const _tabs = [
 /// 会峰校区报到步骤（WGS-84，来源：OpenStreetMap 会峰校区 way 734826227）
 /// 校区四至 N32.2803/S32.2688/E118.3120/W118.2986，中心 32.2743/118.3055
 /// 此前坐标错误地指向琅琊校区位置，已按 OSM 权威数据纠正。
-const _huifengSteps = [
+/// final（非 const）：后端加载成功后会用服务端数据覆盖此本地默认值。
+final _huifengSteps = [
   _CheckinStep(
     title: '校门入校核验',
     location: '会峰校区南门',
@@ -249,7 +254,7 @@ const _langyaSteps = [
   ),
 ];
 
-const _campuses = [
+final _campuses = [
   _CampusPlan(
     id: 'huifeng',
     name: '会峰校区',
@@ -281,8 +286,184 @@ class _CampusMapPageState extends State<CampusMapPage> {
   /// 地图控制器，用于从外部（如管理员编辑后）同步刷新标注。
   final _mapController = BaiduCampusMapController();
 
+  // ── 后端步骤加载 + 管理员编辑模式 ──
+  final ApiService _api = ApiService();
+  /// 各校区步骤的可变副本（后端加载成功后覆盖本地默认值）。
+  final Map<String, List<_CheckinStep>> _campusStepsMap = {
+    'huifeng': _huifengSteps,
+    'langya': _langyaSteps,
+  };
+  /// 步骤后端 ID 映射（index → remote id），拖拽保存时用。
+  /// 未从后端加载时为空，_remoteStepId 返回 null 走纯本地模式。
+  final Map<int, int> _remoteIds = {};
+  bool _loadingSteps = false;
+  /// 管理员编辑模式：开启后地图标注可拖拽，松手自动保存坐标。
+  bool _editMode = false;
+
   _CampusPlan get _campus => _campuses[_campusIndex];
-  List<_CheckinStep> get _steps => _campus.steps;
+  List<_CheckinStep> get _steps =>
+      _campusStepsMap[_campus.id] ?? _campus.steps;
+
+  /// 判断当前用户是否有权编辑节点坐标（sys/school/college_admin）。
+  bool get _canEditNodes {
+    final role = Storage.role ?? 'student';
+    return role == 'sys_admin' ||
+        role == 'school_admin' ||
+        role == 'college_admin';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 异步加载后端步骤，不阻塞首帧渲染（失败静默回退本地常量）
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStepsFromServer());
+  }
+
+  /// 从后端加载报到步骤（公开接口，无需登录）。
+  /// 失败时回退到本地硬编码常量，保证离线/后端不可用时不影响使用。
+  Future<void> _loadStepsFromServer() async {
+    setState(() => _loadingSteps = true);
+    try {
+      final resp =
+          await _api.get('${ApiConfig.campusSteps}?campus=${_campus.id}');
+      if (resp.data['code'] == 0) {
+        final list = resp.data['data'] as List? ?? [];
+        if (list.isNotEmpty) {
+          final loaded = <_CheckinStep>[];
+          _remoteIds.clear();
+          for (var i = 0; i < list.length; i++) {
+            final e = list[i] as Map<String, dynamic>;
+            loaded.add(_CheckinStep(
+              title: e['title'] ?? '',
+              location: e['location'] ?? '',
+              lat: (e['lat'] as num?)?.toDouble() ?? 0.0,
+              lng: (e['lng'] as num?)?.toDouble() ?? 0.0,
+              duration: e['duration'] ?? '',
+              task: e['task'] ?? '',
+              materials: e['materials'] ?? '',
+              contact: e['contact'] ?? '',
+              note: e['note'] ?? '',
+              icon: _iconFromName(e['icon_name'] ?? 'place'),
+            ));
+            final id = e['id'];
+            if (id is num) _remoteIds[i] = id.toInt();
+          }
+          _campusStepsMap[_campus.id] = loaded;
+          setState(() => _loadingSteps = false);
+          // 通知地图刷新标注
+          _mapController.refresh(_stepsForMap, _currentStep);
+          return;
+        }
+      }
+      setState(() => _loadingSteps = false);
+    } catch (_) {
+      // 静默回退：使用本地硬编码常量
+      setState(() => _loadingSteps = false);
+    }
+  }
+
+  /// icon_name 字符串 → Material IconData（与后端 icon_name 字段对应）。
+  IconData _iconFromName(String name) {
+    switch (name) {
+      case 'login':
+        return Icons.login;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'payments':
+        return Icons.payments_outlined;
+      case 'bed':
+        return Icons.bed_outlined;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'health_and_safety':
+        return Icons.health_and_safety_outlined;
+      default:
+        return Icons.place;
+    }
+  }
+
+  /// 管理员拖拽标注后，调用后端接口保存新坐标。
+  /// 先本地立即更新避免视觉回弹，再异步保存到后端；保存失败时 Snack 提示。
+  Future<void> _onMarkerMoved(int index, double lat, double lng) async {
+    if (!_canEditNodes) return;
+    final step = _steps[index];
+    final updated = _CheckinStep(
+      title: step.title,
+      location: step.location,
+      lat: lat,
+      lng: lng,
+      duration: step.duration,
+      task: step.task,
+      materials: step.materials,
+      contact: step.contact,
+      note: step.note,
+      icon: step.icon,
+    );
+    final list = List<_CheckinStep>.from(_steps);
+    list[index] = updated;
+    _campusStepsMap[_campus.id] = list;
+    setState(() {});
+
+    final stepId = _remoteIds[index];
+    if (stepId == null) {
+      // 后端无对应记录（本地回退模式），仅本地保存
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('后端未加载，坐标仅本地保存'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      final resp = await _api.patch(
+        ApiConfig.adminCampusStepCoords(stepId.toString()),
+        data: {'lat': lat, 'lng': lng},
+      );
+      if (resp.data['code'] == 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('节点坐标已保存'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('保存失败：${resp.data['message'] ?? '未知错误'}'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败：$e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 打开报到流程管理面板（管理员专用）。
+  /// 面板关闭后重新加载后端步骤，确保地图标注与 CRUD 结果一致。
+  Future<void> _openAdminPanel() async {
+    await CampusStepAdminPanel.show(
+      context,
+      campusId: _campus.id,
+      campusName: _campus.name,
+    );
+    // 面板关闭后刷新地图标注（CRUD 可能改变了步骤列表/坐标）
+    if (mounted) _loadStepsFromServer();
+  }
 
   /// 将步骤列表转为地图 HTML 期望的 Map 格式（WGS-84 坐标）。
   List<Map<String, dynamic>> get _stepsForMap => _steps
@@ -518,8 +699,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
               steps: _stepsForMap,
               currentStep: _currentStep,
               campusId: _campus.id,
+              editMode: _editMode,
               controller: _mapController,
               onStepSelected: (idx) => setState(() => _currentStep = idx),
+              onMarkerMoved: _canEditNodes ? _onMarkerMoved : null,
             ),
           ),
           // ── 未配置 AK 时的友好提示 ──
@@ -540,6 +723,37 @@ class _CampusMapPageState extends State<CampusMapPage> {
                     const Text(
                         '构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
                         style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  ]),
+                ),
+              ),
+            ),
+          // ── 后端步骤加载中指示器 ──
+          if (_loadingSteps)
+            Positioned(
+              top: 10,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.1), blurRadius: 8)
+                    ],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('加载报到节点...',
+                        style: theme.textTheme.labelSmall),
                   ]),
                 ),
               ),
@@ -851,6 +1065,37 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
                 ),
               ),
+              if (_canEditNodes)
+                FilterChip(
+                  selected: _editMode,
+                  label: Text(_editMode ? '退出编辑' : '编辑节点',
+                      style: const TextStyle(fontSize: 11)),
+                  avatar: Icon(Icons.edit_location_alt,
+                      size: 14,
+                      color: _editMode
+                          ? Colors.white
+                          : theme.colorScheme.primary),
+                  onSelected: (v) {
+                    setState(() => _editMode = v);
+                    if (v) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              if (_canEditNodes)
+                ActionChip(
+                  label: const Text('流程管理', style: TextStyle(fontSize: 11)),
+                  avatar: Icon(Icons.settings,
+                      size: 14, color: theme.colorScheme.primary),
+                  onPressed: _openAdminPanel,
+                  visualDensity: VisualDensity.compact,
+                ),
             ],
           ),
         ],
@@ -960,6 +1205,39 @@ class _CampusMapPageState extends State<CampusMapPage> {
               textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
             ),
           ),
+          if (_canEditNodes) ...[
+            const SizedBox(width: 8),
+            FilterChip(
+              selected: _editMode,
+              label: Text(_editMode ? '退出编辑' : '编辑节点',
+                  style: const TextStyle(fontSize: 12)),
+              avatar: Icon(Icons.edit_location_alt,
+                  size: 14,
+                  color: _editMode
+                      ? Colors.white
+                      : theme.colorScheme.primary),
+              onSelected: (v) {
+                setState(() => _editMode = v);
+                if (v) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 8),
+            ActionChip(
+              label: const Text('流程管理', style: TextStyle(fontSize: 12)),
+              avatar: Icon(Icons.settings,
+                  size: 14, color: theme.colorScheme.primary),
+              onPressed: _openAdminPanel,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
         ],
       ),
     );
@@ -1095,6 +1373,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
     // widget.campusId 的变化也会通过 didUpdateWidget 触发一次，
     // 但这里显式调用一次，保证地图在任何状态下都立即响应。
     _mapController.fitCampus(_campuses[index].id);
+    // 重新加载新校区的后端步骤数据
+    _loadStepsFromServer();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('已切换到${_campus.name}报到流程')),
     );

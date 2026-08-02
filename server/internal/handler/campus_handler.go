@@ -135,3 +135,31 @@ func (h *CampusHandler) DeleteStep(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
+
+// UpdateStepCoords PATCH /api/v1/admin/campus/steps/:id/coords
+// 管理员拖拽校正节点坐标（不受 draft 状态限制，已发布步骤也可直接调整）
+func (h *CampusHandler) UpdateStepCoords(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的步骤 ID"})
+		return
+	}
+	var req struct {
+		Lat float64 `json:"lat" binding:"required"`
+		Lng float64 `json:"lng" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		return
+	}
+	// 坐标合理性校验：经纬度必须在中国大致范围内，防止误传导致标注跑到境外
+	if req.Lat < 3 || req.Lat > 54 || req.Lng < 73 || req.Lng > 136 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "坐标超出中国范围，拒绝保存"})
+		return
+	}
+	if err := h.repo.UpdateCoords(id, req.Lat, req.Lng); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "坐标已更新"})
+}

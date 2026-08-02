@@ -866,8 +866,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 					campusAdmin.POST("/steps", auth.RequireCapability(auth.CollegeUserRead), campusH.CreateStep)
 					campusAdmin.PUT("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStep)
 					campusAdmin.POST("/steps/:id/submit", auth.RequireCapability(auth.CollegeUserRead), campusH.SubmitStep)
-					campusAdmin.POST("/steps/:id/publish", auth.RequireCapability(auth.CollegeDataAnalysis), campusH.PublishStep)
-					campusAdmin.DELETE("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStep)
+				campusAdmin.POST("/steps/:id/publish", auth.RequireCapability(auth.CollegeDataAnalysis), campusH.PublishStep)
+				// 管理员拖拽校正坐标（college_admin+，不走审核流程，已发布步骤也可调整）
+				campusAdmin.PATCH("/steps/:id/coords", auth.RequireCapability(auth.CollegeUserRead), campusH.UpdateStepCoords)
+				campusAdmin.DELETE("/steps/:id", auth.RequireCapability(auth.CollegeUserRead), campusH.DeleteStep)
 				}
 			}
 
