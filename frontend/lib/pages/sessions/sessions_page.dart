@@ -113,8 +113,16 @@ class _SessionsPageState extends State<SessionsPage> {
                 ),
               );
             },
-            onDismissed: (_) {
-              prov.deleteSession(session.id);
+            onDismissed: (_) async {
+              final ok = await prov.deleteSession(session.id);
+              if (!context.mounted) return;
+              if (!ok) {
+                // 删除失败：数据已回滚，刷新列表恢复 Dismissible 项
+                prov.fetchSessions();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('删除失败，已恢复')),
+                );
+              }
             },
             child: Card(
               elevation: 0,

@@ -115,10 +115,18 @@ class ChatProvider extends ChangeNotifier {
   Future<void> askFollowUp(String question) => ask(question);
 
   /// 新建对话
+  ///
+  /// 完整重置对话状态：清空消息、会话 ID、错误、发送状态、语音状态。
+  /// 必须重置 _sending，否则删除对话时若 AI 正在回复，
+  /// _sending 卡在 true 会导致页面渲染卡死（空白页面）。
   void newChat() {
     _messages.clear();
     _sessionId = null;
     _error = null;
+    _sending = false;
+    _isRecording = false;
+    _isPlaying = false;
+    _playingIndex = -1;
     notifyListeners();
   }
 

@@ -35,6 +35,10 @@ class _ChatPageState extends State<ChatPage> {
   final _scrollCtrl = ScrollController();
   bool _initialQuestionHandled = false;
 
+  /// 页面重建 key — 删除对话后递增以强制重建 Scaffold，
+  /// 彻底清除 ListView/动画等子组件状态，避免渲染卡死。
+  int _rebuildKey = 0;
+
   // ── 浏览器实时语音识别（替代之前的 MediaRecorder + 后端 ASR）──
   WebSpeechRecognizer? _speech;
   bool _isListening = false;
@@ -229,6 +233,7 @@ class _ChatPageState extends State<ChatPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      key: ValueKey('chat-scaffold-$_rebuildKey'),
       appBar: AppBar(
         title: const Text('蔚小芯'),
         actions: [
@@ -755,6 +760,8 @@ $printScript
   ///
   /// 流程：弹确认框 → 乐观调 newChat 清空当前对话 → 调 deleteSession 删除后端记录。
   /// deleteSession 返回 false 表示 API 失败已回滚本地列表，此时提示用户。
+  /// 删除后强制重建页面（_rebuildKey++），彻底清除 ListView/动画状态，
+  /// 避免渲染卡死导致的空白页面。
   Future<void> _confirmDeleteSession(ChatProvider chat) async {
     // 在弹框前快照 sessionId，避免弹框期间 provider 状态被其他逻辑修改
     final sessionId = chat.sessionId;
@@ -778,8 +785,11 @@ $printScript
     if (confirm != true) return;
     if (!mounted) return;
 
-    // 先清空当前对话界面（乐观更新），再异步删除后端记录
+    // 先清空当前对话界面（乐观更新），newChat 已重置 _sending 等全部状态
     chat.newChat();
+    // 强制重建页面，清除 ListView/动画等子组件残留状态
+    setState(() => _rebuildKey++);
+
     try {
       final ok = await context.read<SessionProvider>().deleteSession(sessionId);
       if (!mounted) return;

@@ -3,10 +3,10 @@
 /// `scripts/build-all.ps1` 会在发布构建时同步更新本文件、pubspec 版本
 /// 与 Web 静态发布清单，确保 Web 首页二维码指向最新 APK。
 class ReleaseConfig {
-  static const String version = '0.0.9';
-  static const int buildNumber = 9;
-  static const String releaseDate = '2026-07-30';
-  static const String apkFileName = '蔚小芯-v0.0.9.apk';
+  static const String version = '0.1.0';
+  static const int buildNumber = 10;
+  static const String releaseDate = '2026-08-03';
+  static const String apkFileName = '蔚小芯-v0.1.0.apk';
 
   /// APK 由 GitHub Release 分发，不再打进 Web 静态包
   /// （57MB 超出 Cloudflare Pages 单文件 25MB 限制）。
