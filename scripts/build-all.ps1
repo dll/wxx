@@ -96,6 +96,26 @@ $webOk = $LASTEXITCODE -eq 0
 if ($webOk) {
     $size = (Get-Item "build/web/index.html").Length / 1KB
     Write-Output "  OK  build/web/ (index.html $([math]::Round($size)) KB)"
+
+    # ── CanvasKit 本地化 + 禁用 Service Worker 后处理 ──
+    # flutter_bootstrap.js 默认从 https://www.gstatic.com/flutter-canvaskit/ 加载
+    # CanvasKit，国内访问不稳定（ERR_CONNECTION_CLOSED）导致页面白屏。
+    # 同时默认注册 Service Worker，在 HTTP 环境下报 "context is NOT secure" 错误。
+    # 这里把 _flutter.loader.load 的 serviceWorkerSettings 替换为 config.canvasKitBaseUrl
+    # 指向本地 /canvaskit/，并去掉 SW 注册。
+    $bootstrapFile = "build/web/flutter_bootstrap.js"
+    if (Test-Path $bootstrapFile) {
+        $bs = Get-Content $bootstrapFile -Raw
+        $pattern = '_flutter\.loader\.load\(\{\s*serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*"[^"]*"\s*\}\s*\}\);'
+        $replacement = '_flutter.loader.load({ config: { canvasKitBaseUrl: "/canvaskit/" } });'
+        $newBs = [regex]::Replace($bs, $pattern, $replacement)
+        if ($newBs -ne $bs) {
+            Set-Content $bootstrapFile -Value $newBs -NoNewline -Encoding UTF8
+            Write-Output "  OK  flutter_bootstrap.js → 本地 CanvasKit + 禁用 SW"
+        } else {
+            Write-Output "  WARN flutter_bootstrap.js 未匹配到 serviceWorkerSettings，请检查 Flutter SDK 版本"
+        }
+    }
 } else {
     Write-Output "  FAILED (exit $LASTEXITCODE)"
     Get-Content $buildLog -Tail 5

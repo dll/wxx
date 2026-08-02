@@ -1522,7 +1522,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('文件大小超过限制（最大 100MB）')),

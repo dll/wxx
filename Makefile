@@ -49,6 +49,16 @@ flutter-run:
 # 无法编译 shader，请改用 make flutter-build-web-safe 或 flutter-build-web-output
 flutter-build-web:
 	cd $(FLUTTER_DIR) && flutter build web --release --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO
+	@# CanvasKit 本地化 + 禁用 Service Worker：gstatic.com 国内访问不稳定，
+	@# HTTP 环境 SW 不可用。把 flutter_bootstrap.js 的 serviceWorkerSettings
+	@# 替换为 config.canvasKitBaseUrl 指向本地 /canvaskit/。
+	@bs="$(FLUTTER_DIR)/build/web/flutter_bootstrap.js"; \
+	if [ -f "$$bs" ]; then \
+		sed -i -E 's/_flutter\.loader\.load\(\{[[:space:]]*serviceWorkerSettings:[[:space:]]*\{[[:space:]]*serviceWorkerVersion:[[:space:]]*"[^"]*"[[:space:]]*\}[[:space:]]*\}\);/_flutter.loader.load({ config: { canvasKitBaseUrl: "\/canvaskit\/" } });/' "$$bs" && \
+		echo "  OK  flutter_bootstrap.js → 本地 CanvasKit + 禁用 SW"; \
+	else \
+		echo "  WARN flutter_bootstrap.js 不存在"; \
+	fi
 
 # ASCII 安全路径构建 — 复制项目到临时 ASCII 目录构建后拷回
 FLUTTER_BUILD_TMP := E:/wxx_flutter_tmp

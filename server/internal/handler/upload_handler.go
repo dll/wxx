@@ -91,6 +91,15 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 				return
 			}
 		}
+
+		// 入库前自动 LLM 精修元数据（标题/摘要/关键词），让入库内容可直接使用。
+		// 未配置模型 / 调用失败 / 输出不合法时静默回退启发式结果，不影响上传成功。
+		refined := h.docSvc.RefineMetadata(c.Request.Context(), parseResult.Title, parseResult.Summary, parseResult.Keywords, parseResult.Content)
+		if refined != nil && !refined.Fallback {
+			parseResult.Title = refined.Title
+			parseResult.Summary = refined.Summary
+			parseResult.Keywords = refined.Keywords
+		}
 	} else {
 		result, err = h.docSvc.ProcessUpload(file)
 		if err != nil {
@@ -203,7 +212,7 @@ func (h *UploadHandler) SupportedFormats(c *gin.Context) {
 			"png", "jpg", "jpeg", "gif", "bmp", "webp",
 			"mp4", "avi", "mov", "mkv",
 		},
-		"max_size_mb": 50,
+		"max_size_mb": 100,
 		"note":        "上传后自动提取文本并入库至知识库",
 	})
 }

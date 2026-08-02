@@ -545,13 +545,14 @@ class KnowledgeProvider extends ChangeNotifier {
   }
 
   /// 文档解析（仅解析，不入库）
+  /// refine=true 时后端自动调用 LLM 精修标题/摘要/关键词，解析结果可直接回填表单。
   Future<Map<String, dynamic>?> parseDocument({
     required List<int> bytes,
     required String filename,
   }) async {
     try {
       final response = await _api.uploadBytes(
-        ApiConfig.documentParse,
+        '${ApiConfig.documentParse}?refine=1',
         bytes: bytes,
         filename: filename,
         fieldName: 'file',

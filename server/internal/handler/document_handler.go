@@ -80,6 +80,17 @@ func (h *DocumentHandler) ParseDocument(c *gin.Context) {
 		return
 	}
 
+	// refine=true 时用 LLM 精修标题/摘要/关键词，解析结果可直接用于表单回填。
+	// 未配置模型 / 调用失败 / 输出不合法时静默回退启发式结果。
+	if c.Query("refine") == "1" || strings.EqualFold(c.Query("refine"), "true") {
+		refined := h.docSvc.RefineMetadata(c.Request.Context(), result.Title, result.Summary, result.Keywords, result.Content)
+		if refined != nil && !refined.Fallback {
+			result.Title = refined.Title
+			result.Summary = refined.Summary
+			result.Keywords = refined.Keywords
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "解析成功",

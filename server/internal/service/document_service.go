@@ -133,7 +133,7 @@ func (s *DocumentService) ProcessUpload(file *multipart.FileHeader) (*DocumentRe
 
 	switch ext {
 	case ".txt", ".md":
-		result.TextContent = string(fileData)
+		result.TextContent = util.DecodeToUTF8(fileData)
 	case ".csv":
 		result.TextContent, err = s.readCsvFromBytes(fileData)
 	case ".pdf":
@@ -166,17 +166,15 @@ func (s *DocumentService) readTxt(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	return util.DecodeToUTF8(data), nil
 }
 
 func (s *DocumentService) readCsv(path string) (string, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
-
-	reader := csv.NewReader(f)
+	reader := csv.NewReader(strings.NewReader(util.DecodeToUTF8(data)))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return "", err
@@ -247,7 +245,7 @@ func (s *DocumentService) readXlsx(path string) (string, error) {
 // ── 从内存 bytes 解析（兼容 Vercel 只读文件系统）──
 
 func (s *DocumentService) readCsvFromBytes(data []byte) (string, error) {
-	reader := csv.NewReader(bytes.NewReader(data))
+	reader := csv.NewReader(strings.NewReader(util.DecodeToUTF8(data)))
 	records, err := reader.ReadAll()
 	if err != nil {
 		return "", err
