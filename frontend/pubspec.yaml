@@ -99,6 +99,40 @@ flutter:
     - assets/images/
   #   - images/a_dot_ham.jpeg
 
+  # 本地打包 Roboto：Flutter Web 引擎默认从 fonts.gstatic.com 拉取该字体，
+  # 在 gstatic 不可达的网络（如国内）会反复失败并导致页面长时间空白。
+  # 注册为 "Roboto" 系列后引擎直接使用本地字体，不再发起外部请求。
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/roboto-thin.ttf
+          weight: 100
+        - asset: assets/fonts/roboto-light.ttf
+          weight: 300
+        - asset: assets/fonts/roboto-regular.ttf
+          weight: 400
+        - asset: assets/fonts/roboto-medium.ttf
+          weight: 500
+        - asset: assets/fonts/roboto-bold.ttf
+          weight: 700
+        - asset: assets/fonts/roboto-black.ttf
+          weight: 900
+        - asset: assets/fonts/roboto-italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/roboto-lightitalic.ttf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/roboto-mediumitalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/roboto-bolditalic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/roboto-blackitalic.ttf
+          weight: 900
+          style: italic
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

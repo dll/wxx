@@ -132,6 +132,9 @@ class WxxApp extends StatelessWidget {
               colorSchemeSeed: const Color(0xFF1565C0), // 滁州学院蓝
               useMaterial3: true,
               brightness: Brightness.light,
+              // 使用本地打包的 Roboto（见 pubspec fonts 段），避免 Web 引擎
+              // 运行时从 fonts.gstatic.com 拉取字体导致空白/延迟
+              fontFamily: 'Roboto',
               appBarTheme: const AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
@@ -150,6 +153,7 @@ class WxxApp extends StatelessWidget {
               colorSchemeSeed: const Color(0xFF1565C0),
               useMaterial3: true,
               brightness: Brightness.dark,
+              fontFamily: 'Roboto',
               appBarTheme: const AppBarTheme(
                 centerTitle: true,
                 elevation: 0,
