@@ -203,9 +203,36 @@ function PulseOverlay(bdPt,step,idx){
   this._pt=bdPt;this._step=step;this._idx=idx;this._el=null;
 }
 var _pulseOvReady=false;
+/* 全局拖拽管理器：document 只注册一次 mousemove/mouseup，
+ * 避免每个标注各自注册导致事件冲突（6 个标注 6 套监听器会互相干扰，
+ * 表现为"第1个能拖、后面拖不动"）。
+ * _drag = {ov, sx, sy, op, active} 仅在 mousedown 时激活。 */
+var _drag={active:false,ov:null,sx:0,sy:0,op:null};
+var _dragDocBound=false;
+function _bindDragDocHandlers(){
+  if(_dragDocBound)return;
+  _dragDocBound=true;
+  document.addEventListener('mousemove',function(e){
+    if(!_drag.active)return;
+    var dx=e.clientX-_drag.sx,dy=e.clientY-_drag.sy;
+    _drag.ov._pt=_drag.ov._map.pixelToPoint({x:_drag.op.x+dx,y:_drag.op.y+dy});
+    _drag.ov.draw();
+    e.preventDefault();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!_drag.active)return;
+    var ov=_drag.ov;
+    _drag.active=false;_drag.ov=null;
+    // 恢复地图拖拽（mousedown 时临时禁用的）
+    try{ov._map.enableDragging()}catch(e){}
+    var w=bd2wgs(ov._pt.lng,ov._pt.lat);
+    notify('marker_moved',{index:ov._idx,lat:w[1],lng:w[0]});
+  });
+}
 function setupPulseOv(){
   if(_pulseOvReady||typeof BMapGL==='undefined'||!BMapGL.Overlay)return;
   _pulseOvReady=true;
+  _bindDragDocHandlers(); // 确保 document 监听器只注册一次
   PulseOverlay.prototype=new BMapGL.Overlay();
   PulseOverlay.prototype.initialize=function(map){
     this._map=map;
@@ -231,20 +258,19 @@ function setupPulseOv(){
     if(this._el)this._el.className='mk st-'+s;
   };
   PulseOverlay.prototype._bindDrag=function(el){
-    var self=this,dragging=false,sx=0,sy=0,op=null;
+    var self=this;
     el.style.cursor='move';
     el.addEventListener('mousedown',function(e){
-      dragging=true;sx=e.clientX;sy=e.clientY;
-      op=self._map.pointToPixel(self._pt);e.preventDefault()});
-    document.addEventListener('mousemove',function(e){
-      if(!dragging)return;
-      var dx=e.clientX-sx,dy=e.clientY-sy;
-      self._pt=self._map.pixelToPoint({x:op.x+dx,y:op.y+dy});
-      self.draw()});
-    document.addEventListener('mouseup',function(){
-      if(!dragging)return;dragging=false;
-      var w=bd2wgs(self._pt.lng,self._pt.lat);
-      notify('marker_moved',{index:self._idx,lat:w[1],lng:w[0]})
+      // 阻止冒泡到地图（否则地图也开始拖拽，与标注拖拽冲突）
+      // preventDefault 阻止文本选中等默认行为
+      e.stopPropagation();
+      e.preventDefault();
+      _drag.active=true;
+      _drag.ov=self;
+      _drag.sx=e.clientX;_drag.sy=e.clientY;
+      _drag.op=self._map.pointToPixel(self._pt);
+      // 临时禁用地图拖拽，拖拽结束后 mouseup 恢复
+      try{self._map.disableDragging()}catch(e){}
     });
   };
 }
