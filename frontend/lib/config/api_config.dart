@@ -351,6 +351,9 @@ class ApiConfig {
   // 管理员拖拽校正节点坐标（已发布步骤也可直接调整，不走审核流程）
   static String adminCampusStepCoords(String id) =>
       '$apiPrefix/admin/campus/steps/$id/coords';
+  // 管理员强制更新/删除（不限状态，已发布步骤也可直接修改内容或删除）
+  static String adminCampusStepForce(String id) =>
+      '$apiPrefix/admin/campus/steps/$id/force';
 
   // ── 版本更新 ──
   static const String versionCheck = '$apiPrefix/version/check';

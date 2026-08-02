@@ -104,6 +104,28 @@ func (r *CampusRepository) Update(id int64, req *model.CampusStepRequest) error 
 	return nil
 }
 
+// UpdateForce 管理员强制更新步骤（不限状态，已发布也可直接修改内容）
+// 用于管理员现场修正已发布步骤的标题/位置/任务等字段，不走审核流程。
+func (r *CampusRepository) UpdateForce(id int64, req *model.CampusStepRequest) error {
+	res, err := r.db.Exec(
+		`UPDATE campus_checkin_steps
+		SET step_order=?,title=?,location=?,lat=?,lng=?,duration=?,task=?,
+		    materials=?,contact=?,note=?,icon_name=?,updated_at=?
+		WHERE id=?`,
+		req.StepOrder, req.Title, req.Location, req.Lat, req.Lng,
+		req.Duration, req.Task, req.Materials, req.Contact,
+		req.Note, req.IconName, time.Now().Format(time.DateTime), id,
+	)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("步骤 %d 不存在", id)
+	}
+	return nil
+}
+
 // Submit draft → pending_review
 func (r *CampusRepository) Submit(id int64) error {
 	return r.transition(id, "draft", "pending_review")
@@ -138,6 +160,19 @@ func (r *CampusRepository) Delete(id int64) error {
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return fmt.Errorf("步骤 %d 不存在或非草稿状态，无法删除", id)
+	}
+	return nil
+}
+
+// DeleteForce 管理员强制删除步骤（不限状态）
+func (r *CampusRepository) DeleteForce(id int64) error {
+	res, err := r.db.Exec(`DELETE FROM campus_checkin_steps WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("步骤 %d 不存在", id)
 	}
 	return nil
 }

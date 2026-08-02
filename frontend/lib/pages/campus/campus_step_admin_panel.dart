@@ -158,11 +158,14 @@ class _CampusStepAdminPanelState extends State<CampusStepAdminPanel> {
 
   Future<void> _deleteStep(CampusStepRecord step) async {
     if (step.id == null) return;
+    final isDraft = step.status == 'draft';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除步骤'),
-        content: Text('确定删除「${step.title}」？仅草稿状态可删除。'),
+        content: Text(isDraft
+            ? '确定删除「${step.title}」？'
+            : '「${step.title}」是${step.status == 'published' ? '已发布' : '待审核'}状态，将强制删除（不可恢复）。确定继续？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
           TextButton(
@@ -175,7 +178,11 @@ class _CampusStepAdminPanelState extends State<CampusStepAdminPanel> {
     );
     if (confirmed != true) return;
     try {
-      final resp = await _api.delete(ApiConfig.adminCampusStep(step.id.toString()));
+      // draft 用普通删除接口，其它状态用 force 接口
+      final url = isDraft
+          ? ApiConfig.adminCampusStep(step.id.toString())
+          : ApiConfig.adminCampusStepForce(step.id.toString());
+      final resp = await _api.delete(url);
       if (resp.data['code'] == 0) {
         _toast('已删除');
         _loadSteps();
@@ -398,15 +405,15 @@ class _CampusStepAdminPanelState extends State<CampusStepAdminPanel> {
             Wrap(
               spacing: 6,
               children: [
-                if (step.status == 'draft')
-                  TextButton.icon(
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('编辑'),
-                    onPressed: () async {
-                      final ok = await _editStepDialog(step);
-                      if (ok == true) _loadSteps();
-                    },
-                  ),
+                // 所有状态均可编辑（draft 用普通接口，其它用 force 接口）
+                TextButton.icon(
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('编辑'),
+                  onPressed: () async {
+                    final ok = await _editStepDialog(step);
+                    if (ok == true) _loadSteps();
+                  },
+                ),
                 if (step.status == 'draft')
                   TextButton.icon(
                     icon: const Icon(Icons.send, size: 16),
@@ -419,13 +426,13 @@ class _CampusStepAdminPanelState extends State<CampusStepAdminPanel> {
                     label: const Text('发布'),
                     onPressed: () => _publishStep(step),
                   ),
-                if (step.status == 'draft')
-                  TextButton.icon(
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('删除'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                    onPressed: () => _deleteStep(step),
-                  ),
+                // 所有状态均可删除（draft 用普通接口，其它用 force 接口）
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('删除'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () => _deleteStep(step),
+                ),
               ],
             ),
           ],
@@ -527,8 +534,12 @@ class _CampusStepAdminPanelState extends State<CampusStepAdminPanel> {
                       return;
                     }
                   } else {
-                    final resp = await _api.put(
-                        ApiConfig.adminCampusStep(record.id.toString()),
+                    // draft 用普通更新接口，其它状态用 force 接口（不限状态）
+                    final isDraft = step.status == 'draft';
+                    final url = isDraft
+                        ? ApiConfig.adminCampusStep(record.id.toString())
+                        : ApiConfig.adminCampusStepForce(record.id.toString());
+                    final resp = await _api.put(url,
                         data: record.toRequestJson());
                     if (resp.data['code'] != 0) {
                       _toast(resp.data['message'] ?? '更新失败');

@@ -136,6 +136,41 @@ func (h *CampusHandler) DeleteStep(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "删除成功"})
 }
 
+// UpdateStepForce PUT /api/v1/admin/campus/steps/:id/force
+// 管理员强制更新步骤内容（不限状态，已发布也可直接修改标题/位置/任务等）
+func (h *CampusHandler) UpdateStepForce(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的步骤 ID"})
+		return
+	}
+	var req model.CampusStepRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数校验失败: " + err.Error()})
+		return
+	}
+	if err := h.repo.UpdateForce(id, &req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已强制更新"})
+}
+
+// DeleteStepForce DELETE /api/v1/admin/campus/steps/:id/force
+// 管理员强制删除步骤（不限状态，已发布也可删除）
+func (h *CampusHandler) DeleteStepForce(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的步骤 ID"})
+		return
+	}
+	if err := h.repo.DeleteForce(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已强制删除"})
+}
+
 // UpdateStepCoords PATCH /api/v1/admin/campus/steps/:id/coords
 // 管理员拖拽校正节点坐标（不受 draft 状态限制，已发布步骤也可直接调整）
 func (h *CampusHandler) UpdateStepCoords(c *gin.Context) {

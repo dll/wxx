@@ -1066,35 +1066,46 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 ),
               ),
               if (_canEditNodes)
-                FilterChip(
-                  selected: _editMode,
-                  label: Text(_editMode ? '退出编辑' : '编辑节点',
-                      style: const TextStyle(fontSize: 11)),
-                  avatar: Icon(Icons.edit_location_alt,
-                      size: 14,
-                      color: _editMode
-                          ? Colors.white
-                          : theme.colorScheme.primary),
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.admin_panel_settings,
+                      size: 18, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                  tooltip: '管理',
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   onSelected: (v) {
-                    setState(() => _editMode = v);
-                    if (v) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
+                    if (v == 'edit') {
+                      setState(() => _editMode = !_editMode);
+                      if (_editMode) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } else if (v == 'panel') {
+                      _openAdminPanel();
                     }
                   },
-                  visualDensity: VisualDensity.compact,
-                ),
-              if (_canEditNodes)
-                ActionChip(
-                  label: const Text('流程管理', style: TextStyle(fontSize: 11)),
-                  avatar: Icon(Icons.settings,
-                      size: 14, color: theme.colorScheme.primary),
-                  onPressed: _openAdminPanel,
-                  visualDensity: VisualDensity.compact,
+                  itemBuilder: (_) => [
+                    PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Row(children: [
+                        Icon(_editMode ? Icons.check_box_outlined : Icons.edit_location_alt,
+                            size: 18, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text(_editMode ? '退出编辑节点' : '编辑节点（拖拽校正）'),
+                      ]),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'panel',
+                      child: Row(children: [
+                        Icon(Icons.settings, size: 18),
+                        SizedBox(width: 8),
+                        Text('流程管理（CRUD）'),
+                      ]),
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -1207,35 +1218,45 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ),
           if (_canEditNodes) ...[
             const SizedBox(width: 8),
-            FilterChip(
-              selected: _editMode,
-              label: Text(_editMode ? '退出编辑' : '编辑节点',
-                  style: const TextStyle(fontSize: 12)),
-              avatar: Icon(Icons.edit_location_alt,
-                  size: 14,
-                  color: _editMode
-                      ? Colors.white
-                      : theme.colorScheme.primary),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.admin_panel_settings,
+                  size: 20, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+              tooltip: '管理',
               onSelected: (v) {
-                setState(() => _editMode = v);
-                if (v) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
+                if (v == 'edit') {
+                  setState(() => _editMode = !_editMode);
+                  if (_editMode) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                } else if (v == 'panel') {
+                  _openAdminPanel();
                 }
               },
-              visualDensity: VisualDensity.compact,
-            ),
-            const SizedBox(width: 8),
-            ActionChip(
-              label: const Text('流程管理', style: TextStyle(fontSize: 12)),
-              avatar: Icon(Icons.settings,
-                  size: 14, color: theme.colorScheme.primary),
-              onPressed: _openAdminPanel,
-              visualDensity: VisualDensity.compact,
+              itemBuilder: (_) => [
+                PopupMenuItem<String>(
+                  value: 'edit',
+                  child: Row(children: [
+                    Icon(_editMode ? Icons.check_box_outlined : Icons.edit_location_alt,
+                        size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(_editMode ? '退出编辑节点' : '编辑节点（拖拽校正）'),
+                  ]),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'panel',
+                  child: Row(children: [
+                    Icon(Icons.settings, size: 18),
+                    SizedBox(width: 8),
+                    Text('流程管理（CRUD）'),
+                  ]),
+                ),
+              ],
             ),
           ],
         ],
