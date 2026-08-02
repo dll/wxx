@@ -48,7 +48,7 @@
 
 ## 内部知识（可选）
 
-项目组自用资料可使用 `knowledge/raw/` 与 `knowledge/wiki/`（LLM Wiki 范式），**不替代**上线 Context Engine 治理流程。说明见 `knowledge/README.md`。
+项目组自用资料可使用 `knowledge/raw/` 与 `knowledge/wiki/`（LLM Wiki 范式），**不替代**上线 Context Engine 治理流程。说明见 `knowledge/README.md`；wiki 运营流程与条目模板见 `knowledge/wiki/README.md` 与 `knowledge/wiki/_template.md`。
 
 ## Code Exploration Policy
 

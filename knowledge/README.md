@@ -9,6 +9,11 @@
 | `raw/` | 原始素材（只读存放，可不预先整理） |
 | `wiki/` | 由 LLM 协助维护的结构化摘要、索引与交叉引用 |
 
+## Wiki 运营流程
+
+`wiki/` 的条目生命周期、命名规范、front-matter 字段、沉淀与反哺流程，
+见 **`wiki/README.md`**（模板 `wiki/_template.md`）。
+
 ## 与 Context Engine 的边界
 
 - **上线面向师生的政策/流程/FAQ**：必须经过 Context Engine 治理（元数据、审核、`sources`），路径与同步见 `docs/knowledge-governance.md`、`specs/export-package.md`。  
