@@ -605,12 +605,17 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			})
 			// 静态资源（JS/CSS/图片等）
 			router.Static("/assets", filepath.Join(staticDir, "assets"))
+			// CanvasKit 本地化：flutter_bootstrap.js 通过 config.canvasKitBaseUrl
+			// 指向 /canvaskit/，需显式注册 Static 目录，否则请求会被 SPA 回退到 index.html。
+			router.Static("/canvaskit", filepath.Join(staticDir, "canvaskit"))
 			router.StaticFile("/index.html", filepath.Join(staticDir, "index.html"))
 			router.StaticFile("/main.dart.js", filepath.Join(staticDir, "main.dart.js"))
 			router.StaticFile("/favicon.png", filepath.Join(staticDir, "favicon.png"))
+			router.StaticFile("/favicon.ico", filepath.Join(staticDir, "favicon.ico"))
 			router.StaticFile("/flutter_bootstrap.js", filepath.Join(staticDir, "flutter_bootstrap.js"))
 			router.StaticFile("/flutter_service_worker.js", filepath.Join(staticDir, "flutter_service_worker.js"))
 			router.StaticFile("/manifest.json", filepath.Join(staticDir, "manifest.json"))
+			router.StaticFile("/version.json", filepath.Join(staticDir, "version.json"))
 			log.Printf("前端静态文件已挂载: %s", staticDir)
 		} else {
 			log.Printf("警告: 前端静态目录不存在，跳过静态文件服务: %s", staticDir)
