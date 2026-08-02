@@ -153,7 +153,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       'tencent' =>
         '/assets/tencent_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       _ =>
-        '/assets/baidu_campus_map.html?v=9&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/baidu_campus_map.html?v=10&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
   }
 

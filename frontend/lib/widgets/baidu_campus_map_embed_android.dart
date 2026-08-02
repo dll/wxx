@@ -73,7 +73,7 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
     return switch (widget.provider) {
       'amap' => '$base/amap_campus_map.html?v=2',
       'tencent' => '$base/tencent_campus_map.html?v=2',
-      _ => '$base/baidu_campus_map.html?v=4',
+      _ => '$base/baidu_campus_map.html?v=5',
     };
   }
 
