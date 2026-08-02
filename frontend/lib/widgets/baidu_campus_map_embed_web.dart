@@ -123,13 +123,15 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.display = 'block'
-        ..style.overflow = 'hidden';
+        ..style.overflow = 'hidden'
+        ..style.pointerEvents = 'auto';
       final f = html.IFrameElement()
         ..src = htmlPath
         ..style.border = '0'
         ..style.display = 'block'
         ..style.width = '100%'
         ..style.height = '100%'
+        ..style.pointerEvents = 'auto'
         ..allow = 'geolocation'
         ..referrerPolicy = 'strict-origin-when-cross-origin';
       host.append(f);
@@ -153,7 +155,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       'tencent' =>
         '/assets/tencent_campus_map.html?v=6&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       _ =>
-        '/assets/baidu_campus_map.html?v=12&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/baidu_campus_map.html?v=13&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
   }
 
