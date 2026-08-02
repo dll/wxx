@@ -38,7 +38,8 @@ func (h *StudyPlanHandler) AddTask(c *gin.Context) {
 
 	var req CreatePlanTaskInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("study_plan AddTask bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 	if req.Title == "" {
@@ -119,7 +120,8 @@ func (h *StudyPlanHandler) UpdateTask(c *gin.Context) {
 		SortOrder         *int   `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("study_plan UpdateTask bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 	if req.Status != "" && !isValidTaskStatus(req.Status) {
@@ -257,7 +259,8 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 
 	var req AIGeneratePlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("study_plan GeneratePlan bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 	if req.PlanType == "" {

@@ -343,7 +343,8 @@ func (h *KBHandler) Validate(c *gin.Context) {
 
 		var kb model.KBResource
 		if err := json.Unmarshal([]byte(line), &kb); err != nil {
-			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行JSON解析失败: "+err.Error())
+			log.Printf("kb ValidateJSONLines 第%d行解析失败: %v", totalCount, err)
+			warnings = append(warnings, "第"+strconv.Itoa(totalCount)+"行JSON解析失败")
 			continue
 		}
 

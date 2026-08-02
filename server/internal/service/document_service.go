@@ -43,22 +43,24 @@ type DocumentResult struct {
 	TextContent string   `json:"text_content"`
 	Pages       int      `json:"pages,omitempty"`
 	Images      []string `json:"images,omitempty"`
+	Warning     string   `json:"warning,omitempty"` // 非致命警告（如部分页无可提取文本）
 	Error       string   `json:"error,omitempty"`
 }
 
 // DocumentParseResult 文档解析增强结果
 type DocumentParseResult struct {
-	Title      string           `json:"title"`      // 文档标题
-	Content    string           `json:"content"`    // 提取的纯文本内容
-	Summary    string           `json:"summary"`    // 自动生成的摘要
-	Keywords   []string         `json:"keywords"`   // 关键词列表
-	WordCount  int              `json:"word_count"` // 字数
-	Paragraphs int              `json:"paragraphs"` // 段落数
-	FileName   string           `json:"file_name"`  // 文件名
-	FileType   string           `json:"file_type"`  // 文件类型
-	FileSize   int64            `json:"file_size"`  // 文件大小
-	Pages      int              `json:"pages,omitempty"`
-	Quality    *DocumentQuality `json:"quality"` // 内容质量评估（过短/无中文/乱码）
+	Title        string           `json:"title"`      // 文档标题
+	Content      string           `json:"content"`    // 提取的纯文本内容
+	Summary      string           `json:"summary"`    // 自动生成的摘要
+	Keywords     []string         `json:"keywords"`   // 关键词列表
+	WordCount    int              `json:"word_count"` // 字数
+	Paragraphs   int              `json:"paragraphs"` // 段落数
+	FileName     string           `json:"file_name"`  // 文件名
+	FileType     string           `json:"file_type"`  // 文件类型
+	FileSize     int64            `json:"file_size"`  // 文件大小
+	Pages        int              `json:"pages,omitempty"`
+	Quality      *DocumentQuality `json:"quality"`       // 内容质量评估（过短/无中文/乱码）
+	ParseWarning string           `json:"parse_warning"` // 非致命解析警告（如部分页无可提取文本），前端应展示给用户
 }
 
 // DocumentQuality 解析内容质量评估。
@@ -137,7 +139,7 @@ func (s *DocumentService) ProcessUpload(file *multipart.FileHeader) (*DocumentRe
 	case ".csv":
 		result.TextContent, err = s.readCsvFromBytes(fileData)
 	case ".pdf":
-		result.TextContent, result.Pages, err = s.readPdfFromBytes(fileData)
+		result.TextContent, result.Pages, result.Warning, err = s.readPdfFromBytes(fileData)
 	case ".docx":
 		result.TextContent, err = s.readDocxFromBytes(fileData)
 	case ".xlsx":
@@ -187,30 +189,18 @@ func (s *DocumentService) readCsv(path string) (string, error) {
 	return b.String(), nil
 }
 
-func (s *DocumentService) readPdf(path string) (string, int, error) {
-	f, r, err := pdf.Open(path)
+func (s *DocumentService) readPdf(path string) (string, int, string, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return "", 0, fmt.Errorf("打开PDF失败: %w", err)
+		return "", 0, "", fmt.Errorf("打开PDF失败: %w", err)
 	}
 	defer f.Close()
 
-	totalPage := r.NumPage()
-	var b strings.Builder
-
-	for i := 1; i <= totalPage; i++ {
-		p := r.Page(i)
-		if p.V.IsNull() {
-			continue
-		}
-		text, err := p.GetPlainText(nil)
-		if err == nil {
-			b.WriteString(fmt.Sprintf("\n--- 第%d页 ---\n", i))
-			b.WriteString(strings.TrimSpace(text))
-			b.WriteString("\n")
-		}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return "", 0, "", fmt.Errorf("读取PDF失败: %w", err)
 	}
-
-	return b.String(), totalPage, nil
+	return s.readPdfFromBytes(data)
 }
 
 func (s *DocumentService) readDocx(path string) (string, error) {
@@ -257,27 +247,60 @@ func (s *DocumentService) readCsvFromBytes(data []byte) (string, error) {
 	return b.String(), nil
 }
 
-func (s *DocumentService) readPdfFromBytes(data []byte) (string, int, error) {
+// readPdfFromBytes 从内存解析 PDF 文本。
+//
+// 图片型（扫描件）PDF 的文本层为空，原实现对每页都写入「--- 第N页 ---」标记，
+// 导致内容仅为页码标记的"空壳"，质量评估误判为有效（标记含"第/页"等中文）。
+// 改进：
+//  1. 仅对有实际文本的页写入标记，空页跳过；
+//  2. 全部页均无文本时返回明确错误，提示用户该 PDF 可能是扫描件/图片型；
+//  3. 部分页无文本时返回警告（非致命），由上层传递给前端引导用户预览确认。
+func (s *DocumentService) readPdfFromBytes(data []byte) (string, int, string, error) {
 	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return "", 0, fmt.Errorf("打开PDF失败: %w", err)
+		return "", 0, "", fmt.Errorf("打开PDF失败: %w", err)
 	}
 
 	totalPage := r.NumPage()
 	var b strings.Builder
+	pagesWithText := 0
+	emptyPages := 0
+
 	for i := 1; i <= totalPage; i++ {
 		p := r.Page(i)
 		if p.V.IsNull() {
+			emptyPages++
 			continue
 		}
 		text, err := p.GetPlainText(nil)
-		if err == nil {
-			b.WriteString(fmt.Sprintf("\n--- 第%d页 ---\n", i))
-			b.WriteString(strings.TrimSpace(text))
-			b.WriteString("\n")
+		if err != nil {
+			emptyPages++
+			continue
 		}
+		text = strings.TrimSpace(text)
+		if text == "" {
+			emptyPages++
+			continue
+		}
+		// 仅对有实际文本的页写入分页标记
+		b.WriteString(fmt.Sprintf("\n--- 第%d页 ---\n", i))
+		b.WriteString(text)
+		b.WriteString("\n")
+		pagesWithText++
 	}
-	return b.String(), totalPage, nil
+
+	// 所有页都无文本 → 图片型/扫描件 PDF，返回明确错误
+	if pagesWithText == 0 {
+		return "", totalPage, "", fmt.Errorf("PDF 未提取到任何文本，该文件可能是扫描件或图片型 PDF，需要 OCR 处理后重新上传")
+	}
+
+	// 部分页无文本 → 混合内容，返回警告
+	warning := ""
+	if emptyPages > 0 {
+		warning = fmt.Sprintf("PDF 共 %d 页，其中 %d 页未提取到文本（可能是图片/扫描页），已跳过", totalPage, emptyPages)
+	}
+
+	return b.String(), totalPage, warning, nil
 }
 
 func (s *DocumentService) readDocxFromBytes(data []byte) (string, error) {
@@ -517,20 +540,23 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 	keywords := extractDocKeywordsWithTitle(content, title, 10)
 	wordCount := countDocWords(content)
 	paragraphs := countDocParagraphs(content)
-	quality := assessDocQuality(content)
+	// 质量评估前剔除结构性标记（分页符/工作表头/行号），
+	// 否则图片型 PDF 的空壳标记会被误判为有效中文内容。
+	quality := assessDocQuality(stripStructuralMarkers(content))
 
 	return &DocumentParseResult{
-		Title:      title,
-		Content:    content,
-		Summary:    summary,
-		Keywords:   keywords,
-		WordCount:  wordCount,
-		Paragraphs: paragraphs,
-		FileName:   result.FileName,
-		FileType:   result.FileType,
-		FileSize:   result.FileSize,
-		Pages:      result.Pages,
-		Quality:    quality,
+		Title:        title,
+		Content:      content,
+		Summary:      summary,
+		Keywords:     keywords,
+		WordCount:    wordCount,
+		Paragraphs:   paragraphs,
+		FileName:     result.FileName,
+		FileType:     result.FileType,
+		FileSize:     result.FileSize,
+		Pages:        result.Pages,
+		Quality:      quality,
+		ParseWarning: result.Warning,
 	}, nil
 }
 
@@ -542,6 +568,17 @@ const (
 	maxControlRatio    = 0.05 // 控制字符（除 \n\t\r）占比上限
 	maxSuspiciousRatio = 0.30 // 异常字符占比上限
 )
+
+// structuralMarkerPattern 结构性标记：PDF 分页符「--- 第N页 ---」、
+// XLSX 工作表头「=== 工作表: xxx ===」、CSV/XLSX 行号「第N行:」。
+// 这些标记由解析器自动生成，并非文档原文，质量评估时必须剔除，
+// 否则图片型 PDF 的空壳内容会被标记中的"第/页/行/表"等中文误判为有效。
+var structuralMarkerPattern = regexp.MustCompile(`(?m)^\s*(?:-{2,}\s*第\d+页\s*-{2,}|={2,}\s*工作表[：:].*?={2,}|第\d+行[：:])\s*$`)
+
+// stripStructuralMarkers 移除解析器生成的结构性标记，仅保留文档原文。
+func stripStructuralMarkers(content string) string {
+	return structuralMarkerPattern.ReplaceAllString(content, "")
+}
 
 // assessDocQuality 评估解析内容质量：
 //   - 过短：有效字数 < minDocRunes；

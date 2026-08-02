@@ -74,7 +74,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		parseResult, err = h.docSvc.ParseDocument(file)
 		if err != nil {
 			log.Printf("文档解析失败: %v", err)
-			util.FailInternalError(c, "文档解析失败，请稍后重试")
+			util.FailInternalError(c, err.Error())
 			return
 		}
 

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -146,8 +147,9 @@ func ConfirmQRSession(c *gin.Context) {
 		SessionID string `json:"session_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("auth ConfirmQRSession bind err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code: 400, Message: "参数校验失败: " + err.Error(),
+			Code: 400, Message: "请求参数错误",
 		})
 		return
 	}

@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -139,7 +140,8 @@ func (h *StudyPlanHandler) CreatePlan(c *gin.Context) {
 
 	var req CreatePlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("study_plan CreatePlan bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 
@@ -239,7 +241,8 @@ func (h *StudyPlanHandler) UpdatePlan(c *gin.Context) {
 		Progress     *float64 `json:"progress"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败: " + err.Error()})
+		log.Printf("study_plan UpdatePlan bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
 		return
 	}
 

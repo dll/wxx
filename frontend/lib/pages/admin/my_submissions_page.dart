@@ -1585,7 +1585,11 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     }
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('文档已解析并回填，可继续编辑后提交')),
+      SnackBar(
+        content: Text(_parseWarning(result).isNotEmpty
+            ? '${_parseWarning(result)}；已回填可编辑内容，请核对后提交'
+            : '文档已解析并回填，可继续编辑后提交'),
+      ),
     );
   }
 
@@ -1709,6 +1713,11 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     return reasons.map((e) => e.toString()).toList();
   }
 
+  /// 提取后端返回的非致命解析警告（如 PDF 部分页为图片/扫描页）。
+  String _parseWarning(Map<String, dynamic> result) {
+    return (result['parse_warning'] ?? '').toString().trim();
+  }
+
   Widget _buildParseResultCard() {
     final result = _parseResult!;
     final theme = Theme.of(context);
@@ -1780,6 +1789,39 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onErrorContainer,
                         ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (_parseWarning(result).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.tertiaryContainer.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.tertiary.withOpacity(0.4),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _parseWarning(result),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
                       ),
                     ),
                   ),

@@ -75,9 +75,10 @@ func (h *DocumentHandler) ParseDocument(c *gin.Context) {
 	result, err := h.docSvc.ParseDocument(file)
 	if err != nil {
 		log.Printf("document ParseDocument err: %v", err)
+		// 透传具体错误信息，让用户知道为何解析失败（如图片型PDF需OCR、DOCX格式错误等）
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "文档解析失败，请检查文件格式或内容",
+			"message": err.Error(),
 		})
 		return
 	}
@@ -112,6 +113,11 @@ func (h *DocumentHandler) SupportedFormats(c *gin.Context) {
 			},
 			"max_size_mb": 100,
 			"note":        "支持的文档格式，解析后返回标题、摘要、关键词、字数、段落数等信息",
+			"tips": []string{
+				"PDF：仅提取文本层，扫描件/图片型 PDF 需先用 OCR 工具转换为文本后上传",
+				"DOCX：支持 Word 2007+ 格式，旧版 .doc 请另存为 .docx 后上传",
+				"建议上传以文字为主的文档，图片/表格密集的文档解析效果可能受限",
+			},
 		},
 	})
 }

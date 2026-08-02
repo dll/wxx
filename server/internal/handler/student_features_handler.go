@@ -83,7 +83,8 @@ func (h *StudentFeaturesHandler) RegisterCompetition(c *gin.Context) {
 		AdvisorName   string `json:"advisor_name"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
+		log.Printf("competition RegisterCompetition bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
@@ -127,7 +128,8 @@ func (h *StudentFeaturesHandler) SubmitWork(c *gin.Context) {
 		WorkFileURL    string `json:"work_file_url"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
+		log.Printf("competition SubmitWork bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
@@ -238,7 +240,8 @@ func (h *StudentFeaturesHandler) CreatePlan(c *gin.Context) {
 		Content      string `json:"content"` // 前端兼容字段
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
+		log.Printf("plan CreatePlan bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
@@ -299,7 +302,7 @@ func (h *StudentFeaturesHandler) ReviewPlan(c *gin.Context) {
 	}
 	if err := h.svc.ReviewPlan(id, req.Status, req.Comment); err != nil {
 		log.Printf("审核规划失败: %v", err)
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "审核失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "审核完成"})
@@ -360,7 +363,7 @@ func (h *StudentFeaturesHandler) UpdatePartyProgress(c *gin.Context) {
 	}
 	if err := h.svc.UpdatePartyProgress(userCtx.UserID, req.Stage, req.Notes); err != nil {
 		log.Printf("更新入党进度失败: %v", err)
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "更新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "进度已更新"})
@@ -395,7 +398,8 @@ func (h *StudentFeaturesHandler) AddStudyRecord(c *gin.Context) {
 		Certificate string `json:"certificate"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误: " + err.Error()})
+		log.Printf("study AddStudyRecord bind err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
