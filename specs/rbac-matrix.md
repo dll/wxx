@@ -67,6 +67,8 @@
 | `GET /kb/resources/:id` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `GET /export` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `POST /kb/import` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `POST /documents/parse` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `POST /documents/refine` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **校外系统对接** | | | | | | |
 | `GET /integration/status` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `GET /integration/xuegong/*path` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |

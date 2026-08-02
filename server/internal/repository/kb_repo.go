@@ -177,7 +177,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 				kb.content, kb.source_link, kb.source_version,
 				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
 				kb.updated_by, kb.created_at, kb.updated_at,
-				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0) AS score
+				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0, 4.0) AS score
 			 FROM kb_fts
 			 JOIN kb_resources kb ON kb_fts.rowid = kb.id
 			 WHERE kb_fts MATCH ?
@@ -454,7 +454,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 				kb.content, kb.source_link, kb.source_version,
 				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
 				kb.updated_by, kb.created_at, kb.updated_at,
-				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0) AS score
+				bm25(kb_fts, 0.0, 10.0, 3.0, 1.0, 4.0) AS score
 			 FROM kb_fts
 			 JOIN kb_resources kb ON kb_fts.rowid = kb.id
 			 WHERE kb_fts MATCH ?

@@ -102,3 +102,50 @@ func (h *DocumentHandler) SupportedFormats(c *gin.Context) {
 		},
 	})
 }
+
+// RefineDocument 使用 LLM 精修文档元数据（标题/摘要/关键词）。
+// POST /api/v1/documents/refine
+// body: {"content": "...", "title": "...", "summary": "...", "keywords": [...]}
+// 说明：content 为清洗后的正文文本；title/summary/keywords 作为精修失败时的兜底值。
+// 权限：counselor.kb.write 以上（与解析一致）
+func (h *DocumentHandler) RefineDocument(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未认证",
+		})
+		return
+	}
+
+	if !auth.HasCapability(userCtx.Role, auth.CounselorKBWrite) {
+		if !auth.HasCapability(userCtx.Role, auth.UnionKBSubmit) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    403,
+				"message": "无文档精修权限",
+			})
+			return
+		}
+	}
+
+	var req struct {
+		Content  string   `json:"content" binding:"required"`
+		Title    string   `json:"title"`
+		Summary  string   `json:"summary"`
+		Keywords []string `json:"keywords"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "参数错误: " + err.Error(),
+		})
+		return
+	}
+
+	result := h.docSvc.RefineMetadata(c.Request.Context(), req.Title, req.Summary, req.Keywords, req.Content)
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "精修完成",
+		"data":    result,
+	})
+}

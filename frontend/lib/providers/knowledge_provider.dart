@@ -539,6 +539,34 @@ class KnowledgeProvider extends ChangeNotifier {
     return null;
   }
 
+  /// 文档元数据 AI 精修（标题/摘要/关键词）
+  /// content 为正文；title/summary/keywords 作为精修失败时的兜底值回传。
+  Future<Map<String, dynamic>?> refineDocument({
+    required String content,
+    String title = '',
+    String summary = '',
+    List<String> keywords = const [],
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConfig.documentRefine,
+        data: {
+          'content': content,
+          'title': title,
+          'summary': summary,
+          'keywords': keywords,
+        },
+      );
+      if (response.data['code'] == 0) {
+        return Map<String, dynamic>.from(response.data['data'] as Map);
+      }
+      _resourceError = response.data['message']?.toString() ?? '精修失败';
+    } catch (e) {
+      _resourceError = '精修失败: $e';
+    }
+    return null;
+  }
+
   /// 按固定顺序返回分类列表
   List<MapEntry<String, List<KnowledgeCard>>> get orderedCategories {
     final result = <MapEntry<String, List<KnowledgeCard>>>[];

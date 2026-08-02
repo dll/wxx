@@ -99,6 +99,7 @@ class ApiConfig {
 
   // ── 文档解析 ──
   static const String documentParse = '$apiPrefix/documents/parse';
+  static const String documentRefine = '$apiPrefix/documents/refine';
   static const String documentFormats = '$apiPrefix/documents/formats';
 
   // ── 知识审核 ──

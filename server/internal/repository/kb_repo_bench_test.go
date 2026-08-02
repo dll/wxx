@@ -78,6 +78,29 @@ func setupSearchBenchDB(b *testing.B, count int) *KBRepo {
 		}
 	}
 
+	// 增量迁移：FTS5 加入 tags 列（049），否则 bm25 权重与列数不匹配
+	if ftsTags, err := os.ReadFile("../../migrations/049_fts_tags.sql"); err == nil {
+		for _, stmt := range testutil.SplitSQL(string(ftsTags)) {
+			if stmt == "" {
+				continue
+			}
+			if _, err := db.Exec(stmt); err != nil {
+				b.Fatalf("执行迁移 049 失败: %v\nSQL: %s", err, stmt[:min(len(stmt), 200)])
+			}
+		}
+	} else if ftsTags, err = os.ReadFile("migrations/049_fts_tags.sql"); err == nil {
+		for _, stmt := range testutil.SplitSQL(string(ftsTags)) {
+			if stmt == "" {
+				continue
+			}
+			if _, err := db.Exec(stmt); err != nil {
+				b.Fatalf("执行迁移 049 失败: %v\nSQL: %s", err, stmt[:min(len(stmt), 200)])
+			}
+		}
+	} else {
+		b.Fatalf("读取迁移 049 失败")
+	}
+
 	repo := NewKBRepo(db)
 
 	// 批量插入测试数据

@@ -1175,6 +1175,7 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
   final String _roleScope = 'student';
   bool _saving = false;
   bool _uploading = false;
+  bool _refining = false;
   Map<String, dynamic>? _parseResult;
 
   bool get _isEdit => widget.resource != null;
@@ -1235,6 +1236,17 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  onPressed: (_refining || _uploading) ? null : _handleAiRefine,
+                  icon: _refining
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome_outlined),
+                  label: Text(_refining ? 'AI 精修中...' : 'AI 一键精修标题/摘要/关键词'),
                 ),
                 if (_parseResult != null) ...[
                   const SizedBox(height: 12),
@@ -1461,6 +1473,64 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
 
     messenger.showSnackBar(
       const SnackBar(content: Text('文档已解析并回填，可继续编辑后提交')),
+    );
+  }
+
+  /// 调用后端 LLM 精修标题/摘要/关键词并回填编辑表单。
+  /// 精修失败（未配置模型/超时/非法输出）时后端自动回退原值，此处仅提示。
+  Future<void> _handleAiRefine() async {
+    final content = _contentCtrl.text.trim();
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('正文为空，请先填写或导入正文')),
+      );
+      return;
+    }
+
+    final keywords = _tagsCtrl.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    setState(() => _refining = true);
+    final result = await context.read<KnowledgeProvider>().refineDocument(
+          content: content,
+          title: _titleCtrl.text.trim(),
+          summary: _summaryCtrl.text.trim(),
+          keywords: keywords,
+        );
+    if (!mounted) return;
+    setState(() => _refining = false);
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(
+            context.read<KnowledgeProvider>().resourceError.isEmpty
+                ? 'AI 精修失败，请稍后重试'
+                : context.read<KnowledgeProvider>().resourceError)),
+      );
+      return;
+    }
+
+    final title = (result['title'] ?? '').toString().trim();
+    final summary = (result['summary'] ?? '').toString().trim();
+    final refinedKeywords = (result['keywords'] as List<dynamic>?)
+            ?.map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        <String>[];
+
+    if (title.isNotEmpty) _titleCtrl.text = title;
+    if (summary.isNotEmpty) _summaryCtrl.text = summary;
+    if (refinedKeywords.isNotEmpty) _tagsCtrl.text = refinedKeywords.join(',');
+
+    final fallback = result['fallback'] == true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(fallback
+            ? '暂无法 AI 精修（已保留当前内容），可手动编辑后提交'
+            : 'AI 精修完成，已回填，请核对后提交'),
+      ),
     );
   }
 

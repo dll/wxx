@@ -58,7 +58,10 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"043_student_profile_snapshot.sql",
 		"044_student_checkins.sql",
 		"045_student_personality.sql",
+		"046_chat_metrics.sql",
 		"047_add_kb_remark.sql",
+		"048_campus_map_steps.sql",
+		"049_fts_tags.sql",
 	} {
 		p := resolveMigrationPath(t, m)
 		c, err := os.ReadFile(p)

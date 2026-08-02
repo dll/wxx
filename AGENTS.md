@@ -34,6 +34,7 @@
 | Harness 工作流（对齐本项目） | `docs/harness-workflow.md` |
 | Context Engine 摘录 | `docs/context-engine.md` |
 | 知识治理与运营 | `docs/knowledge-governance.md` |
+| **文档解析与 AI 精修** | `docs/knowledge-refine.md`（LLM 元数据精修 + FTS tags 增强） |
 | 接口与导出契约索引 | `specs/export-package.md`、`specs/resource-schema.md` |
 | RBAC 矩阵模板 | `specs/rbac-matrix.md` |
 | AnswerCard / 导出审计 | `docs/ui-answer-card.md` |

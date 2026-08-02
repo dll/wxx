@@ -180,6 +180,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	docSvc := service.NewDocumentService(uploadDir, 100)
 	docParseSvc := service.NewDocumentService(uploadDir, 100)
+	// 注入 LLM 客户端，启用文档元数据精修（标题/摘要/关键词）
+	docSvc.SetLLMClient(llmClient)
+	docParseSvc.SetLLMClient(llmClient)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
@@ -1007,6 +1010,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			// ── 文档解析 ──
 			secured.POST("/documents/parse", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.ParseDocument)
+			secured.POST("/documents/refine", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.RefineDocument)
 			secured.GET("/documents/formats", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.SupportedFormats)
 
 			// ── 文档上传与知识入库 ──

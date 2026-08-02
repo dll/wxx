@@ -3,18 +3,22 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/util"
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
@@ -23,6 +27,13 @@ import (
 type DocumentService struct {
 	uploadDir string
 	maxSize   int64
+	// llmClient 用于 LLM 元数据精修（标题/摘要/关键词）；nil 时精修回退启发式规则
+	llmClient llm.ChatClient
+}
+
+// SetLLMClient 注入 LLM 客户端（精修能力）。传入 nil 表示禁用 LLM 精修。
+func (s *DocumentService) SetLLMClient(client llm.ChatClient) {
+	s.llmClient = client
 }
 
 type DocumentResult struct {
@@ -47,6 +58,15 @@ type DocumentParseResult struct {
 	FileType   string   `json:"file_type"`  // 文件类型
 	FileSize   int64    `json:"file_size"`  // 文件大小
 	Pages      int      `json:"pages,omitempty"`
+}
+
+// DocumentRefineResult 文档元数据 LLM 精修结果
+type DocumentRefineResult struct {
+	Title    string   `json:"title"`     // 精修后标题
+	Summary  string   `json:"summary"`   // 精修后摘要
+	Keywords []string `json:"keywords"`  // 精修后关键词
+	Refined  bool     `json:"refined"`   // true = 由 LLM 精修生成
+	Fallback bool     `json:"fallback"`  // true = 回退启发式规则（未配置 LLM / 调用失败）
 }
 
 func NewDocumentService(uploadDir string, maxSizeMB int) *DocumentService {
@@ -497,6 +517,180 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 		FileSize:   result.FileSize,
 		Pages:      result.Pages,
 	}, nil
+}
+
+// RefineMetadata 使用 LLM 精修文档元数据（标题/摘要/关键词）。
+//
+// 设计要点：
+//   - 规则兜底：未配置 LLM、调用超时/失败、响应非 JSON、字段校验不通过时，
+//     一律回退到启发式结果（或传入的当前值），保证接口始终可用、绝不让前端拿空值。
+//   - 成本控制：正文截断到有限长度再送模型；上下文带 30s 超时。
+//   - 由人工确认后再入库：精修结果仅回填编辑表单，不自动写库（写库仍走 KBService）。
+func (s *DocumentService) RefineMetadata(ctx context.Context, title, summary string, keywords []string, content string) *DocumentRefineResult {
+	fallback := &DocumentRefineResult{
+		Title:    title,
+		Summary:  summary,
+		Keywords: keywords,
+		Fallback: true,
+	}
+
+	if s.llmClient == nil {
+		return fallback
+	}
+
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return fallback
+	}
+
+	prompt := buildRefinePrompt(truncateDocForRefine(content, refineMaxInputRunes))
+
+	// 带超时保护，避免 LLM 挂起拖垮上传接口
+	ctx, cancel := context.WithTimeout(ctx, refineTimeout)
+	defer cancel()
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages: []llm.ChatMessage{
+			{Role: "system", Content: refineSystemPrompt},
+			{Role: "user", Content: prompt},
+		},
+		Temperature: 0.3,
+		MaxTokens:   refineMaxTokens,
+	})
+	if err != nil {
+		log.Printf("文档精修 LLM 调用失败，回退规则: %v", err)
+		return fallback
+	}
+
+	refined, err := parseRefinedMetadata(resp.Content)
+	if err != nil {
+		log.Printf("文档精修响应解析失败，回退规则: %v", err)
+		return fallback
+	}
+
+	// 用原值补齐模型漏填字段，再整体校验
+	normalizeRefinedMetadata(refined, title, summary, keywords)
+	if !validateRefinedMetadata(refined) {
+		log.Printf("文档精修结果校验不通过，回退规则: %q / %q / %v", refined.Title, refined.Summary, refined.Keywords)
+		return fallback
+	}
+
+	return refined
+}
+
+// ── 精修常量与提示词 ──
+
+// refineTimeout LLM 精修整体超时
+const refineTimeout = 30 * time.Second
+
+// refineMaxTokens 精修输出 token 上限（标题 + 摘要 + 关键词足够）
+const refineMaxTokens = 500
+
+// refineMaxInputRunes 送入模型的正文最大字数（超出截断，控制成本）
+const refineMaxInputRunes = 6000
+
+const refineSystemPrompt = `你是一名校园知识库内容精修助手。请基于给定的原始文档内容，提取规范的元数据，供检索与展示使用。
+
+要求：
+1. title：一句话主题，2~30 个汉字，简洁准确；去除"附件/目录/关于印发/通知"等文件头噪声。
+2. summary：80~150 个汉字，概述文档核心内容、适用对象、关键数字与结论；语言平实，不得虚构原文没有的内容。
+3. keywords：3~8 个检索关键词，每个 2~6 个汉字，贴合文档主题，优先专有名词与领域术语；不要"关于/规定/办法/学生"这类泛词。
+
+只输出一个 JSON 对象，不要输出任何其他文字或代码块标记，格式如下：
+{"title":"...","summary":"...","keywords":["...","..."]}`
+
+// buildRefinePrompt 构造精修请求的用户消息
+func buildRefinePrompt(content string) string {
+	return fmt.Sprintf("请精修以下文档内容：\n\n【文档内容】\n%s\n\n【请输出】\n严格按 JSON 输出精修后的标题、摘要与关键词。", content)
+}
+
+// truncateDocForRefine 截断正文：保留开头 2/3 与结尾 1/3，中间省略。
+// 制度文档的适用对象、数字条款通常出现在首段，结尾常有生效/解释说明，两侧信息量最高。
+func truncateDocForRefine(content string, maxRunes int) string {
+	runes := []rune(content)
+	if len(runes) <= maxRunes {
+		return content
+	}
+	head := maxRunes * 2 / 3
+	return string(runes[:head]) + "\n…（中间内容省略，共" + fmt.Sprintf("%d字）…\n", len(runes)) + string(runes[len(runes)-(maxRunes-head):])
+}
+
+// jsonFencePattern 匹配 ```json ... ``` 等代码块标记
+var jsonFencePattern = regexp.MustCompile("(?s)^```[a-zA-Z0-9]*\\s*|\\s*```$")
+
+// parseRefinedMetadata 从 LLM 响应中解析 JSON 元数据。
+// 兼容代码块包裹与多余说明文字，仅提取首个完整的 JSON 对象。
+func parseRefinedMetadata(raw string) (*DocumentRefineResult, error) {
+	raw = strings.TrimSpace(raw)
+	raw = jsonFencePattern.ReplaceAllString(raw, "")
+
+	start := strings.Index(raw, "{")
+	end := strings.LastIndex(raw, "}")
+	if start < 0 || end <= start {
+		return nil, fmt.Errorf("响应中未找到 JSON 对象")
+	}
+	raw = raw[start : end+1]
+
+	var out struct {
+		Title    string   `json:"title"`
+		Summary  string   `json:"summary"`
+		Keywords []string `json:"keywords"`
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("JSON 解析失败: %w", err)
+	}
+
+	// 清洗并去重关键词
+	seen := make(map[string]bool)
+	var kws []string
+	for _, k := range out.Keywords {
+		k = strings.Trim(k, " \t\n，,、。")
+		if k == "" || len([]rune(k)) > 12 {
+			continue
+		}
+		if !seen[k] {
+			seen[k] = true
+			kws = append(kws, k)
+		}
+	}
+
+	return &DocumentRefineResult{
+		Title:    util.SanitizeKnowledgeContent(out.Title),
+		Summary:  util.SanitizeKnowledgeContent(out.Summary),
+		Keywords: kws,
+		Refined:  true,
+	}, nil
+}
+
+// normalizeRefinedMetadata 用调用方传入的原值补齐模型漏填的字段
+func normalizeRefinedMetadata(refined *DocumentRefineResult, title, summary string, keywords []string) {
+	if strings.TrimSpace(refined.Title) == "" {
+		refined.Title = strings.TrimSpace(title)
+	}
+	if strings.TrimSpace(refined.Summary) == "" {
+		refined.Summary = strings.TrimSpace(summary)
+	}
+	if len(refined.Keywords) == 0 {
+		refined.Keywords = keywords
+	}
+}
+
+// validateRefinedMetadata 校验精修结果是否可接受
+func validateRefinedMetadata(refined *DocumentRefineResult) bool {
+	titleRunes := len([]rune(strings.TrimSpace(refined.Title)))
+	summaryRunes := len([]rune(strings.TrimSpace(refined.Summary)))
+
+	// 标题与摘要必须有实质内容，关键词至少 1 个
+	if titleRunes < 2 || titleRunes > 60 {
+		return false
+	}
+	if summaryRunes < 10 || summaryRunes > 500 {
+		return false
+	}
+	if len(refined.Keywords) == 0 {
+		return false
+	}
+	return true
 }
 
 // extractDocTitle 从文本中提取标题。
