@@ -80,6 +80,15 @@
 - **强制预览**：前端创建/编辑弹窗导入文件解析后，若 `quality.ok=false` 弹**质量警告对话框**列出原因，用户确认「我已知晓，继续编辑」才回填表单；解析结果卡片同时展示质量警示条。
 - **测试**：`document_service_test.go` 质量评估 6 组；`upload_handler_test.go` 拒绝/无中文/force 覆盖/正常入库/未认证 5 组。
 
+## 七、解析可直接使用：上传自动精修 + 编码修复（P2 已完成）
+
+解决「解析结果仍需大量手动编辑、质量差、中文乱码」的问题：
+
+- **`/kb/upload` 入库前自动 LLM 精修**：质量门槛通过后，先调用 `RefineMetadata` 生成标题/摘要/关键词再入库；未配置模型 / 调用失败 / 输出不合法时静默回退启发式结果，不影响上传成功。自动入库内容即高质量元数据。
+- **`/documents/parse` 支持 `refine=true`**：解析同时返回 LLM 精修后的元数据，表单回填即高质量；前端 `parseDocument` 已默认带 `?refine=1`，无需再手动点「AI 精修」。
+- **中文乱码修复**：新增 `util.DecodeToUTF8`（`golang.org/x/text` GB18030），`.txt/.md/.csv` 非 UTF-8（GBK/GB18030）自动转码，质量门槛从「检出乱码」升级为「修复乱码」。
+- **大小限制统一 100MB**：`my_submissions_page.dart` 上传前检查 10MB→100MB、`/kb/upload` 上报 `max_size_mb` 50→100，与后端 `DocumentService(100)` 对齐。
+
 ## 相关文件
 
 | 层 | 文件 |
