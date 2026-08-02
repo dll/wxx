@@ -30,7 +30,8 @@ func (h *AssistantHandler) ScheduleCheck(c *gin.Context) {
 			{"type": "教师冲突", "severity": "high", "detail": "王老师周三同时被安排两门课"},
 			{"type": "教室冲突", "severity": "medium", "detail": "信息楼301周五被两个班占用"},
 		},
-		"summary": gin.H{"total_courses": 48, "conflicts_found": 2},
+		"summary":     gin.H{"total_courses": 48, "conflicts_found": 2},
+		"data_source": "fallback",
 	})
 }
 
@@ -49,6 +50,7 @@ func (h *AssistantHandler) GradAudit(c *gin.Context) {
 		"passed_items":  []string{"公共必修课", "专业必修课", "毕业论文"},
 		"pending_items": []string{"公共选修课差2学分", "创新创业学分差2分"},
 		"can_graduate":  false,
+		"data_source":   "fallback",
 	})
 }
 
@@ -68,6 +70,7 @@ func (h *AssistantHandler) ExamArrange(c *gin.Context) {
 			{"course": "操作系统", "date": "2026-06-22", "time": "14:00-16:00", "room": "信息楼302", "students": 85},
 		},
 		"conflicts": 0, "warnings": []string{"6月21日监考教师资源紧张"},
+		"data_source": "fallback",
 	})
 }
 
