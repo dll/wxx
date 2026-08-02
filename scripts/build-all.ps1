@@ -116,6 +116,41 @@ if ($webOk) {
             Write-Output "  WARN flutter_bootstrap.js 未匹配到 serviceWorkerSettings，请检查 Flutter SDK 版本"
         }
     }
+
+    # ── 字体文件完整性验证 ──
+    # flutter build web 偶发产出的 CupertinoIcons.ttf 仅 1KB（正常约 250KB），
+    # 导致 Flutter Web 运行时报 "Font family not found (404)" 并疯狂重试。
+    # 这里在构建后校验关键字体大小，若被截断则从 pub cache 恢复完整文件。
+    $fontChecks = @(
+        @{
+            Name = "CupertinoIcons"
+            BuildPath = "build/web/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf"
+            PubCacheGlob = "cupertino_icons-*/assets/CupertinoIcons.ttf"
+            MinSize = 100000
+        },
+        @{
+            Name = "MaterialIcons"
+            BuildPath = "build/web/assets/fonts/MaterialIcons-Regular.otf"
+            PubCacheGlob = "flutter/lib/web_sdk/lib/engine/icons/material_icons-*/MaterialIcons-Regular.otf"
+            MinSize = 30000
+        }
+    )
+    $pubCacheHosted = Join-Path $env:LOCALAPPDATA "Pub\Cache\hosted"
+    foreach ($fc in $fontChecks) {
+        $buildFont = Join-Path $frontend $fc.BuildPath
+        if (!(Test-Path $buildFont)) { continue }
+        $actual = (Get-Item $buildFont).Length
+        if ($actual -ge $fc.MinSize) { continue }
+        Write-Output "  WARN $($fc.Name) 被截断 ($actual 字节 < $($fc.MinSize))，从 pub cache 恢复"
+        $src = Get-ChildItem -Path $pubCacheHosted -Recurse -Filter (Split-Path $fc.PubCacheGlob -Leaf) -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($src -and $src.Length -ge $fc.MinSize) {
+            $bytes = [System.IO.File]::ReadAllBytes($src.FullName)
+            [System.IO.File]::WriteAllBytes($buildFont, $bytes)
+            Write-Output "  OK  $($fc.Name) 已恢复 ($($src.Length) 字节)"
+        } else {
+            Write-Output "  FAIL $($fc.Name) pub cache 中未找到完整文件，请执行 flutter pub cache repair"
+        }
+    }
 } else {
     Write-Output "  FAILED (exit $LASTEXITCODE)"
     Get-Content $buildLog -Tail 5
