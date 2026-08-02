@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,6 +77,13 @@ func (i *IPRateLimiter) cleanupLoop(interval, maxIdle time.Duration) {
 func IPThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 	limiter := NewIPRateLimiter(rps, burst)
 	return func(c *gin.Context) {
+		// 静态资源不参与限流：Flutter Web 启动时会一次性发起大量
+		// 资源请求（main.dart.js / canvaskit / 字体 / 图片等），
+		// 全局限流会把它们误伤成 429，导致页面长时间空白。
+		if isStaticAssetPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		ip := c.ClientIP()
 		if !limiter.getLimiter(ip).Allow() {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
@@ -86,6 +94,30 @@ func IPThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// isStaticAssetPath 判断是否为前端静态资源路径（由 Go 服务直出 Flutter 构建产物）。
+// 此类请求走本地静态文件，成本低且可能高频突发，不应计入 IP 限流。
+func isStaticAssetPath(path string) bool {
+	if strings.HasPrefix(path, "/assets/") {
+		return true
+	}
+	if strings.HasPrefix(path, "/downloads/") {
+		return true
+	}
+	if strings.HasPrefix(path, "/icons/") {
+		return true
+	}
+	if strings.HasPrefix(path, "/canvaskit/") {
+		return true
+	}
+	switch path {
+	case "/index.html", "/main.dart.js", "/flutter_bootstrap.js",
+		"/flutter_service_worker.js", "/manifest.json", "/version.json",
+		"/favicon.png", "/favicon.ico":
+		return true
+	}
+	return false
 }
 
 // UserRateLimiter 用户维度限流器

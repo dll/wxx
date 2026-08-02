@@ -455,7 +455,15 @@ class _CampusMapPageState extends State<CampusMapPage> {
 
   /// 打开报到流程管理面板（管理员专用）。
   /// 面板关闭后重新加载后端步骤，确保地图标注与 CRUD 结果一致。
+  ///
+  /// 注意：本方法可能从 PopupMenuButton.onSelected 回调中调用，
+  /// 此时 PopupMenu 的 overlay 仍在关闭过程中，若立即调用
+  /// showModalBottomSheet，其 barrier 会被 PopupMenu 的遮盖拦截，
+  /// 表现为"点击菜单项后无弹窗"。用 addPostFrameCallback 延迟一帧，
+  /// 等 PopupMenu 完全关闭后再弹出 BottomSheet。
   Future<void> _openAdminPanel() async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     await CampusStepAdminPanel.show(
       context,
       campusId: _campus.id,
