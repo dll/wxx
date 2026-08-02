@@ -45,7 +45,7 @@ func TestParseRealHandbookEndToEnd(t *testing.T) {
 		content = strings.TrimSpace(content)
 
 		title := extractDocTitle(content, name)
-		summary := generateDocSummary(content, 200)
+		summary := extractDocSummary(content, 200)
 		keywords := extractDocKeywords(content, 10)
 		wordCount := countDocWords(content)
 		paragraphs := countDocParagraphs(content)

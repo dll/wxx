@@ -360,3 +360,97 @@ func TestReadDocxRealFile(t *testing.T) {
 		}
 	}
 }
+
+// TestExtractDocSummarySkipsHeaderNoise 摘要应跳过文头噪声，取首个实质段落
+func TestExtractDocSummarySkipsHeaderNoise(t *testing.T) {
+	content := "附件：\n\n滁州学院本科生“第二课堂”学分认证标准\n\n一、项目定级标准\n\n为进一步加强校园文化建设，规范本科生第二课堂活动学分认证管理，切实保障学生综合素质评价的公平公正，结合学校实际制定本认证标准。"
+	got := extractDocSummary(content, 200)
+	want := "为进一步加强校园文化建设，规范本科生第二课堂活动学分认证管理，切实保障学生综合素质评价的公平公正，结合学校实际制定本认证标准。"
+	if got != want {
+		t.Errorf("摘要未跳过文头噪声\n期望: %q\n实际: %q", want, got)
+	}
+}
+
+// TestExtractDocSummarySkipsIssuedHeader 印发文头整行跳过，不污染摘要
+func TestExtractDocSummarySkipsIssuedHeader(t *testing.T) {
+	content := "关于印发《滁州学院本科生学籍管理办法》的通知\n\n各院系：为规范学籍管理，保障学生合法权益，根据教育部相关规定，结合我校实际，特制定本办法并印发施行。"
+	got := extractDocSummary(content, 200)
+	if strings.Contains(got, "关于印发") {
+		t.Errorf("摘要包含印发文头，实际: %q", got)
+	}
+	if !strings.Contains(got, "学籍管理") {
+		t.Errorf("摘要未取到正文段落，实际: %q", got)
+	}
+}
+
+// TestExtractDocSummaryFallsBackToPrefix 无实质段落时回退取前 maxLen 字
+func TestExtractDocSummaryFallsBackToPrefix(t *testing.T) {
+	content := "第一章 总则\n第二章 分则\n"
+	got := extractDocSummary(content, 200)
+	want := "第一章 总则\n第二章 分则"
+	if got != want {
+		t.Errorf("回退逻辑异常\n期望: %q\n实际: %q", want, got)
+	}
+}
+
+// TestExtractDocSummaryTruncatesAtParagraphBoundary 超长段落应在段界截断
+func TestExtractDocSummaryTruncatesAtParagraphBoundary(t *testing.T) {
+	content := strings.Repeat("加强规范管理，提升学生综合素质。", 30)
+	got := extractDocSummary(content, 60)
+	if len([]rune(got)) > 70 {
+		t.Errorf("摘要过长: %d 字，实际: %q", len([]rune(got)), got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Errorf("超长段落应加省略号，实际: %q", got)
+	}
+}
+
+// TestExtractDocTitleBookTitle 优先取《…》书名号内的正题
+func TestExtractDocTitleBookTitle(t *testing.T) {
+	content := "关于印发《滁州学院学生学籍管理办法》的通知\n\n第一条 为规范学籍管理……"
+	got := extractDocTitle(content, "x.docx")
+	if got != "滁州学院学生学籍管理办法" {
+		t.Errorf("未提取书名号正题，实际: %q", got)
+	}
+}
+
+// TestExtractDocTitleLongIssuedHeader 印发文头整体过长时截断取书名号正题
+func TestExtractDocTitleLongIssuedHeader(t *testing.T) {
+	content := "关于公布《滁州学院本科生国家奖学金评定实施细则》的决定\n\n一、总则……"
+	got := extractDocTitle(content, "x.docx")
+	if got != "滁州学院本科生国家奖学金评定实施细则" {
+		t.Errorf("未提取书名号正题，实际: %q", got)
+	}
+}
+
+// TestExtractDocKeywordsDomainTerms 领域术语应优先入选
+func TestExtractDocKeywordsDomainTerms(t *testing.T) {
+	content := "各班级同学请注意，本年度国家奖学金评定工作已启动，申请奖学金需满足综合测评成绩排名前列，且无挂科记录。奖学金评审坚持公开公平公正原则，请符合条件的同学及时提交申请材料。"
+	got := extractDocKeywords(content, 10)
+	found := false
+	for _, kw := range got {
+		if strings.Contains(kw, "奖学金") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("领域术语「奖学金」未入选，实际结果: %v", got)
+	}
+}
+
+// TestExtractDocKeywordsTitleBoost 标题中的主题词应优先入选
+func TestExtractDocKeywordsTitleBoost(t *testing.T) {
+	content := "学籍管理办法适用于全体本科生，本办法明确学籍注册、转专业、休学、复学与退学等事项的办理条件与流程。学籍管理由教务部门统一负责。"
+	got := extractDocKeywordsWithTitle(content, "滁州学院本科生学籍管理办法", 10)
+	found := false
+	for _, kw := range got {
+		if strings.Contains(kw, "学籍") || strings.Contains(kw, "管理") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("标题主题词未入选，实际结果: %v", got)
+	}
+}

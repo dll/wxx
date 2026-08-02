@@ -500,8 +500,8 @@ func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentPa
 	// 注意：此处 content 是纯文本（非 FAQ 的 AnswerCard JSON），可安全剥离标签。
 	content := util.SanitizeKnowledgeContent(result.TextContent)
 	title := extractDocTitle(content, result.FileName)
-	summary := generateDocSummary(content, 200)
-	keywords := extractDocKeywords(content, 10)
+	summary := extractDocSummary(content, 200)
+	keywords := extractDocKeywordsWithTitle(content, title, 10)
 	wordCount := countDocWords(content)
 	paragraphs := countDocParagraphs(content)
 
@@ -705,7 +705,7 @@ func extractDocTitle(content, fileName string) string {
 	)
 
 	// 明显的附属前缀行，不能作为标题
-	prefixNoise := []string{"附件", "附录", "附表", "目录", "目 录", "前言", "前 言"}
+	prefixNoise := []string{"附件", "附录", "附表", "目录", "目 录", "前言", "前 言", "关于印发", "关于公布", "关于调整", "关于修订", "公告", "通知"}
 
 	var fallback string
 	lines := strings.Split(content, "\n")
@@ -743,6 +743,12 @@ func extractDocTitle(content, fileName string) string {
 			continue
 		}
 
+		// 优先取《…》书名号内的正题
+		// 例：「关于印发《滁州学院学生学籍管理办法》的通知」→「滁州学院学生学籍管理办法」
+		if inner := extractBookTitle(candidate); inner != "" {
+			candidate = inner
+		}
+
 		runes := []rune(candidate)
 		if len(runes) < minTitleRune || len(runes) > maxTitleRune {
 			continue
@@ -765,12 +771,78 @@ func extractDocTitle(content, fileName string) string {
 	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
-// generateDocSummary 生成摘要（截取前 maxLen 个字符）
-func generateDocSummary(content string, maxLen int) string {
+// extractBookTitle 从行中提取《…》内的正题。
+// 仅当书名号内容长度合理（≥4 字）时返回，避免把零碎引用当标题。
+func extractBookTitle(line string) string {
+	start := strings.Index(line, "《")
+	if start < 0 {
+		return ""
+	}
+	innerStart := start + len("《")
+	rel := strings.Index(line[innerStart:], "》")
+	if rel < 0 {
+		return ""
+	}
+	inner := strings.TrimSpace(line[innerStart : innerStart+rel])
+	if len([]rune(inner)) >= 4 {
+		return inner
+	}
+	return ""
+}
+
+// headerNoisePrefixes 摘要提取时需要跳过的文件头噪声行前缀
+var headerNoisePrefixes = []string{"附件", "附录", "附表", "目录", "前言", "关于印发", "关于公布", "关于调整", "关于修订", "公告", "通知"}
+
+// sectionMarkerPattern 章节/条款标记，如「一、」「（一）」「第一条」「1、」
+var sectionMarkerPattern = regexp.MustCompile(`^(第[一二三四五六七八九十百零两\d]+[条章节款编]|[一二三四五六七八九十]+[、．.]|[（(][一二三四五六七八九十\d]+[）)])`)
+
+// isHeaderNoiseLine 判断一行是否为摘要需跳过的文件头噪声：
+// 章节标记、「关于印发…通知」等文头，或「附件：」这种空壳行。
+func isHeaderNoiseLine(line string) bool {
+	if sectionMarkerPattern.MatchString(line) {
+		return true
+	}
+	for _, p := range headerNoisePrefixes {
+		if strings.HasPrefix(line, p) {
+			rest := strings.TrimSpace(strings.TrimLeft(line[len(p):], "：: 　"))
+			// 「关于印发《…》的通知」这类整行文头，其后续实质段落才适合作摘要
+			return len([]rune(rest)) < minSummaryParRunes || rest == ""
+		}
+	}
+	return false
+}
+
+// minSummaryParRunes 摘要候选段落的最短字数：短行多为标题/章节标题，跳过
+const minSummaryParRunes = 40
+
+// extractDocSummary 提取摘要。
+//
+// 原实现直接取前 maxLen 字，实测常截到「附件：」「目录」等文头噪声。
+// 改为跳过文件头噪声与章节标记，取首个实质段落（≥minSummaryParRunes 字），
+// 在段落边界内展开至 maxLen；仍无合适段落时回退原逻辑。
+func extractDocSummary(content string, maxLen int) string {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return ""
 	}
+
+	paragraphs := strings.Split(content, "\n")
+	for _, raw := range paragraphs {
+		line := strings.TrimSpace(raw)
+		if line == "" || isHeaderNoiseLine(line) {
+			continue
+		}
+		runes := []rune(line)
+		if len(runes) < minSummaryParRunes {
+			continue
+		}
+		if len(runes) <= maxLen {
+			return line
+		}
+		return string(runes[:maxLen]) + "..."
+	}
+
+	// 回退：取前 maxLen 字
 	runes := []rune(content)
 	if len(runes) <= maxLen {
 		return content
@@ -780,6 +852,28 @@ func generateDocSummary(content string, maxLen int) string {
 
 // extractDocKeywords 提取关键词（基于词频统计，返回前 topN 个）
 func extractDocKeywords(content string, topN int) []string {
+	return extractDocKeywordsWithTitle(content, "", topN)
+}
+
+// domainTerms 校园制度领域术语表：n-gram 无分词，术语字频分散（「奖学金」三字各自低频）
+// 仅靠频率难以入选，领域词表命中即加权，确保这类强检索信号不被遗漏。
+var domainTerms = []string{
+	"奖学金", "助学金", "助学贷款", "勤工俭学", "学籍", "学分", "第二课堂", "转专业",
+	"毕业论文", "实习", "就业", "补考", "重修", "选课", "体测", "医保", "宿舍", "评优",
+	"入党", "志愿", "竞赛", "综合测评", "绩点", "缓考", "休学", "复学", "退学",
+	"毕业证", "学位证", "普通话", "教师资格", "考研", "保研", "交换生", "社团",
+	"生源地贷款", "心理咨询", "心理健康", "评奖评优", "离校", "报到", "宿舍调整",
+	"奖学金评定", "勤工助学", "学生证", "火车票优惠卡", "教务系统", "选课系统",
+}
+
+// domainTermBoost 领域术语命中时叠加的频次（约为常见词的若干次出现，足以拉开排名）
+const domainTermBoost = 8
+
+// titleTermBoost 标题中出现的中文词组叠加的频次
+const titleTermBoost = 4
+
+// extractDocKeywordsWithTitle 提取关键词；title 非空时对标题中出现的中文词组加权。
+func extractDocKeywordsWithTitle(content, title string, topN int) []string {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return []string{}
@@ -834,6 +928,33 @@ func extractDocKeywords(content string, topN int) []string {
 			}
 			if isChinese && !stopWords[w] && !isOrdinalPhrase(w) {
 				wordFreq[w]++
+			}
+		}
+	}
+
+	// 领域术语加权（仅当词确在正文中出现，避免凭空引入）
+	for _, term := range domainTerms {
+		if wordFreq[term] > 0 {
+			wordFreq[term] += domainTermBoost
+		}
+	}
+
+	// 标题词组加权：标题是作者自拟的主题句，其组成词应优先入选
+	if title != "" {
+		trunes := []rune(title)
+		for length := 2; length <= 4; length++ {
+			for i := 0; i <= len(trunes)-length; i++ {
+				w := string(trunes[i : i+length])
+				isChinese := true
+				for _, r := range w {
+					if !(r >= 0x4e00 && r <= 0x9fff) {
+						isChinese = false
+						break
+					}
+				}
+				if isChinese && wordFreq[w] > 0 {
+					wordFreq[w] += titleTermBoost
+				}
 			}
 		}
 	}
