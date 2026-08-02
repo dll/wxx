@@ -69,6 +69,7 @@
 | `POST /kb/import` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `POST /documents/parse` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `POST /documents/refine` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `POST /kb/batch/refine` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **校外系统对接** | | | | | | |
 | `GET /integration/status` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `GET /integration/xuegong/*path` | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |

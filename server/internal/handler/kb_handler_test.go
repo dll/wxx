@@ -47,6 +47,7 @@ func setupKBTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 	kbWrite.POST("/kb/resources", kbHandler.CreateResource)
 	kbWrite.PUT("/kb/resources/:id", kbHandler.UpdateResource)
 	kbWrite.POST("/kb/import", kbHandler.Import)
+	kbWrite.POST("/kb/batch/refine", kbHandler.BatchRefine)
 
 	return r, cfg
 }
@@ -530,5 +531,94 @@ func TestKBHandler_BrowseKnowledge_PaginationBoundary(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if cards, ok := resp.Data["Policy"]; !ok || len(cards) == 0 {
 		t.Errorf("期望返回 Policy 分组，得到 %v", resp.Data)
+	}
+}
+
+func TestKBHandler_BatchRefine_EmptyIDs(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine",
+		strings.NewReader(`{"ids":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("空 ids 期望 400，得到 %d", w.Code)
+	}
+}
+
+func TestKBHandler_BatchRefine_TooMany(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	ids := make([]string, 0, 21)
+	for i := 0; i < 21; i++ {
+		ids = append(ids, "r"+string(rune('a'+i)))
+	}
+	body := `{"ids":["` + strings.Join(ids, `","`) + `"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("超过上限期望 400，得到 %d", w.Code)
+	}
+}
+
+func TestKBHandler_BatchRefine_Unauthenticated(t *testing.T) {
+	r, _ := setupKBTestRouter(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine",
+		strings.NewReader(`{"ids":["policy-scholarship-2026"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("未登录期望 401，得到 %d", w.Code)
+	}
+}
+
+func TestKBHandler_BatchRefine_ResponseShape(t *testing.T) {
+	r, cfg := setupKBTestRouter(t)
+
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine",
+		strings.NewReader(`{"ids":["no-such-resource"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp model.KBRefineResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("响应解析失败: %v", err)
+	}
+	if resp.Code != 0 || resp.Data == nil {
+		t.Fatalf("响应结构不符: %s", w.Body.String())
+	}
+	if resp.Data.Total != 1 || resp.Data.Success != 0 || resp.Data.Failed != 1 {
+		t.Errorf("汇总不符: %+v", resp.Data)
+	}
+	if len(resp.Data.Results) != 1 {
+		t.Errorf("逐条结果缺失: %+v", resp.Data)
+	}
+	if resp.Data.Results[0].OK {
+		t.Errorf("不存在的资源不应成功: %+v", resp.Data.Results[0])
 	}
 }

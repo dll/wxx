@@ -51,18 +51,37 @@
 2. 对解析质量差的资源，引导管理员沉淀到 wiki（人工把关），wiki 条目即结构化高质量数据；
 3. 尚未实现，需另行方案评审。
 
-## 四、待办（后续增量）
+> 更新：`knowledge/wiki/` 运营流程已落地，见 `knowledge/wiki/README.md`（条目生命周期、模板与示例条目）。
 
-- 管理员知识治理页「批量精修存量低质量资源」：复用 `RefineMetadata` + `KBService.Update`，按资源 ID 批量重生成元数据。
+## 四、规则精修增强（P1，已完成）
+
+在 LLM 精修不可用/超时/不合法时，规则兜底的质量直接影响上游导入。本次增强：
+
+- **摘要**（`extractDocSummary`）：跳过「附件/目录/关于印发/章节标记」等文头噪声，取首个实质段落（≥40 字）在段界内展开至 200 字；无合适段落回退原逻辑。
+- **标题**（`extractDocTitle`）：新增印发/公布/调整/修订/公告/通知等前缀；优先提取《…》书名号内的正题。
+- **关键词**（`extractDocKeywordsWithTitle`）：新增 ~46 词校园领域词表加权 + 标题主题词加权，弥补 n-gram 无分词的缺陷；保持 O(n log n)。
+
+## 五、批量精修（管理端，P1 已完成）
+
+- **接口**：`POST /api/v1/kb/batch/refine`（`counselor.kb.write`，单批 ≤20 条）
+  `{ids: [...]}` → `{total, success, failed, results[{resource_id, ok, refined, fallback, message}]}`
+- **服务**：`KBService.BatchRefine` 复用 `DocumentService.RefineMetadata`（经 `MetadataRefiner` 接口注入），逐条：取正文 → LLM 精修 → 有效且非回退时写库（走 `Update`，FTS 触发器自动同步 tags）。
+- **前端**：知识治理页批量操作栏新增「AI 精修」按钮（canWrite），确认后展示成功/失败统计与失败原因。
+- **兜底**：未注入精修器 / LLM 失败 / 校验不过 → 单条标记失败或 `fallback=true`，保留原值不写库。
+
+## 六、待办（后续增量）
+
 - 解析质量门槛：正文过短/无中文/含乱码时拒绝或强制预览。
 
 ## 相关文件
 
 | 层 | 文件 |
 |----|------|
-| service | `server/internal/service/document_service.go`（RefineMetadata 与 helper） |
-| handler | `server/internal/handler/document_handler.go`（RefineDocument） |
-| 路由/装配 | `server/pkg/app/app.go`（SetLLMClient + /documents/refine） |
+| service | `server/internal/service/document_service.go`（RefineMetadata 与规则精修 helper） |
+| service | `server/internal/service/kb_service.go`（BatchRefine / refineOne / MetadataRefiner） |
+| handler | `server/internal/handler/document_handler.go`（RefineDocument）、`kb_handler.go`（BatchRefine） |
+| 路由/装配 | `server/pkg/app/app.go`（SetLLMClient + SetRefiner + 路由注册） |
 | 迁移 | `server/migrations/049_fts_tags.sql` |
 | repository | `server/internal/repository/kb_repo.go`（bm25 权重） |
+| model | `server/internal/model/dto.go`（KBRefineResult / KBRefineResponse） |
 | 前端 | `frontend/lib/pages/admin/my_submissions_page.dart`、`knowledge_provider.dart`、`api_config.dart` |

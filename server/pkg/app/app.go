@@ -183,6 +183,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 注入 LLM 客户端，启用文档元数据精修（标题/摘要/关键词）
 	docSvc.SetLLMClient(llmClient)
 	docParseSvc.SetLLMClient(llmClient)
+	// 启用知识库批量精修（复用精修器，逐条 LLM 精修存量资源元数据）
+	kbSvc.SetRefiner(docSvc)
 	if chatSvc != nil {
 		chatSvc.SetTokenStatsService(tokenStatsSvc)
 		// 反馈"回答有误"时，立即把对应 FAQ 缓存标为 retired
@@ -760,6 +762,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				kb.POST("/batch/reject", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchReject)
 				kb.POST("/batch/retire", auth.RequireCapability(auth.CounselorKBReview), kbH.BatchRetire)
 				kb.POST("/batch/delete", auth.RequireCapability(auth.CounselorKBWrite), kbH.BatchDelete)
+				kb.POST("/batch/refine", auth.RequireCapability(auth.CounselorKBWrite), kbH.BatchRefine)
 
 				// 知识审核（counselor.kb.review）
 				kb.POST("/resources/:id/approve", auth.RequireCapability(auth.CounselorKBReview), kbH.ApproveResource)

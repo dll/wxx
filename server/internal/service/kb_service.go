@@ -25,12 +25,28 @@ var validStatuses = map[string]bool{
 type KBService struct {
 	kbRepo *repository.KBRepo
 	db     *sql.DB
+	// refiner 元数据精修器（批量精修能力）；nil 时批量精修整体不可用
+	refiner MetadataRefiner
 }
 
 // NewKBService 创建知识库服务
 func NewKBService(kbRepo *repository.KBRepo, db *sql.DB) *KBService {
 	return &KBService{kbRepo: kbRepo, db: db}
 }
+
+// MetadataRefiner 文档元数据精修器接口。
+// DocumentService.RefineMetadata 实现该接口；未注入时批量精修整体回退。
+type MetadataRefiner interface {
+	RefineMetadata(ctx context.Context, title, summary string, keywords []string, content string) *DocumentRefineResult
+}
+
+// SetRefiner 注入元数据精修器（启用批量精修能力）。
+func (s *KBService) SetRefiner(refiner MetadataRefiner) {
+	s.refiner = refiner
+}
+
+// BatchRefineLimit 单次批量精修的资源上限（控制 LLM 调用成本与接口耗时）
+const BatchRefineLimit = 20
 
 // List 分页查询知识资源
 func (s *KBService) List(ctx context.Context, ownerScope, ownerID, status, resourceType string, page, pageSize int) ([]*model.KBResource, int, error) {
@@ -554,4 +570,87 @@ func (s *KBService) GetStats(ctx context.Context) (*repository.KBStats, error) {
 		return nil, fmt.Errorf("获取统计数据失败: %w", err)
 	}
 	return stats, nil
+}
+
+// BatchRefine 批量精修知识资源元数据（标题/摘要/标签）。
+//
+// 逐条：取正文 → LLM 精修 → 精修有效且非回退时写库（走 Update，FTS 触发器自动生效）。
+// 单条失败不影响其它条，逐条结果供前端展示；未注入精修器时全部回退。
+func (s *KBService) BatchRefine(ctx context.Context, resourceIDs []string, operator string) *model.KBRefineResult {
+	result := &model.KBRefineResult{
+		Total:   len(resourceIDs),
+		Results: make([]*model.KBRefineItemResult, 0, len(resourceIDs)),
+	}
+
+	for _, rid := range resourceIDs {
+		item := s.refineOne(ctx, rid, operator)
+		if item.OK {
+			result.Success++
+		} else {
+			result.Failed++
+		}
+		result.Results = append(result.Results, item)
+	}
+	log.Printf("批量精修知识资源 total=%d success=%d failed=%d by=%s",
+		result.Total, result.Success, result.Failed, operator)
+	return result
+}
+
+// refineOne 精修单个知识资源
+func (s *KBService) refineOne(ctx context.Context, resourceID, operator string) *model.KBRefineItemResult {
+	item := &model.KBRefineItemResult{ResourceID: resourceID}
+
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		item.Message = "查询资源失败"
+		return item
+	}
+	if existing == nil {
+		item.Message = "资源不存在"
+		return item
+	}
+	if strings.TrimSpace(existing.Content) == "" {
+		item.Message = "正文为空，无法精修"
+		return item
+	}
+	if s.refiner == nil {
+		item.Message = "精修服务未启用"
+		return item
+	}
+
+	refined := s.refiner.RefineMetadata(ctx, existing.Title, existing.Summary, parseTags(existing.Tags), existing.Content)
+	if refined == nil {
+		item.Message = "精修无返回"
+		return item
+	}
+	if refined.Fallback {
+		item.Message = "LLM 不可用或结果未通过校验，保留原值"
+		item.Fallback = true
+		item.Title = refined.Title
+		item.Summary = refined.Summary
+		return item
+	}
+
+	tagsJSON, err := json.Marshal(refined.Keywords)
+	if err != nil {
+		item.Message = "标签序列化失败"
+		return item
+	}
+
+	updated, err := s.Update(ctx, resourceID, &model.KBUpdateRequest{
+		Title:   refined.Title,
+		Summary: refined.Summary,
+		Tags:    string(tagsJSON),
+	}, operator)
+	if err != nil {
+		item.Message = "写库失败: " + err.Error()
+		return item
+	}
+
+	item.OK = true
+	item.Refined = true
+	item.Title = updated.Title
+	item.Summary = updated.Summary
+	item.Tags = updated.Tags
+	return item
 }

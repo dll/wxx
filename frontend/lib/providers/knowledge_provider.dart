@@ -374,6 +374,33 @@ class KnowledgeProvider extends ChangeNotifier {
     }
   }
 
+  /// 批量 AI 精修选中资源元数据（标题/摘要/标签）。
+  /// 返回汇总信息供结果展示：{total, success, failed, results[]}。
+  Future<Map<String, dynamic>?> batchRefine() async {
+    if (_selectedResourceIds.isEmpty) return null;
+    try {
+      final response = await _api.post(
+        ApiConfig.kbBatchRefine,
+        data: {'ids': _selectedResourceIds.toList()},
+      );
+      if (response.data['code'] == 0) {
+        final data =
+            Map<String, dynamic>.from(response.data['data'] as Map);
+        _selectedResourceIds.clear();
+        await searchResources(refresh: true);
+        fetchStats();
+        return data;
+      }
+      _resourceError = response.data['message']?.toString() ?? '批量精修失败';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _resourceError = '网络错误: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
   Future<bool> deleteResource(String resourceId) async {
     try {
       final response = await _api.post(

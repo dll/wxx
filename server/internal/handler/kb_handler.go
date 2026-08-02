@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -758,6 +759,46 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 		"code":    0,
 		"message": "批量删除成功",
 		"data":    gin.H{"count": count},
+	})
+}
+
+// BatchRefine 批量 AI 精修知识资源元数据（标题/摘要/标签）
+// POST /api/v1/kb/batch/refine
+// 权限：counselor.kb.write（与批量删除一致，写入类操作）
+func (h *KBHandler) BatchRefine(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	var req batchIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "参数校验失败：ids 不能为空",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+	if len(req.IDs) > service.BatchRefineLimit {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: fmt.Sprintf("单次精修数量不能超过 %d 条", service.BatchRefineLimit),
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
+	data := h.kbSvc.BatchRefine(c.Request.Context(), req.IDs, userCtx.Username)
+	c.JSON(http.StatusOK, model.KBRefineResponse{
+		Code:    0,
+		Message: "批量精修完成",
+		Data:    data,
 	})
 }
 

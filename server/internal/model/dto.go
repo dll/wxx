@@ -264,6 +264,33 @@ type KBImportResponse struct {
 	Skipped int               `json:"skipped"` // 跳过数
 }
 
+// KBRefineItemResult 批量精修单条结果
+type KBRefineItemResult struct {
+	ResourceID string `json:"resource_id"` // 资源 ID
+	OK         bool   `json:"ok"`          // 是否成功
+	Title      string `json:"title,omitempty"`   // 精修后标题
+	Summary    string `json:"summary,omitempty"` // 精修后摘要
+	Tags       string `json:"tags,omitempty"`    // 精修后标签（JSON 数组字符串）
+	Refined    bool   `json:"refined"`           // 是否真正由 LLM 精修
+	Fallback   bool   `json:"fallback"`          // 是否回退（未精修，保留原值）
+	Message    string `json:"message,omitempty"` // 失败原因
+}
+
+// KBRefineResult 批量精修汇总
+type KBRefineResult struct {
+	Total   int                   `json:"total"`   // 请求总数
+	Success int                   `json:"success"` // 精修并写库成功数
+	Failed  int                   `json:"failed"`  // 失败数
+	Results []*KBRefineItemResult `json:"results"` // 逐条结果
+}
+
+// KBRefineResponse 批量精修响应
+type KBRefineResponse struct {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    *KBRefineResult `json:"data"`
+}
+
 // ── 回答导出 DTO ──
 
 // ExportAnswerRequest 回答卡片导出请求

@@ -560,6 +560,13 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
               if (canWrite) ...[
                 const SizedBox(width: 6),
                 _batchActionButton(
+                  icon: Icons.auto_awesome_outlined,
+                  label: 'AI 精修',
+                  color: Theme.of(context).colorScheme.primary,
+                  onPressed: () => _confirmBatchRefine(),
+                ),
+                const SizedBox(width: 6),
+                _batchActionButton(
                   icon: Icons.delete_outline,
                   label: '删除',
                   color: Theme.of(context).colorScheme.error,
@@ -643,6 +650,95 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
         ),
       );
     }
+  }
+
+  /// 批量 AI 精修：确认后调用接口，并展示成功/失败统计与失败原因
+  Future<void> _confirmBatchRefine() async {
+    final provider = context.read<KnowledgeProvider>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批量 AI 精修'),
+        content: Text(
+          '将对选中的 ${provider.selectedCount} 条资源执行 AI 精修'
+          '（重新生成标题、摘要与标签，精修结果将直接写入）。\n'
+          '注意：精修依赖大模型，请核对精修结果是否准确。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认精修'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final data = await provider.batchRefine();
+    if (!mounted) return;
+    if (data == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.resourceError.isEmpty
+              ? '批量精修失败，请稍后重试'
+              : provider.resourceError),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
+    final success = (data['success'] ?? 0) as int;
+    final failed = (data['failed'] ?? 0) as int;
+    final results = (data['results'] as List<dynamic>?) ?? [];
+    final failedReasons = results
+        .where((e) => e is Map && e['ok'] != true && (e['message'] ?? '').isNotEmpty)
+        .map((e) => '${(e as Map)['resource_id']}: ${e['message']}')
+        .take(5)
+        .join('\n');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('批量精修完成'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('成功 $success 条，失败 $failed 条。'),
+              if (failedReasons.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('失败原因：'),
+                const SizedBox(height: 4),
+                Text(
+                  failedReasons,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(ctx).colorScheme.error,
+                  ),
+                ),
+              ],
+              if (failed == 0)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text('建议抽查精修结果，确认无误后发布。'),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 资源列表 ──

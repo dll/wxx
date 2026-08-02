@@ -52,6 +52,7 @@
 | `POST` | `/kb/import` | JWT | ≥ counselor | 导入资源（NDJSON 或 JSON 包裹），返回逐条结果统计 |
 | `POST` | `/documents/parse` | JWT | ≥ counselor | 文档解析（PDF/DOCX/TXT/MD/CSV/XLSX → 标题/摘要/关键词/正文） |
 | `POST` | `/documents/refine` | JWT | ≥ counselor | LLM 精修文档元数据 `{content, title?, summary?, keywords?}` → 精修后标题/摘要/关键词（失败自动回退原值） |
+| `POST` | `/kb/batch/refine` | JWT | ≥ counselor | 批量 AI 精修存量资源元数据 `{ids}`（≤20 条）→ 逐条结果与成功/失败统计；精修结果直接写库 |
 | `GET` | `/integration/status` | JWT | ≥ counselor | 校外系统可用状态 |
 | `GET` | `/integration/xuegong/*path` | JWT | ≥ counselor | 代理学工系统查询 |
 | `GET` | `/integration/ybt/*path` | JWT | ≥ counselor | 代理一表通查询 |
@@ -177,6 +178,7 @@
 
 | 日期 | 变更摘要 | 兼容策略 |
 |------|----------|----------|
+| 2026-08-02 | 新增 `POST /kb/batch/refine` 批量 AI 精修存量资源（≤20 条/批，逐条写库） | 向前兼容 |
 | 2026-08-02 | 新增 `POST /documents/refine` LLM 元数据精修；`kb_fts` 索引纳入 tags（049 迁移） | 向前兼容 |
 | 2026-06-19 | 新增毕设选题、学科竞赛、大学规划、入党教育、社团生活 5 大模块（35 端点） | 向前兼容 |
 | 2026-06-19 | 新增问题预案：`/forecast/analysis`、`/forecast/issues`、`/forecast/issues/:id`、`/forecast/statistics`（5 端点） | 向前兼容 |
