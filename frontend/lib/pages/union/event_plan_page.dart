@@ -75,10 +75,42 @@ class _EventPlanPageState extends State<EventPlanPage> {
                   Row(children: [
                     Icon(Icons.event, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    Text('策划方案', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(_result!['title'] ?? '策划方案', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
-                  const SizedBox(height: 12),
-                  Text(_result!['plan'] ?? _result!['content'] ?? '方案生成中...', style: theme.textTheme.bodyMedium),
+                  if ((_result!['goal'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _section(theme, Icons.flag, '目标', _result!['goal']),
+                  ],
+                  if ((_result!['budget'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _section(theme, Icons.payments, '预算', _result!['budget']),
+                  ],
+                  if (_result!['timeline'] != null) ...[
+                    const SizedBox(height: 8),
+                    Text('时间线', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    ...((_result!['timeline'] as List?) ?? []).map((t) {
+                      final m = t as Map<String, dynamic>;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.schedule, size: 18, color: theme.colorScheme.primary),
+                        title: Text(m['phase'] ?? '', style: const TextStyle(fontSize: 14)),
+                        subtitle: Text(m['tasks'] ?? '', style: const TextStyle(fontSize: 12)),
+                      );
+                    }),
+                  ],
+                  if ((_result!['promotion'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _section(theme, Icons.campaign, '宣传方案', _result!['promotion']),
+                  ],
+                  if (_result!['risk_assessment'] != null) ...[
+                    const SizedBox(height: 8),
+                    Text('风险评估', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    ...((_result!['risk_assessment'] as List?) ?? []).map((r) => Text('•  $r',
+                        style: theme.textTheme.bodySmall)),
+                  ],
                 ]),
               ),
             ),
@@ -86,5 +118,17 @@ class _EventPlanPageState extends State<EventPlanPage> {
         ],
       ),
     );
+  }
+
+  Widget _section(ThemeData theme, IconData icon, String title, dynamic value) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 6),
+        Text(title, style: theme.textTheme.titleSmall),
+      ]),
+      const SizedBox(height: 4),
+      Text(value?.toString() ?? '', style: theme.textTheme.bodyMedium),
+    ]);
   }
 }

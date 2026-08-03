@@ -50,6 +50,14 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
 
   Widget _buildContent(ThemeData theme) {
     if (_result == null) return const Center(child: Text('暂无数据'));
+    final overview = (_result!['overview'] as Map?)?.cast<String, dynamic>() ?? {};
+    final aiInsight = (_result!['ai_insight'] ?? '').toString();
+    final metricCards = <Map<String, String>>[
+      {'value': '${overview['total_students'] ?? 0}', 'label': '学生总数'},
+      {'value': '${overview['health_score'] ?? 0}', 'label': '健康度'},
+      {'value': '${overview['risk_students'] ?? 0}', 'label': '风险关注'},
+      {'value': '${((overview['active_rate'] ?? 0) as num? ?? 0 * 100).toStringAsFixed(0)}%', 'label': '健康率'},
+    ];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -64,28 +72,44 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
               Row(children: [
                 Icon(Icons.dashboard, color: theme.colorScheme.primary, size: 28),
                 const SizedBox(width: 8),
-                Text('学院全景', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text(_result!['college'] ?? '学院', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               ]),
-              const SizedBox(height: 16),
-              Text(_result!['summary'] ?? '暂无概览', style: theme.textTheme.bodyLarge),
+              const SizedBox(height: 4),
+              Text('更新时间：${_result!['updated_at'] ?? ''}', style: theme.textTheme.bodySmall),
             ]),
           ),
         ),
-        if (_result!['metrics'] != null) ...[
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.6,
+          children: metricCards.map<Widget>((m) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(m['value']!, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                const SizedBox(height: 4),
+                Text(m['label']!, style: theme.textTheme.bodySmall),
+              ]),
+            ),
+          )).toList(),
+        ),
+        if (aiInsight.isNotEmpty) ...[
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.6,
-            children: (_result!['metrics'] as List? ?? []).map<Widget>((m) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(m['value']?.toString() ?? '0', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                  const SizedBox(height: 4),
-                  Text(m['label'] ?? '', style: theme.textTheme.bodySmall),
+          Card(
+            color: theme.colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.psychology, color: theme.colorScheme.onPrimaryContainer, size: 18),
+                  const SizedBox(width: 6),
+                  Text('AI 解读', style: theme.textTheme.titleSmall),
                 ]),
-              ),
-            )).toList(),
+                const SizedBox(height: 8),
+                Text(aiInsight, style: theme.textTheme.bodyMedium),
+              ]),
+            ),
           ),
         ],
       ],

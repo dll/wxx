@@ -120,8 +120,12 @@ func (h *CounselorHandler) Intervention(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&req)
 
-	if h.svc != nil && req.StudentName != "" {
-		plan, err := h.svc.GenerateIntervention(c.Request.Context(), req.StudentName, req.RiskLevel, req.Reason)
+	if h.svc != nil && (req.StudentName != "" || req.StudentID != "") {
+		name := req.StudentName
+		if name == "" {
+			name = req.StudentID
+		}
+		plan, err := h.svc.GenerateIntervention(c.Request.Context(), name, req.RiskLevel, req.Reason)
 		if err == nil && plan != nil {
 			c.JSON(http.StatusOK, plan)
 			return
@@ -163,12 +167,22 @@ func (h *CounselorHandler) TalkRecord(c *gin.Context) {
 
 // TalkTips 谈话话术推荐
 func (h *CounselorHandler) TalkTips(c *gin.Context) {
+	// 前端传 scene/type，后端兼容 profile/scene/type 三种参数
 	profile := c.Query("profile")
+	if profile == "" {
+		profile = c.Query("type")
+	}
+	if profile == "" {
+		profile = c.Query("scene")
+	}
 
 	if h.svc != nil && profile != "" {
 		tip, err := h.svc.GenerateTalkTips(c.Request.Context(), profile)
 		if err == nil && tip != nil {
-			c.JSON(http.StatusOK, tip)
+			// 统一返回 {tips:[...]} 供前端渲染（开场白 + 提问建议）
+			tips := []string{tip.OpeningLine}
+			tips = append(tips, tip.Questions...)
+			c.JSON(http.StatusOK, gin.H{"tips": tips})
 			return
 		}
 	}

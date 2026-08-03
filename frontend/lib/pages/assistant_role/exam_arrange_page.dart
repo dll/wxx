@@ -50,7 +50,8 @@ class _ExamArrangePageState extends State<ExamArrangePage> {
 
   Widget _buildContent(ThemeData theme) {
     if (_result == null) return const Center(child: Text('暂无数据'));
-    final exams = _result!['exams'] as List? ?? [];
+    final schedule = (_result!['schedule'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final conflicts = (_result!['conflicts'] as List?)?.cast<String>() ?? [];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -64,20 +65,41 @@ class _ExamArrangePageState extends State<ExamArrangePage> {
                 Text('考试安排', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(_result!['summary'] ?? '暂无安排', style: theme.textTheme.bodyMedium),
+              Text('${_result!['total_exams'] ?? 0} 场考试 · ${_result!['total_rooms'] ?? 0} 个考场 · ${_result!['total_invigilators'] ?? 0} 名监考',
+                  style: theme.textTheme.bodyMedium),
             ]),
           ),
         ),
         const SizedBox(height: 16),
-        ...exams.map((e) => Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: Icon(Icons.assignment, color: theme.colorScheme.secondary),
-            title: Text(e['course'] ?? ''),
-            subtitle: Text('${e['time'] ?? ''} | ${e['room'] ?? ''}'),
-            trailing: Text(e['status'] ?? ''),
-          ),
-        )),
+        Text('编排明细', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (schedule.isEmpty)
+          Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('暂无考试安排')))
+        else
+          ...schedule.map((e) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: Icon(Icons.assignment, color: theme.colorScheme.secondary),
+              title: Text(e['course'] ?? ''),
+              subtitle: Text(
+                '${e['date'] ?? ''} ${e['time'] ?? ''} | ${e['room'] ?? ''}',
+                style: theme.textTheme.bodySmall,
+              ),
+              trailing: Text('${e['students'] ?? 0}人', style: theme.textTheme.bodySmall),
+            ),
+          )),
+        if (conflicts.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('冲突提示', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...conflicts.map((c) => Card(
+            color: theme.colorScheme.errorContainer.withOpacity(0.4),
+            child: ListTile(
+              leading: const Icon(Icons.warning_amber, color: Colors.red, size: 20),
+              title: Text(c, style: const TextStyle(fontSize: 14)),
+            ),
+          )),
+        ],
       ],
     );
   }

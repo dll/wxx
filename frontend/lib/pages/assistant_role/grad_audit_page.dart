@@ -50,7 +50,13 @@ class _GradAuditPageState extends State<GradAuditPage> {
 
   Widget _buildContent(ThemeData theme) {
     if (_result == null) return const Center(child: Text('暂无数据'));
-    final students = _result!['students'] as List? ?? [];
+    final name = _result!['student_name'] ?? '示例学生';
+    final total = (_result!['total_credits'] ?? 0).toDouble();
+    final required = (_result!['required_credits'] ?? 0).toDouble();
+    final passed = (_result!['can_graduate'] ?? false) == true;
+    final passedItems = (_result!['passed_items'] as List?)?.cast<String>() ?? [];
+    final pendingItems = (_result!['pending_items'] as List?)?.cast<String>() ?? [];
+    final summary = _result!['summary'] ?? '';
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -59,24 +65,54 @@ class _GradAuditPageState extends State<GradAuditPage> {
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Icon(Icons.school, color: theme.colorScheme.primary),
+                Icon(passed ? Icons.verified : Icons.error_outline,
+                    color: passed ? Colors.green : Colors.red),
                 const SizedBox(width: 8),
-                Text('审核概览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('审核结果', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(_result!['summary'] ?? '暂无概览', style: theme.textTheme.bodyMedium),
+              Text('学生：$name', style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 4),
+              Text('已获学分：${total.toStringAsFixed(0)} / 要求 ${required.toStringAsFixed(0)}',
+                  style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 4),
+              Text('结论：${passed ? '✅ 符合毕业条件' : '❌ 未达到毕业条件'}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                      color: passed ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.w600)),
+              if ((summary ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(summary.toString(), style: theme.textTheme.bodySmall),
+              ],
             ]),
           ),
         ),
-        const SizedBox(height: 16),
-        ...students.map((s) => Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: Icon(s['passed'] == true ? Icons.check_circle : Icons.cancel, color: s['passed'] == true ? Colors.green : Colors.red),
-            title: Text(s['name'] ?? ''),
-            subtitle: Text(s['reason'] ?? ''),
-          ),
-        )),
+        if (passedItems.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('已达标项', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...passedItems.map((p) => Card(
+            margin: const EdgeInsets.only(bottom: 6),
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.check_circle, color: Colors.green, size: 20),
+              title: Text(p, style: const TextStyle(fontSize: 14)),
+            ),
+          )),
+        ],
+        if (pendingItems.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('待补项', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...pendingItems.map((p) => Card(
+            margin: const EdgeInsets.only(bottom: 6),
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.cancel, color: Colors.red, size: 20),
+              title: Text(p, style: const TextStyle(fontSize: 14)),
+            ),
+          )),
+        ],
       ],
     );
   }

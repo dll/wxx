@@ -50,9 +50,25 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
 
   Widget _buildContent(ThemeData theme) {
     if (_result == null) return const Center(child: Text('暂无数据'));
+    final query = (_result!['query'] ?? '').toString();
+    final content = (_result!['content'] ?? '暂无分析').toString();
+    final dataSource = (_result!['data_source'] ?? '').toString();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (query.isNotEmpty) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Icon(Icons.search, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(child: Text('分析主题：$query', style: theme.textTheme.bodyMedium)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -60,25 +76,18 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
               Row(children: [
                 Icon(Icons.analytics, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('分析报告', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('分析结论', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(_result!['summary'] ?? '暂无分析', style: theme.textTheme.bodyMedium),
+              Text(content, style: theme.textTheme.bodyMedium),
+              if (dataSource.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('数据来源：${dataSource == 'fallback' ? '暂无足够数据，展示占位结论' : dataSource}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+              ],
             ]),
           ),
         ),
-        if (_result!['insights'] != null) ...[
-          const SizedBox(height: 16),
-          Text('关键洞察', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ...(_result!['insights'] as List? ?? []).map((i) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.insights),
-              title: Text(i.toString()),
-            ),
-          )),
-        ],
       ],
     );
   }

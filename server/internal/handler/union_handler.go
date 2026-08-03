@@ -18,8 +18,23 @@ func NewUnionHandler(svc *service.UnionService) *UnionHandler {
 
 // EventPlan AI 活动策划
 func (h *UnionHandler) EventPlan(c *gin.Context) {
-	eventType := c.Query("type")
-	eventName := c.Query("name")
+	var req struct {
+		Theme string `json:"theme"`
+		Name  string `json:"name"`
+		Type  string `json:"type"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req = struct {
+			Theme string `json:"theme"`
+			Name  string `json:"name"`
+			Type  string `json:"type"`
+		}{}
+	}
+	eventName := req.Name
+	if eventName == "" {
+		eventName = req.Theme
+	}
+	eventType := req.Type
 
 	if h.svc != nil {
 		plan := h.svc.GenerateEventPlan(c.Request.Context(), eventType, eventName)
@@ -45,8 +60,18 @@ func (h *UnionHandler) EventPlan(c *gin.Context) {
 
 // PosterGen AI 海报文案生成
 func (h *UnionHandler) PosterGen(c *gin.Context) {
-	title := c.Query("title")
-	style := c.Query("style")
+	var req struct {
+		Title string `json:"title"`
+		Style string `json:"style"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req = struct {
+			Title string `json:"title"`
+			Style string `json:"style"`
+		}{}
+	}
+	title := req.Title
+	style := req.Style
 
 	if h.svc != nil {
 		poster := h.svc.GeneratePoster(c.Request.Context(), title, style)

@@ -1373,8 +1373,10 @@ class DigitalTwinData {
               ?.map((e) => TwinDimension.fromJson(e))
               .toList() ??
           [],
-      aiSummary: json['ai_summary'] ?? '',
-      suggestions: List<String>.from(json['suggestions'] ?? []),
+      // 后端真实孪生返回 interpretation / stage_advice（v1 字段对齐）
+      aiSummary: json['ai_summary'] ?? json['interpretation'] ?? '',
+      suggestions: List<String>.from(
+          json['suggestions'] ?? json['stage_advice'] ?? []),
     );
   }
 }
@@ -1390,7 +1392,7 @@ class TwinDimension {
     return TwinDimension(
       name: json['name'] ?? '',
       score: (json['score'] ?? 0).toDouble(),
-      label: json['label'] ?? '',
+      label: json['label'] ?? json['level'] ?? '',
     );
   }
 }
@@ -1493,6 +1495,7 @@ class CourseNode {
   final String status;
   final List<String> prerequisites;
   final String category;
+  final double mastery;
 
   CourseNode(
       {this.id = '',
@@ -1501,17 +1504,19 @@ class CourseNode {
       this.semester = 1,
       this.status = 'pending',
       this.prerequisites = const [],
-      this.category = ''});
+      this.category = '',
+      this.mastery = 0});
 
   factory CourseNode.fromJson(Map<String, dynamic> json) {
     return CourseNode(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
-      credits: json['credits'] ?? 0,
+      credits: (json['credits'] ?? 0).toDouble().toInt(),
       semester: json['semester'] ?? 1,
       status: json['status'] ?? 'pending',
       prerequisites: List<String>.from(json['prerequisites'] ?? []),
       category: json['category'] ?? '',
+      mastery: (json['mastery'] ?? 0).toDouble(),
     );
   }
 
@@ -1528,6 +1533,12 @@ class CourseNode {
 /// 课程学情看板
 class CourseAnalyticsData {
   final String courseName;
+  final double score;
+  final double gpa;
+  final String gradeLevel;
+  final bool passed;
+  final double credits;
+  final String semester;
   final double progress;
   final int rankPercentile;
   final List<KnowledgePoint> knowledgePoints;
@@ -1535,15 +1546,28 @@ class CourseAnalyticsData {
 
   CourseAnalyticsData(
       {this.courseName = '',
+      this.score = 0,
+      this.gpa = 0,
+      this.gradeLevel = '',
+      this.passed = false,
+      this.credits = 0,
+      this.semester = '',
       this.progress = 0,
       this.rankPercentile = 50,
       this.knowledgePoints = const [],
       this.weakPoints = const []});
 
   factory CourseAnalyticsData.fromJson(Map<String, dynamic> json) {
+    final score = (json['score'] ?? 0).toDouble();
     return CourseAnalyticsData(
       courseName: json['course_name'] ?? '',
-      progress: (json['progress'] ?? 0).toDouble(),
+      score: score,
+      gpa: (json['gpa'] ?? 0).toDouble(),
+      gradeLevel: json['grade_level'] ?? '',
+      passed: json['passed'] ?? false,
+      credits: (json['credits'] ?? 0).toDouble(),
+      semester: (json['semester'] ?? '').toString(),
+      progress: (json['progress'] ?? (score > 0 ? score / 100.0 : 0)).toDouble(),
       rankPercentile: json['rank_percentile'] ?? 50,
       knowledgePoints: (json['knowledge_points'] as List?)
               ?.map((e) => KnowledgePoint.fromJson(e))

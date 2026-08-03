@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
-import '../../config/api_config.dart';
 
 class QAPlazaPage extends StatefulWidget {
   const QAPlazaPage({super.key});
@@ -10,38 +9,24 @@ class QAPlazaPage extends StatefulWidget {
 }
 
 class _QAPlazaPageState extends State<QAPlazaPage> {
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final api = context.read<StudentFeatureProvider>();
-      final res = await api.askAI(ApiConfig.qaPlaza);
-      setState(() => _loading = false);
-    } catch (e) {
-      setState(() => _loading = false);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<StudentFeatureProvider>().fetchQAPlaza();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<StudentFeatureProvider>();
+    final questions = provider.qaQuestions;
     return Scaffold(
       appBar: AppBar(title: const Text('问答广场')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        child: const Icon(Icons.add),
-      ),
       body: RefreshIndicator(
-        onRefresh: () => provider.askAI(ApiConfig.qaPlaza),
-        child: provider.aiLoading
+        onRefresh: () => provider.fetchQAPlaza(),
+        child: provider.loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: const EdgeInsets.all(16),
@@ -50,7 +35,7 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity( 0.7)],
+                        colors: [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity(0.7)],
                       ),
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -60,34 +45,59 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('问答广场', style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('AI 增强的校园问答社区', style: TextStyle(color: theme.colorScheme.onPrimary.withOpacity( 0.8), fontSize: 13)),
+                        Text('AI 增强的校园问答社区', style: TextStyle(color: theme.colorScheme.onPrimary.withOpacity(0.8), fontSize: 13)),
                       ])),
                     ]),
                   ),
                   const SizedBox(height: 16),
-                  if (provider.aiResponse.isNotEmpty)
-                    Card(child: Padding(padding: const EdgeInsets.all(16), child: SelectableText(provider.aiResponse, style: theme.textTheme.bodyMedium)))
+                  if (questions.isEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(children: [
+                          Icon(Icons.forum_outlined, size: 48, color: theme.colorScheme.primary.withOpacity(0.4)),
+                          const SizedBox(height: 12),
+                          Text('暂无问答内容', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        ]),
+                      ),
+                    )
                   else
-                    ..._buildDemoContent(theme),
+                    ...questions.map((q) => Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ExpansionTile(
+                        title: Text(q['title'] ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '${q['author'] ?? '同学'} · ${q['answers'] ?? 0} 回答 · ${q['views'] ?? 0} 浏览',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: Icon(Icons.question_answer, color: theme.colorScheme.onPrimaryContainer, size: 20),
+                        ),
+                        children: [
+                          if ((q['ai_answer'] ?? '').toString().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text('💡 AI 解答：${q['ai_answer']}',
+                                    style: theme.textTheme.bodySmall),
+                              ),
+                            ),
+                        ],
+                      ),
+                    )),
                 ],
               ),
       ),
     );
-  }
-
-  List<Widget> _buildDemoContent(ThemeData theme) {
-    final questions = [
-      {'title': '转专业需要什么条件？', 'answers': '5', 'views': '128', 'tags': '政策'},
-      {'title': '图书馆自习室怎么预约？', 'answers': '3', 'views': '89', 'tags': '生活'},
-      {'title': 'ACM竞赛如何入门？', 'answers': '8', 'views': '256', 'tags': '竞赛'},
-    ];
-    return questions.map((q) => Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(q['title']!),
-        subtitle: Text('${q['answers']} 回答 · ${q['views']} 浏览'),
-        trailing: Chip(label: Text(q['tags']!, style: const TextStyle(fontSize: 11))),
-      ),
-    )).toList();
   }
 }

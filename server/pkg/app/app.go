@@ -1072,8 +1072,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 学生会 AI 功能 ──
 			unionGroup := secured.Group("/union")
 			{
-				unionGroup.GET("/event-plan", auth.RequireCapability(auth.UnionEventPlan), unionH.EventPlan)
-				unionGroup.GET("/poster-gen", auth.RequireCapability(auth.UnionPosterGen), unionH.PosterGen)
+				unionGroup.POST("/event-plan", auth.RequireCapability(auth.UnionEventPlan), unionH.EventPlan)
+				unionGroup.POST("/poster-gen", auth.RequireCapability(auth.UnionPosterGen), unionH.PosterGen)
 				// ── P2 学生会深度分析 ──
 				unionGroup.GET("/recruitment", auth.RequireCapability(auth.UnionEventPlan), unionH.Recruitment)
 				unionGroup.GET("/member-manage", auth.RequireCapability(auth.UnionEventPlan), unionH.MemberManage)

@@ -35,6 +35,10 @@ class _ClassProfilePageState extends State<ClassProfilePage> {
   Widget _buildContent(CounselorFeatureProvider provider, ThemeData theme) {
     final data = provider.classProfile;
     if (data == null) return const Center(child: Text('暂无数据'));
+    final distribution = (data['distribution'] as Map?)?.cast<String, int>() ?? {};
+    final characteristics = (data['characteristics'] as List?)?.cast<String>() ?? [];
+    final suggestions = (data['suggestions'] as List?)?.cast<String>() ?? [];
+    final total = distribution.values.fold<int>(0, (s, v) => s + v);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -49,20 +53,62 @@ class _ClassProfilePageState extends State<ClassProfilePage> {
               Row(children: [
                 Icon(Icons.groups, color: theme.colorScheme.tertiary),
                 const SizedBox(width: 8),
-                Text('班级画像', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('${data['class_name'] ?? '班级'} 性格画像', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(data['summary'] ?? '暂无画像数据', style: theme.textTheme.bodyMedium),
-              if (data['traits'] != null) ...[
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8, runSpacing: 8,
-                  children: (data['traits'] as List? ?? []).map<Widget>((t) => Chip(label: Text(t.toString()))).toList(),
-                ),
-              ],
+              Text('共 ${data['total'] ?? total} 名学生', style: theme.textTheme.bodySmall),
             ]),
           ),
         ),
+        if (distribution.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('性格分布', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: distribution.entries.map((e) {
+                final count = e.value;
+                final ratio = total > 0 ? count / total : 0.0;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      Text(e.key, style: theme.textTheme.bodyMedium),
+                      Text('$count 人（${(ratio * 100).toInt()}%）', style: theme.textTheme.bodySmall),
+                    ]),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(value: ratio, minHeight: 7, borderRadius: BorderRadius.circular(4)),
+                  ]),
+                );
+              }).toList()),
+            ),
+          ),
+        ],
+        if (characteristics.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('班级特点', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: characteristics.map((t) => Chip(label: Text(t))).toList(),
+          ),
+        ],
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('管理建议', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...suggestions.asMap().entries.map((e) => Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: theme.colorScheme.secondaryContainer,
+                    child: Text('${e.key + 1}'),
+                  ),
+                  title: Text(e.value),
+                ),
+              )),
+        ],
       ],
     );
   }

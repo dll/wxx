@@ -127,7 +127,9 @@ class StudentFeatureProvider extends ChangeNotifier {
     }
   }
 
-  // ── 课程地图 ──
+  // ── 课程地图（知识图谱） ──
+  Map<String, dynamic>? _courseGraph;
+  Map<String, dynamic>? get courseGraph => _courseGraph;
   List<CourseNode> _courseNodes = [];
   List<CourseNode> get courseNodes => _courseNodes;
 
@@ -138,8 +140,18 @@ class StudentFeatureProvider extends ChangeNotifier {
     try {
       final res = await _api.get(ApiConfig.courseMap);
       if (res.statusCode == 200 && res.data != null) {
-        final list = res.data is List ? res.data : res.data['data'] ?? [];
-        _courseNodes = (list as List).map((e) => CourseNode.fromJson(e)).toList();
+        // 后端返回 KnowledgeGraph 对象 {course_name,nodes,edges}；兜底返回数组
+        if (res.data is Map) {
+          final raw = res.data as Map;
+          final data = raw['data'] is Map ? raw['data'] as Map : raw;
+          _courseGraph = Map<String, dynamic>.from(data);
+          final nodes = (data['nodes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _courseNodes = nodes.map((e) => CourseNode.fromJson(e)).toList();
+        } else {
+          _courseGraph = null;
+          final list = res.data['data'] ?? res.data;
+          _courseNodes = (list as List).map((e) => CourseNode.fromJson(e)).toList();
+        }
       }
     } catch (e) {
       _error = e.toString();
@@ -152,6 +164,8 @@ class StudentFeatureProvider extends ChangeNotifier {
   // ── 课程学情 ──
   List<CourseAnalyticsData> _courseAnalytics = [];
   List<CourseAnalyticsData> get courseAnalytics => _courseAnalytics;
+  Map<String, dynamic>? _courseAnalyticsSummary;
+  Map<String, dynamic>? get courseAnalyticsSummary => _courseAnalyticsSummary;
 
   Future<void> fetchCourseAnalytics() async {
     _loading = true;
@@ -160,8 +174,18 @@ class StudentFeatureProvider extends ChangeNotifier {
     try {
       final res = await _api.get(ApiConfig.courseAnalytics);
       if (res.statusCode == 200 && res.data != null) {
-        final list = res.data is List ? res.data : res.data['data'] ?? [];
-        _courseAnalytics = (list as List).map((e) => CourseAnalyticsData.fromJson(e)).toList();
+        // 真实路径返回 CourseAnalyticsResult 对象（含 courses 数组）；兜底返回数组
+        if (res.data is Map) {
+          final raw = res.data as Map;
+          final data = raw['data'] is Map ? raw['data'] as Map : raw;
+          _courseAnalyticsSummary = Map<String, dynamic>.from(data);
+          final courses = (data['courses'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _courseAnalytics = courses.map((e) => CourseAnalyticsData.fromJson(e)).toList();
+        } else {
+          _courseAnalyticsSummary = null;
+          final list = res.data['data'] ?? res.data;
+          _courseAnalytics = (list as List).map((e) => CourseAnalyticsData.fromJson(e)).toList();
+        }
       }
     } catch (e) {
       _error = e.toString();
@@ -235,5 +259,95 @@ class StudentFeatureProvider extends ChangeNotifier {
       notifyListeners();
     }
     return _aiResponse;
+  }
+
+  // ── 问答广场（结构化） ──
+  List<Map<String, dynamic>> _qaQuestions = [];
+  List<Map<String, dynamic>> get qaQuestions => _qaQuestions;
+
+  Future<void> fetchQAPlaza() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.qaPlaza);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data is Map ? res.data : (res.data['data'] ?? {});
+        _qaQuestions = (data['hot_questions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 热点关注（结构化） ──
+  List<Map<String, dynamic>> _hotTopics = [];
+  List<Map<String, dynamic>> get hotTopics => _hotTopics;
+
+  Future<void> fetchHotTopics() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.hotTopics);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data is Map ? res.data : (res.data['data'] ?? {});
+        _hotTopics = (data['topics'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 问答排行榜（结构化） ──
+  Map<String, dynamic>? _leaderboard;
+  Map<String, dynamic>? get leaderboard => _leaderboard;
+
+  Future<void> fetchQALeaderboard() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.qaLeaderboard);
+      if (res.statusCode == 200 && res.data != null) {
+        _leaderboard = res.data is Map<String, dynamic>
+            ? res.data
+            : (res.data['data'] as Map<String, dynamic>?) ?? {};
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 成长路径（结构化） ──
+  Map<String, dynamic>? _growthPath;
+  Map<String, dynamic>? get growthPath => _growthPath;
+
+  Future<void> fetchGrowthPath() async {
+    _loading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.growthPath);
+      if (res.statusCode == 200 && res.data != null) {
+        _growthPath = res.data is Map<String, dynamic>
+            ? res.data
+            : (res.data['data'] as Map<String, dynamic>?) ?? {};
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 }

@@ -79,12 +79,22 @@ class _PosterGenPageState extends State<PosterGenPage> {
                   Row(children: [
                     Icon(Icons.image, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    Text('生成文案', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(_result!['title'] ?? '生成文案', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
+                  if ((_result!['subtitle'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(_result!['subtitle'], style: theme.textTheme.bodySmall),
+                  ],
                   const SizedBox(height: 12),
-                  Text(_result!['slogan'] ?? '', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(_result!['body'] ?? _result!['content'] ?? '', style: theme.textTheme.bodyMedium),
+                  Text(_result!['copy'] ?? _result!['content'] ?? '', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  if ((_result!['color_scheme'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _infoRow(theme, Icons.palette, '配色', _result!['color_scheme']),
+                  ],
+                  if ((_result!['layout'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _infoRow(theme, Icons.grid_view, '版式', _result!['layout']),
+                  ],
                 ]),
               ),
             ),
@@ -92,5 +102,14 @@ class _PosterGenPageState extends State<PosterGenPage> {
         ],
       ),
     );
+  }
+
+  Widget _infoRow(ThemeData theme, IconData icon, String label, dynamic value) {
+    return Row(children: [
+      Icon(icon, size: 16, color: theme.colorScheme.secondary),
+      const SizedBox(width: 6),
+      Text('$label：', style: theme.textTheme.bodySmall),
+      Expanded(child: Text(value?.toString() ?? '', style: theme.textTheme.bodySmall)),
+    ]);
   }
 }
