@@ -15,6 +15,7 @@ import '../pages/emotion/emotion_dashboard_page.dart';
 import '../pages/agent/agent_management_page.dart';
 import '../pages/admin/admin_metrics_page.dart';
 import '../pages/admin/admin_dashboard_page.dart';
+import '../pages/admin/data_import_page.dart';
 import '../pages/admin/admin_users_page.dart';
 import '../pages/admin/admin_audit_page.dart';
 import '../pages/admin/admin_settings_page.dart';
@@ -216,6 +217,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/admin/metrics',
           builder: (context, state) => const AdminMetricsPage(),
+        ),
+        GoRoute(
+          path: '/admin/data-import',
+          builder: (context, state) => const DataImportPage(),
         ),
         GoRoute(
           path: '/admin/users',

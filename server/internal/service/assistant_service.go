@@ -7,15 +7,22 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/repository"
 )
 
 // AssistantService 教辅角色 AI 功能服务
 type AssistantService struct {
 	llmClient llm.ChatClient
+	phase3    *Phase3Service // 阶段三真实数据（可选），无真实数据时回落 reference
 }
 
 func NewAssistantService(llmClient llm.ChatClient) *AssistantService {
 	return &AssistantService{llmClient: llmClient}
+}
+
+// SetPhase3Service 注入阶段三真实数据服务（可选依赖）
+func (s *AssistantService) SetPhase3Service(phase3 *Phase3Service) {
+	s.phase3 = phase3
 }
 
 // ScheduleConflict 排课冲突
@@ -36,6 +43,37 @@ type ScheduleCheckResult struct {
 }
 
 func (s *AssistantService) CheckSchedule(ctx context.Context) *ScheduleCheckResult {
+	// 优先真实课表数据
+	if s.phase3 != nil {
+		if total, conflicts, err := s.phase3.GetScheduleConflicts(""); err == nil && total > 0 {
+			result := &ScheduleCheckResult{
+				TotalCourses: total,
+				Conflicts:    []*ScheduleConflict{},
+				DataSource:   "real",
+			}
+			for _, c := range conflicts {
+				result.Conflicts = append(result.Conflicts, &ScheduleConflict{
+					Type: c["type"].(string), Description: c["description"].(string),
+					Detail: c["description"].(string), Severity: c["severity"].(string),
+				})
+			}
+			result.ConflictsFound = len(result.Conflicts)
+			result.Summary = fmt.Sprintf("共检测%d门课程，发现%d处冲突。", result.TotalCourses, result.ConflictsFound)
+			if s.llmClient != nil && result.ConflictsFound > 0 {
+				prompt := "你是教务排课专家。请分析以下冲突并给出优化建议（50字以内）：\n"
+				for _, c := range result.Conflicts {
+					prompt += fmt.Sprintf("- [%s] %s: %s\n", c.Severity, c.Type, c.Description)
+				}
+				if resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+					Messages: []llm.ChatMessage{{Role: "user", Content: prompt}}, Temperature: 0.3, MaxTokens: 200,
+				}); err == nil && resp != nil && resp.Content != "" {
+					result.Summary += "\nAI建议：" + strings.TrimSpace(resp.Content)
+				}
+			}
+			return result
+		}
+	}
+
 	result := &ScheduleCheckResult{
 		TotalCourses: 48,
 		Conflicts: []*ScheduleConflict{
@@ -79,6 +117,39 @@ type GraduationAuditResult struct {
 }
 
 func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string) *GraduationAuditResult {
+	// 优先真实成绩聚合数据
+	if s.phase3 != nil {
+		if summaries, err := s.phase3.GetGraduationSummaries(); err == nil && len(summaries) > 0 {
+			var target *repository.GradeSummary
+			for i := range summaries {
+				if summaries[i].UserID == studentID {
+					target = summaries[i]
+					break
+				}
+			}
+			if target == nil {
+				target = summaries[0]
+			}
+			required := 160.0
+			result := &GraduationAuditResult{
+				StudentName:     target.Name,
+				TotalCredits:    target.Credits,
+				RequiredCredits: required,
+				CanGraduate:     target.Credits >= required,
+				DataSource:      "real",
+			}
+			if target.Passed > 0 {
+				result.PassedItems = []string{fmt.Sprintf("通过课程 %d 门", target.Passed)}
+			}
+			if !result.CanGraduate {
+				result.PendingItems = []string{fmt.Sprintf("尚差 %.1f 学分", required-target.Credits)}
+			}
+			result.Summary = fmt.Sprintf("总学分%.1f/必修%.0f，%s。", target.Credits, required,
+				map[bool]string{true: "符合毕业条件", false: fmt.Sprintf("尚差%.1f学分", required-target.Credits)}[result.CanGraduate])
+			return result
+		}
+	}
+
 	result := &GraduationAuditResult{
 		StudentName:     "示例学生",
 		TotalCredits:    168,
@@ -107,6 +178,32 @@ type ExamArrangement struct {
 }
 
 func (s *AssistantService) ArrangeExams(ctx context.Context, semester string) *ExamArrangement {
+	// 优先真实考试安排
+	if s.phase3 != nil {
+		if exams, err := s.phase3.GetExams(semester); err == nil && len(exams) > 0 {
+			schedule := make([]map[string]interface{}, 0, len(exams))
+			rooms := map[string]bool{}
+			for _, e := range exams {
+				schedule = append(schedule, map[string]interface{}{
+					"course": e["course_name"], "date": e["date"],
+					"time": fmt.Sprintf("%v-%v", e["time_start"], e["time_end"]),
+					"room": e["location"],
+				})
+				if loc, ok := e["location"].(string); ok && loc != "" {
+					rooms[loc] = true
+				}
+			}
+			return &ExamArrangement{
+				TotalExams:        len(exams),
+				TotalRooms:        len(rooms),
+				TotalInvigilators: 0,
+				Schedule:          schedule,
+				Conflicts:         []string{},
+				DataSource:        "real",
+			}
+		}
+	}
+
 	return &ExamArrangement{
 		TotalExams:        12,
 		TotalRooms:        8,

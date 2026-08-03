@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -256,6 +257,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	phase2Svc := service.NewPhase2Service(phase2Repo, checkinRepo)
 	studentHandler.SetPhase2Service(phase2Svc)
 
+	// 阶段三数据底座服务（成绩/课表导入 + 教辅真实数据）
+	dataImportRepo := repository.NewDataImportRepo(db)
+	phase3Svc := service.NewPhase3Service(dataImportRepo)
+	dataImportH := handler.NewDataImportHandler(phase3Svc)
+
 	// 性格洞察服务（S1 学生核心功能）
 	personalityRepo := repository.NewPersonalityRepo(db)
 	personalitySvc := service.NewPersonalityService(personalityRepo, userRepo, twinRepo, llmClient)
@@ -274,6 +280,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	var assistantSvc *service.AssistantService
 	if llmClient != nil {
 		assistantSvc = service.NewAssistantService(llmClient)
+		assistantSvc.SetPhase3Service(phase3Svc)
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantSvc)
 
@@ -316,7 +323,22 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH)
+
+	// ── 6. 数据保留清理（9.2 合规基线）──
+	retentionSvc := service.NewRetentionService(db)
+	retentionInterval := time.Duration(cfg.RetentionIntervalHours) * time.Hour
+	if retentionInterval <= 0 {
+		retentionInterval = 24 * time.Hour
+	}
+	go retentionSvc.RunLoop(
+		context.Background(),
+		retentionInterval,
+		cfg.RetentionAuditDays,
+		cfg.RetentionSessionDays,
+		cfg.RetentionEmotionDays,
+		cfg.RetentionExportDays,
+	)
 
 	return router, nil
 }
@@ -548,6 +570,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	userNotificationH *handler.UserNotificationHandler,
 	appVersionH *handler.AppVersionHandler,
 	campusH *handler.CampusHandler,
+	dataImportH *handler.DataImportHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -869,6 +892,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.PUT("/guests/:id/reject", auth.RequireCapability(auth.CollegeUserRead), adminH.RejectGuest)
 				// 学生导入（除学生和游客外的组织角色均可用）
 				admin.POST("/users/import", auth.RequireCapability(auth.CounselorImportStudent), adminH.ImportStudents)
+				// ── 数据底座导入（成绩/课表，college_admin+）──
+				admin.POST("/grades/import", auth.RequireCapability(auth.CollegeUserRead), dataImportH.ImportGrades)
+				admin.POST("/schedules/import", auth.RequireCapability(auth.CollegeUserRead), dataImportH.ImportSchedules)
 
 				// ── 校园报到步骤管理（college_admin+）──
 				campusAdmin := admin.Group("/campus")

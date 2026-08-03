@@ -157,6 +157,11 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.dashboard_outlined, '质量看板',
                 '查看系统问答质量指标', '/admin/metrics'),
 
+          // 数据底座导入（college_admin 及以上）
+          if (_canAccessAdmin(profile?.role))
+            _buildMenuCard(context, Icons.storage_outlined, '数据底座导入',
+                '批量导入成绩与课表', '/admin/data-import'),
+
           // 用户管理：非学生组织角色可导入，管理员可继续维护账号。
           if (_canAccessUserManagement())
             _buildMenuCard(

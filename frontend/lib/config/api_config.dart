@@ -300,6 +300,10 @@ class ApiConfig {
   // ── 学生导入（除学生和游客外的组织角色）──
   static const String importStudents = '$apiPrefix/admin/users/import';
 
+  // ── 数据底座导入（college_admin+）──
+  static const String adminGradesImport = '$apiPrefix/admin/grades/import';
+  static const String adminSchedulesImport = '$apiPrefix/admin/schedules/import';
+
   // ── 就业模块 ──
   static const String careerPolicies = '$apiPrefix/career/policies';
   static const String careerJobs = '$apiPrefix/career/jobs';
