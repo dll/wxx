@@ -1,12 +1,14 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
@@ -112,6 +114,97 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 	}, nil
 }
 
+// Stream 发起流式对话请求（OpenAI 兼容 SSE）
+func (c *DeepSeekClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
+	body := openAIRequest{
+		Model:       c.model,
+		Messages:    req.Messages,
+		Temperature: req.Temperature,
+		MaxTokens:   req.MaxTokens,
+		Stream:      true,
+	}
+	if body.Temperature == 0 {
+		body.Temperature = 0.7
+	}
+	if body.MaxTokens == 0 {
+		body.MaxTokens = 2048
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
+		httpReq.Header.Set("X-Trace-ID", tid)
+	}
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("DeepSeek 流式请求失败: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("DeepSeek API 错误 (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+	}
+
+	return parseOpenAIStream(ctx, resp.Body), nil
+}
+
+// parseOpenAIStream 逐行解析 OpenAI 兼容 SSE（data: {...} / data: [DONE]），
+// 每收到一个 delta 就推送到 channel；上下文取消或流结束时关闭 channel。
+func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk {
+	ch := make(chan StreamChunk, 8)
+	go func() {
+		defer close(ch)
+		defer r.Close()
+
+		var full strings.Builder
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "" {
+				continue
+			}
+			if data == "[DONE]" {
+				ch <- StreamChunk{Done: true, Content: full.String()}
+				return
+			}
+			var chunk openAIStreamResponse
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				continue
+			}
+			if len(chunk.Choices) > 0 {
+				delta := chunk.Choices[0].Delta.Content
+				if delta != "" {
+					full.WriteString(delta)
+					ch <- StreamChunk{Delta: delta}
+				}
+			}
+			select {
+			case <-ctx.Done():
+				ch <- StreamChunk{Done: true, Content: full.String()}
+				return
+			default:
+			}
+		}
+		ch <- StreamChunk{Done: true, Content: full.String()}
+	}()
+	return ch
+}
+
 // ── OpenAI 兼容的请求/响应结构 ──
 
 type openAIRequest struct {
@@ -119,6 +212,7 @@ type openAIRequest struct {
 	Messages    []ChatMessage `json:"messages"`
 	Temperature float64       `json:"temperature,omitempty"`
 	MaxTokens   int           `json:"max_tokens,omitempty"`
+	Stream      bool          `json:"stream,omitempty"`
 }
 
 type openAIResponse struct {

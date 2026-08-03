@@ -29,6 +29,26 @@ type ChatClient interface {
 	// Chat 发起对话请求
 	Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
 
+	// Stream 发起流式对话请求，逐块返回增量文本
+	Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error)
+
 	// Name 返回客户端名称（用于日志和审计）
 	Name() string
+}
+
+// StreamChunk 流式响应增量
+type StreamChunk struct {
+	Delta   string // 增量文本
+	Done    bool   // 是否为结束标记
+	Content string // Done=true 时携带完整内容（含 usage 兜底场景）
+}
+
+// openAIStreamResponse OpenAI 兼容的流式响应块（data: {...}）
+type openAIStreamResponse struct {
+	Choices []struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
 }

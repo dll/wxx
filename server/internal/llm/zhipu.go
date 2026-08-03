@@ -104,3 +104,47 @@ func (c *ZhipuClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse
 		OutputTokens: openAIResp.Usage.CompletionTokens,
 	}, nil
 }
+
+// Stream 发起流式对话请求（OpenAI 兼容 SSE）
+func (c *ZhipuClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
+	body := openAIRequest{
+		Model:       c.model,
+		Messages:    req.Messages,
+		Temperature: req.Temperature,
+		MaxTokens:   req.MaxTokens,
+		Stream:      true,
+	}
+	if body.Temperature == 0 {
+		body.Temperature = 0.7
+	}
+	if body.MaxTokens == 0 {
+		body.MaxTokens = 2048
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
+		httpReq.Header.Set("X-Trace-ID", tid)
+	}
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("智谱流式请求失败: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("智谱 API 错误 (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+	}
+
+	return parseOpenAIStream(ctx, resp.Body), nil
+}

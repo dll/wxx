@@ -28,3 +28,14 @@
 ## 质量指标（验收）
 
 引用覆盖率、命中率、兜底率、过期引用率、权限拦截率、P95 时延等：见智能体 **§3.3.5**。
+
+## 实现口径（2026-08-03 对齐）
+
+> 本文档描述的是**检索策略**（主链路不可偏离）。代码层面存在两处实现，口径如下：
+
+- **生产主路径**：`server/internal/service/chat_service.go` 的 `Ask()`（结构化优先 → FTS5/BM25 三阶段 → 相关性过滤 → `buildMessages` 拼装 → LLM → `sources[]` 附加）。这是线上问答实际走的实现，含 FAQ 缓存与降级链。
+- **参考实现**：`server/internal/context_engine/` 包（意图分类 CE-06、命中片段 CE-07、来源加权 CE-09、相关历史选取 CE-10 等）。功能完整且有单测，但当前**未接入装配层**（`pkg/app/app.go` 无注册），与生产路径为平行双实现。
+- **编排**：`server/internal/agent/` 为自研关键词加权意图路由 + goroutine 并行编排，**非 Eino**（go.mod 无 `cloudwego/eino` 依赖）。`agent/doc.go` 已同步说明。
+- **推进建议**：后续可将 `context_engine` 作为生产路径的检索内核（通过 `KBSearcher`/`HistoryProvider` 适配器接入），并删除 chat_service 内联副本，消除双实现。
+
+> 2026-08-03 全面核查见 `docs/蔚小芯学生教育工作需要全面分析.md`。

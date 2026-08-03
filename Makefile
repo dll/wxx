@@ -27,6 +27,16 @@ migrate:
 	@echo "执行 SQLite 迁移..."
 	go run ./server/cmd/migrate
 
+# ── 评测（500 条基线，需部署服务 + 管理员 token）──
+# 用法: make eval EVAL_URL=https://... EVAL_TOKEN=xxx
+.PHONY: eval eval-gate
+eval:
+	go run ./server/cmd/eval -url $(or $(EVAL_URL),https://api.pydaydayup.xyz) -token $(EVAL_TOKEN) -baseline specs/eval-baseline.ndjson -c 4 -output eval-result.json
+
+# 质量门禁：按阈值判定评测结果（CI 用）
+eval-gate:
+	go run ./server/cmd/gate -report $(or $(EVAL_RESULT),eval-result.json)
+
 # 同步数据库：将本地 SQLite 的 schema 和数据同步到 Turso
 # 使用 .env 中的 TURSO_DB_URL / TURSO_DB_TOKEN
 sync-db:

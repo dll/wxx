@@ -318,12 +318,12 @@ class Message {
     );
   }
 
-  Message copyWith({bool? isFailed}) {
+  Message copyWith({bool? isFailed, String? content, AnswerCard? answerCard, String? id}) {
     return Message(
-      id: id,
+      id: id ?? this.id,
       role: role,
-      content: content,
-      answerCard: answerCard,
+      content: content ?? this.content,
+      answerCard: answerCard ?? this.answerCard,
       createdAt: createdAt,
       isFailed: isFailed ?? this.isFailed,
     );

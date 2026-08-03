@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -105,4 +106,86 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 		SessionID: sessionID,
 		TraceID:   middleware.GetTraceID(c),
 	})
+}
+
+// Stream 流式对话（SSE）
+// POST /api/v1/chat/stream
+// 事件流：data: {"delta":"..."} 逐块增量 → data: {"done":true,"card":{...},"session_id":"..."}
+func (h *ChatHandler) Stream(c *gin.Context) {
+	var req model.ChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("chat stream bind err: %v", err)
+		util.FailBadRequest(c, "请求参数错误")
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+
+	// SSE 响应头
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		util.FailInternalError(c, "当前环境不支持流式输出")
+		return
+	}
+
+	writeEvent := func(payload string) {
+		_, _ = c.Writer.Write([]byte("data: " + payload + "\n\n"))
+		flusher.Flush()
+	}
+
+	var card *model.AnswerCard
+	var sessionID string
+
+	// 首帧握手
+	writeEvent(`{"type":"start","trace_id":"` + middleware.GetTraceID(c) + `"}`)
+
+	start := time.Now()
+	var err error
+	card, sessionID, err = h.chatSvc.AskStream(
+		c.Request.Context(),
+		userCtx,
+		req.SessionID,
+		req.Question,
+		req.AgentID,
+		func(delta string) {
+			// 增量事件（JSON 转义）
+			b, _ := json.Marshal(map[string]string{"type": "delta", "delta": delta})
+			writeEvent(string(b))
+		},
+	)
+	if err != nil {
+		log.Printf("流式问答失败 trace=%s user=%s err=%v", middleware.GetTraceID(c), userCtx.Username, err)
+		b, _ := json.Marshal(map[string]interface{}{"type": "error", "message": "问答处理失败，请稍后重试"})
+		writeEvent(string(b))
+		return
+	}
+
+	// 结束事件：携带完整 AnswerCard
+	b, _ := json.Marshal(map[string]interface{}{
+		"type": "done", "card": card, "session_id": sessionID, "trace_id": middleware.GetTraceID(c),
+	})
+	writeEvent(string(b))
+
+	durationMs := time.Since(start).Milliseconds()
+	if h.metricsSvc != nil && card != nil {
+		go func() {
+			_ = h.metricsSvc.Insert(sessionID, userCtx.UserID, req.Question, "",
+				card.Confidence, card.Fallback, len(card.Sources), durationMs, middleware.GetTraceID(c))
+		}()
+	}
+	if h.emotionSvc != nil {
+		go func() {
+			if _, err := h.emotionSvc.AnalyzeAndLog(context.Background(), userCtx.UserID, userCtx.Username, sessionID, req.Question); err != nil {
+				log.Printf("异步情感分析失败: %v", err)
+			}
+		}()
+	}
 }

@@ -35,6 +35,25 @@ func (m *MockClient) Name() string {
 	return "mock"
 }
 
+// Stream 模拟流式：一次性返回全部内容
+func (m *MockClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
+	ch := make(chan StreamChunk, 2)
+	go func() {
+		defer close(ch)
+		resp, _ := m.Chat(ctx, req)
+		content := "这是模拟的回答内容。"
+		if resp != nil && resp.Content != "" {
+			content = resp.Content
+		}
+		// 分块发送，模拟增量
+		for _, r := range content {
+			ch <- StreamChunk{Delta: string(r)}
+		}
+		ch <- StreamChunk{Done: true, Content: content}
+	}()
+	return ch, nil
+}
+
 // Reset 重置 ChatFunc（用于不同测试用例）
 func (m *MockClient) Reset() {
 	m.ChatFunc = nil

@@ -231,11 +231,15 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	recSvc := service.NewRecommendationService(kbRepo, messageRepo)
 	recHandler := handler.NewRecommendationHandler(recSvc)
 	exportSvc := service.NewExportService()
+	exportSvc.SetCJKFontPath(cfg.ExportFontPath)
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
 	if cfg.HMACSecret != "" {
 		exportHandler.SetHMACSecret(cfg.HMACSecret)
 		log.Println("知识导出包 HMAC-SHA256 签名已启用")
 	}
+	pkgSvc := service.NewKnowledgePackageService(kbSvc, kbRepo)
+	pkgSvc.SetHMACSecret(cfg.HMACSecret)
+	exportHandler.SetPackageService(pkgSvc)
 	integrationHandler := handler.NewIntegrationHandler(integrationSvc)
 	adminHandler := handler.NewAdminHandler(adminSvc, authSvc)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackSvc)
@@ -683,6 +687,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── AI 对话（self.chat）──
 			// 安全修复 SEC-02：对话为主要 PII 输入入口，要求已同意隐私政策/用户协议方可访问
 			secured.POST("/chat", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), chatH.Ask)
+			secured.POST("/chat/stream", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), chatH.Stream)
 
 			// ── 会话/知识/推荐（self.* 能力）──
 			secured.GET("/sessions", auth.RequireCapability(auth.SelfSessionRead), sessionH.ListSessions)
@@ -810,6 +815,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// ── 知识同步导出（school.kb.sync.export，学校级运维）──
 			// 安全修复 RB-01：知识全量导出不再对所有登录用户开放，仅学校级同步能力可用，并在服务层按 scope 过滤
 			secured.GET("/kb/export", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.Export)
+			secured.GET("/kb/export/package", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.ExportPackage)
+			secured.POST("/kb/import/package", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.ImportPackage)
 
 			// ── 智能体管理（school.agent.write）──
 			agents := secured.Group("/agents")

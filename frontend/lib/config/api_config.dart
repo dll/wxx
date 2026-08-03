@@ -29,6 +29,7 @@ class ApiConfig {
   static const String profile = '$apiPrefix/user/profile';
   static const String consent = '$apiPrefix/user/consent';
   static const String chat = '$apiPrefix/chat';
+  static const String chatStream = '$apiPrefix/chat/stream';
   static const String sessions = '$apiPrefix/sessions';
   static String sessionMessages(String id) =>
       '$apiPrefix/sessions/$id/messages';

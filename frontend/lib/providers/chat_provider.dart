@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/voice/voice_service.dart';
 import '../utils/capability_utils.dart';
+import '../utils/chat_stream.dart';
 
 /// 对话状态管理
 class ChatProvider extends ChangeNotifier {
@@ -50,8 +51,84 @@ class ChatProvider extends ChangeNotifier {
   }
   bool get agentsLoading => _agentsLoading;
 
-  /// 发送问题
+  /// 发送问题（Web 端走 SSE 流式，其余平台走一次性回答）
   Future<void> ask(String question) async {
+    if (kIsWeb) {
+      return askStream(question);
+    }
+    return askOnce(question);
+  }
+
+  /// 流式问答（Web）：边生成边追加到占位消息，结束后回填 AnswerCard 与 sessionId
+  Future<void> askStream(String question) async {
+    if (question.trim().isEmpty || _sending) return;
+    final gen = _generation;
+
+    _messages.add(Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      role: 'user',
+      content: question,
+    ));
+    // 占位 assistant 消息，随流式增量逐块更新
+    _messages.add(Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      role: 'assistant',
+      content: '',
+    ));
+    _sending = true;
+    _error = null;
+    notifyListeners();
+
+    streamChat(
+      question: question,
+      sessionId: _sessionId,
+      agentId: _selectedAgentId,
+      onDelta: (d) {
+        if (gen != _generation || !_sending) return;
+        if (_messages.isNotEmpty && _messages.last.isAssistant) {
+          _messages[_messages.length - 1] =
+              _messages.last.copyWith(content: _messages.last.content + d);
+          notifyListeners();
+        }
+      },
+      onDone: (done) {
+        if (gen != _generation) return;
+        final sid = done['session_id']?.toString() ?? '';
+        if (sid.isNotEmpty) _sessionId = sid;
+
+        AnswerCard? card;
+        final cardJson = done['card'];
+        if (cardJson is Map<String, dynamic>) {
+          try {
+            card = AnswerCard.fromJson(cardJson);
+          } catch (_) {}
+        }
+        if (_messages.isNotEmpty && _messages.last.isAssistant) {
+          final streaming = _messages.last.content;
+          if (card != null && card.conclusion.isNotEmpty) {
+            _messages[_messages.length - 1] =
+                _messages.last.copyWith(content: card.conclusion, answerCard: card);
+          } else if (streaming.isNotEmpty) {
+            _messages[_messages.length - 1] = _messages.last.copyWith(content: streaming);
+          } else {
+            _messages[_messages.length - 1] =
+                _messages.last.copyWith(content: '（无回答）');
+          }
+        }
+        _sending = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        if (gen != _generation) return;
+        _error = '发送失败：$e';
+        _sending = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  /// 一次性问答（非 Web，或流式不可用的兜底，原有逻辑不变）
+  Future<void> askOnce(String question) async {
     if (question.trim().isEmpty || _sending) return;
 
     final gen = _generation;
