@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -170,7 +171,8 @@ func (s *TeacherService) generateExamWithLLM(ctx context.Context, courseName str
 		"你是一位高校教师。请为「%s」课程设计一份期中考试试卷。\n"+
 			"要求：满分100分，时长120分钟，包含选择题(10题x3分)、填空题(5题x4分)、简答题(3题x10分)、编程题(2题x10分)。\n"+
 			"请给出各题型的一个样题（含题干、选项、答案）。\n"+
-			"JSON格式输出。", courseName)
+			"严格按以下 JSON 结构输出：{\"title\":\"...\",\"total_score\":100,\"duration\":120,\"sections\":[{\"type\":\"选择题\",\"count\":10,\"score_each\":3,\"subtotal\":30}],\"sample_questions\":[{\"type\":\"选择题\",\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"B\"}]}",
+		courseName)
 
 	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
@@ -181,7 +183,47 @@ func (s *TeacherService) generateExamWithLLM(ctx context.Context, courseName str
 		return nil, fmt.Errorf("LLM 调用失败")
 	}
 
-	return s.fallbackExam(courseName), nil
+	paper := parseExamPaper(resp.Content, courseName)
+	if paper == nil {
+		return nil, fmt.Errorf("LLM 试卷解析失败")
+	}
+	paper.DataSource = "ai"
+	return paper, nil
+}
+
+// parseExamPaper 解析 LLM 返回的试卷 JSON（兼容 markdown 代码块包裹），解析失败返回 nil
+func parseExamPaper(text, courseName string) *ExamPaper {
+	jsonStr := extractJSON(text)
+	var parsed struct {
+		Title           string                   `json:"title"`
+		TotalScore      int                      `json:"total_score"`
+		Duration        int                      `json:"duration"`
+		Sections        []map[string]interface{} `json:"sections"`
+		SampleQuestions []map[string]interface{} `json:"sample_questions"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		return nil
+	}
+	paper := &ExamPaper{
+		Title:           parsed.Title,
+		TotalScore:      parsed.TotalScore,
+		Duration:        parsed.Duration,
+		Sections:        parsed.Sections,
+		SampleQuestions: parsed.SampleQuestions,
+	}
+	if paper.Title == "" {
+		paper.Title = courseName + "期中考试"
+	}
+	if paper.TotalScore == 0 {
+		paper.TotalScore = 100
+	}
+	if paper.Duration == 0 {
+		paper.Duration = 120
+	}
+	if len(paper.SampleQuestions) == 0 {
+		return nil
+	}
+	return paper
 }
 
 func (s *TeacherService) fallbackExam(courseName string) *ExamPaper {
@@ -228,7 +270,8 @@ func (s *TeacherService) GradeAssignments(ctx context.Context, courseName string
 func (s *TeacherService) generateGradingWithLLM(ctx context.Context, courseName string) (*GradingResult, error) {
 	prompt := fmt.Sprintf(
 		"你是一位高校教师。请分析「%s」课程最近一次作业的批改情况。\n"+
-			"要求：分析常见错误、给出优秀作业点评、成绩分布建议。JSON格式输出。", courseName)
+			"严格按以下 JSON 结构输出：{\"total_submissions\":45,\"graded\":45,\"average_score\":78.5,\"distribution\":{\"90-100\":8,\"80-89\":15,\"70-79\":12,\"60-69\":7,\"below_60\":3},\"common_issues\":[\"...\"],\"excellent_works\":[\"张三 - 代码简洁，注释清晰\"]}",
+		courseName)
 
 	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
@@ -238,7 +281,28 @@ func (s *TeacherService) generateGradingWithLLM(ctx context.Context, courseName 
 	if err != nil || resp.Content == "" {
 		return nil, fmt.Errorf("LLM 调用失败")
 	}
-	return s.fallbackGrading(courseName), nil
+
+	jsonStr := extractJSON(resp.Content)
+	var parsed struct {
+		TotalSubmissions int            `json:"total_submissions"`
+		Graded           int            `json:"graded"`
+		AverageScore     float64        `json:"average_score"`
+		Distribution     map[string]int `json:"distribution"`
+		CommonIssues     []string       `json:"common_issues"`
+		ExcellentWorks   []string       `json:"excellent_works"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil || len(parsed.CommonIssues) == 0 {
+		return nil, fmt.Errorf("LLM 批改结果解析失败")
+	}
+	return &GradingResult{
+		TotalSubmissions: parsed.TotalSubmissions,
+		Graded:           parsed.Graded,
+		AverageScore:     parsed.AverageScore,
+		Distribution:     parsed.Distribution,
+		CommonIssues:     parsed.CommonIssues,
+		ExcellentWorks:   parsed.ExcellentWorks,
+		DataSource:       "ai",
+	}, nil
 }
 
 func (s *TeacherService) fallbackGrading(courseName string) *GradingResult {
@@ -282,7 +346,9 @@ func (s *TeacherService) GenerateInteraction(ctx context.Context, topic string) 
 func (s *TeacherService) generateInteractionWithLLM(ctx context.Context, topic string) (*ClassInteraction, error) {
 	prompt := fmt.Sprintf(
 		"你是一位高校教师，正在教授「%s」。请设计一个课堂互动问题。\n"+
-			"要求：中等难度、3分钟回答时间、提供2个提示、1个追问。JSON格式输出。", topic)
+			"要求：中等难度、3分钟回答时间、提供2个提示、1个追问。\n"+
+			"严格按以下 JSON 结构输出：{\"question\":\"...\",\"difficulty\":\"medium\",\"expected_time\":3,\"hints\":[\"...\",\"...\"],\"follow_up\":\"...\"}",
+		topic)
 
 	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
@@ -292,7 +358,26 @@ func (s *TeacherService) generateInteractionWithLLM(ctx context.Context, topic s
 	if err != nil || resp.Content == "" {
 		return nil, fmt.Errorf("LLM 调用失败")
 	}
-	return s.fallbackInteraction(topic), nil
+
+	jsonStr := extractJSON(resp.Content)
+	var parsed struct {
+		Question     string   `json:"question"`
+		Difficulty   string   `json:"difficulty"`
+		ExpectedTime int      `json:"expected_time"`
+		Hints        []string `json:"hints"`
+		FollowUp     string   `json:"follow_up"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil || parsed.Question == "" {
+		return nil, fmt.Errorf("LLM 互动问题解析失败")
+	}
+	return &ClassInteraction{
+		Question:     parsed.Question,
+		Difficulty:   parsed.Difficulty,
+		ExpectedTime: parsed.ExpectedTime,
+		Hints:        parsed.Hints,
+		FollowUp:     parsed.FollowUp,
+		DataSource:   "ai",
+	}, nil
 }
 
 func (s *TeacherService) fallbackInteraction(topic string) *ClassInteraction {

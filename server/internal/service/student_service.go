@@ -327,26 +327,43 @@ func (s *StudentService) generateDiaryWithLLM(ctx context.Context, today string,
 
 // parseDiaryJSON 从 LLM 响应中提取日记 JSON（处理 markdown 代码块包裹）
 func parseDiaryJSON(text string) (*LearningDiary, error) {
-	// 移除可能的 markdown 代码块包裹
-	text = strings.TrimSpace(text)
-	if strings.HasPrefix(text, "```") {
-		idx := strings.Index(text, "{")
-		endIdx := strings.LastIndex(text, "}")
-		if idx >= 0 && endIdx > idx {
-			text = text[idx : endIdx+1]
-		}
+	jsonStr := extractJSON(text)
+
+	var parsed struct {
+		CoursesStudied []string                 `json:"courses_studied"`
+		KeyPoints      []string                 `json:"key_points"`
+		StudyMinutes   int                      `json:"study_minutes"`
+		Quiz           []map[string]interface{} `json:"quiz"`
+		TomorrowPlan   string                   `json:"tomorrow_plan"`
+		Encouragement  string                   `json:"encouragement"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		return nil, fmt.Errorf("学习日记 JSON 解析失败: %w", err)
 	}
 
-	// 简化 JSON 解析（避免引入 encoding/json 对 gin.H 的依赖）
 	diary := &LearningDiary{
-		Quiz: []map[string]interface{}{
+		CoursesStudied: parsed.CoursesStudied,
+		KeyPoints:      parsed.KeyPoints,
+		StudyMinutes:   parsed.StudyMinutes,
+		Quiz:           parsed.Quiz,
+		TomorrowPlan:   parsed.TomorrowPlan,
+		Encouragement:  parsed.Encouragement,
+	}
+
+	// 质量门槛：LLM 输出缺少核心内容时视为失败，交由兜底
+	if len(diary.KeyPoints) == 0 && len(diary.Quiz) == 0 {
+		return nil, fmt.Errorf("学习日记内容为空")
+	}
+	if len(diary.Quiz) == 0 {
+		// 保证自测题可用
+		diary.Quiz = []map[string]interface{}{
 			{
 				"question":      "二叉树的前序遍历顺序是？",
 				"options":       []string{"根→左→右", "左→根→右", "左→右→根", "根→右→左"},
 				"correct_index": 0,
 				"explanation":   "前序遍历（Preorder）先访问根节点，再递归遍历左子树，最后右子树。",
 			},
-		},
+		}
 	}
 	return diary, nil
 }

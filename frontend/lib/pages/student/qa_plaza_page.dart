@@ -24,6 +24,11 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
     final questions = provider.qaQuestions;
     return Scaffold(
       appBar: AppBar(title: const Text('问答广场')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showPostDialog(context, provider),
+        icon: const Icon(Icons.add),
+        label: const Text('提问'),
+      ),
       body: RefreshIndicator(
         onRefresh: () => provider.fetchQAPlaza(),
         child: provider.loading
@@ -99,5 +104,46 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
               ),
       ),
     );
+  }
+
+  Future<void> _showPostDialog(BuildContext context, StudentFeatureProvider provider) async {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    String category = '综合';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('发布问题'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '问题标题', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: contentCtrl, decoration: const InputDecoration(labelText: '问题描述（选填）', border: OutlineInputBorder()), maxLines: 3),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: category,
+            decoration: const InputDecoration(labelText: '分类', border: OutlineInputBorder()),
+            items: ['综合', '学业', '生活', '政策', '心理', '就业', '竞赛'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: (v) => category = v ?? '综合',
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              if (titleCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('发布'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final success = await provider.createQAPost(titleCtrl.text.trim(), contentCtrl.text.trim(), category);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? '发布成功，+10 积分' : '发布失败，请重试')),
+      );
+    }
   }
 }

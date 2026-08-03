@@ -162,6 +162,7 @@ class ApiConfig {
 
   // ── 学生社区互动功能 ──
   static const String qaPlaza = '$apiPrefix/student/qa-plaza';
+  static const String qaPosts = '$apiPrefix/student/qa/posts';
   static const String hotTopics = '$apiPrefix/student/hot-topics';
   static const String qaLeaderboard = '$apiPrefix/student/qa-leaderboard';
   static const String privateChat = '$apiPrefix/student/private-chat';

@@ -283,6 +283,21 @@ class StudentFeatureProvider extends ChangeNotifier {
     }
   }
 
+  /// 发布问题（真实落库）
+  Future<bool> createQAPost(String title, String content, String category) async {
+    try {
+      final res = await _api.post(ApiConfig.qaPosts,
+          data: {'title': title, 'content': content, 'category': category});
+      if (res.statusCode == 200) {
+        await fetchQAPlaza();
+        return true;
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+    return false;
+  }
+
   // ── 热点关注（结构化） ──
   List<Map<String, dynamic>> _hotTopics = [];
   List<Map<String, dynamic>> get hotTopics => _hotTopics;

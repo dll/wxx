@@ -1719,7 +1719,7 @@ class TalkRecord {
     return TalkRecord(
       id: json['id'] ?? '',
       studentName: json['student_name'] ?? '',
-      date: json['date'] ?? '',
+      date: json['created_at'] ?? json['date'] ?? '',
       topic: json['topic'] ?? '',
       emotion: json['emotion'] ?? '',
       summary: json['summary'] ?? '',

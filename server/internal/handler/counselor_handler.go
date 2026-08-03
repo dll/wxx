@@ -11,12 +11,18 @@ import (
 
 // CounselorHandler 辅导员角色 AI 功能接口
 type CounselorHandler struct {
-	svc *service.CounselorService
+	svc       *service.CounselorService
+	phase2Svc *service.Phase2Service // 阶段二真实数据服务（谈心记录），可为 nil
 }
 
 // NewCounselorHandler 创建辅导员 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走 mock
 func NewCounselorHandler(svc *service.CounselorService) *CounselorHandler {
 	return &CounselorHandler{svc: svc}
+}
+
+// SetPhase2Service 注入阶段二真实数据服务（谈心记录，可选依赖）
+func (h *CounselorHandler) SetPhase2Service(svc *service.Phase2Service) {
+	h.phase2Svc = svc
 }
 
 // DailyFocus AI 今日关注 — 真实数据 + LLM 简报
@@ -141,28 +147,57 @@ func (h *CounselorHandler) Intervention(c *gin.Context) {
 	})
 }
 
-// TalkRecord 谈心谈话记录
+// TalkRecord 谈心谈话记录（真实落库）
 func (h *CounselorHandler) TalkRecord(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
 	if c.Request.Method == "POST" {
-		// LLM 结构化提取
-		if h.svc != nil {
-			var req service.TalkRecordRequest
-			if err := c.ShouldBindJSON(&req); err == nil && req.Content != "" {
-				record, err := h.svc.GenerateTalkRecord(c.Request.Context(), &req)
-				if err == nil && record != nil {
-					c.JSON(http.StatusOK, gin.H{"code": 0, "data": record, "message": "记录保存成功"})
-					return
+		var req service.TalkRecordInput
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+			return
+		}
+		// LLM 结构化提取（内容为空时也允许保存，若提供了 content）
+		if h.svc != nil && req.Content != "" {
+			if record, err := h.svc.GenerateTalkRecord(c.Request.Context(), &service.TalkRecordRequest{
+				StudentName: req.StudentName, Content: req.Content,
+			}); err == nil && record != nil {
+				if req.Summary == "" {
+					req.Summary = record.Summary
+				}
+				if req.Topic == "" {
+					req.Topic = record.Topic
+				}
+				if req.Emotion == "" {
+					req.Emotion = record.Emotion
+				}
+				if len(req.FollowUps) == 0 && record.FollowUp != "" {
+					req.FollowUps = []string{record.FollowUp}
 				}
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "记录保存成功"})
+		if h.phase2Svc != nil {
+			if id, err := h.phase2Svc.SaveTalkRecord(userCtx.UserID, &req); err == nil {
+				c.JSON(http.StatusOK, gin.H{"code": 0, "id": id, "message": "记录保存成功"})
+				return
+			}
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "谈心记录保存失败"})
 		return
 	}
-	// GET
-	c.JSON(http.StatusOK, []gin.H{
-		{"id": "t001", "student_name": "张明", "date": "2026-05-13", "topic": "学业困难", "emotion": "焦虑", "summary": "反映课程压力大，数学跟不上进度", "follow_ups": []string{"安排数学辅导", "下周复查"}, "status": "following"},
-		{"id": "t002", "student_name": "李华", "date": "2026-05-12", "topic": "人际关系", "emotion": "低落", "summary": "与室友产生矛盾，影响休息", "follow_ups": []string{"协调宿舍关系", "建议心理咨询"}, "status": "resolved"},
-	})
+
+	// GET：真实记录
+	if h.phase2Svc != nil {
+		if records, err := h.phase2Svc.ListTalkRecords(userCtx.UserID, 100); err == nil {
+			c.JSON(http.StatusOK, records)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, []gin.H{})
 }
 
 // TalkTips 谈话话术推荐

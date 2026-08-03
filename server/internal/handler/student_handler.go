@@ -19,6 +19,7 @@ type StudentHandler struct {
 	twinSvc        *service.TwinService        // 数字孪生五维聚合服务，可为 nil（走兜底 mock）
 	checkinSvc     *service.CheckinService     // 打卡服务，可为 nil
 	personalitySvc *service.PersonalityService // 性格洞察服务，可为 nil
+	phase2Svc      *service.Phase2Service      // 阶段二真实数据服务（积分/问答），可为 nil
 	db             *sql.DB
 }
 
@@ -40,6 +41,11 @@ func (h *StudentHandler) SetCheckinService(svc *service.CheckinService) {
 // SetPersonalityService 注入性格洞察服务（可选依赖，装配期调用）
 func (h *StudentHandler) SetPersonalityService(svc *service.PersonalityService) {
 	h.personalitySvc = svc
+}
+
+// SetPhase2Service 注入阶段二真实数据服务（积分/问答，可选依赖）
+func (h *StudentHandler) SetPhase2Service(svc *service.Phase2Service) {
+	h.phase2Svc = svc
 }
 
 // DailyBriefing 今日速览 — 真实数据 + LLM 个性化生成
@@ -127,7 +133,12 @@ func (h *StudentHandler) Checkin(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	if h.checkinSvc != nil {
+		alreadyChecked := h.checkinSvc.GetHistory(userCtx.UserID).TodayChecked
 		result := h.checkinSvc.DoCheckin(userCtx.UserID, req.Mood, req.Note)
+		// 首次打卡加分（当日幂等，避免重复刷积分）
+		if !alreadyChecked && h.phase2Svc != nil && result.Success {
+			_ = h.phase2Svc.AddPoints(userCtx.UserID, 5, "今日学习打卡", "checkin")
+		}
 		c.JSON(http.StatusOK, gin.H{"code": 0, "message": result.Message, "data": result})
 		return
 	}
@@ -246,19 +257,25 @@ func (h *StudentHandler) Personality(c *gin.Context) {
 	})
 }
 
-// Achievements 积分成就
+// Achievements 积分成就（真实积分计算）
 func (h *StudentHandler) Achievements(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
+	if h.phase2Svc != nil {
+		if data, err := h.phase2Svc.GetAchievements(userCtx.UserID); err == nil && data != nil {
+			c.JSON(http.StatusOK, data)
+			return
+		}
+	}
+
+	// 兜底：服务未注入时返回空成就（不展示假数据）
 	c.JSON(http.StatusOK, gin.H{
-		"total_points":      1250,
-		"level":             3,
-		"level_name":        "白银",
-		"next_level_points": 2000,
-		"weekly_rank":       15,
-		"badges": []gin.H{
-			{"id": "b1", "name": "连续签到7天", "icon": "local_fire_department", "description": "连续打卡7天", "unlocked": true, "unlocked_at": "2026-05-10"},
-			{"id": "b2", "name": "学霸之路", "icon": "school", "description": "累计学习100小时", "unlocked": true, "unlocked_at": "2026-05-08"},
-			{"id": "b3", "name": "社交达人", "icon": "groups", "description": "参加10次活动", "unlocked": false, "unlocked_at": ""},
-		},
+		"total_points": 0, "level": 1, "level_name": "青铜", "next_level_points": 300,
+		"weekly_rank": 0, "badges": []gin.H{}, "data_source": "fallback",
 	})
 }
 
@@ -323,25 +340,139 @@ func (h *StudentHandler) WeeklyReport(c *gin.Context) {
 	})
 }
 
-// QAPlaza 问答广场
+// QAPlaza 问答广场（真实帖子 + 知识库 FAQ 合并）
 func (h *StudentHandler) QAPlaza(c *gin.Context) {
+	realPosts := []map[string]interface{}{}
+	if h.phase2Svc != nil {
+		if posts, err := h.phase2Svc.ListRealPosts(8); err == nil {
+			for _, p := range posts {
+				realPosts = append(realPosts, map[string]interface{}{
+					"id":        p.ID,
+					"title":     p.Title,
+					"author":    p.Author,
+					"answers":   p.Answers,
+					"views":     p.Views,
+					"ai_answer": "",
+					"category":  p.Category,
+					"real":      true,
+				})
+			}
+		}
+	}
+
+	// 知识库 FAQ 作为补充
+	var faqPosts []map[string]interface{}
 	if h.svc != nil {
 		plaza := h.svc.GenerateQAPlaza(c.Request.Context())
 		if plaza != nil {
-			c.JSON(http.StatusOK, plaza)
-			return
+			faqPosts = plaza.HotQuestions
 		}
 	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"hot_questions": []gin.H{
-			{"id": "1", "title": "转专业需要什么条件？", "author": "匿名同学", "answers": 5, "views": 128, "ai_answer": "转专业一般需要：1.大一第一学期结束后申请 2.绩点达到3.0以上 3.通过目标专业考核", "tags": []string{"政策", "学业"}},
-			{"id": "2", "title": "图书馆自习室怎么预约？", "author": "学习达人", "answers": 3, "views": 89, "ai_answer": "通过校园APP→图书馆→座位预约，每天22:00开放次日预约", "tags": []string{"生活", "图书馆"}},
-			{"id": "3", "title": "ACM竞赛如何入门？", "author": "编程新手", "answers": 8, "views": 256, "ai_answer": "建议从C++基础开始，刷LeetCode简单题，参加校内训练赛", "tags": []string{"竞赛", "学业"}},
-		},
-		"categories": []string{"学业", "生活", "政策", "心理", "就业", "竞赛"},
-		"my_posts":   2, "my_answers": 5,
-		"data_source": "fallback",
+		"hot_questions": append(realPosts, faqPosts...),
+		"categories":    []string{"学业", "生活", "政策", "心理", "就业", "竞赛", "综合"},
+		"my_posts":      len(realPosts),
+		"data_source":   "real",
 	})
+}
+
+// CreateQAPost 发布问题
+func (h *StudentHandler) CreateQAPost(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+	var req struct {
+		Title    string `json:"title"`
+		Content  string `json:"content"`
+		Category string `json:"category"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "问题标题不能为空"})
+		return
+	}
+	if h.phase2Svc == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "问答服务未就绪"})
+		return
+	}
+	id, err := h.phase2Svc.CreateQAPost(userCtx.UserID, req.Title, req.Content, req.Category)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "id": id, "message": "发布成功"})
+}
+
+// ListQAPosts 真实帖子列表
+func (h *StudentHandler) ListQAPosts(c *gin.Context) {
+	if h.phase2Svc == nil {
+		c.JSON(http.StatusOK, []gin.H{})
+		return
+	}
+	posts, err := h.phase2Svc.ListRealPosts(50)
+	if err != nil {
+		c.JSON(http.StatusOK, []gin.H{})
+		return
+	}
+	list := make([]gin.H, 0, len(posts))
+	for _, p := range posts {
+		list = append(list, gin.H{
+			"id": p.ID, "title": p.Title, "content": p.Content, "author": p.Author,
+			"category": p.Category, "answers": p.Answers, "views": p.Views, "created_at": p.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// GetQAPostDetail 帖子详情（含回答）
+func (h *StudentHandler) GetQAPostDetail(c *gin.Context) {
+	var id int64
+	fmt.Sscanf(c.Param("id"), "%d", &id)
+	if h.phase2Svc == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "问答服务未就绪"})
+		return
+	}
+	post, err := h.phase2Svc.GetPost(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "问题不存在"})
+		return
+	}
+	answers, _ := h.phase2Svc.ListAnswers(id)
+	c.JSON(http.StatusOK, gin.H{
+		"id": post.ID, "title": post.Title, "content": post.Content, "author": post.Author,
+		"category": post.Category, "views": post.Views, "created_at": post.CreatedAt,
+		"answers": answers,
+	})
+}
+
+// AnswerQAPost 回答问题
+func (h *StudentHandler) AnswerQAPost(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+	var id int64
+	fmt.Sscanf(c.Param("id"), "%d", &id)
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Content == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "回答内容不能为空"})
+		return
+	}
+	if h.phase2Svc == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "问答服务未就绪"})
+		return
+	}
+	aid, err := h.phase2Svc.AnswerPost(id, userCtx.UserID, req.Content)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "answer_id": aid, "message": "回答成功"})
 }
 
 // HotTopics 热点关注

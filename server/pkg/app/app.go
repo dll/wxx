@@ -251,12 +251,18 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	checkinSvc := service.NewCheckinService(checkinRepo)
 	studentHandler.SetCheckinService(checkinSvc)
 
+	// 阶段二真实数据服务（积分成就 / 问答广场 / 谈心记录）
+	phase2Repo := repository.NewPhase2Repo(db)
+	phase2Svc := service.NewPhase2Service(phase2Repo, checkinRepo)
+	studentHandler.SetPhase2Service(phase2Svc)
+
 	// 性格洞察服务（S1 学生核心功能）
 	personalityRepo := repository.NewPersonalityRepo(db)
 	personalitySvc := service.NewPersonalityService(personalityRepo, userRepo, twinRepo, llmClient)
 	studentHandler.SetPersonalityService(personalitySvc)
 
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
+	counselorHandler.SetPhase2Service(phase2Svc)
 
 	var teacherSvc *service.TeacherService
 	if llmClient != nil {
@@ -942,6 +948,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/mental-health", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("mental-health"))
 				student.GET("/digital-mentor", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("digital-mentor"))
 				student.GET("/qa-plaza", auth.RequireCapability(auth.SelfCommunityRead), studentH.QAPlaza)
+				student.GET("/qa/posts", auth.RequireCapability(auth.SelfCommunityRead), studentH.ListQAPosts)
+				student.POST("/qa/posts", auth.RequireCapability(auth.SelfCommunityRead), studentH.CreateQAPost)
+				student.GET("/qa/posts/:id", auth.RequireCapability(auth.SelfCommunityRead), studentH.GetQAPostDetail)
+				student.POST("/qa/posts/:id/answer", auth.RequireCapability(auth.SelfCommunityRead), studentH.AnswerQAPost)
 				student.GET("/hot-topics", auth.RequireCapability(auth.SelfCommunityRead), studentH.HotTopics)
 				student.GET("/qa-leaderboard", auth.RequireCapability(auth.SelfCommunityRead), studentH.QALeaderboard)
 				student.GET("/private-chat", auth.RequireCapability(auth.SelfPrivateChat), studentH.PrivateChat)
