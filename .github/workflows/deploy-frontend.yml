@@ -52,6 +52,30 @@ jobs:
             --dart-define=TENXUN_MAP_AK="$T_AK"
         working-directory: ./frontend
 
+      - name: 后处理：本地化 CanvasKit + 禁用 Service Worker
+        # flutter_bootstrap.js 默认从 gstatic.com 加载 CanvasKit（国内被屏蔽
+        # 导致白屏）且注册 Service Worker（HTTP 非 secure context 不可用）。
+        # 替换为本地 /canvaskit/ 路径并去掉 SW 注册，与 build-all.ps1 逻辑一致。
+        run: |
+          python3 -c "
+          import re
+          p = 'frontend/build/web/flutter_bootstrap.js'
+          t = open(p, encoding='utf-8').read()
+          pattern = r'_flutter\.loader\.load\(\{\s*serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*\"[^\"]*\"\s*\}\s*\}\);'
+          replacement = '_flutter.loader.load({ config: { canvasKitBaseUrl: \"/canvaskit/\" } });'
+          t2 = re.sub(pattern, replacement, t)
+          if t2 == t:
+              print('WARN: 未匹配到 serviceWorkerSettings，检查 Flutter 版本')
+          else:
+              print('OK: 已替换为本地 CanvasKit + 禁用 SW')
+          open(p, 'w', encoding='utf-8').write(t2)
+          "
+          # 验证 CanvasKit 本地文件存在
+          ls -la frontend/build/web/canvaskit/canvaskit.js frontend/build/web/canvaskit/canvaskit.wasm
+          # 验证替换结果
+          echo "canvasKitBaseUrl 出现次数: $(grep -c canvasKitBaseUrl frontend/build/web/flutter_bootstrap.js)"
+          echo "serviceWorkerSettings 出现次数: $(grep -c serviceWorkerSettings frontend/build/web/flutter_bootstrap.js || true)"
+
       - name: 上传到腾讯云服务器
         uses: easingthemes/ssh-deploy@v5.0.3
         with:
