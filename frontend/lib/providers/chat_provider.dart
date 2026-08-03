@@ -19,6 +19,11 @@ class ChatProvider extends ChangeNotifier {
   String? _selectedAgentId; // null = 默认智能体
   bool _agentsLoading = false;
 
+  /// 对话代次 — newChat()/loadSession() 时递增。
+  /// ask() 在 await 后校验代次，丢弃对已重置（删除/切换）对话的过期响应，
+  /// 防止已删除对话的 AI 回复与 sessionId 复活。
+  int _generation = 0;
+
   final VoiceService _voice = VoiceService();
   bool _isRecording = false;
   bool _isPlaying = false;
@@ -49,6 +54,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> ask(String question) async {
     if (question.trim().isEmpty || _sending) return;
 
+    final gen = _generation;
+
     // 添加用户消息到列表
     _messages.add(Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -62,6 +69,9 @@ class ChatProvider extends ChangeNotifier {
     try {
       final req = ChatRequest(question: question, sessionId: _sessionId, agentId: _selectedAgentId);
       final resp = await _api.post(ApiConfig.chat, data: req.toJson());
+
+      // 对话已被 newChat()/loadSession() 重置时，丢弃过期响应
+      if (gen != _generation) return;
 
       final chatResp = ChatResponse.fromJson(resp.data);
 
@@ -88,6 +98,9 @@ class ChatProvider extends ChangeNotifier {
       _sending = false;
       notifyListeners();
     } catch (e) {
+      // 对话已被重置时，丢弃过期响应
+      if (gen != _generation) return;
+
       // 标记最后一条用户消息为发送失败
       if (_messages.isNotEmpty && _messages.last.isUser) {
         _messages[_messages.length - 1] = _messages.last.copyWith(isFailed: true);
@@ -120,6 +133,7 @@ class ChatProvider extends ChangeNotifier {
   /// 必须重置 _sending，否则删除对话时若 AI 正在回复，
   /// _sending 卡在 true 会导致页面渲染卡死（空白页面）。
   void newChat() {
+    _generation++;
     _messages.clear();
     _sessionId = null;
     _error = null;
@@ -132,6 +146,7 @@ class ChatProvider extends ChangeNotifier {
 
   /// 退出登录时重置全部内存态，防止跨账号泄露（Q-08）
   void reset() {
+    _generation++;
     _messages.clear();
     _sessionId = null;
     _error = null;
@@ -178,6 +193,7 @@ class ChatProvider extends ChangeNotifier {
 
   /// 加载历史会话的消息
   Future<void> loadSession(String sessionId) async {
+    _generation++;
     _messages.clear();
     _sessionId = sessionId;
     _error = null;

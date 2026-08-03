@@ -13,6 +13,7 @@ import '../../providers/knowledge_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
+import '../../utils/page_reload.dart';
 import '../../utils/screenshot_capture.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
@@ -758,10 +759,12 @@ $printScript
 
   /// 确认删除当前对话
   ///
-  /// 流程：弹确认框 → 乐观调 newChat 清空当前对话 → 调 deleteSession 删除后端记录。
-  /// deleteSession 返回 false 表示 API 失败已回滚本地列表，此时提示用户。
-  /// 删除后强制重建页面（_rebuildKey++），彻底清除 ListView/动画状态，
-  /// 避免渲染卡死导致的空白页面。
+  /// 流程：弹确认框 → 调 deleteSession 删除后端记录。
+  ///
+  /// Web 端：删除成功后自动整页刷新（reloadPage），从根上规避
+  /// CanvasKit 渲染冻结导致的空白页（旧方案仅应用内重建无法保证恢复）。
+  /// 移动端：乐观调 newChat 清空当前对话 + 重建页面（_rebuildKey++），
+  /// 彻底清除 ListView/动画等子组件残留状态。
   Future<void> _confirmDeleteSession(ChatProvider chat) async {
     // 在弹框前快照 sessionId，避免弹框期间 provider 状态被其他逻辑修改
     final sessionId = chat.sessionId;
@@ -785,23 +788,41 @@ $printScript
     if (confirm != true) return;
     if (!mounted) return;
 
-    // 先清空当前对话界面（乐观更新），newChat 已重置 _sending 等全部状态
-    chat.newChat();
-    // 强制重建页面，清除 ListView/动画等子组件残留状态
-    setState(() => _rebuildKey++);
+    // 移动端先乐观清空界面，避免等待期间仍显示旧会话；
+    // Web 端不做本地清理（防止重建触发渲染冻结），依赖整页刷新兜底。
+    if (!kIsWeb) {
+      chat.newChat();
+    }
 
+    final bool ok;
     try {
-      final ok = await context.read<SessionProvider>().deleteSession(sessionId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '对话已删除' : '删除失败，请稍后重试')),
-      );
+      ok = await context.read<SessionProvider>().deleteSession(sessionId);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('删除失败：$e')),
       );
+      return;
     }
+    if (!mounted) return;
+
+    if (kIsWeb) {
+      // 删除成功 → 自动整页刷新，回到全新对话（用户无需手动刷新）
+      if (ok) {
+        reloadPage();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('删除失败，请稍后重试')),
+      );
+      return;
+    }
+
+    // 移动端：重建页面清除 ListView/动画等子组件残留状态
+    setState(() => _rebuildKey++);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '对话已删除' : '删除失败，请稍后重试')),
+    );
   }
 
   /// 保存问答对到知识库

@@ -28,6 +28,11 @@ class BaiduCampusMapController {
   /// 底图图层切换（'standard'=标准矢量图，'satellite'=卫星影像图）。
   void setLayer(String layer) =>
       _st?._send({'type': 'set_layer', 'layer': layer});
+
+  /// 控制 iframe 可见性（仅 Web 端需要，Android 端空实现保持接口一致）。
+  void setVisible(bool visible) {
+    // Android 使用 WebViewWidget，由 Flutter 正常管理渲染层级，无需手动隐藏
+  }
 }
 
 class BaiduCampusMapEmbed extends StatefulWidget {
