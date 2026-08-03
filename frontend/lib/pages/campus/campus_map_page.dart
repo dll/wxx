@@ -485,6 +485,83 @@ class _CampusMapPageState extends State<CampusMapPage> {
     }
   }
 
+  /// 打开管理菜单（编辑节点 / 流程管理）。
+  ///
+  /// 关键点：Flutter Web CanvasKit 下 PopupMenu 的 overlay 画在 canvas 上，
+  /// 而地图 iframe 是真实 DOM 元素，z-index 高于 canvas。PopupMenu 展开后菜单
+  /// 项视觉可见，但点击事件会被 iframe 拦截，导致 onSelected 不触发——表现为
+  /// "点了流程管理没反应"。PopupMenuButton 无法在展开前介入，故改用 IconButton
+  /// + 手动 showMenu：先隐藏 iframe 再展开菜单，菜单关闭后按选择结果决定是否
+  /// 恢复 iframe（选择"流程管理"时保持隐藏，交给 _openAdminPanel 接管）。
+  Future<void> _openAdminMenu(BuildContext buttonContext) async {
+    _mapController.setVisible(false);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      _mapController.setVisible(true);
+      return;
+    }
+    final RenderBox? button = buttonContext.findRenderObject() as RenderBox?;
+    final RenderBox? overlay =
+        Navigator.of(buttonContext).overlay?.context.findRenderObject() as RenderBox?;
+    if (button == null || overlay == null || !button.hasSize) {
+      _mapController.setVisible(true);
+      return;
+    }
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final theme = Theme.of(buttonContext);
+    final selected = await showMenu<String>(
+      context: buttonContext,
+      position: position,
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          value: 'edit',
+          child: Row(children: [
+            Icon(_editMode ? Icons.check_box_outlined : Icons.edit_location_alt,
+                size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(_editMode ? '退出编辑节点' : '编辑节点（拖拽校正）'),
+          ]),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'panel',
+          child: Row(children: [
+            Icon(Icons.settings, size: 18),
+            SizedBox(width: 8),
+            Text('流程管理（CRUD）'),
+          ]),
+        ),
+      ],
+    );
+    if (!mounted) {
+      _mapController.setVisible(true);
+      return;
+    }
+    if (selected == 'panel') {
+      // 保持 iframe 隐藏，直接打开管理面板（_openAdminPanel 会管理可见性）
+      _openAdminPanel();
+    } else {
+      _mapController.setVisible(true);
+      if (selected == 'edit') {
+        setState(() => _editMode = !_editMode);
+        if (_editMode) {
+          ScaffoldMessenger.of(buttonContext).showSnackBar(
+            const SnackBar(
+              content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+  }
+
   /// 将步骤列表转为地图 HTML 期望的 Map 格式（WGS-84 坐标）。
   List<Map<String, dynamic>> get _stepsForMap => _steps
       .asMap()
@@ -1086,46 +1163,14 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 ),
               ),
               if (_canEditNodes)
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.admin_panel_settings,
-                      size: 18, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
-                  tooltip: '管理',
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  onSelected: (v) {
-                    if (v == 'edit') {
-                      setState(() => _editMode = !_editMode);
-                      if (_editMode) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    } else if (v == 'panel') {
-                      _openAdminPanel();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(children: [
-                        Icon(_editMode ? Icons.check_box_outlined : Icons.edit_location_alt,
-                            size: 18, color: theme.colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Text(_editMode ? '退出编辑节点' : '编辑节点（拖拽校正）'),
-                      ]),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem<String>(
-                      value: 'panel',
-                      child: Row(children: [
-                        Icon(Icons.settings, size: 18),
-                        SizedBox(width: 8),
-                        Text('流程管理（CRUD）'),
-                      ]),
-                    ),
-                  ],
+                Builder(
+                  builder: (btnCtx) => IconButton(
+                    icon: Icon(Icons.admin_panel_settings,
+                        size: 18, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                    tooltip: '管理',
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    onPressed: () => _openAdminMenu(btnCtx),
+                  ),
                 ),
             ],
           ),
@@ -1238,45 +1283,13 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ),
           if (_canEditNodes) ...[
             const SizedBox(width: 8),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.admin_panel_settings,
-                  size: 20, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
-              tooltip: '管理',
-              onSelected: (v) {
-                if (v == 'edit') {
-                  setState(() => _editMode = !_editMode);
-                  if (_editMode) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                  }
-                } else if (v == 'panel') {
-                  _openAdminPanel();
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(children: [
-                    Icon(_editMode ? Icons.check_box_outlined : Icons.edit_location_alt,
-                        size: 18, color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(_editMode ? '退出编辑节点' : '编辑节点（拖拽校正）'),
-                  ]),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem<String>(
-                  value: 'panel',
-                  child: Row(children: [
-                    Icon(Icons.settings, size: 18),
-                    SizedBox(width: 8),
-                    Text('流程管理（CRUD）'),
-                  ]),
-                ),
-              ],
+            Builder(
+              builder: (btnCtx) => IconButton(
+                icon: Icon(Icons.admin_panel_settings,
+                    size: 20, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                tooltip: '管理',
+                onPressed: () => _openAdminMenu(btnCtx),
+              ),
             ),
           ],
         ],
