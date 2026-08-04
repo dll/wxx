@@ -505,6 +505,13 @@ func (r *KBRepo) SetStatus(resourceID string, status string) error {
 // 覆盖 NDJSON 导入与 ChatService 的 FAQ 缓存写入两条路径，
 // 在写库前统一清洗内容（FTS5 触发器会在写入瞬间索引 title/summary/content）。
 func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
+	id, action, _, err := r.UpsertDetailed(kb)
+	return id, action, err
+}
+
+// UpsertDetailed 返回 (id, action, reason, error)。
+// reason 用于区分 skipped 是否因版本冲突：version_low / duplicate / other。
+func (r *KBRepo) UpsertDetailed(kb *model.KBResource) (int64, string, string, error) {
 	kb.Title = util.SanitizeKnowledgeContent(kb.Title)
 	kb.Summary = util.SanitizeKnowledgeContent(kb.Summary)
 	kb.Content = util.SanitizeKnowledgeContentByType(kb.Content, kb.ResourceType)
@@ -512,7 +519,7 @@ func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
 	// 查询是否已存在同名资源
 	existing, err := r.GetByResourceID(kb.ResourceID)
 	if err != nil {
-		return 0, "", fmt.Errorf("查询已有资源失败: %w", err)
+		return 0, "", "", fmt.Errorf("查询已有资源失败: %w", err)
 	}
 
 	if existing != nil {
@@ -521,26 +528,26 @@ func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
 			// retired 无条件覆盖
 		} else if compareVersion(kb.Version, existing.Version) < 0 {
 			// 导入版本更低，跳过
-			return existing.ID, "skipped", nil
+			return existing.ID, "skipped", "version_low", nil
 		} else if compareVersion(kb.Version, existing.Version) == 0 && existing.Status != "draft" {
 			// 相同版本且非草稿，跳过（避免重复导入）
-			return existing.ID, "skipped", nil
+			return existing.ID, "skipped", "duplicate", nil
 		}
 		// 更新已有记录
 		kb.ID = existing.ID
 		kb.ResourceID = existing.ResourceID // 保持原 resource_id
 		if err := r.Update(kb); err != nil {
-			return 0, "", fmt.Errorf("更新资源失败: %w", err)
+			return 0, "", "", fmt.Errorf("更新资源失败: %w", err)
 		}
-		return existing.ID, "updated", nil
+		return existing.ID, "updated", "", nil
 	}
 
 	// 新建
 	id, err := r.Create(kb)
 	if err != nil {
-		return 0, "", fmt.Errorf("创建资源失败: %w", err)
+		return 0, "", "", fmt.Errorf("创建资源失败: %w", err)
 	}
-	return id, "created", nil
+	return id, "created", "", nil
 }
 
 // compareVersion 比较语义化版本号（兼容 "1" / "1.0" / "1.0.0" 三种形式）
@@ -688,6 +695,78 @@ func (r *KBRepo) ListSince(resourceType, sinceCursor, callerScope, callerOwnerID
 		list = append(list, kb)
 	}
 	return list, rows.Err()
+}
+
+// ListSincePage 分页增量导出：使用 (updated_at, resource_id) 复合游标，
+// 保证同一秒内多条数据也能无重复、无遗漏地遍历。
+func (r *KBRepo) ListSincePage(resourceType, sinceCursor, callerScope, callerOwnerID string, limit int) ([]*model.KBResource, string, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > 5000 {
+		limit = 5000
+	}
+
+	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id,
+			role_scope, version, status, title, summary,
+			content, source_link, source_version,
+			effective_at, expired_at, tags, remark,
+			updated_by, created_at, updated_at
+		 FROM kb_resources WHERE status = 'published'`
+	args := []interface{}{}
+
+	if resourceType != "" {
+		query += " AND resource_type = ?"
+		args = append(args, resourceType)
+	}
+	cursorUpdated, cursorID, _ := strings.Cut(sinceCursor, "|")
+	if cursorUpdated != "" {
+		query += " AND (updated_at > ? OR (updated_at = ? AND resource_id > ?))"
+		args = append(args, cursorUpdated, cursorUpdated, cursorID)
+	}
+
+	switch callerScope {
+	case "college":
+		query += " AND (owner_scope = 'school' OR (owner_scope = 'college' AND owner_id = ?))"
+		args = append(args, callerOwnerID)
+	case "class":
+		query += " AND (owner_scope = 'school' OR owner_scope = 'college' OR (owner_scope = 'class' AND owner_id = ?))"
+		args = append(args, callerOwnerID)
+	}
+
+	query += " ORDER BY updated_at ASC, resource_id ASC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, "", fmt.Errorf("分页增量查询失败: %w", err)
+	}
+	defer rows.Close()
+
+	var list []*model.KBResource
+	for rows.Next() {
+		kb := &model.KBResource{}
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+		); err != nil {
+			return nil, "", err
+		}
+		list = append(list, kb)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	nextCursor := ""
+	if len(list) == limit {
+		last := list[len(list)-1]
+		nextCursor = last.UpdatedAt + "|" + last.ResourceID
+	}
+	return list, nextCursor, nil
 }
 
 // Count 统计知识资源总数（过滤条件同 List）

@@ -15,14 +15,26 @@ const (
 	ExportPDF  ExportFormat = "pdf"
 	ExportJSON ExportFormat = "json"
 	ExportMD   ExportFormat = "md"
+	ExportDOCX ExportFormat = "docx"
+	ExportXLSX ExportFormat = "xlsx"
+	ExportPNG  ExportFormat = "png"
+	ExportICS  ExportFormat = "ics"
 )
 
 // ExportService 多格式导出服务
-type ExportService struct{}
+type ExportService struct {
+	cjkFontPath string
+}
 
 // NewExportService 创建导出服务
 func NewExportService() *ExportService {
 	return &ExportService{}
+}
+
+// SetCJKFontPath 设置 PDF/PNG 中文渲染字体路径。
+// 留空时服务会尝试常见系统字体路径。
+func (s *ExportService) SetCJKFontPath(path string) {
+	s.cjkFontPath = path
 }
 
 // ExportAnswer 将 AnswerCard 导出为指定格式
@@ -37,6 +49,18 @@ func (s *ExportService) ExportAnswer(card *model.AnswerCard, format ExportFormat
 	case ExportPDF:
 		data := s.exportPDF(card, watermark)
 		return data, "application/pdf", nil
+	case ExportDOCX:
+		data, err := s.exportDOCX(card, watermark)
+		return data, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", err
+	case ExportXLSX:
+		data, err := s.exportXLSX(card)
+		return data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", err
+	case ExportPNG:
+		data, err := s.exportPNG(card, watermark)
+		return data, "image/png", err
+	case ExportICS:
+		data := s.exportICS(card)
+		return data, "text/calendar; charset=utf-8", nil
 	default:
 		return nil, "", fmt.Errorf("不支持的导出格式: %s", format)
 	}
@@ -83,57 +107,6 @@ func (s *ExportService) exportMarkdown(card *model.AnswerCard) string {
 
 	b.WriteString("---\n*此文档由蔚小芯 AI 学工助手生成*\n")
 	return b.String()
-}
-
-func (s *ExportService) exportPDF(card *model.AnswerCard, watermark bool) []byte {
-	var b strings.Builder
-
-	// 最小可用 PDF 生成
-	// 使用 PDF 文本格式（跨平台，无字体依赖）
-	objects := []string{}
-	content := s.buildPDFContent(card, watermark)
-
-	// PDF 对象编号
-	obj1 := fmt.Sprintf("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj")
-	obj2 := fmt.Sprintf("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj")
-	obj3 := fmt.Sprintf("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj")
-	obj4 := fmt.Sprintf("4 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj", len(content), content)
-	obj5 := "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj"
-
-	objects = append(objects, obj1, obj2, obj3, obj4, obj5)
-
-	// 计算 xref 偏移
-	offsets := []int{}
-	offset := 0
-	for _, obj := range objects {
-		offsets = append(offsets, offset)
-		offset += len(obj) + 1 // +1 for newline
-	}
-
-	// 组装 PDF
-	b.WriteString("%PDF-1.4\n")
-	for _, obj := range objects {
-		b.WriteString(obj)
-		b.WriteString("\n")
-	}
-
-	// xref 表
-	xrefOffset := b.Len()
-	b.WriteString("xref\n")
-	b.WriteString(fmt.Sprintf("0 %d\n", len(objects)+1))
-	b.WriteString("0000000000 65535 f \n")
-	for _, off := range offsets {
-		b.WriteString(fmt.Sprintf("%010d 00000 n \n", off))
-	}
-
-	// trailer
-	b.WriteString("trailer\n")
-	b.WriteString(fmt.Sprintf("<< /Size %d /Root 1 0 R >>\n", len(objects)+1))
-	b.WriteString("startxref\n")
-	b.WriteString(fmt.Sprintf("%d\n", xrefOffset))
-	b.WriteString("%%EOF\n")
-
-	return []byte(b.String())
 }
 
 func (s *ExportService) buildPDFContent(card *model.AnswerCard, watermark bool) string {

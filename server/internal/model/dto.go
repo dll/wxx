@@ -85,6 +85,73 @@ type ExportResponse struct {
 	Data     []*KBResource  `json:"data"`
 }
 
+// KnowledgePackageManifest 标准知识导出包 manifest（对应总纲 6.8.7）。
+type KnowledgePackageManifest struct {
+	PackageID         string `json:"package_id"`
+	Producer          string `json:"producer"`
+	SchemaVersion     string `json:"schema_version"`
+	ExportType        string `json:"export_type"` // full|delta
+	OwnerScope        string `json:"owner_scope"`
+	OwnerID           string `json:"owner_id"`
+	SinceCursor       string `json:"since_cursor,omitempty"`
+	UntilCursor       string `json:"until_cursor"`
+	NextCursor        string `json:"next_cursor,omitempty"`
+	HasMore           bool   `json:"has_more"`
+	ExportBatchID     string `json:"export_batch_id"`
+	GeneratedAt       string `json:"generated_at"`
+	ResourceCount     int    `json:"resource_count"`
+	HashAlg           string `json:"hash_alg"`
+	ResourcesSha256   string `json:"resources_sha256"`
+	AttachmentsSha256 string `json:"attachments_sha256,omitempty"`
+	SignAlg           string `json:"sign_alg,omitempty"`
+	Signature         string `json:"signature,omitempty"`
+}
+
+// KnowledgePackageResponse 标准知识包响应（JSON 调试形态；实际导出为 zip）。
+type KnowledgePackageResponse struct {
+	Manifest  *KnowledgePackageManifest `json:"manifest"`
+	Resources []*KBResource             `json:"resources"`
+}
+
+// KBImportPackageResponse 标准知识包导入结果，对应总纲 6.8.8.1。
+type KBImportPackageResponse struct {
+	Code          int      `json:"code"`
+	Message       string   `json:"message"`
+	PackageID     string   `json:"package_id"`
+	ReceivedCount int      `json:"received_count"`
+	AppliedCount  int      `json:"applied_count"`
+	IgnoredCount  int      `json:"ignored_count"`
+	ConflictCount int      `json:"conflict_count"`
+	UntilCursor   string   `json:"until_cursor"`
+	Warnings      []string `json:"warnings"`
+	TraceID       string   `json:"trace_id,omitempty"`
+}
+
+// KBImportChunkInitRequest 初始化分片上传。
+type KBImportChunkInitRequest struct {
+	TotalChunks    int    `json:"total_chunks" binding:"required,min=1,max=10000"`
+	ExpectedSha256 string `json:"expected_sha256"` // 整包 sha256，可选
+	FileName       string `json:"file_name"`
+}
+
+// KBImportChunkInitResponse 初始化分片上传结果。
+type KBImportChunkInitResponse struct {
+	UploadID    string `json:"upload_id"`
+	TotalChunks int    `json:"total_chunks"`
+	ExpiresIn   int    `json:"expires_in"` // 秒
+}
+
+// KBImportChunkStatus 分片上传状态。
+type KBImportChunkStatus struct {
+	UploadID       string `json:"upload_id"`
+	TotalChunks    int    `json:"total_chunks"`
+	ReceivedCount  int    `json:"received_count"`
+	ReceivedChunks []int  `json:"received_chunks"`
+	MissingChunks  []int  `json:"missing_chunks"`
+	Complete       bool   `json:"complete"`
+	LastCursor     string `json:"last_cursor,omitempty"`
+}
+
 // ── 知识库管理 DTO ──
 
 // KBCreateRequest 创建知识资源请求
@@ -247,21 +314,23 @@ type KBImportRequest struct {
 
 // KBImportResult 单条导入结果
 type KBImportResult struct {
-	ResourceID string `json:"resource_id"` // 资源 ID
-	Title      string `json:"title"`       // 标题
-	Action     string `json:"action"`      // created / updated / skipped
-	Message    string `json:"message"`     // 说明
+	ResourceID string `json:"resource_id"`        // 资源 ID
+	Title      string `json:"title"`              // 标题
+	Action     string `json:"action"`             // created / updated / skipped
+	Message    string `json:"message"`            // 说明
+	Conflict   bool   `json:"conflict,omitempty"` // 是否因版本低于现网被跳过
 }
 
 // KBImportResponse 导入响应
 type KBImportResponse struct {
-	Code    int               `json:"code"`
-	Message string            `json:"message"`
-	Data    []*KBImportResult `json:"data"`    // 逐条结果
-	Total   int               `json:"total"`   // 总条数
-	Created int               `json:"created"` // 新建数
-	Updated int               `json:"updated"` // 更新数
-	Skipped int               `json:"skipped"` // 跳过数
+	Code     int               `json:"code"`
+	Message  string            `json:"message"`
+	Data     []*KBImportResult `json:"data"`     // 逐条结果
+	Total    int               `json:"total"`    // 总条数
+	Created  int               `json:"created"`  // 新建数
+	Updated  int               `json:"updated"`  // 更新数
+	Skipped  int               `json:"skipped"`  // 跳过数
+	Conflict int               `json:"conflict"` // 版本冲突跳过数
 }
 
 // KBRefineItemResult 批量精修单条结果

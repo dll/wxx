@@ -58,41 +58,47 @@ func (s *IntegrationService) ProxyYBT(path string, query map[string]string) (jso
 
 // proxyGet 通用 GET 代理
 func (s *IntegrationService) proxyGet(baseURL, token, path string, query map[string]string, systemName string) (json.RawMessage, error) {
-	url := baseURL + path
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-
-	if len(query) > 0 {
-		q := req.URL.Query()
-		for k, v := range query {
-			q.Add(k, v)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		url := baseURL + path
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("创建请求失败: %w", err)
 		}
-		req.URL.RawQuery = q.Encode()
-	}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Accept", "application/json")
+		if len(query) > 0 {
+			q := req.URL.Query()
+			for k, v := range query {
+				q.Add(k, v)
+			}
+			req.URL.RawQuery = q.Encode()
+		}
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		log.Printf("[%s] 请求失败 url=%s err=%v", systemName, url, err)
-		return nil, fmt.Errorf("%s 请求超时或不可达", systemName)
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("%s 请求超时或不可达: %w", systemName, err)
+			log.Printf("[%s] 请求失败 attempt=%d url=%s err=%v", systemName, attempt+1, url, err)
+			time.Sleep(time.Duration(attempt+1) * 200 * time.Millisecond)
+			continue
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = fmt.Errorf("读取 %s 响应失败: %w", systemName, readErr)
+			continue
+		}
+		if resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("%s 返回错误 HTTP %d", systemName, resp.StatusCode)
+			log.Printf("[%s] 返回错误 status=%d body=%s", systemName, resp.StatusCode, util.TruncateString(string(body), 200))
+			time.Sleep(time.Duration(attempt+1) * 200 * time.Millisecond)
+			continue
+		}
+		if resp.StatusCode >= 400 {
+			return nil, fmt.Errorf("%s 返回错误 HTTP %d", systemName, resp.StatusCode)
+		}
+		log.Printf("[%s] 代理成功 path=%s status=%d", systemName, path, resp.StatusCode)
+		return json.RawMessage(body), nil
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 限制 1MB
-	if err != nil {
-		return nil, fmt.Errorf("读取 %s 响应失败: %w", systemName, err)
-	}
-
-	if resp.StatusCode >= 400 {
-		log.Printf("[%s] 返回错误 status=%d body=%s", systemName, resp.StatusCode, util.TruncateString(string(body), 200))
-		return nil, fmt.Errorf("%s 返回错误 HTTP %d", systemName, resp.StatusCode)
-	}
-
-	log.Printf("[%s] 代理成功 path=%s status=%d", systemName, path, resp.StatusCode)
-	return json.RawMessage(body), nil
+	return nil, lastErr
 }

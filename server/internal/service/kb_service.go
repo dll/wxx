@@ -394,7 +394,7 @@ func (s *KBService) RetireResource(ctx context.Context, resourceID, username str
 func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, username string) (*model.KBImportResponse, error) {
 	lines := strings.Split(strings.TrimSpace(ndjsonData), "\n")
 	results := make([]*model.KBImportResult, 0, len(lines))
-	var created, updated, skipped int
+	var created, updated, skipped, conflict int
 
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
@@ -442,7 +442,7 @@ func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, user
 		kb.UpdatedBy = username
 
 		// 幂等导入
-		_, action, err := s.kbRepo.Upsert(&kb)
+		_, action, reason, err := s.kbRepo.UpsertDetailed(&kb)
 		if err != nil {
 			results = append(results, &model.KBImportResult{
 				ResourceID: kb.ResourceID,
@@ -459,6 +459,7 @@ func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, user
 			Title:      kb.Title,
 			Action:     action,
 			Message:    fmt.Sprintf("操作成功: %s", action),
+			Conflict:   reason == "version_low",
 		})
 
 		switch action {
@@ -468,19 +469,23 @@ func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, user
 			updated++
 		default:
 			skipped++
+			if reason == "version_low" {
+				conflict++
+			}
 		}
 	}
 
-	log.Printf("知识导入完成 total=%d created=%d updated=%d skipped=%d by=%s", len(results), created, updated, skipped, username)
+	log.Printf("知识导入完成 total=%d created=%d updated=%d skipped=%d conflict=%d by=%s", len(results), created, updated, skipped, conflict, username)
 
 	return &model.KBImportResponse{
-		Code:    0,
-		Message: "导入完成",
-		Data:    results,
-		Total:   len(results),
-		Created: created,
-		Updated: updated,
-		Skipped: skipped,
+		Code:     0,
+		Message:  "导入完成",
+		Data:     results,
+		Total:    len(results),
+		Created:  created,
+		Updated:  updated,
+		Skipped:  skipped,
+		Conflict: conflict,
 	}, nil
 }
 

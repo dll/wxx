@@ -58,6 +58,35 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	util.SuccessWithMessage(c, result, "登录成功")
 }
 
+type ssoCallbackRequest struct {
+	Ticket string `json:"ticket" binding:"required"`
+}
+
+// SSOCallback 统一身份认证票据换取 JWT。
+// POST /api/v1/auth/sso/callback
+func (h *AuthHandler) SSOCallback(c *gin.Context) {
+	var req ssoCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.FailBadRequest(c, "请求参数错误")
+		return
+	}
+	result, err := h.authSvc.LoginBySSOTicket(c.Request.Context(), req.Ticket)
+	if err != nil {
+		if errors.Is(err, service.ErrSSONotConfigured) {
+			c.JSON(http.StatusServiceUnavailable, model.ErrorResponse{
+				Code:    503,
+				Message: "统一身份认证未配置，请联系管理员",
+				TraceID: middleware.GetTraceID(c),
+			})
+			return
+		}
+		log.Printf("SSO 登录失败: %v", err)
+		util.FailUnauthorized(c, "SSO 登录失败，请重试")
+		return
+	}
+	util.SuccessWithMessage(c, result, "SSO 登录成功")
+}
+
 // Profile 获取当前用户信息
 // GET /api/v1/user/profile
 func (h *AuthHandler) Profile(c *gin.Context) {

@@ -1,10 +1,16 @@
 package service
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -51,6 +57,7 @@ var ErrInvalidCredentials = errors.New("账号或密码错误")
 
 // ErrAccountUnavailable 表示账号尚未获准登录或已被停用。
 var ErrAccountUnavailable = errors.New("账号不可用")
+var ErrSSONotConfigured = errors.New("SSO 未配置")
 
 // NewAuthService 创建认证服务
 func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo) *AuthService {
@@ -220,6 +227,192 @@ func (s *AuthService) RejectGuest(guestID int64) error {
 // ListPendingGuests 列出待审核游客
 func (s *AuthService) ListPendingGuests() ([]*model.User, error) {
 	return s.userRepo.ListPendingGuests()
+}
+
+// LoginBySSOTicket 通过统一身份认证票据换取 JWT。
+// 支持真实 SSO（OAuth2 authorization_code）与 SSO_MOCK=true 的演示模式。
+func (s *AuthService) LoginBySSOTicket(ctx context.Context, ticket string) (*LoginResult, error) {
+	if strings.TrimSpace(ticket) == "" {
+		return nil, errors.New("SSO ticket 不能为空")
+	}
+	if s.cfg.SSOMock {
+		return s.loginSSOMock(ticket)
+	}
+	if s.cfg.SSOBaseURL == "" {
+		return nil, ErrSSONotConfigured
+	}
+
+	tokenResp, err := s.ssoExchangeToken(ctx, ticket)
+	if err != nil {
+		return nil, err
+	}
+	accessToken, _ := tokenResp["access_token"].(string)
+	if accessToken == "" {
+		return nil, errors.New("SSO 未返回 access_token")
+	}
+	userInfo, err := s.ssoFetchUser(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	username := firstString(userInfo, "username", "student_id", "account", "userId", "user_id")
+	if username == "" {
+		return nil, errors.New("SSO 用户信息缺少 username/student_id")
+	}
+	displayName := firstString(userInfo, "name", "display_name", "real_name")
+	if displayName == "" {
+		displayName = username
+	}
+	role := firstString(userInfo, "role")
+	if !isKnownSSORole(role) {
+		role = "student"
+	}
+	ownerScope := firstString(userInfo, "owner_scope")
+	if ownerScope != "school" && ownerScope != "college" && ownerScope != "class" {
+		ownerScope = "college"
+	}
+	ownerID := firstString(userInfo, "owner_id", "college", "dept")
+	if ownerID == "" {
+		ownerID = "default"
+	}
+
+	user, err := s.userRepo.GetByUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("查询 SSO 用户失败: %w", err)
+	}
+	if user == nil {
+		user = &model.User{
+			Username:    username,
+			DisplayName: displayName,
+			Role:        role,
+			OwnerScope:  ownerScope,
+			OwnerID:     ownerID,
+			Status:      "active",
+		}
+		id, err := s.userRepo.Create(user)
+		if err != nil {
+			return nil, fmt.Errorf("创建 SSO 用户失败: %w", err)
+		}
+		user.ID = id
+	}
+
+	token, err := jwtutil.GenerateToken(s.cfg, user)
+	if err != nil {
+		return nil, fmt.Errorf("签发 JWT 失败: %w", err)
+	}
+	return &LoginResult{
+		Token:       token,
+		ExpiresIn:   s.cfg.JWTExpireHours * 3600,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+	}, nil
+}
+
+func (s *AuthService) loginSSOMock(ticket string) (*LoginResult, error) {
+	sum := sha256.Sum256([]byte(ticket))
+	username := fmt.Sprintf("sso_%x", sum[:6])
+	user, err := s.userRepo.GetByUsername(username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		user = &model.User{
+			Username:    username,
+			DisplayName: "SSO 演示用户",
+			Role:        "student",
+			OwnerScope:  "college",
+			OwnerID:     "default",
+			Status:      "active",
+		}
+		id, err := s.userRepo.Create(user)
+		if err != nil {
+			return nil, err
+		}
+		user.ID = id
+	}
+	token, err := jwtutil.GenerateToken(s.cfg, user)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginResult{Token: token, ExpiresIn: s.cfg.JWTExpireHours * 3600, DisplayName: user.DisplayName, Role: user.Role}, nil
+}
+
+func (s *AuthService) ssoExchangeToken(ctx context.Context, ticket string) (map[string]interface{}, error) {
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("code", ticket)
+	form.Set("client_id", s.cfg.SSOClientID)
+	form.Set("client_secret", s.cfg.SSOClientSecret)
+	form.Set("redirect_uri", s.cfg.SSOCallbackURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(s.cfg.SSOBaseURL, "/")+"/oauth/token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("SSO token 交换失败: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("SSO token 交换失败 HTTP %d: %s", resp.StatusCode, maskPhone(string(body)))
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *AuthService) ssoFetchUser(ctx context.Context, accessToken string) (map[string]interface{}, error) {
+	userInfoPath := s.cfg.SSOUserInfoPath
+	if userInfoPath == "" {
+		userInfoPath = "/userinfo"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(s.cfg.SSOBaseURL, "/")+userInfoPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("SSO 用户信息获取失败: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("SSO 用户信息获取失败 HTTP %d", resp.StatusCode)
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func firstString(m map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := m[key]; ok && v != nil {
+			return fmt.Sprint(v)
+		}
+	}
+	return ""
+}
+
+func isKnownSSORole(role string) bool {
+	switch role {
+	case "sys_admin", "school_admin", "college_admin", "counselor", "teacher", "assistant", "student_union", "student", "guest":
+		return true
+	default:
+		return false
+	}
 }
 
 // RecordConsent 记录用户同意隐私政策与用户协议

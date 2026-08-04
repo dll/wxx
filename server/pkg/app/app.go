@@ -153,7 +153,13 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
 	if llmClient != nil {
-		chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo, llmClient))
+		if einoOrch, err := agent.NewEinoOrchestrator(kbRepo, llmClient); err == nil {
+			chatSvc.SetOrchestrator(einoOrch)
+			log.Println("多智能体编排: Eino Graph")
+		} else {
+			log.Printf("Eino 编排初始化失败，回退自研编排: %v", err)
+			chatSvc.SetOrchestrator(agent.NewOrchestrator(kbRepo, llmClient))
+		}
 	}
 
 	var emotionSvc *service.EmotionService
@@ -233,6 +239,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	exportSvc := service.NewExportService()
 	exportSvc.SetCJKFontPath(cfg.ExportFontPath)
 	exportHandler := handler.NewExportHandler(kbSvc, exportSvc)
+	exportLogRepo := repository.NewExportLogRepo(db)
+	exportLogSvc := service.NewExportLogService(exportLogRepo)
+	exportHandler.SetExportLogService(exportLogSvc)
 	if cfg.HMACSecret != "" {
 		exportHandler.SetHMACSecret(cfg.HMACSecret)
 		log.Println("知识导出包 HMAC-SHA256 签名已启用")
@@ -662,6 +671,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login", middleware.LoginIPRateLimiter(), authH.Login)
+			authGroup.POST("/sso/callback", middleware.LoginIPRateLimiter(), authH.SSOCallback)
 			authGroup.POST("/qr-login", handler.CreateQRSession)
 			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
 			authGroup.PUT("/qr-scan", handler.ScanQRSession)
@@ -817,6 +827,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/kb/export", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.Export)
 			secured.GET("/kb/export/package", auth.RequireCapability(auth.SchoolKBSyncExport), exportH.ExportPackage)
 			secured.POST("/kb/import/package", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.ImportPackage)
+			secured.POST("/kb/import/package/chunk/init", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.InitChunkUpload)
+			secured.PUT("/kb/import/package/chunk/:upload_id/:chunk_index", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.UploadChunk)
+			secured.GET("/kb/import/package/chunk/status/:upload_id", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.ChunkUploadStatus)
+			secured.POST("/kb/import/package/chunk/complete/:upload_id", auth.RequireAnyCapability(auth.CounselorKBWrite, auth.SchoolKBSyncExport), exportH.CompleteChunkUpload)
 
 			// ── 智能体管理（school.agent.write）──
 			agents := secured.Group("/agents")

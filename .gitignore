@@ -206,3 +206,7 @@ frontend/android/gradle_out.txt
 node_modules/
 frontend/functions/node_modules/
 functions/node_modules/
+
+# APK 下载包（GitHub Release 分发，不进 Git）
+frontend/web/downloads/*.apk
+

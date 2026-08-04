@@ -59,8 +59,12 @@ type Config struct {
 	YBTToken   string
 
 	// SSO
-	SSOBaseURL     string
-	SSOCallbackURL string
+	SSOBaseURL      string
+	SSOCallbackURL  string
+	SSOClientID     string
+	SSOClientSecret string
+	SSOUserInfoPath string
+	SSOMock         bool
 
 	// 蔚园智答同步
 	WeiyuanSyncSecret string
@@ -87,6 +91,16 @@ type Config struct {
 
 	// 知识同步包签名（Q-05）
 	HMACSecret string // 知识导出包 HMAC-SHA256 签名密钥（环境变量 HMAC_SECRET）
+
+	// 数据保留策略（9.2 合规基线）
+	RetentionAuditDays     int // 审计日志保留天数，默认 180
+	RetentionSessionDays   int // 会话/消息保留天数，默认 365（1 学年）
+	RetentionEmotionDays   int // 情感记录保留天数，默认 365
+	RetentionExportDays    int // 导出日志保留天数，默认 180
+	RetentionIntervalHours int // 清理任务间隔小时，默认 24
+
+	// 导出字体（用于 PDF/PNG 中文渲染，空值自动探测）
+	ExportFontPath string
 }
 
 // Load 加载配置。优先从 .env 文件读取，再从系统环境变量补充。
@@ -133,8 +147,12 @@ func Load() *Config {
 		YBTBaseURL: envOr("YBT_BASE_URL", ""),
 		YBTToken:   envOr("YBT_TOKEN", ""),
 
-		SSOBaseURL:     envOr("SSO_BASE_URL", ""),
-		SSOCallbackURL: envOr("SSO_CALLBACK_URL", "http://localhost:8080/api/v1/auth/callback"),
+		SSOBaseURL:      envOr("SSO_BASE_URL", ""),
+		SSOCallbackURL:  envOr("SSO_CALLBACK_URL", "http://localhost:8080/api/v1/auth/sso/callback"),
+		SSOClientID:     envOr("SSO_CLIENT_ID", ""),
+		SSOClientSecret: envOr("SSO_CLIENT_SECRET", ""),
+		SSOUserInfoPath: envOr("SSO_USERINFO_PATH", "/userinfo"),
+		SSOMock:         envBoolOr("SSO_MOCK", false),
 
 		WeiyuanSyncSecret: envOr("WEIYUAN_SYNC_SECRET", ""),
 		WeiyuanImportURL:  envOr("WEIYUAN_IMPORT_URL", ""),
@@ -157,6 +175,15 @@ func Load() *Config {
 
 		// 知识同步包签名（Q-05）
 		HMACSecret: envOr("HMAC_SECRET", ""),
+
+		// 数据保留策略
+		RetentionAuditDays:     envIntOr("RETENTION_AUDIT_DAYS", 180),
+		RetentionSessionDays:   envIntOr("RETENTION_SESSION_DAYS", 365),
+		RetentionEmotionDays:   envIntOr("RETENTION_EMOTION_DAYS", 365),
+		RetentionExportDays:    envIntOr("RETENTION_EXPORT_DAYS", 180),
+		RetentionIntervalHours: envIntOr("RETENTION_INTERVAL_HOURS", 24),
+
+		ExportFontPath: envOr("EXPORT_FONT_PATH", ""),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -239,4 +266,12 @@ func envIntOr(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func envBoolOr(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	return strings.EqualFold(v, "true") || v == "1"
 }
