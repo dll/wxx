@@ -948,7 +948,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.map_outlined,
               label: '校园导航',
               color: const Color(0xFF1677FF),
-              onTap: () => context.go('/campus'),
+              onTap: () => context.go('/campus?v=map'),
             ),
             const SizedBox(width: 10),
             _buildKnowledgeCard(
@@ -956,7 +956,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.view_in_ar,
               label: 'VR全景',
               color: const Color(0xFF7B1FA2),
-              onTap: () => context.go('/campus'),
+              onTap: () => context.go('/campus?v=vr'),
             ),
             const SizedBox(width: 10),
             _buildKnowledgeCard(
@@ -964,7 +964,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.school,
               label: '学校首页',
               color: const Color(0xFF1565C0),
-              onTap: () => context.go('/campus'),
+              onTap: () => context.go('/campus?v=home'),
             ),
             const SizedBox(width: 10),
             _buildKnowledgeCard(
@@ -972,7 +972,7 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.music_note,
               label: '招生抖音',
               color: const Color(0xFFC62828),
-              onTap: () => context.go('/campus'),
+              onTap: () => context.go('/campus?v=douyin'),
             ),
           ],
         ),

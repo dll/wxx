@@ -24,6 +24,8 @@ import '../pages/admin/my_submissions_page.dart';
 import '../pages/admin/feedback_page.dart';
 import '../pages/profile/my_feedbacks_page.dart';
 import '../pages/process/my_records_page.dart';
+import '../pages/process/process_manage_page.dart';
+import '../pages/process/process_review_page.dart';
 import '../pages/bookmarks/bookmarks_page.dart';
 import '../pages/notification/notification_page.dart';
 import '../pages/about/about_page.dart';
@@ -65,7 +67,6 @@ import '../pages/counselor/ideological_page.dart';
 import '../pages/counselor/class_profile_page.dart';
 import '../pages/counselor/community_manage_page.dart';
 import '../pages/counselor/hot_topic_sense_page.dart';
-import '../pages/counselor/process_edit_page.dart';
 import '../pages/counselor/student_list_page.dart';
 // ── 教师 AI 功能页面 ──
 import '../pages/teacher/daily_overview_page.dart';
@@ -117,7 +118,6 @@ import '../pages/student/mental/counseling_page.dart';
 import '../pages/student/mental/article_detail_page.dart';
 import '../pages/student/mental/mood_diary_page.dart';
 import '../utils/screenshot_capture.dart';
-import '../widgets/fab_menu.dart';
 
 /// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
 class AuthRefreshNotifier extends ChangeNotifier {
@@ -141,7 +141,8 @@ final GoRouter appRouter = GoRouter(
     // 未登录 → 允许访问首页（游客模式），但其他页面需登录
     if (!loggedIn) {
       final publicPaths = ['/home', '/login', '/consent', '/campus', '/browse'];
-      final isPublic = publicPaths.any((p) => state.matchedLocation.startsWith(p));
+      final isPublic =
+          publicPaths.any((p) => state.matchedLocation.startsWith(p));
       if (!isPublic) return '/home';
     }
     // 已登录 → 不需要看登录页
@@ -202,11 +203,17 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const ModelConfigPage(),
         ),
         // ── 校园文化智能体（全员可见）──
-        GoRoute(path: '/culture/anthems', builder: (_, __) => const AnthemPage()),
+        GoRoute(
+            path: '/culture/anthems', builder: (_, __) => const AnthemPage()),
         GoRoute(path: '/culture/radio', builder: (_, __) => const RadioPage()),
-        GoRoute(path: '/culture/lectures', builder: (_, __) => const LecturesPage()),
-        GoRoute(path: '/culture/events', builder: (_, __) => const EventsPage()),
-        GoRoute(path: '/culture/volunteer', builder: (_, __) => const VolunteerPage()),
+        GoRoute(
+            path: '/culture/lectures',
+            builder: (_, __) => const LecturesPage()),
+        GoRoute(
+            path: '/culture/events', builder: (_, __) => const EventsPage()),
+        GoRoute(
+            path: '/culture/volunteer',
+            builder: (_, __) => const VolunteerPage()),
         GoRoute(
           path: '/token-stats',
           builder: (context, state) => const TokenStatsPage(),
@@ -276,7 +283,8 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const ClubPage(),
         ),
         // ── 学生三大教育模块路由 ──
-        GoRoute(path: '/student/career', builder: (_, __) => const CareerPage()),
+        GoRoute(
+            path: '/student/career', builder: (_, __) => const CareerPage()),
         GoRoute(
           path: '/student/career/job/:id',
           builder: (_, state) => JobDetailPage(
@@ -296,7 +304,9 @@ final GoRouter appRouter = GoRouter(
             courseId: state.pathParameters['id'] ?? '',
           ),
         ),
-        GoRoute(path: '/student/study/grades', builder: (_, __) => const GradesPage()),
+        GoRoute(
+            path: '/student/study/grades',
+            builder: (_, __) => const GradesPage()),
         GoRoute(
           path: '/student/study/resource/:id',
           builder: (_, state) => ResourceDetailPage(
@@ -318,21 +328,26 @@ final GoRouter appRouter = GoRouter(
           path: '/student/timetable',
           builder: (_, __) => const TimetablePage(),
         ),
-        GoRoute(path: '/student/mental', builder: (_, __) => const MentalPage()),
+        GoRoute(
+            path: '/student/mental', builder: (_, __) => const MentalPage()),
         GoRoute(
           path: '/student/mental/scale/:id',
           builder: (_, state) => ScaleDetailPage(
             scaleId: state.pathParameters['id'] ?? '',
           ),
         ),
-        GoRoute(path: '/student/mental/counseling', builder: (_, __) => const CounselingPage()),
+        GoRoute(
+            path: '/student/mental/counseling',
+            builder: (_, __) => const CounselingPage()),
         GoRoute(
           path: '/student/mental/article/:id',
           builder: (_, state) => ArticleDetailPage(
             articleId: state.pathParameters['id'] ?? '',
           ),
         ),
-        GoRoute(path: '/student/mental/mood', builder: (_, __) => const MoodDiaryPage()),
+        GoRoute(
+            path: '/student/mental/mood',
+            builder: (_, __) => const MoodDiaryPage()),
         GoRoute(
           path: '/my-feedbacks',
           builder: (context, state) => const MyFeedbacksPage(),
@@ -340,6 +355,14 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/my-records',
           builder: (context, state) => const MyRecordsPage(),
+        ),
+        GoRoute(
+          path: '/process-manage',
+          builder: (context, state) => const ProcessManagePage(),
+        ),
+        GoRoute(
+          path: '/process-review',
+          builder: (context, state) => const ProcessReviewPage(),
         ),
         GoRoute(
           path: '/bookmarks',
@@ -355,67 +378,171 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/campus',
-          builder: (context, state) => const CampusMapPage(),
+          builder: (context, state) => CampusMapPage(
+            initialTab: state.uri.queryParameters['v'],
+          ),
         ),
         // ── 学生 AI 功能路由 ──
-        GoRoute(path: '/student/daily-briefing', builder: (_, __) => const DailyBriefingPage()),
-        GoRoute(path: '/student/learning-diary', builder: (_, __) => const LearningDiaryPage()),
-        GoRoute(path: '/student/checkin', builder: (_, __) => const CheckinPage()),
-        GoRoute(path: '/student/digital-twin', builder: (_, __) => const DigitalTwinPage()),
-        GoRoute(path: '/student/personality', builder: (_, __) => const PersonalityInsightPage()),
-        GoRoute(path: '/student/achievements', builder: (_, __) => const AchievementsPage()),
-        GoRoute(path: '/student/course-map', builder: (_, __) => const CourseMapPage()),
-        GoRoute(path: '/student/course-analytics', builder: (_, __) => const CourseAnalyticsPage()),
-        GoRoute(path: '/student/weekly-report', builder: (_, __) => const WeeklyReportPage()),
-        GoRoute(path: '/student/freshman-plan', builder: (_, __) => const FreshmanPlanPage()),
-        GoRoute(path: '/student/freshmen-guide', builder: (_, __) => const FreshmenGuidePage()),
-        GoRoute(path: '/student/growth-path', builder: (_, __) => const GrowthPathPage()),
-        GoRoute(path: '/student/political-study', builder: (_, __) => const PoliticalStudyPage()),
-        GoRoute(path: '/student/ideological-record', builder: (_, __) => const IdeologicalRecordPage()),
-        GoRoute(path: '/student/party-progress', builder: (_, __) => const PartyProgressPage()),
-        GoRoute(path: '/student/campus-life', builder: (_, __) => const CampusLifePage()),
-        GoRoute(path: '/student/schedule', builder: (_, __) => const ScheduleManagerPage()),
-        GoRoute(path: '/student/competition-match', builder: (_, __) => const CompetitionMatchPage()),
-        GoRoute(path: '/student/study-buddy', builder: (_, __) => const StudyBuddyPage()),
-        GoRoute(path: '/student/mental-health', builder: (_, __) => const MentalHealthPage()),
-        GoRoute(path: '/student/digital-mentor', builder: (_, __) => const DigitalMentorPage()),
-        GoRoute(path: '/student/qa-plaza', builder: (_, __) => const QAPlazaPage()),
-        GoRoute(path: '/student/hot-topics', builder: (_, __) => const HotTopicsPage()),
-        GoRoute(path: '/student/qa-leaderboard', builder: (_, __) => const QALeaderboardPage()),
-        GoRoute(path: '/student/private-chat', builder: (_, __) => const PrivateChatPage()),
+        GoRoute(
+            path: '/student/daily-briefing',
+            builder: (_, __) => const DailyBriefingPage()),
+        GoRoute(
+            path: '/student/learning-diary',
+            builder: (_, __) => const LearningDiaryPage()),
+        GoRoute(
+            path: '/student/checkin', builder: (_, __) => const CheckinPage()),
+        GoRoute(
+            path: '/student/digital-twin',
+            builder: (_, __) => const DigitalTwinPage()),
+        GoRoute(
+            path: '/student/personality',
+            builder: (_, __) => const PersonalityInsightPage()),
+        GoRoute(
+            path: '/student/achievements',
+            builder: (_, __) => const AchievementsPage()),
+        GoRoute(
+            path: '/student/course-map',
+            builder: (_, __) => const CourseMapPage()),
+        GoRoute(
+            path: '/student/course-analytics',
+            builder: (_, __) => const CourseAnalyticsPage()),
+        GoRoute(
+            path: '/student/weekly-report',
+            builder: (_, __) => const WeeklyReportPage()),
+        GoRoute(
+            path: '/student/freshman-plan',
+            builder: (_, __) => const FreshmanPlanPage()),
+        GoRoute(
+            path: '/student/freshmen-guide',
+            builder: (_, __) => const FreshmenGuidePage()),
+        GoRoute(
+            path: '/student/growth-path',
+            builder: (_, __) => const GrowthPathPage()),
+        GoRoute(
+            path: '/student/political-study',
+            builder: (_, __) => const PoliticalStudyPage()),
+        GoRoute(
+            path: '/student/ideological-record',
+            builder: (_, __) => const IdeologicalRecordPage()),
+        GoRoute(
+            path: '/student/party-progress',
+            builder: (_, __) => const PartyProgressPage()),
+        GoRoute(
+            path: '/student/campus-life',
+            builder: (_, __) => const CampusLifePage()),
+        GoRoute(
+            path: '/student/schedule',
+            builder: (_, __) => const ScheduleManagerPage()),
+        GoRoute(
+            path: '/student/competition-match',
+            builder: (_, __) => const CompetitionMatchPage()),
+        GoRoute(
+            path: '/student/study-buddy',
+            builder: (_, __) => const StudyBuddyPage()),
+        GoRoute(
+            path: '/student/mental-health',
+            builder: (_, __) => const MentalHealthPage()),
+        GoRoute(
+            path: '/student/digital-mentor',
+            builder: (_, __) => const DigitalMentorPage()),
+        GoRoute(
+            path: '/student/qa-plaza', builder: (_, __) => const QAPlazaPage()),
+        GoRoute(
+            path: '/student/hot-topics',
+            builder: (_, __) => const HotTopicsPage()),
+        GoRoute(
+            path: '/student/qa-leaderboard',
+            builder: (_, __) => const QALeaderboardPage()),
+        GoRoute(
+            path: '/student/private-chat',
+            builder: (_, __) => const PrivateChatPage()),
         // ── 辅导员 AI 功能路由 ──
-        GoRoute(path: '/counselor/daily-focus', builder: (_, __) => const DailyFocusPage()),
-        GoRoute(path: '/counselor/class-report', builder: (_, __) => const ClassReportPage()),
-        GoRoute(path: '/counselor/twin-board', builder: (_, __) => const TwinBoardPage()),
-        GoRoute(path: '/counselor/prediction', builder: (_, __) => const PredictionPage()),
-        GoRoute(path: '/counselor/intervention', builder: (_, __) => const InterventionPage()),
-        GoRoute(path: '/counselor/talk-record', builder: (_, __) => const TalkRecordPage()),
-        GoRoute(path: '/counselor/talk-tips', builder: (_, __) => const TalkTipsPage()),
-        GoRoute(path: '/counselor/ideological', builder: (_, __) => const CounselorIdeologicalPage()),
-        GoRoute(path: '/counselor/class-profile', builder: (_, __) => const ClassProfilePage()),
-        GoRoute(path: '/counselor/community-manage', builder: (_, __) => const CommunityManagePage()),
-        GoRoute(path: '/counselor/hot-topic-sense', builder: (_, __) => const HotTopicSensePage()),
-        GoRoute(path: '/counselor/process-edit', builder: (_, __) => const ProcessEditPage()),
-        GoRoute(path: '/counselor/student-list', builder: (_, __) => const StudentListPage()),
+        GoRoute(
+            path: '/counselor/daily-focus',
+            builder: (_, __) => const DailyFocusPage()),
+        GoRoute(
+            path: '/counselor/class-report',
+            builder: (_, __) => const ClassReportPage()),
+        GoRoute(
+            path: '/counselor/twin-board',
+            builder: (_, __) => const TwinBoardPage()),
+        GoRoute(
+            path: '/counselor/prediction',
+            builder: (_, __) => const PredictionPage()),
+        GoRoute(
+            path: '/counselor/intervention',
+            builder: (_, __) => const InterventionPage()),
+        GoRoute(
+            path: '/counselor/talk-record',
+            builder: (_, __) => const TalkRecordPage()),
+        GoRoute(
+            path: '/counselor/talk-tips',
+            builder: (_, __) => const TalkTipsPage()),
+        GoRoute(
+            path: '/counselor/ideological',
+            builder: (_, __) => const CounselorIdeologicalPage()),
+        GoRoute(
+            path: '/counselor/class-profile',
+            builder: (_, __) => const ClassProfilePage()),
+        GoRoute(
+            path: '/counselor/community-manage',
+            builder: (_, __) => const CommunityManagePage()),
+        GoRoute(
+            path: '/counselor/hot-topic-sense',
+            builder: (_, __) => const HotTopicSensePage()),
+        GoRoute(
+            path: '/counselor/process-edit',
+            builder: (_, __) => const ProcessManagePage()),
+        GoRoute(
+            path: '/counselor/student-list',
+            builder: (_, __) => const StudentListPage()),
         // ── 教师 AI 功能路由 ──
-        GoRoute(path: '/teacher/daily-overview', builder: (_, __) => const DailyOverviewPage()),
-        GoRoute(path: '/teacher/lesson-prep', builder: (_, __) => const LessonPrepPage()),
-        GoRoute(path: '/teacher/exam-gen', builder: (_, __) => const ExamGenPage()),
-        GoRoute(path: '/teacher/class-interact', builder: (_, __) => const ClassInteractPage()),
-        GoRoute(path: '/teacher/grading', builder: (_, __) => const GradingPage()),
-        GoRoute(path: '/teacher/heatmap', builder: (_, __) => const HeatmapPage()),
-        GoRoute(path: '/teacher/reflection', builder: (_, __) => const ReflectionPage()),
-        GoRoute(path: '/teacher/style-dist', builder: (_, __) => const StyleDistPage()),
-        GoRoute(path: '/teacher/community-qa', builder: (_, __) => const CommunityQAPage()),
+        GoRoute(
+            path: '/teacher/daily-overview',
+            builder: (_, __) => const DailyOverviewPage()),
+        GoRoute(
+            path: '/teacher/lesson-prep',
+            builder: (_, __) => const LessonPrepPage()),
+        GoRoute(
+            path: '/teacher/exam-gen', builder: (_, __) => const ExamGenPage()),
+        GoRoute(
+            path: '/teacher/class-interact',
+            builder: (_, __) => const ClassInteractPage()),
+        GoRoute(
+            path: '/teacher/grading', builder: (_, __) => const GradingPage()),
+        GoRoute(
+            path: '/teacher/heatmap', builder: (_, __) => const HeatmapPage()),
+        GoRoute(
+            path: '/teacher/reflection',
+            builder: (_, __) => const ReflectionPage()),
+        GoRoute(
+            path: '/teacher/style-dist',
+            builder: (_, __) => const StyleDistPage()),
+        GoRoute(
+            path: '/teacher/community-qa',
+            builder: (_, __) => const CommunityQAPage()),
         // ── 教辅/学生会/学院管理员 AI 功能路由 ──
-        GoRoute(path: '/assistant/schedule-check', builder: (_, __) => const ScheduleCheckPage()),
-        GoRoute(path: '/assistant/grad-audit', builder: (_, __) => const GradAuditPage()),
-        GoRoute(path: '/assistant/exam-arrange', builder: (_, __) => const ExamArrangePage()),
-        GoRoute(path: '/union/event-plan', builder: (_, __) => const EventPlanPage()),
-        GoRoute(path: '/union/poster-gen', builder: (_, __) => const PosterGenPage()),
-        GoRoute(path: '/college/twin-screen', builder: (_, __) => const TwinScreenPage()),
-        GoRoute(path: '/college/data-analysis', builder: (_, __) => const DataAnalysisPage()),
-
+        GoRoute(
+            path: '/assistant/schedule-check',
+            builder: (_, __) => const ScheduleCheckPage()),
+        GoRoute(
+            path: '/assistant/grad-audit',
+            builder: (_, __) => const GradAuditPage()),
+        GoRoute(
+            path: '/assistant/exam-arrange',
+            builder: (_, __) => const ExamArrangePage()),
+        GoRoute(
+            path: '/union/event-plan',
+            builder: (_, __) => const EventPlanPage()),
+        GoRoute(
+            path: '/union/poster-gen',
+            builder: (_, __) => const PosterGenPage()),
+        GoRoute(
+            path: '/college/twin-screen',
+            builder: (_, __) => const TwinScreenPage()),
+        GoRoute(
+            path: '/college/data-analysis',
+            builder: (_, __) => const DataAnalysisPage()),
       ],
     ),
   ],
@@ -486,7 +613,6 @@ class MainShell extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: const FabMenu(),
     );
   }
 
@@ -496,16 +622,15 @@ class MainShell extends StatelessWidget {
     final index = _currentIndex(context);
     return Scaffold(
       body: RepaintBoundary(key: screenshotKey, child: child),
-      floatingActionButton: const FabMenu(),
       bottomNavigationBar: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity( 0.7),
+              color: theme.colorScheme.surface.withOpacity(0.7),
               border: Border(
                 top: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withOpacity( 0.3),
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.3),
                 ),
               ),
             ),

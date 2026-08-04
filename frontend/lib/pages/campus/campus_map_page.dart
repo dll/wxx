@@ -5,10 +5,14 @@ import '../../config/api_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
 import '../../widgets/baidu_campus_map_embed.dart';
+import '../../widgets/inline_web_page.dart';
 import 'campus_step_admin_panel.dart';
 
 class CampusMapPage extends StatefulWidget {
-  const CampusMapPage({super.key});
+  /// 初始 tab（来自 /campus?v=vr 等），null/空则默认报到导航
+  final String? initialTab;
+
+  const CampusMapPage({super.key, this.initialTab});
 
   @override
   State<CampusMapPage> createState() => _CampusMapPageState();
@@ -315,6 +319,14 @@ class _CampusMapPageState extends State<CampusMapPage> {
   @override
   void initState() {
     super.initState();
+    // 支持 /campus?v=vr|home|yxwz|douyin 直达对应服务 tab（默认报到导航）
+    final v = widget.initialTab?.toLowerCase();
+    if (v != null && v.isNotEmpty) {
+      final matched = _tabs.where((t) => t.tab.name == v).toList();
+      if (matched.isNotEmpty) {
+        _currentTab = matched.first.tab;
+      }
+    }
     // 异步加载后端步骤，不阻塞首帧渲染（失败静默回退本地常量）
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStepsFromServer());
   }
@@ -634,7 +646,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
       ),
       body: _currentTab == _CampusTab.map
           ? _buildCheckinNavigator(theme)
-          : _buildServiceTab(theme),
+          : _buildWebTab(theme),
     );
   }
 
@@ -1434,82 +1446,40 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildServiceTab(ThemeData theme) {
+  /// 非地图 tab（VR全景/官网/迎新网站/抖音）：切换后页面内直接内嵌显示目标站点，
+  /// 不再新开浏览器；仅当点击「在新窗口打开」时才用系统浏览器外开。
+  Widget _buildWebTab(ThemeData theme) {
     final tab = _tabs.firstWhere((t) => t.tab == _currentTab);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: tab.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(50),
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: tab.color.withOpacity(0.08),
+          child: Row(
+            children: [
+              Icon(tab.icon, size: 18, color: tab.color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('${tab.label} · ${tab.subtitle}',
+                    style: theme.textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-              child: Icon(tab.icon, size: 48, color: tab.color),
-            ),
-            const SizedBox(height: 24),
-            Text(tab.label,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                )),
-            const SizedBox(height: 8),
-            Text(tab.subtitle,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(tab.url,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                  fontFamily: 'monospace',
-                ),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
+              TextButton.icon(
                 onPressed: () => _openUrl(tab.url),
-                icon: const Icon(Icons.open_in_new, size: 20),
-                label: Text('打开 ${tab.label}'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: tab.color,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('在新窗口打开'),
+                style: TextButton.styleFrom(
+                    foregroundColor: tab.color,
+                    visualDensity: VisualDensity.compact,
+                    textStyle: const TextStyle(fontSize: 12)),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: tab.url));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('链接已复制'), duration: Duration(seconds: 1)),
-                  );
-                },
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('复制链接'),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        Expanded(
+          child: InlineWebPage(url: tab.url),
+        ),
+      ],
     );
   }
 
