@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -348,6 +349,10 @@ func TestReadDocxRealFile(t *testing.T) {
 		}
 		text, err := svc.readDocxFromBytes(data)
 		if err != nil {
+			// 扫描件/图片型 DOCX（无文本层，需 OCR）为合法样本，不视为解析失败
+			if errors.Is(err, ErrNoTextLayer) {
+				continue
+			}
 			t.Fatalf("解析样本失败 %s: %v", path, err)
 		}
 		if strings.TrimSpace(text) == "" {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,11 @@ func TestParseRealHandbookEndToEnd(t *testing.T) {
 
 		content, err := svc.readDocxFromBytes(data)
 		if err != nil {
+			// 扫描件/图片型 DOCX（无文本层，需 OCR）为合法样本，跳过标记断言
+			if errors.Is(err, ErrNoTextLayer) {
+				t.Logf("样本 %s 为扫描件/图片型（无文本层），跳过", name)
+				continue
+			}
 			t.Fatalf("解析样本失败 %s: %v", name, err)
 		}
 		content = strings.TrimSpace(content)

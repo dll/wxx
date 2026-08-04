@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -74,6 +75,15 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		parseResult, err = h.docSvc.ParseDocument(file)
 		if err != nil {
 			log.Printf("文档解析失败: %v", err)
+			// 无文本层（扫描件/图片型 PDF/DOCX）不是服务端故障，返回 422 + 引导
+			if errors.Is(err, service.ErrNoTextLayer) {
+				c.JSON(http.StatusUnprocessableEntity, model.ErrorResponse{
+					Code:    422,
+					Message: err.Error() + "。可先转成带文字层的版本（如从 Word/WPS「另存为 PDF」），或上传文本型 DOCX。",
+					TraceID: middleware.GetTraceID(c),
+				})
+				return
+			}
 			util.FailInternalError(c, err.Error())
 			return
 		}

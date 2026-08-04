@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -75,7 +76,15 @@ func (h *DocumentHandler) ParseDocument(c *gin.Context) {
 	result, err := h.docSvc.ParseDocument(file)
 	if err != nil {
 		log.Printf("document ParseDocument err: %v", err)
-		// 透传具体错误信息，让用户知道为何解析失败（如图片型PDF需OCR、DOCX格式错误等）
+		// 无文本层（扫描件/图片型 PDF/DOCX）不是服务端故障，返回 422 + 引导
+		if errors.Is(err, service.ErrNoTextLayer) {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"code":    422,
+				"message": err.Error() + "。可先转成带文字层的版本（如从 Word/WPS「另存为 PDF」），或上传文本型 DOCX。",
+			})
+			return
+		}
+		// 透传具体错误信息，让用户知道为何解析失败（如 DOCX 格式错误等）
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": err.Error(),

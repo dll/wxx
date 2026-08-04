@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,6 +24,10 @@ import (
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
 )
+
+// ErrNoTextLayer 表示文档无文本层（扫描件/图片型 PDF/DOCX），需要 OCR 才能提取正文。
+// 这不是服务端内部错误，handler 应返回 4xx 并引导用户处理，而非 500。
+var ErrNoTextLayer = errors.New("文档无文本层（扫描件或图片型）")
 
 type DocumentService struct {
 	uploadDir string
@@ -289,9 +294,9 @@ func (s *DocumentService) readPdfFromBytes(data []byte) (string, int, string, er
 		pagesWithText++
 	}
 
-	// 所有页都无文本 → 图片型/扫描件 PDF，返回明确错误
+	// 所有页都无文本 → 图片型/扫描件 PDF，返回明确错误（无文本层，非服务端故障）
 	if pagesWithText == 0 {
-		return "", totalPage, "", fmt.Errorf("PDF 未提取到任何文本，该文件可能是扫描件或图片型 PDF，需要 OCR 处理后重新上传")
+		return "", totalPage, "", fmt.Errorf("%w：PDF 未提取到任何文本，该文件可能是扫描件或图片型 PDF，需要 OCR 处理后重新上传", ErrNoTextLayer)
 	}
 
 	// 部分页无文本 → 混合内容，返回警告
@@ -322,7 +327,12 @@ func (s *DocumentService) readDocxFromBytes(data []byte) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("读取DOCX正文失败: %w", err)
 		}
-		return extractDocxText(string(contentData)), nil
+		text := extractDocxText(string(contentData))
+		// 有效 DOCX 但正文无文本 → 扫描件/图片型 Word（内容以图片嵌入），需 OCR
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("%w：Word 正文未提取到文本，该文档可能是扫描件或图片型（文字以图片嵌入），需要 OCR 处理后重新上传", ErrNoTextLayer)
+		}
+		return text, nil
 	}
 
 	// 缺少 word/document.xml 说明不是有效的 DOCX（可能是 .doc 改名）
