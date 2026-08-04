@@ -38,6 +38,7 @@ import '../pages/student/course_map_page.dart';
 import '../pages/student/course_analytics_page.dart';
 import '../pages/student/weekly_report_page.dart';
 import '../pages/student/freshman_plan_page.dart';
+import '../pages/student/freshmen_guide_page.dart';
 import '../pages/student/growth_path_page.dart';
 import '../pages/student/political_study_page.dart';
 import '../pages/student/ideological_record_page.dart';
@@ -367,6 +368,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(path: '/student/course-analytics', builder: (_, __) => const CourseAnalyticsPage()),
         GoRoute(path: '/student/weekly-report', builder: (_, __) => const WeeklyReportPage()),
         GoRoute(path: '/student/freshman-plan', builder: (_, __) => const FreshmanPlanPage()),
+        GoRoute(path: '/student/freshmen-guide', builder: (_, __) => const FreshmenGuidePage()),
         GoRoute(path: '/student/growth-path', builder: (_, __) => const GrowthPathPage()),
         GoRoute(path: '/student/political-study', builder: (_, __) => const PoliticalStudyPage()),
         GoRoute(path: '/student/ideological-record', builder: (_, __) => const IdeologicalRecordPage()),

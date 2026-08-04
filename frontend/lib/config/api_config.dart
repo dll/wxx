@@ -155,6 +155,7 @@ class ApiConfig {
   static const String partyProgress = '$apiPrefix/student/party-progress';
   static const String politicalStudy = '$apiPrefix/student/political-study';
   static const String campusLife = '$apiPrefix/student/campus-life';
+  static const String freshmenGuide = '$apiPrefix/student/freshmen-guide';
   static const String schedule = '$apiPrefix/student/schedule';
   static const String competitionMatch = '$apiPrefix/student/competition-match';
   static const String studyBuddy = '$apiPrefix/student/study-buddy';

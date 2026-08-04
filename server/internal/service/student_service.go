@@ -885,6 +885,69 @@ func fallbackProcessSteps(flowType string) []map[string]interface{} {
 	}
 }
 
+// FreshmenSourceFile 新生指南引用的官方原文。
+type FreshmenSourceFile struct {
+	Title string `json:"title"`
+	Path  string `json:"path"`
+	Note  string `json:"note"`
+}
+
+// FreshmenGuide 新生指南聚合结果。
+type FreshmenGuide struct {
+	Guide       *model.KBResource    `json:"guide,omitempty"`
+	Handbook    *model.KBResource    `json:"handbook,omitempty"`
+	Zzsb        *model.KBResource    `json:"zzsb,omitempty"`
+	Process     *model.KBResource    `json:"process,omitempty"`
+	Steps       []*model.ProcessStep `json:"steps"`
+	SourceFiles []FreshmenSourceFile `json:"source_files"`
+}
+
+// GetFreshmenGuide 聚合新生指南知识资源与报到步骤。
+func (s *StudentService) GetFreshmenGuide() (*FreshmenGuide, error) {
+	guide := &FreshmenGuide{
+		Steps: []*model.ProcessStep{},
+		SourceFiles: []FreshmenSourceFile{
+			{
+				Title: "2026级普通本科、对口本科新生入学指南",
+				Path:  "data/滁州学院2026级普通本科、对口本科新生入学指南.pdf",
+				Note:  "官方 PDF",
+			},
+			{
+				Title: "2026级普通专升本新生入学须知",
+				Path:  "data/滁州学院2026级普通专升本新生入学须知.pdf",
+				Note:  "官方 PDF（扫描件）",
+			},
+			{
+				Title: "2025年学生手册正文",
+				Path:  "data/250827-2025年学生手册正文（定稿）终版.docx",
+				Note:  "官方 DOCX",
+			},
+		},
+	}
+	if s.kbRepo == nil {
+		return guide, nil
+	}
+	if kb, err := s.kbRepo.GetByResourceID("guide-freshmen-2026"); err == nil {
+		guide.Guide = kb
+	}
+	if kb, err := s.kbRepo.GetByResourceID("policy-student-handbook-2025"); err == nil {
+		guide.Handbook = kb
+	}
+	if kb, err := s.kbRepo.GetByResourceID("guide-freshmen-2026-zzsb"); err == nil {
+		guide.Zzsb = kb
+	}
+	if kb, err := s.kbRepo.GetByResourceID("process-registration-2026"); err == nil {
+		guide.Process = kb
+	}
+	if steps, err := s.kbRepo.GetProcessSteps("process-registration-2026"); err == nil {
+		if steps == nil {
+			steps = []*model.ProcessStep{}
+		}
+		guide.Steps = steps
+	}
+	return guide, nil
+}
+
 // GetProcessEnhanced AI 办事流程增强 — 按 type 参数从 KB + process_steps 拼装真实数据
 // type: enrollment（入学）/ graduation（离校）/ major_change（转专业）/ student_loan（助学贷款）/ leave（请假）/ scholarship（奖学金）
 func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, userOwnerID string) (*model.KBResource, []map[string]interface{}, *model.AnswerCard, error) {

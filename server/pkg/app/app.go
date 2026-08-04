@@ -1010,6 +1010,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/qa-leaderboard", auth.RequireCapability(auth.SelfCommunityRead), studentH.QALeaderboard)
 				student.GET("/private-chat", auth.RequireCapability(auth.SelfPrivateChat), studentH.PrivateChat)
 				student.GET("/process-enhanced", auth.RequireCapability(auth.SelfProcessRead), studentH.ProcessEnhanced)
+				student.GET("/freshmen-guide", auth.RequireCapability(auth.SelfKnowledgeRead), studentH.FreshmenGuide)
 				// ── P2 学生深度分析 ──
 				student.GET("/values-guidance", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("values-guidance"))
 				student.GET("/classroom-extension", auth.RequireCapability(auth.SelfGenericAI), studentH.GenericAI("classroom-extension"))

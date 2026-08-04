@@ -587,6 +587,29 @@ func (h *StudentHandler) ProcessEnhanced(c *gin.Context) {
 	})
 }
 
+// FreshmenGuide 返回聚合后的新生指南知识资源与报到步骤。
+// GET /api/v1/student/freshmen-guide
+func (h *StudentHandler) FreshmenGuide(c *gin.Context) {
+	if h.svc == nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "新生指南服务不可用",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+	guide, err := h.svc.GetFreshmenGuide()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "新生指南加载失败",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, guide)
+}
+
 // defaultFlowTitle 根据 flowType 返回默认流程标题（当 KB 未命中时使用）
 func defaultFlowTitle(flowType string) string {
 	switch flowType {

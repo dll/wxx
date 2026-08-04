@@ -29,6 +29,7 @@ class _FeatureCard {
 }
 
 const _studentFeatures = [
+  _FeatureCard(Icons.school_outlined, '新生指南', Color(0xFF00695C), '/student/freshmen-guide'),
   _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation'),
   _FeatureCard(
       Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
