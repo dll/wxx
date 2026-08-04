@@ -4,20 +4,27 @@ import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 
-/// 办事流程状态管理（入学/离校引导，进度持久化到后端）
+/// 办事流程学生端状态管理（动态定义 + 步骤进度持久化）
 class EnrollmentProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
 
-  String _flowType = 'enrollment';
+  List<ProcessDefinition> _definitions = [];
+  bool _definitionsLoading = false;
+  bool _freshmenOnly = true;
+
+  String _flowType = 'process-registration-2026';
   bool _loading = false;
   String? _error;
   AnswerCard? _answerCard;
   List<ProcessStepDetail> _stepDetails = [];
-
-  // 已完成步骤索引集合（来自后端持久化记录）
+  List<ProcessReminder> _reminders = [];
+  String _recordId = '';
+  String _recordStatus = 'in_progress';
   final Set<int> _completedSteps = {};
-  String _recordId = ''; // 当前流程的后端 record_id（用于本地参考，更新时按 flowType 路由）
 
+  List<ProcessDefinition> get definitions => _definitions;
+  bool get definitionsLoading => _definitionsLoading;
+  bool get freshmenOnly => _freshmenOnly;
   String get flowType => _flowType;
   bool get loading => _loading;
   String? get error => _error;
@@ -33,8 +40,10 @@ class EnrollmentProvider extends ChangeNotifier {
   }
 
   List<ProcessStepDetail> get stepDetails => _stepDetails;
+  List<ProcessReminder> get reminders => _reminders;
   Set<int> get completedSteps => Set.unmodifiable(_completedSteps);
   String get recordId => _recordId;
+  String get recordStatus => _recordStatus;
 
   int get totalSteps {
     if (_stepDetails.isNotEmpty) return _stepDetails.length;
@@ -44,115 +53,121 @@ class EnrollmentProvider extends ChangeNotifier {
   int get completedCount => _completedSteps.length;
   double get progress => totalSteps > 0 ? completedCount / totalSteps : 0;
 
-  /// 切换流程类型
+  static const Map<String, String> _legacyFlowMap = {
+    'enrollment': 'process-registration-2026',
+    'graduation': 'process-graduation-2026',
+    'major_change': 'process-major-change-2026',
+    'student_loan': 'process-student-loan-2026',
+    'leave': 'process-leave-2026',
+    'scholarship': 'process-scholarship-2026',
+  };
+
+  Future<void> loadCatalog({bool refresh = false}) async {
+    if (_definitionsLoading && !refresh) return;
+    _definitionsLoading = true;
+    notifyListeners();
+    try {
+      final resp = await _api.get(ApiConfig.processDefinitions,
+          params: {'page': 1, 'page_size': 200});
+      final data = resp.data;
+      Map<String, dynamic>? body;
+      if (data is Map<String, dynamic>) {
+        if (data['data'] is List) body = data;
+      }
+      if (body != null && body['data'] is List) {
+        _definitions = (body['data'] as List)
+            .map(
+                (e) => ProcessDefinition.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        if (_definitions.isNotEmpty &&
+            !_definitions.any((d) => d.resourceId == _flowType)) {
+          final freshmen =
+              _definitions.where((d) => d.isFreshmenRelated).toList();
+          _flowType =
+              (freshmen.isNotEmpty ? freshmen.first : _definitions.first)
+                  .resourceId;
+        }
+      }
+    } catch (e) {
+      _error = '加载办事流程列表失败: $e';
+    } finally {
+      _definitionsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void toggleFreshmenOnly() {
+    _freshmenOnly = !_freshmenOnly;
+    notifyListeners();
+  }
+
+  /// 切换流程；兼容旧的 flow_type 名（enrollment/graduation 等）和资源 ID
   void setFlowType(String type) {
-    if (type == _flowType) return;
-    _flowType = type;
+    final id = _legacyFlowMap[type] ?? type;
+    if (id == _flowType) {
+      loadFlow();
+      return;
+    }
+    _flowType = id;
     _answerCard = null;
     _stepDetails = [];
+    _reminders = [];
     _completedSteps.clear();
     _recordId = '';
+    _recordStatus = 'in_progress';
     _error = null;
     notifyListeners();
-    // 切换后异步加载流程指引（含恢复已完成步骤）
     loadFlow();
   }
 
-  /// 加载流程指引并从后端恢复办理进度
-  Future<void> loadFlow() async {
+  Future<void> loadFlow([String? overrideId]) async {
+    if (overrideId != null && overrideId != _flowType) {
+      _flowType = overrideId;
+    }
+    if (_definitions.isEmpty) {
+      await loadCatalog();
+    }
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // 流程增强端点：直接返回 {processes, reminders, answer_card}（无 code/data 包装）
-      String processType;
-      String fallbackQuestion;
-      switch (_flowType) {
-        case 'major_change':
-          processType = 'major_change';
-          fallbackQuestion = '转专业流程及所需材料';
-          break;
-        case 'student_loan':
-          processType = 'student_loan';
-          fallbackQuestion = '助学贷款申请流程及所需材料';
-          break;
-        case 'leave':
-          processType = 'leave';
-          fallbackQuestion = '学生请假办理流程及所需材料';
-          break;
-        case 'scholarship':
-          processType = 'scholarship';
-          fallbackQuestion = '奖学金申请流程及所需材料';
-          break;
-        case 'graduation':
-          processType = 'graduation';
-          fallbackQuestion = '毕业生离校手续办理流程及步骤';
-          break;
-        default:
-          processType = 'enrollment';
-          fallbackQuestion = '新生入学流程及所需材料';
-          break;
-      }
-      final resp = await _api.get(
-        ApiConfig.processEnhanced,
-        params: {'type': processType},
-      );
+      final resp = await _api.get(ApiConfig.processDefinition(_flowType));
       final data = resp.data;
-
-      // 兼容两种返回结构：① 直接顶层结构  ② 有 code/data 包装
-      Map<String, dynamic>? respData;
+      Map<String, dynamic>? body;
       if (data is Map<String, dynamic>) {
-        if (data['processes'] is List) {
-          respData = data;
-        } else if (data['data'] is Map<String, dynamic>) {
-          respData = data['data'] as Map<String, dynamic>;
-        }
+        if (data['data'] is Map) body = data;
       }
-
-      if (respData != null) {
-        // 解析 AnswerCard
-        if (respData['answer_card'] != null) {
-          _answerCard = AnswerCard.fromJson(respData['answer_card']);
-        }
-
-        // 解析富文本步骤列表
-        if (respData['processes'] is List) {
-          final processes = respData['processes'] as List;
-          if (processes.isNotEmpty) {
-            final firstProcess = processes[0] as Map<String, dynamic>;
-            if (firstProcess['steps'] is List) {
-              _stepDetails = (firstProcess['steps'] as List)
-                  .map((s) => ProcessStepDetail.fromJson(s))
-                  .toList();
-            }
-          }
-        }
-
-        // 拿到任意非空步骤就视为成功，不再走 fallback
-        if (_stepDetails.isNotEmpty || _answerCard != null) {
-          await _restoreFromBackend();
-          _loading = false;
-          notifyListeners();
-          return;
-        }
-      }
-
-      // 降级：使用通用对话接口
-      final req = ChatRequest(question: fallbackQuestion);
-      final chatResp = await _api.post(ApiConfig.chat, data: req.toJson());
-      final chatData = ChatResponse.fromJson(chatResp.data);
-
-      if (chatData.code != 0) {
-        _error = '暂时没有可用的${_flowType == 'enrollment' ? '入学' : '离校'}流程数据，请稍后再试';
+      if (body == null || body['data'] is! Map) {
+        _error = '流程数据不存在或未发布';
         _loading = false;
         notifyListeners();
         return;
       }
 
-      _answerCard = chatData.data;
-      _stepDetails = chatData.data?.stepDetails ?? [];
-      await _restoreFromBackend();
+      final def = ProcessDefinition.fromJson(
+          Map<String, dynamic>.from(body['data'] as Map));
+      _answerCard = AnswerCard(
+        conclusion:
+            def.summary.isEmpty ? '${def.title}已整理，请按下列步骤办理。' : def.summary,
+        steps: def.steps.map((s) => s.title).toList(),
+        stepDetails: def.steps.map((s) => s.toDetail()).toList(),
+        sources: [
+          Source(
+            resourceId: def.resourceId,
+            title: def.title,
+            resourceType: def.resourceType,
+            version: def.version,
+            sourceLink: def.sourceLink,
+            snippet: def.summary,
+            summary: def.summary,
+          ),
+        ],
+        risks: const [],
+      );
+      _stepDetails = def.steps.map((s) => s.toDetail()).toList();
+      _reminders = def.reminders.where((r) => r.isEnabled).toList();
+      await _restoreFromBackend(def);
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -166,34 +181,25 @@ class EnrollmentProvider extends ChangeNotifier {
     }
   }
 
-  /// 从后端拉取已有办理记录恢复进度（首次访问会自动 StartOrResume）
-  Future<void> _restoreFromBackend() async {
+  Future<void> _restoreFromBackend(ProcessDefinition def) async {
     try {
-      final flowLabel = {
-            'enrollment': '新生入学',
-            'graduation': '毕业离校',
-            'major_change': '转专业',
-            'student_loan': '助学贷款',
-            'leave': '请假办理',
-            'scholarship': '奖学金申请',
-          }[_flowType] ??
-          '办事流程';
       final resp = await _api.post(
         ApiConfig.processRecordStart(_flowType),
         data: {
-          'flow_label': flowLabel,
-          'total_steps': totalSteps,
+          'flow_label': def.title,
+          'total_steps': def.steps.length,
         },
       );
       if (resp.data['code'] == 0 && resp.data['data'] != null) {
         final rec = ProcessRecord.fromJson(resp.data['data']);
         _recordId = rec.recordId;
+        _recordStatus = rec.status;
         _completedSteps
           ..clear()
           ..addAll(rec.completedSteps);
       }
     } catch (_) {
-      // 静默失败：恢复进度不阻塞主流程，下次切换会再尝试
+      // 恢复进度失败不阻塞主流程
     }
   }
 
@@ -210,11 +216,10 @@ class EnrollmentProvider extends ChangeNotifier {
         },
       );
     } catch (_) {
-      // 静默失败：本地状态已更新，下一次操作会再次尝试同步
+      // 静默失败，本地状态保留
     }
   }
 
-  /// 切换步骤完成状态（同步到后端）
   Future<void> toggleStep(int index) async {
     if (_completedSteps.contains(index)) {
       _completedSteps.remove(index);
@@ -225,7 +230,6 @@ class EnrollmentProvider extends ChangeNotifier {
     await _persistProgress();
   }
 
-  /// 全部标记为完成（同步到后端）
   Future<void> completeAll() async {
     for (var i = 0; i < totalSteps; i++) {
       _completedSteps.add(i);
@@ -234,7 +238,6 @@ class EnrollmentProvider extends ChangeNotifier {
     await _persistProgress();
   }
 
-  /// 重置进度（同步到后端）
   Future<void> resetProgress() async {
     _completedSteps.clear();
     notifyListeners();

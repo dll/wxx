@@ -187,6 +187,54 @@ type KBUpdateRequest struct {
 	Tags          string  `json:"tags"`
 }
 
+// ProcessStepInput 流程步骤录入请求（与 process_steps 表字段对应）
+type ProcessStepInput struct {
+	StepOrder     int     `json:"step_order"`
+	Title         string  `json:"title"`
+	Materials     string  `json:"materials"`      // JSON 数组字符串
+	EntryURL      string  `json:"entry_url"`
+	Deadline      string  `json:"deadline"`
+	Location      string  `json:"location"`
+	Notes         string  `json:"notes"`
+	Contact       string  `json:"contact"`
+	Phone         string  `json:"phone"`
+	ContactWechat string  `json:"contact_wechat"`
+	OfficeHours   string  `json:"office_hours"`
+	GeoLat        float64 `json:"geo_lat"`
+	GeoLng        float64 `json:"geo_lng"`
+	MediaURLs     string  `json:"media_urls"` // JSON 数组字符串
+	FAQ           string  `json:"faq"`        // JSON 数组字符串
+}
+
+// ProcessReminderInput 流程提醒录入请求
+type ProcessReminderInput struct {
+	ID        int64  `json:"id"`
+	StepOrder int    `json:"step_order"`
+	RemindAt  string `json:"remind_at"`
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	IsEnabled bool   `json:"is_enabled"`
+}
+
+// ProcessUpsertRequest 办事流程创建/更新请求
+type ProcessUpsertRequest struct {
+	ResourceID    string               `json:"resource_id"` // 可选，创建时为空则自动生成
+	OwnerScope    string               `json:"owner_scope"`
+	OwnerID       string               `json:"owner_id"`
+	RoleScope     []string             `json:"role_scope"` // JSON 数组
+	Status        string               `json:"status" binding:"omitempty,oneof=draft pending published retired"`
+	Title         string               `json:"title"`
+	Summary       string               `json:"summary"`
+	Content       string               `json:"content"`
+	SourceLink    string               `json:"source_link"`
+	SourceVersion string               `json:"source_version"`
+	EffectiveAt   *string              `json:"effective_at"`
+	ExpiredAt     *string              `json:"expired_at"`
+	Tags          []string             `json:"tags"`
+	Steps         []ProcessStepInput   `json:"steps"`
+	Reminders     []ProcessReminderInput `json:"reminders"`
+}
+
 // KBListResponse 知识列表响应
 type KBListResponse struct {
 	Code     int           `json:"code"`

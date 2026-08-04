@@ -179,6 +179,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
+	processSvc := service.NewProcessService(kbRepo, kbSvc, db)
 	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)
 	uploadDir := "./data/uploads"
 	if os.Getenv("VERCEL") != "" {
@@ -262,6 +263,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigHandler := handler.NewModelConfigHandler(modelConfigSvc)
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
+	processHandler := handler.NewProcessHandler(processSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc, db)
 	// 数字孪生五维聚合服务（S1.1）：注入现有 StudentHandler，/student/digital-twin 走真实数据，失败兜底 mock
 	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
@@ -343,7 +345,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
 	retentionSvc := service.NewRetentionService(db)
@@ -578,6 +580,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	schoolAdminH *handler.SchoolAdminHandler,
 	sysAdminH *handler.SysAdminHandler,
 	processRecordH *handler.ProcessRecordHandler,
+	processH *handler.ProcessHandler,
 	forecastH *handler.ForecastHandler,
 	graduationH *handler.GraduationHandler,
 	studentFeaturesH *handler.StudentFeaturesHandler,
@@ -974,6 +977,30 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				process.GET("", auth.RequireCapability(auth.SelfProcessRead), processRecordH.ListMine)
 				process.POST("/:flow/start", auth.RequireCapability(auth.SelfProcessRead), processRecordH.StartOrResume)
 				process.POST("/:flow/progress", auth.RequireCapability(auth.SelfProcessRead), processRecordH.UpdateProgress)
+			}
+
+			// ── 办事流程定义（学生端动态列表）──
+			processDef := secured.Group("/process/definitions")
+			processDef.Use(auth.RequireCapability(auth.SelfProcessRead))
+			{
+				processDef.GET("", processH.ListDefinitions)
+				processDef.GET("/:id", processH.GetDefinition)
+			}
+
+			// ── 办事流程管理/审核（counselor+，学校/学院管理员继承）──
+			processAdmin := secured.Group("/process/admin")
+			processAdmin.Use(auth.RequireAnyCapability(auth.CounselorKBWrite, auth.CounselorKBReview))
+			{
+				processAdmin.GET("", auth.RequireCapability(auth.CounselorKBWrite), processH.ListAdmin)
+				processAdmin.GET("/pending", auth.RequireCapability(auth.CounselorKBReview), processH.ListPending)
+				processAdmin.POST("", auth.RequireCapability(auth.CounselorKBWrite), processH.Create)
+				processAdmin.GET("/:id", auth.RequireCapability(auth.CounselorKBWrite), processH.GetAdmin)
+				processAdmin.PUT("/:id", auth.RequireCapability(auth.CounselorKBWrite), processH.Update)
+				processAdmin.DELETE("/:id", auth.RequireCapability(auth.CounselorKBWrite), processH.Delete)
+				processAdmin.POST("/:id/submit", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), processH.Submit)
+				processAdmin.POST("/:id/approve", auth.RequireCapability(auth.CounselorKBReview), processH.Approve)
+				processAdmin.POST("/:id/reject", auth.RequireCapability(auth.CounselorKBReview), processH.Reject)
+				processAdmin.POST("/:id/retire", auth.RequireCapability(auth.CounselorKBReview), processH.Retire)
 			}
 
 			// ── 学生 AI 功能（个人能力，所有角色继承自 student 都可用）──

@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../models/models.dart';
 import '../../providers/enrollment_provider.dart';
+import '../../utils/capability_utils.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/flow_progress.dart';
 
-/// 办事流程引导页（入学 / 离校）
+/// 办事服务页：动态流程列表 + 办理步骤 + 提醒节点
 class EnrollmentPage extends StatefulWidget {
   const EnrollmentPage({super.key});
 
@@ -19,9 +24,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final prov = context.read<EnrollmentProvider>();
-      if (prov.answerCard == null && !prov.loading) {
-        prov.loadFlow();
-      }
+      prov.loadCatalog();
+      if (prov.answerCard == null) prov.loadFlow();
     });
   }
 
@@ -29,109 +33,118 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   Widget build(BuildContext context) {
     final prov = context.watch<EnrollmentProvider>();
     final theme = Theme.of(context);
+    final canManage = CapabilityUtils.has(Capability.counselorKbWrite);
+    final canReview = CapabilityUtils.has(Capability.counselorKbReview);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('办事流程')),
+      appBar: AppBar(
+        title: const Text('办事服务'),
+        actions: [
+          if (canReview)
+            IconButton(
+              tooltip: '流程审核',
+              onPressed: () => context.go('/process-review'),
+              icon: const Icon(Icons.rate_review_outlined),
+            ),
+          if (canManage)
+            IconButton(
+              tooltip: '流程管理',
+              onPressed: () => context.go('/process-manage'),
+              icon: const Icon(Icons.edit_note),
+            ),
+        ],
+      ),
       body: Column(
         children: [
-          // 流程类型切换
-          _buildFlowSwitch(prov, theme),
-          // 加载/错误/内容
+          _buildCatalog(prov, theme),
+          const Divider(height: 1),
           Expanded(child: _buildBody(prov, theme)),
         ],
       ),
     );
   }
 
-  Widget _buildFlowSwitch(EnrollmentProvider prov, ThemeData theme) {
-    const flows = [
-      _FlowOption('enrollment', '入学流程', Icons.school),
-      _FlowOption('graduation', '离校流程', Icons.celebration),
-      _FlowOption('major_change', '转专业', Icons.swap_horiz),
-      _FlowOption('student_loan', '助学贷款', Icons.account_balance),
-      _FlowOption('leave', '请假办理', Icons.event_busy_outlined),
-      _FlowOption('scholarship', '奖学金', Icons.emoji_events_outlined),
-    ];
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: theme.colorScheme.surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = constraints.maxWidth >= 760
-              ? (constraints.maxWidth - 40) / 6
-              : (constraints.maxWidth - 12) / 2;
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: flows.map((flow) {
-              return SizedBox(
-                width: itemWidth,
-                child: _buildFlowChip(
-                  label: flow.label,
-                  icon: flow.icon,
-                  active: prov.flowType == flow.type,
-                  onTap: () => prov.setFlowType(flow.type),
-                ),
-              );
-            }).toList(),
-          );
-        },
-      ),
-    );
-  }
+  Widget _buildCatalog(EnrollmentProvider prov, ThemeData theme) {
+    if (prov.definitionsLoading && prov.definitions.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (prov.definitions.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('暂无可办理流程'),
+      );
+    }
 
-  Widget _buildFlowChip({
-    required String label,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: active
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: active
-              ? Border.all(color: theme.colorScheme.primary, width: 1.5)
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 18,
-                color: active
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.outline),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                color: active
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant,
+    final freshmen =
+        prov.definitions.where((d) => d.isFreshmenRelated).toList();
+    final others = prov.definitions.where((d) => !d.isFreshmenRelated).toList();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 230),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      color: theme.colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_outlined,
+                  size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text('办事流程',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              FilterChip(
+                label: const Text('只看新生相关'),
+                selected: prov.freshmenOnly,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => prov.toggleFreshmenOnly(),
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                if (freshmen.isNotEmpty)
+                  _ProcessSection(
+                    title: '新生相关',
+                    expanded: true,
+                    definitions: freshmen,
+                    activeId: prov.flowType,
+                    onTap: prov.setFlowType,
+                  ),
+                if (!prov.freshmenOnly && others.isNotEmpty)
+                  _ProcessSection(
+                    title: '其他流程',
+                    expanded: false,
+                    definitions: others,
+                    activeId: prov.flowType,
+                    onTap: prov.setFlowType,
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBody(EnrollmentProvider prov, ThemeData theme) {
-    if (prov.loading) {
-      final flowName = prov.flowType == 'enrollment' ? '入学流程' : '离校流程';
+    if (prov.loading && prov.answerCard == null) {
+      final current =
+          prov.definitions.where((d) => d.resourceId == prov.flowType).toList();
+      final flowName = current.isNotEmpty ? current.first.title : '办事流程';
       return FlowProgressIndicator(flowName: flowName);
     }
 
-    if (prov.error != null) {
+    if (prov.error != null && prov.answerCard == null) {
       return ErrorView.error(
         message: prov.error!,
         onRetry: () => prov.loadFlow(),
@@ -151,7 +164,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 流程结论
           if (card.conclusion.isNotEmpty) ...[
             Card(
               elevation: 0,
@@ -190,20 +202,18 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             ),
             const SizedBox(height: 16),
           ],
-
-          // 进度条
           if (prov.totalSteps > 0) ...[
             _buildProgressSection(prov, theme),
             const SizedBox(height: 16),
           ],
-
-          // 流程节点图示
           if (prov.totalSteps > 0) ...[
             _buildFlowDiagram(prov, theme),
             const SizedBox(height: 16),
           ],
-
-          // 步骤列表
+          if (prov.reminders.isNotEmpty) ...[
+            _buildReminderSection(prov, theme),
+            const SizedBox(height: 16),
+          ],
           if (prov.steps.isNotEmpty) ...[
             Text('办理步骤',
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -215,8 +225,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 prov.steps.length, (i) => _buildStepCard(prov, theme, i)),
             const SizedBox(height: 16),
           ],
-
-          // 操作按钮
           if (prov.totalSteps > 0) ...[
             Row(
               children: [
@@ -241,8 +249,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               ],
             ),
           ],
-
-          // 来源引用
           if (card.sources.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text('参考来源',
@@ -264,45 +270,76 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               }).toList(),
             ),
           ],
-
-          // 风险提示
-          if (card.risks.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.warning_amber,
-                          size: 18, color: theme.colorScheme.error),
-                      const SizedBox(width: 6),
-                      Text('注意事项',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.error,
-                          )),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ...card.risks.map((r) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text('- $r', style: theme.textTheme.bodySmall),
-                      )),
-                ],
-              ),
-            ),
-          ],
-
           const SizedBox(height: 24),
         ],
       ),
     );
+  }
+
+  Widget _buildReminderSection(EnrollmentProvider prov, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('提醒节点',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            )),
+        const SizedBox(height: 8),
+        ...prov.reminders.map((r) {
+          final state = _reminderState(prov, r);
+          final color = state == 'done'
+              ? Colors.green
+              : state == 'overdue'
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.primary;
+          final label = state == 'done'
+              ? '已完成'
+              : state == 'overdue'
+                  ? '已到期'
+                  : '待办';
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.alarm, color: color),
+              title: Text(
+                '${r.remindAt} · ${r.title}',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: r.content.isEmpty ? null : Text(r.content),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child:
+                    Text(label, style: TextStyle(fontSize: 11, color: color)),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  String _reminderState(EnrollmentProvider prov, ProcessReminder r) {
+    if (prov.recordStatus == 'completed') return 'done';
+    if (r.stepOrder > 0 && prov.completedSteps.contains(r.stepOrder - 1)) {
+      return 'done';
+    }
+    final datePart = r.remindAt.trim().split(' ').first;
+    if (datePart.length == 10 && datePart[4] == '-' && datePart[7] == '-') {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      if (datePart.compareTo(today) <= 0) return 'overdue';
+    }
+    return 'upcoming';
   }
 
   Widget _buildProgressSection(EnrollmentProvider prov, ThemeData theme) {
@@ -366,7 +403,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     );
   }
 
-  /// 流程节点图示 — 所有步骤作为横向连接节点展示
   Widget _buildFlowDiagram(EnrollmentProvider prov, ThemeData theme) {
     final labels = prov.steps;
     if (labels.isEmpty) return const SizedBox.shrink();
@@ -405,7 +441,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 节点
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -461,7 +496,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                           ),
                         ],
                       ),
-                      // 连接箭头
                       if (!isLast)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -489,8 +523,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     final isLast = index == prov.totalSteps - 1;
     final hasRichSteps =
         prov.stepDetails.isNotEmpty && index < prov.stepDetails.length;
-
-    // 富文本步骤详情
     final detail = hasRichSteps ? prov.stepDetails[index] : null;
     final stepText =
         index < prov.steps.length ? prov.steps[index] : (detail?.title ?? '');
@@ -498,7 +530,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 步骤指示器
         SizedBox(
           width: 36,
           child: Column(
@@ -547,7 +578,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
           ),
         ),
         const SizedBox(width: 12),
-        // 步骤内容
         Expanded(
           child: GestureDetector(
             onTap: () => prov.toggleStep(index),
@@ -569,7 +599,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 步骤标题
                   Row(
                     children: [
                       Expanded(
@@ -596,14 +625,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                     ],
                   ),
-
-                  // 富文本详情（联系人/地点/电话/FAQ等）
                   if (detail != null) ...[
                     const SizedBox(height: 8),
                     const Divider(height: 1),
                     const SizedBox(height: 8),
-
-                    // 联系人 + 电话
                     if (detail.contact.isNotEmpty) ...[
                       _buildDetailRow(
                         theme,
@@ -613,8 +638,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // 办理地点
                     if (detail.location.isNotEmpty) ...[
                       _buildDetailRow(
                         theme,
@@ -624,19 +647,24 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // 所需材料
                     if (detail.materials.isNotEmpty) ...[
                       _buildDetailRow(
                         theme,
                         Icons.description_outlined,
-                        detail.materials,
+                        _displayMaterials(detail.materials),
                         '',
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // 办理入口
+                    if (detail.contactWechat.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme,
+                        Icons.chat_outlined,
+                        '微信/企业微信：${detail.contactWechat}',
+                        '',
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     if (detail.entryUrl.isNotEmpty) ...[
                       _buildDetailRow(
                         theme,
@@ -646,8 +674,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // 截止时间
                     if (detail.deadline.isNotEmpty) ...[
                       _buildDetailRow(
                         theme,
@@ -657,8 +683,15 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // FAQ
+                    if (detail.notes.isNotEmpty) ...[
+                      _buildDetailRow(
+                        theme,
+                        Icons.notes,
+                        detail.notes,
+                        '',
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     if (detail.faq.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       ...detail.faq.map((f) => Padding(
@@ -696,7 +729,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     );
   }
 
-  /// 构建详情行（图标 + 文本1 + 文本2）
   Widget _buildDetailRow(
       ThemeData theme, IconData icon, String text1, String text2) {
     return Row(
@@ -728,12 +760,87 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       ],
     );
   }
+
+  String _displayMaterials(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is List) {
+          return decoded.map((e) => e.toString()).join('、');
+        }
+      } catch (_) {}
+    }
+    return raw;
+  }
 }
 
-class _FlowOption {
-  final String type;
-  final String label;
-  final IconData icon;
+class _ProcessSection extends StatelessWidget {
+  final String title;
+  final bool expanded;
+  final List<ProcessDefinition> definitions;
+  final String activeId;
+  final ValueChanged<String> onTap;
 
-  const _FlowOption(this.type, this.label, this.icon);
+  const _ProcessSection({
+    required this.title,
+    required this.expanded,
+    required this.definitions,
+    required this.activeId,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ExpansionTile(
+      initiallyExpanded: expanded,
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+      title: Text(
+        '$title（${definitions.length}）',
+        style: theme.textTheme.labelLarge
+            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      ),
+      children: definitions.map((def) {
+        final selected = def.resourceId == activeId;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 4),
+          elevation: 0,
+          color: selected
+              ? theme.colorScheme.primaryContainer.withOpacity(0.25)
+              : theme.colorScheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: selected
+                  ? theme.colorScheme.primary.withOpacity(0.5)
+                  : theme.colorScheme.outlineVariant.withOpacity(0.3),
+            ),
+          ),
+          child: ListTile(
+            dense: true,
+            leading: Icon(
+              Icons.account_tree_outlined,
+              color: selected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline,
+            ),
+            title: Text(def.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                )),
+            subtitle: Text(
+              '${def.steps.length} 个步骤 · ${def.reminders.length} 条提醒',
+              style: theme.textTheme.labelSmall,
+            ),
+            trailing: const Icon(Icons.chevron_right, size: 18),
+            onTap: () => onTap(def.resourceId),
+          ),
+        );
+      }).toList(),
+    );
+  }
 }

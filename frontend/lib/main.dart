@@ -7,6 +7,7 @@ import 'providers/chat_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/enrollment_provider.dart';
 import 'providers/process_record_provider.dart';
+import 'providers/process_provider.dart';
 import 'providers/knowledge_provider.dart';
 import 'providers/emotion_provider.dart';
 import 'providers/agent_provider.dart';
@@ -107,6 +108,7 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => EnrollmentProvider()),
         ChangeNotifierProvider(create: (_) => ProcessRecordProvider()),
+        ChangeNotifierProvider(create: (_) => ProcessProvider()),
         ChangeNotifierProvider(create: (_) => KnowledgeProvider()),
         ChangeNotifierProvider(create: (_) {
           final p = EmotionProvider();

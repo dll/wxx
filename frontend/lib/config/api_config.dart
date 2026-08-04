@@ -3,12 +3,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// API 配置常量
 class ApiConfig {
   /// 后端基础地址
-  /// 
+  ///
   /// 本地开发模式（FLUTTER_APP_LOCAL_DEV=true）：指向本地 Go 后端 http://localhost:8080
   /// Web 端：同域调用（走 CF Pages → CF Functions → Go 后端）
   /// Android/iOS：直连正式域名
   static String get baseUrl {
-    const String localDev = String.fromEnvironment('FLUTTER_APP_LOCAL_DEV', defaultValue: 'false');
+    const String localDev =
+        String.fromEnvironment('FLUTTER_APP_LOCAL_DEV', defaultValue: 'false');
     if (localDev == 'true') {
       return 'http://localhost:8080';
     }
@@ -76,9 +77,12 @@ class ApiConfig {
   static String adminUserDelete(String id) => '$apiPrefix/admin/users/$id';
   static const String adminUsersAdvanced = '$apiPrefix/admin/users/advanced';
   static const String adminUsersDict = '$apiPrefix/admin/users/dict';
-  static const String adminUsersBatchStatus = '$apiPrefix/admin/users/batch/status';
-  static const String adminUsersBatchPassword = '$apiPrefix/admin/users/batch/password';
-  static const String adminUsersBatchDelete = '$apiPrefix/admin/users/batch/delete';
+  static const String adminUsersBatchStatus =
+      '$apiPrefix/admin/users/batch/status';
+  static const String adminUsersBatchPassword =
+      '$apiPrefix/admin/users/batch/password';
+  static const String adminUsersBatchDelete =
+      '$apiPrefix/admin/users/batch/delete';
   static const String adminAudit = '$apiPrefix/admin/audit';
   static const String adminSettings = '$apiPrefix/admin/settings';
 
@@ -126,6 +130,23 @@ class ApiConfig {
       '$apiPrefix/process/records/$flow/start';
   static String processRecordProgress(String flow) =>
       '$apiPrefix/process/records/$flow/progress';
+
+  // ── 办事流程定义与流程管理 ──
+  static const String processDefinitions = '$apiPrefix/process/definitions';
+  static String processDefinition(String id) =>
+      '$apiPrefix/process/definitions/$id';
+  static const String processAdmin = '$apiPrefix/process/admin';
+  static String processAdminResource(String id) =>
+      '$apiPrefix/process/admin/$id';
+  static const String processPending = '$apiPrefix/process/admin/pending';
+  static String processSubmit(String id) =>
+      '$apiPrefix/process/admin/$id/submit';
+  static String processApprove(String id) =>
+      '$apiPrefix/process/admin/$id/approve';
+  static String processReject(String id) =>
+      '$apiPrefix/process/admin/$id/reject';
+  static String processRetire(String id) =>
+      '$apiPrefix/process/admin/$id/retire';
 
   // ── 语音配置 ──
   static const String voiceConfig = '$apiPrefix/user/voice-config';
@@ -304,13 +325,15 @@ class ApiConfig {
 
   // ── 数据底座导入（college_admin+）──
   static const String adminGradesImport = '$apiPrefix/admin/grades/import';
-  static const String adminSchedulesImport = '$apiPrefix/admin/schedules/import';
+  static const String adminSchedulesImport =
+      '$apiPrefix/admin/schedules/import';
 
   // ── 就业模块 ──
   static const String careerPolicies = '$apiPrefix/career/policies';
   static const String careerJobs = '$apiPrefix/career/jobs';
   static const String careerSessions = '$apiPrefix/career/sessions';
-  static const String careerInterviewQuestions = '$apiPrefix/career/interview/questions';
+  static const String careerInterviewQuestions =
+      '$apiPrefix/career/interview/questions';
 
   // ── 学业模块 ──
   static const String studyCourses = '$apiPrefix/study/courses';
@@ -320,13 +343,15 @@ class ApiConfig {
   static const String studyExams = '$apiPrefix/study/exams';
 
   // ── 学习计划与校历课表 ──
-  static const String studyCalendarCurrent = '$apiPrefix/study/calendar/current';
+  static const String studyCalendarCurrent =
+      '$apiPrefix/study/calendar/current';
   static String studyCalendar(String code) => '$apiPrefix/study/calendar/$code';
   static const String studyTimetable = '$apiPrefix/study/timetable';
   static const String studyPlans = '$apiPrefix/study/plans';
   static String studyPlanDetail(String id) => '$apiPrefix/study/plans/$id';
   static const String studyPlansOverview = '$apiPrefix/study/plans/overview';
-  static const String studyPlanAIGenerate = '$apiPrefix/study/plans/ai-generate';
+  static const String studyPlanAIGenerate =
+      '$apiPrefix/study/plans/ai-generate';
   static String studyPlanTask(String planId, String taskId) =>
       '$apiPrefix/study/plans/$planId/tasks/$taskId';
 
@@ -341,10 +366,14 @@ class ApiConfig {
 
   // ── 站内通知 ──
   static const String notifications = '$apiPrefix/notifications';
-  static const String notificationsUnread = '$apiPrefix/notifications/unread-count';
-  static String notificationRead(String id) => '$apiPrefix/notifications/$id/read';
-  static const String notificationsReadAll = '$apiPrefix/notifications/read-all';
-  static const String adminNotificationSend = '$apiPrefix/admin/notifications/send';
+  static const String notificationsUnread =
+      '$apiPrefix/notifications/unread-count';
+  static String notificationRead(String id) =>
+      '$apiPrefix/notifications/$id/read';
+  static const String notificationsReadAll =
+      '$apiPrefix/notifications/read-all';
+  static const String adminNotificationSend =
+      '$apiPrefix/admin/notifications/send';
 
   // ── 校园报到步骤 ──
   static const String campusSteps = '$apiPrefix/campus/steps';

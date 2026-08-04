@@ -58,11 +58,14 @@ class ProcessStepDetail {
   final String status;
   final String contact;
   final String phone;
+  final String contactWechat;
   final String location;
   final String officeHours;
   final String materials;
   final String entryUrl;
   final String deadline;
+  final String notes;
+  final List<String> mediaUrls;
   final List<ProcessFAQ> faq;
 
   ProcessStepDetail({
@@ -71,11 +74,14 @@ class ProcessStepDetail {
     this.status = 'pending',
     this.contact = '',
     this.phone = '',
+    this.contactWechat = '',
     this.location = '',
     this.officeHours = '',
     this.materials = '',
     this.entryUrl = '',
     this.deadline = '',
+    this.notes = '',
+    this.mediaUrls = const [],
     this.faq = const [],
   });
 
@@ -86,11 +92,14 @@ class ProcessStepDetail {
       status: json['status'] ?? 'pending',
       contact: json['contact'] ?? '',
       phone: json['phone'] ?? '',
+      contactWechat: json['contact_wechat'] ?? '',
       location: json['location'] ?? '',
       officeHours: json['office_hours'] ?? '',
       materials: json['materials'] ?? '',
       entryUrl: json['entry_url'] ?? '',
       deadline: json['deadline'] ?? '',
+      notes: json['notes'] ?? '',
+      mediaUrls: (json['media_urls'] as List?)?.cast<String>() ?? const [],
       faq:
           (json['faq'] as List?)?.map((f) => ProcessFAQ.fromJson(f)).toList() ??
               [],
@@ -111,6 +120,248 @@ class ProcessFAQ {
       a: json['a'] ?? '',
     );
   }
+}
+
+/// 流程步骤（管理端完整字段，对应后端 process_steps）
+class ProcessStep {
+  final int id;
+  final String resourceId;
+  final int stepOrder;
+  final String title;
+  final String materials; // JSON 数组字符串
+  final String entryUrl;
+  final String deadline;
+  final String location;
+  final String notes;
+  final String contact;
+  final String phone;
+  final String contactWechat;
+  final String officeHours;
+  final double geoLat;
+  final double geoLng;
+  final String mediaUrls; // JSON 数组字符串
+  final String faq; // JSON 数组字符串
+
+  ProcessStep({
+    this.id = 0,
+    this.resourceId = '',
+    this.stepOrder = 0,
+    this.title = '',
+    this.materials = '[]',
+    this.entryUrl = '',
+    this.deadline = '',
+    this.location = '',
+    this.notes = '',
+    this.contact = '',
+    this.phone = '',
+    this.contactWechat = '',
+    this.officeHours = '',
+    this.geoLat = 0,
+    this.geoLng = 0,
+    this.mediaUrls = '[]',
+    this.faq = '[]',
+  });
+
+  factory ProcessStep.fromJson(Map<String, dynamic> json) {
+    return ProcessStep(
+      id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
+      resourceId: json['resource_id'] ?? '',
+      stepOrder: json['step_order'] ?? 0,
+      title: json['title'] ?? '',
+      materials: json['materials'] ?? '[]',
+      entryUrl: json['entry_url'] ?? '',
+      deadline: json['deadline'] ?? '',
+      location: json['location'] ?? '',
+      notes: json['notes'] ?? '',
+      contact: json['contact'] ?? '',
+      phone: json['phone'] ?? '',
+      contactWechat: json['contact_wechat'] ?? '',
+      officeHours: json['office_hours'] ?? '',
+      geoLat: (json['geo_lat'] ?? 0).toDouble(),
+      geoLng: (json['geo_lng'] ?? 0).toDouble(),
+      mediaUrls: json['media_urls'] ?? '[]',
+      faq: json['faq'] ?? '[]',
+    );
+  }
+
+  List<String> get materialsList => _decodeStringList(materials);
+  List<String> get mediaList => _decodeStringList(mediaUrls);
+
+  List<ProcessFAQ> get faqList {
+    final decoded = _decodeList(faq);
+    return decoded
+        .map((e) => ProcessFAQ.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  ProcessStepDetail toDetail() {
+    return ProcessStepDetail(
+      step: stepOrder,
+      title: title,
+      contact: contact,
+      phone: phone,
+      contactWechat: contactWechat,
+      location: location,
+      officeHours: officeHours,
+      materials: materials,
+      entryUrl: entryUrl,
+      deadline: deadline,
+      notes: notes,
+      mediaUrls: mediaList,
+      faq: faqList,
+    );
+  }
+}
+
+/// 流程提醒（对应后端 process_reminders）
+class ProcessReminder {
+  final int id;
+  final String processId;
+  final int stepOrder;
+  final String remindAt;
+  final String title;
+  final String content;
+  final bool isEnabled;
+  final String createdAt;
+  final String updatedAt;
+
+  ProcessReminder({
+    this.id = 0,
+    this.processId = '',
+    this.stepOrder = 0,
+    this.remindAt = '',
+    this.title = '',
+    this.content = '',
+    this.isEnabled = true,
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  factory ProcessReminder.fromJson(Map<String, dynamic> json) {
+    return ProcessReminder(
+      id: json['id'] is int ? json['id'] : int.tryParse('${json['id']}') ?? 0,
+      processId: json['process_id'] ?? '',
+      stepOrder: json['step_order'] ?? 0,
+      remindAt: json['remind_at'] ?? '',
+      title: json['title'] ?? '',
+      content: json['content'] ?? '',
+      isEnabled: (json['is_enabled'] ?? 1) == 1,
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+    );
+  }
+}
+
+/// 办事流程完整定义（KB 资源 + 步骤 + 提醒）
+class ProcessDefinition {
+  final String resourceId;
+  final String resourceType;
+  final String ownerScope;
+  final String ownerId;
+  final String roleScope;
+  final String version;
+  final String status;
+  final String title;
+  final String summary;
+  final String content;
+  final String sourceLink;
+  final String sourceVersion;
+  final String effectiveAt;
+  final String expiredAt;
+  final List<String> tags;
+  final String remark;
+  final String updatedBy;
+  final String createdAt;
+  final String updatedAt;
+  final List<ProcessStep> steps;
+  final List<ProcessReminder> reminders;
+
+  ProcessDefinition({
+    required this.resourceId,
+    required this.resourceType,
+    required this.ownerScope,
+    this.ownerId = '',
+    this.roleScope = '',
+    this.version = '',
+    this.status = '',
+    required this.title,
+    this.summary = '',
+    this.content = '',
+    this.sourceLink = '',
+    this.sourceVersion = '',
+    this.effectiveAt = '',
+    this.expiredAt = '',
+    this.tags = const [],
+    this.remark = '',
+    this.updatedBy = '',
+    this.createdAt = '',
+    this.updatedAt = '',
+    this.steps = const [],
+    this.reminders = const [],
+  });
+
+  factory ProcessDefinition.fromJson(Map<String, dynamic> json) {
+    return ProcessDefinition(
+      resourceId: json['resource_id'] ?? '',
+      resourceType: json['resource_type'] ?? 'Process',
+      ownerScope: json['owner_scope'] ?? '',
+      ownerId: json['owner_id'] ?? '',
+      roleScope: json['role_scope'] ?? '',
+      version: json['version'] ?? '',
+      status: json['status'] ?? 'draft',
+      title: json['title'] ?? '',
+      summary: json['summary'] ?? '',
+      content: json['content'] ?? '',
+      sourceLink: json['source_link'] ?? '',
+      sourceVersion: json['source_version'] ?? '',
+      effectiveAt: json['effective_at'] ?? '',
+      expiredAt: json['expired_at'] ?? '',
+      tags: KnowledgeCard._parseTags(json['tags'] ?? ''),
+      remark: json['remark'] ?? '',
+      updatedBy: json['updated_by'] ?? '',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
+      steps: (json['steps'] as List?)
+              ?.map((e) => ProcessStep.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          const [],
+      reminders: (json['reminders'] as List?)
+              ?.map(
+                  (e) => ProcessReminder.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          const [],
+    );
+  }
+
+  bool get isFreshmenRelated =>
+      tags.any((t) => t.contains('新生') || t.contains('入学') || t.contains('报到'));
+
+  String get statusLabel {
+    switch (status) {
+      case 'published':
+        return '已发布';
+      case 'pending':
+        return '待审核';
+      case 'retired':
+        return '已下架';
+      default:
+        return '草稿';
+    }
+  }
+}
+
+List<dynamic> _decodeList(String raw) {
+  if (raw.isEmpty || raw == '[]') return [];
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is List ? decoded : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+List<String> _decodeStringList(String raw) {
+  return _decodeList(raw).map((e) => e.toString()).toList();
 }
 
 /// 来源引用
@@ -320,7 +571,8 @@ class Message {
     );
   }
 
-  Message copyWith({bool? isFailed, String? content, AnswerCard? answerCard, String? id}) {
+  Message copyWith(
+      {bool? isFailed, String? content, AnswerCard? answerCard, String? id}) {
     return Message(
       id: id ?? this.id,
       role: role,
@@ -1060,7 +1312,8 @@ class FeedbackStats {
   factory FeedbackStats.fromJson(Map<String, dynamic> json) {
     Map<String, int> parseMap(dynamic data) {
       if (data is Map) {
-        return data.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0));
+        return data
+            .map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0));
       }
       return {};
     }
@@ -1377,8 +1630,8 @@ class DigitalTwinData {
           [],
       // 后端真实孪生返回 interpretation / stage_advice（v1 字段对齐）
       aiSummary: json['ai_summary'] ?? json['interpretation'] ?? '',
-      suggestions: List<String>.from(
-          json['suggestions'] ?? json['stage_advice'] ?? []),
+      suggestions:
+          List<String>.from(json['suggestions'] ?? json['stage_advice'] ?? []),
     );
   }
 }
@@ -1569,7 +1822,8 @@ class CourseAnalyticsData {
       passed: json['passed'] ?? false,
       credits: (json['credits'] ?? 0).toDouble(),
       semester: (json['semester'] ?? '').toString(),
-      progress: (json['progress'] ?? (score > 0 ? score / 100.0 : 0)).toDouble(),
+      progress:
+          (json['progress'] ?? (score > 0 ? score / 100.0 : 0)).toDouble(),
       rankPercentile: json['rank_percentile'] ?? 50,
       knowledgePoints: (json['knowledge_points'] as List?)
               ?.map((e) => KnowledgePoint.fromJson(e))

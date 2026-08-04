@@ -895,6 +895,96 @@ func (r *KBRepo) GetProcessSteps(resourceID string) ([]*model.ProcessStep, error
 	return steps, rows.Err()
 }
 
+// GetProcessReminders 获取流程提醒（按提醒时间排序）
+func (r *KBRepo) GetProcessReminders(resourceID string) ([]*model.ProcessReminder, error) {
+	rows, err := r.db.Query(
+		`SELECT id, process_id, step_order, remind_at, title, content, is_enabled, created_at, updated_at
+		 FROM process_reminders WHERE process_id = ? ORDER BY remind_at ASC, id ASC`, resourceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*model.ProcessReminder
+	for rows.Next() {
+		r := &model.ProcessReminder{}
+		if err := rows.Scan(&r.ID, &r.ProcessID, &r.StepOrder, &r.RemindAt,
+			&r.Title, &r.Content, &r.IsEnabled, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, r)
+	}
+	return items, rows.Err()
+}
+
+// ReplaceProcessStepsAndReminders 原子替换流程步骤与提醒
+func (r *KBRepo) ReplaceProcessStepsAndReminders(resourceID string, steps []*model.ProcessStep, reminders []*model.ProcessReminder) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("开启流程更新事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM process_steps WHERE resource_id = ?`, resourceID); err != nil {
+		return fmt.Errorf("清空流程步骤失败: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM process_reminders WHERE process_id = ?`, resourceID); err != nil {
+		return fmt.Errorf("清空流程提醒失败: %w", err)
+	}
+
+	for _, s := range steps {
+		if _, err := tx.Exec(
+			`INSERT INTO process_steps
+			 (resource_id, step_order, title, materials, entry_url, deadline, location, notes,
+			  contact, phone, contact_wechat, office_hours, geo_lat, geo_lng, media_urls, faq)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			resourceID, s.StepOrder, s.Title, s.Materials, s.EntryURL, s.Deadline, s.Location, s.Notes,
+			s.Contact, s.Phone, s.ContactWechat, s.OfficeHours, s.GeoLat, s.GeoLng, s.MediaURLs, s.FAQ,
+		); err != nil {
+			return fmt.Errorf("写入流程步骤失败: %w", err)
+		}
+	}
+
+	for _, reminder := range reminders {
+		if _, err := tx.Exec(
+			`INSERT INTO process_reminders (process_id, step_order, remind_at, title, content, is_enabled)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			resourceID, reminder.StepOrder, reminder.RemindAt, reminder.Title, reminder.Content, reminder.IsEnabled,
+		); err != nil {
+			return fmt.Errorf("写入流程提醒失败: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("提交流程更新事务失败: %w", err)
+	}
+	return nil
+}
+
+// DeleteProcessFull 删除流程定义及其步骤和提醒
+func (r *KBRepo) DeleteProcessFull(resourceID string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("开启流程删除事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM process_reminders WHERE process_id = ?`, resourceID); err != nil {
+		return fmt.Errorf("删除流程提醒失败: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM process_steps WHERE resource_id = ?`, resourceID); err != nil {
+		return fmt.Errorf("删除流程步骤失败: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM kb_resources WHERE resource_id = ? AND resource_type = 'Process'`, resourceID); err != nil {
+		return fmt.Errorf("删除流程资源失败: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("提交流程删除事务失败: %w", err)
+	}
+	return nil
+}
+
 // GetPublishedCards 获取已发布的知识卡片（供知识大厅浏览，面向所有已认证用户）
 // ownerScope/ownerID: 归属范围过滤（显示全校 + 当前范围）
 // role: 用户角色（过滤可见资源）

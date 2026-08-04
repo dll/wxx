@@ -87,6 +87,19 @@ type ProcessStep struct {
 	FAQ           string  `json:"faq" db:"faq"`                       // JSON 数组：[{"q":"…","a":"…"}]
 }
 
+// ProcessReminder 办事流程提醒，对应 process_reminders 表
+type ProcessReminder struct {
+	ID        int64  `json:"id" db:"id"`
+	ProcessID string `json:"process_id" db:"process_id"`
+	StepOrder int    `json:"step_order" db:"step_order"` // 关联步骤序号，0 表示流程级提醒
+	RemindAt  string `json:"remind_at" db:"remind_at"`
+	Title     string `json:"title" db:"title"`
+	Content   string `json:"content" db:"content"`
+	IsEnabled int    `json:"is_enabled" db:"is_enabled"`
+	CreatedAt string `json:"created_at" db:"created_at"`
+	UpdatedAt string `json:"updated_at" db:"updated_at"`
+}
+
 // AuditLog 审计日志，对应 audit_logs 表
 type AuditLog struct {
 	ID         int64  `json:"id" db:"id"`

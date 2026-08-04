@@ -199,6 +199,14 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.rate_review_outlined, '知识审核',
                 '审核待发布的知识资源', '/review'),
 
+          // 办事管理/审核（counselor 及以上，学校、学院管理员继承）
+          if (CapabilityUtils.has(Capability.counselorKbWrite))
+            _buildMenuCard(context, Icons.edit_note, '办事管理', '新增、编辑、发布和导出办事流程',
+                '/process-manage'),
+          if (CapabilityUtils.has(Capability.counselorKbReview))
+            _buildMenuCard(context, Icons.rate_review_outlined, '办事审核',
+                '审核学校、学院管理员提交的办事流程', '/process-review'),
+
           // 我的提交（student_union 及以上）
           if (_canSubmitKB(profile?.role))
             _buildMenuCard(context, Icons.note_add_outlined, '知识提交',
@@ -272,7 +280,7 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.chat_outlined, '站内私聊', 'AI 学伴私信',
                 '/student/private-chat'),
             _buildMenuCard(context, Icons.account_tree_outlined, 'AI 办事流程',
-                '智能流程引导', '/student/process-enhanced'),
+                '智能流程引导', '/enrollment'),
             _buildMenuCard(context, Icons.timeline, '成长路径', 'AI 个性化成长规划',
                 '/student/growth-path'),
             _buildMenuCard(context, Icons.flag_outlined, '新生规划', '大学四年规划蓝图',
@@ -289,8 +297,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/student/schedule'),
             _buildMenuCard(context, Icons.favorite_border, '心理陪伴', '心情打卡与关怀',
                 '/student/mental-health'),
-            _buildMenuCard(context, Icons.smart_toy_outlined, '数字导师', 'AI 语音陪伴导师',
-                '/student/digital-mentor'),
+            _buildMenuCard(context, Icons.smart_toy_outlined, '数字导师',
+                'AI 语音陪伴导师', '/student/digital-mentor'),
             _buildMenuCard(context, Icons.emoji_events_outlined, '竞赛匹配',
                 'AI 竞赛项目匹配', '/student/competition-match'),
           ],
@@ -334,8 +342,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '问答社区内容管理', '/counselor/community-manage'),
             _buildMenuCard(context, Icons.trending_up, '热点感知', '校园舆情热点感知',
                 '/counselor/hot-topic-sense'),
-            _buildMenuCard(context, Icons.edit_note, '流程编辑', '办事流程编辑管理',
-                '/counselor/process-edit'),
+            _buildMenuCard(context, Icons.edit_note, '办事管理', '办事流程编辑管理',
+                '/process-manage'),
             _buildMenuCard(context, Icons.people_alt_outlined, '学生列表',
                 '查看管理学生名单', '/counselor/student-list'),
           ],
@@ -550,8 +558,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '社区管理', '问答社区内容管理', '/counselor/community-manage'),
           _ProfileFeature('c_hot_sense', '辅导员服务', Icons.trending_up, '热点感知',
               '校园舆情热点感知', '/counselor/hot-topic-sense'),
-          _ProfileFeature('c_process_edit', '辅导员服务', Icons.edit_note, '流程编辑',
-              '办事流程编辑管理', '/counselor/process-edit'),
+          _ProfileFeature('c_process_edit', '辅导员服务', Icons.edit_note, '办事管理',
+              '办事流程编辑管理', '/process-manage'),
           _ProfileFeature('c_student_list', '辅导员服务', Icons.people_alt_outlined,
               '学生列表', '查看管理学生名单', '/counselor/student-list'),
         ],
@@ -601,6 +609,12 @@ class _ProfilePageState extends State<ProfilePage> {
         if (_canAccessEmotion(role))
           _ProfileFeature('kb_review', '知识治理', Icons.rate_review_outlined,
               '知识审核', '审核待发布的知识资源', '/review'),
+        if (CapabilityUtils.has(Capability.counselorKbWrite))
+          _ProfileFeature('p_manage', '办事服务', Icons.edit_note, '办事管理',
+              '新增、编辑、发布和导出办事流程', '/process-manage'),
+        if (CapabilityUtils.has(Capability.counselorKbReview))
+          _ProfileFeature('p_review', '办事服务', Icons.rate_review_outlined,
+              '办事审核', '审核学校、学院管理员提交的办事流程', '/process-review'),
         if (_canAccessEmotion(role))
           _ProfileFeature('emotion', '管理服务', Icons.warning_amber_rounded,
               '情感预警', '查看和管理学生情感告警', '/emotion'),
@@ -688,21 +702,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Theme.of(context).colorScheme.outlineVariant)),
         child: Column(
           children: [
-            TabBar(
-                isScrollable: true,
-                tabs: [
-                  for (final t in tabs)
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(categoryIcons[t] ?? Icons.widgets_outlined, size: 20),
-                          const SizedBox(width: 6),
-                          Text(t),
-                        ],
-                      ),
-                    )
-                ]),
+            TabBar(isScrollable: true, tabs: [
+              for (final t in tabs)
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(categoryIcons[t] ?? Icons.widgets_outlined,
+                          size: 20),
+                      const SizedBox(width: 6),
+                      Text(t),
+                    ],
+                  ),
+                )
+            ]),
             SizedBox(
               height: 430,
               child: TabBarView(

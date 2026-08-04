@@ -38,6 +38,7 @@
 | 接口与导出契约索引 | `specs/export-package.md`、`specs/resource-schema.md` |
 | RBAC 矩阵模板 | `specs/rbac-matrix.md` |
 | AnswerCard / 导出审计 | `docs/ui-answer-card.md` |
+| 办事流程管理与提醒 | `docs/办事流程管理.md`（动态流程、CRUD、审核、导出与提醒） |
 | 校外系统对接注意 | `docs/integrations.md` |
 | 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |
 | 部署指南 | `docs/deployment.md` |
