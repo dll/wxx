@@ -279,7 +279,9 @@ class Session {
 
   factory Session.fromJson(Map<String, dynamic> json) {
     return Session(
-      id: json['id']?.toString() ?? '',
+      // 后端 sessions 列表返回 {id: 自增整数, session_id: UUID,...}，
+      // 加载/删除/重命名都按 session_id(UUID) 调用后端，故 id 必须取 session_id。
+      id: json['session_id']?.toString() ?? json['id']?.toString() ?? '',
       title: json['title'] ?? '新对话',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
