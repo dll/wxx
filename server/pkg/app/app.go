@@ -190,6 +190,13 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 注入 LLM 客户端，启用文档元数据精修（标题/摘要/关键词）
 	docSvc.SetLLMClient(llmClient)
 	docParseSvc.SetLLMClient(llmClient)
+	// 注入视觉（OCR）客户端（智谱 GLM-4V），启用扫描件/图片型 PDF/DOCX 的 OCR 识别
+	if ocrKey := cfg.Zhipu4VAPIKEY; ocrKey != "" || cfg.ZhipuAPIKey != "" {
+		ocrClient := llm.NewZhipu4VClient(cfg)
+		docSvc.SetOCRClient(ocrClient)
+		docParseSvc.SetOCRClient(ocrClient)
+		log.Printf("文档 OCR 已启用：%s（%s）", ocrClient.Name(), cfg.Zhipu4VModel)
+	}
 	// 启用知识库批量精修（复用精修器，逐条 LLM 精修存量资源元数据）
 	kbSvc.SetRefiner(docSvc)
 	if chatSvc != nil {

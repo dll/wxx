@@ -95,6 +95,7 @@
 
 - **PDF 空页跳过**（`readPdfFromBytes`）：仅对有实际文本的页写入分页标记，空页（图片/扫描页）跳过，不再产生「--- 第N页 ---」空壳内容。
 - **图片型 PDF 明确报错**：全部页均无文本时返回明确错误「PDF 未提取到任何文本，该文件可能是扫描件或图片型 PDF，需要 OCR 处理后重新上传」，handler 透传给前端展示。
+- **扫描件自动 OCR（P1.1 已接入，智谱 GLM-4V）**：配置 `ZHIPU_4V_API_KEY`（或复用 `ZHIPU_API_KEY`）+ `ZHIPU_4V_MODEL`（默认 `glm-4v`）后，无文本层的 PDF/DOCX 自动提取内嵌图片（PDF：DCTDecode JPEG + FlateDecode 位图字节级提取；DOCX：`word/media/*`）→ 送 GLM-4V 识别 → 回填正文并入库；未配置 OCR 或识别失败时回退为「无文本层」422 引导。
 - **混合内容警告**（`ParseWarning` 字段）：部分页无文本时返回非致命警告「PDF 共 N 页，其中 M 页未提取到文本」，`DocumentParseResult.parse_warning` 传递到前端。
 - **质量评估剔除标记**（`stripStructuralMarkers`）：评估前移除分页符/行号/工作表头等结构性标记，避免标记中的「第/页/行/表」等中文被误判为有效内容。
 - **错误信息透传**：`/documents/parse` 与 `/kb/upload` 解析失败时返回具体原因（图片型 PDF/DOCX 格式错误等），而非笼统的「文档解析失败」。

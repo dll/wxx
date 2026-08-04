@@ -3,12 +3,16 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"compress/zlib"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"log"
 	"mime/multipart"
@@ -16,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +39,18 @@ type DocumentService struct {
 	maxSize   int64
 	// llmClient 用于 LLM 元数据精修（标题/摘要/关键词）；nil 时精修回退启发式规则
 	llmClient llm.ChatClient
+	// ocrClient 用于扫描件/图片型 PDF/DOCX 的 OCR（智谱 GLM-4V）；nil 时无文本层仍返回 ErrNoTextLayer
+	ocrClient llm.VisionClient
 }
 
 // SetLLMClient 注入 LLM 客户端（精修能力）。传入 nil 表示禁用 LLM 精修。
 func (s *DocumentService) SetLLMClient(client llm.ChatClient) {
 	s.llmClient = client
+}
+
+// SetOCRClient 注入视觉（OCR）客户端。传入 nil 表示禁用 OCR（扫描件仍报无文本层）。
+func (s *DocumentService) SetOCRClient(client llm.VisionClient) {
+	s.ocrClient = client
 }
 
 type DocumentResult struct {
@@ -294,8 +306,15 @@ func (s *DocumentService) readPdfFromBytes(data []byte) (string, int, string, er
 		pagesWithText++
 	}
 
-	// 所有页都无文本 → 图片型/扫描件 PDF，返回明确错误（无文本层，非服务端故障）
+	// 所有页都无文本 → 图片型/扫描件 PDF：尝试 OCR，失败才报无文本层
 	if pagesWithText == 0 {
+		if s.ocrClient != nil {
+			if images, ok := s.extractImagesFromPdf(data); ok && len(images) > 0 {
+				if text, oerr := s.ocrClient.OCR(context.Background(), images); oerr == nil && strings.TrimSpace(text) != "" {
+					return strings.TrimSpace(text), totalPage, "已通过 OCR 识别（原文件为扫描件/图片型 PDF）", nil
+				}
+			}
+		}
 		return "", totalPage, "", fmt.Errorf("%w：PDF 未提取到任何文本，该文件可能是扫描件或图片型 PDF，需要 OCR 处理后重新上传", ErrNoTextLayer)
 	}
 
@@ -328,8 +347,15 @@ func (s *DocumentService) readDocxFromBytes(data []byte) (string, error) {
 			return "", fmt.Errorf("读取DOCX正文失败: %w", err)
 		}
 		text := extractDocxText(string(contentData))
-		// 有效 DOCX 但正文无文本 → 扫描件/图片型 Word（内容以图片嵌入），需 OCR
+		// 有效 DOCX 但正文无文本 → 扫描件/图片型 Word：尝试 OCR
 		if strings.TrimSpace(text) == "" {
+			if s.ocrClient != nil {
+				if images := s.extractImagesFromDocx(data); len(images) > 0 {
+					if ot, oerr := s.ocrClient.OCR(context.Background(), images); oerr == nil && strings.TrimSpace(ot) != "" {
+						return strings.TrimSpace(ot), nil
+					}
+				}
+			}
 			return "", fmt.Errorf("%w：Word 正文未提取到文本，该文档可能是扫描件或图片型（文字以图片嵌入），需要 OCR 处理后重新上传", ErrNoTextLayer)
 		}
 		return text, nil
@@ -358,6 +384,234 @@ func (s *DocumentService) readXlsxFromBytes(data []byte) (string, error) {
 		}
 	}
 	return b.String(), nil
+}
+
+// extractImagesFromDocx 从 DOCX 的 word/media/ 提取嵌入图片（供 OCR），失败返回 nil。
+func (s *DocumentService) extractImagesFromDocx(data []byte) []llm.OCRImage {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil
+	}
+	var images []llm.OCRImage
+	for _, f := range r.File {
+		name := strings.ToLower(f.Name)
+		if !strings.HasPrefix(name, "word/media/") {
+			continue
+		}
+		mime := docxMediaMime(name)
+		if mime == "" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		b, rerr := io.ReadAll(rc)
+		rc.Close()
+		if rerr != nil || len(b) == 0 {
+			continue
+		}
+		images = append(images, llm.OCRImage{Data: b, MIME: mime})
+	}
+	return images
+}
+
+// docxMediaMime 根据 word/media 文件扩展名推断 MIME；不支持的扩展返回空。
+func docxMediaMime(name string) string {
+	switch {
+	case strings.HasSuffix(name, ".png"):
+		return "image/png"
+	case strings.HasSuffix(name, ".jpg"), strings.HasSuffix(name, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(name, ".gif"):
+		return "image/gif"
+	case strings.HasSuffix(name, ".bmp"):
+		return "image/bmp"
+	case strings.HasSuffix(name, ".webp"):
+		return "image/webp"
+	}
+	return ""
+}
+
+// pdfLengthRe 匹配图像字典中的 /Length <N>（直接整数）。
+// ledongthuc/pdf 对 DCTDecode 流会 panic，无法经其 Reader 取图，故用字节扫描。
+var pdfLengthRe = regexp.MustCompile(`/Length\s+(\d+)`)
+
+// extractJpegImagesFromPdf 从 PDF 原始字节中提取 DCTDecode(JPEG) 图像流，供扫描件 OCR。
+// 思路：定位 /DCTDecode → 取其所在字典的 /Length → 定位 stream → 精确截取 N 字节 →
+// 校验 JPEG 魔数（SOI/EOI）。间接 Length 或结构异常则跳过该图（不 panic）。
+func (s *DocumentService) extractJpegImagesFromPdf(data []byte) []llm.OCRImage {
+	var images []llm.OCRImage
+	rest := data
+	for {
+		i := bytes.Index(rest, []byte("/DCTDecode"))
+		if i < 0 {
+			break
+		}
+		after := rest[i+len("/DCTDecode"):]
+		// 找该图像字典后的 stream 关键字
+		sIdx := bytes.Index(after, []byte("stream"))
+		if sIdx < 0 {
+			break
+		}
+		head := after[:sIdx]
+		m := pdfLengthRe.FindSubmatch(head)
+		if m != nil {
+			if n, err := strconv.Atoi(string(m[1])); err == nil && n > 100 {
+				bodyStart := sIdx + len("stream")
+				if bodyStart < len(after) {
+					if after[bodyStart] == '\r' && bodyStart+1 < len(after) && after[bodyStart+1] == '\n' {
+						bodyStart += 2
+					} else if after[bodyStart] == '\n' || after[bodyStart] == '\r' {
+						bodyStart++
+					}
+				}
+				if bodyStart+n <= len(after) {
+					img := after[bodyStart : bodyStart+n]
+					// JPEG 魔数校验：SOI FF D8 开头、EOI FF D9 结尾
+					if len(img) > 4 && img[0] == 0xFF && img[1] == 0xD8 && img[len(img)-2] == 0xFF && img[len(img)-1] == 0xD9 {
+						images = append(images, llm.OCRImage{Data: img, MIME: "image/jpeg"})
+					}
+				}
+			}
+		}
+		rest = after[sIdx+len("stream"):]
+	}
+	return images
+}
+
+// extractImagesFromPdf 提取 PDF 内嵌图片（DCTDecode JPEG + FlateDecode 位图），供扫描件 OCR。
+func (s *DocumentService) extractImagesFromPdf(data []byte) ([]llm.OCRImage, bool) {
+	var images []llm.OCRImage
+	images = append(images, s.extractJpegImagesFromPdf(data)...)
+	images = append(images, s.extractFlateImagesFromPdf(data)...)
+	return images, len(images) > 0
+}
+
+// pdfDictIntRe 从图像字典片段提取整数参数（/Length /Width /Height /BitsPerComponent）
+var pdfDictIntRe = map[string]*regexp.Regexp{
+	"length":           regexp.MustCompile(`/Length\s+(\d+)`),
+	"width":            regexp.MustCompile(`/Width\s+(\d+)`),
+	"height":           regexp.MustCompile(`/Height\s+(\d+)`),
+	"bits_per_component": regexp.MustCompile(`/BitsPerComponent\s+(\d+)`),
+}
+
+// extractFlateImagesFromPdf 提取 FlateDecode 压缩的图像 XObject 流，解压后编码为 PNG。
+// 仅处理 8bit 的 DeviceRGB / DeviceGray / DeviceCMYK；其它色彩空间或间接参数则跳过。
+func (s *DocumentService) extractFlateImagesFromPdf(data []byte) []llm.OCRImage {
+	var images []llm.OCRImage
+	rest := data
+	for {
+		i := bytes.Index(rest, []byte("/Subtype"))
+		if i < 0 {
+			break
+		}
+		after := rest[i+len("/Subtype"):]
+		// 确认是 /Image 且滤镜为 FlateDecode
+		if !bytes.HasPrefix(after, []byte("/Image")) && !bytes.HasPrefix(after, []byte(" /Image")) && !bytes.HasPrefix(after, []byte("Image")) {
+			rest = after
+			continue
+		}
+		sIdx := bytes.Index(after, []byte("stream"))
+		if sIdx < 0 {
+			break
+		}
+		head := after[:sIdx]
+		if !bytes.Contains(head, []byte("FlateDecode")) {
+			rest = after
+			continue
+		}
+		// 提取参数（直接整数，间接引用跳过）
+		num := func(name string) (int, bool) {
+			m := pdfDictIntRe[name].FindSubmatch(head)
+			if m == nil {
+				return 0, false
+			}
+			n, err := strconv.Atoi(string(m[1]))
+			return n, err == nil
+		}
+		length, okL := num("length")
+		width, okW := num("width")
+		height, okH := num("height")
+		bpc, okB := num("bits_per_component")
+		if !okL || !okW || !okH || !okB || bpc != 8 || width <= 0 || height <= 0 || width > 4000 || height > 4000 {
+			rest = after
+			continue
+		}
+
+		bodyStart := sIdx + len("stream")
+		if bodyStart < len(after) {
+			if after[bodyStart] == '\r' && bodyStart+1 < len(after) && after[bodyStart+1] == '\n' {
+				bodyStart += 2
+			} else if after[bodyStart] == '\n' || after[bodyStart] == '\r' {
+				bodyStart++
+			}
+		}
+		if bodyStart+length > len(after) {
+			rest = after
+			continue
+		}
+
+		// 解压
+		zr, zerr := zlib.NewReader(bytes.NewReader(after[bodyStart : bodyStart+length]))
+		if zerr != nil {
+			rest = after
+			continue
+		}
+		pix, rerr := io.ReadAll(zr)
+		zr.Close()
+		if rerr != nil {
+			rest = after
+			continue
+		}
+
+		// 色彩空间
+		cs := "DeviceRGB"
+		if m := regexp.MustCompile(`/ColorSpace\s*/(\w+)`).FindSubmatch(head); m != nil {
+			cs = string(m[1])
+		}
+		channels := 3
+		switch cs {
+		case "DeviceGray":
+			channels = 1
+		case "DeviceCMYK":
+			channels = 4
+		case "DeviceRGB":
+			channels = 3
+		default:
+			rest = after
+			continue // 复杂色彩空间跳过
+		}
+		expected := width * height * channels
+		if len(pix) != expected {
+			rest = after
+			continue
+		}
+
+		// 组装位图 → PNG
+		img := image.NewRGBA(image.Rect(0, 0, width, height))
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
+				o := (y*width + x) * channels
+				switch channels {
+				case 1:
+					img.SetRGBA(x, y, color.RGBA{pix[o], pix[o], pix[o], 255})
+				case 3:
+					img.SetRGBA(x, y, color.RGBA{pix[o], pix[o+1], pix[o+2], 255})
+				case 4:
+					img.SetRGBA(x, y, color.RGBA{pix[o], pix[o+1], pix[o+2], 255})
+				}
+			}
+		}
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			rest = after
+			continue
+		}
+		images = append(images, llm.OCRImage{Data: buf.Bytes(), MIME: "image/png"})
+		rest = after
+	}
+	return images
 }
 
 // wordprocessingNS 是 OOXML 正文命名空间
