@@ -70,7 +70,9 @@ func TestOCRRequestShape(t *testing.T) {
 			Content []struct {
 				Type     string `json:"type"`
 				Text     string `json:"text"`
-				ImageURL *struct{ URL string `json:"url"` } `json:"image_url"`
+				ImageURL *struct {
+					URL string `json:"url"`
+				} `json:"image_url"`
 			} `json:"content"`
 		} `json:"messages"`
 	}

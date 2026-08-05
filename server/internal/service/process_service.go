@@ -15,7 +15,7 @@ import (
 // ProcessDefinition 办事流程完整定义（KB 资源 + 步骤 + 提醒）
 type ProcessDefinition struct {
 	model.KBResource
-	Steps     []*model.ProcessStep    `json:"steps"`
+	Steps     []*model.ProcessStep     `json:"steps"`
 	Reminders []*model.ProcessReminder `json:"reminders"`
 }
 

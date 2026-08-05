@@ -490,9 +490,9 @@ func (s *DocumentService) extractImagesFromPdf(data []byte) ([]llm.OCRImage, boo
 
 // pdfDictIntRe 从图像字典片段提取整数参数（/Length /Width /Height /BitsPerComponent）
 var pdfDictIntRe = map[string]*regexp.Regexp{
-	"length":           regexp.MustCompile(`/Length\s+(\d+)`),
-	"width":            regexp.MustCompile(`/Width\s+(\d+)`),
-	"height":           regexp.MustCompile(`/Height\s+(\d+)`),
+	"length":             regexp.MustCompile(`/Length\s+(\d+)`),
+	"width":              regexp.MustCompile(`/Width\s+(\d+)`),
+	"height":             regexp.MustCompile(`/Height\s+(\d+)`),
 	"bits_per_component": regexp.MustCompile(`/BitsPerComponent\s+(\d+)`),
 }
 

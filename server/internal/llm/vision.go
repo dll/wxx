@@ -76,7 +76,7 @@ type ocrContentPart struct {
 }
 
 type ocrVisionMessage struct {
-	Role    string            `json:"role"`
+	Role    string           `json:"role"`
 	Content []ocrContentPart `json:"content"`
 }
 

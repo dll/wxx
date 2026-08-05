@@ -8,7 +8,7 @@ import (
 
 // Phase2Service 阶段二真实业务服务（积分成就 / 问答广场 / 谈心记录）
 type Phase2Service struct {
-	repo       *repository.Phase2Repo
+	repo        *repository.Phase2Repo
 	checkinRepo *repository.CheckinRepo
 }
 
@@ -21,13 +21,13 @@ func NewPhase2Service(repo *repository.Phase2Repo, checkinRepo *repository.Check
 
 // AchievementData 成就返回（对齐前端 AchievementData 模型）
 type AchievementData struct {
-	TotalPoints    int                      `json:"total_points"`
-	Level          int                      `json:"level"`
-	LevelName      string                   `json:"level_name"`
-	NextLevelPoints int                     `json:"next_level_points"`
-	WeeklyRank     int                      `json:"weekly_rank"`
-	Badges         []map[string]interface{} `json:"badges"`
-	DataSource     string                   `json:"data_source"`
+	TotalPoints     int                      `json:"total_points"`
+	Level           int                      `json:"level"`
+	LevelName       string                   `json:"level_name"`
+	NextLevelPoints int                      `json:"next_level_points"`
+	WeeklyRank      int                      `json:"weekly_rank"`
+	Badges          []map[string]interface{} `json:"badges"`
+	DataSource      string                   `json:"data_source"`
 }
 
 // levelFor 根据总分返回等级

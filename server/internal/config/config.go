@@ -123,7 +123,7 @@ func Load() *Config {
 
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
-		FrontendStaticDir: envOr("FRONTEND_STATIC_DIR", "/opt/wxx/frontend/web"),
+		FrontendStaticDir:   envOr("FRONTEND_STATIC_DIR", "/opt/wxx/frontend/web"),
 		EnableGuestRegister: envBoolOr("ENABLE_GUEST_REGISTER", false),
 
 		TursoDBUrl:   envOr("TURSO_DB_URL", ""),
