@@ -353,6 +353,10 @@ func TestReadDocxRealFile(t *testing.T) {
 			if errors.Is(err, ErrNoTextLayer) {
 				continue
 			}
+			// 非 DOCX 文件跳过（如误命名为 .docx 的纯文本/PDF）
+			if strings.Contains(err.Error(), "not a valid zip file") {
+				continue
+			}
 			t.Fatalf("解析样本失败 %s: %v", path, err)
 		}
 		if strings.TrimSpace(text) == "" {

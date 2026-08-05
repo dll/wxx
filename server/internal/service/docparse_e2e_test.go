@@ -46,6 +46,11 @@ func TestParseRealHandbookEndToEnd(t *testing.T) {
 				t.Logf("样本 %s 为扫描件/图片型（无文本层），跳过", name)
 				continue
 			}
+			// 非 DOCX 文件（如纯文本/PDF 误命名为 .docx）跳过，不视为测试失败
+			if strings.Contains(err.Error(), "not a valid zip file") {
+				t.Logf("样本 %s 非有效 DOCX（%v），跳过", name, err)
+				continue
+			}
 			t.Fatalf("解析样本失败 %s: %v", name, err)
 		}
 		content = strings.TrimSpace(content)

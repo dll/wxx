@@ -714,7 +714,7 @@ $printScript
 
   /// 多格式导出对话框
   void _showExportDialog(String question, Message msg) async {
-    final format = await ExportDialog.show(context, contentId: msg.id ?? '');
+    final format = await ExportDialog.show(context, contentId: msg.id);
     if (format == null || !mounted) return;
 
     switch (format) {
@@ -893,7 +893,7 @@ $printScript
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.memory(screenshotBytes!, fit: BoxFit.cover),
+                              Image.memory(screenshotBytes, fit: BoxFit.cover),
                               Positioned(
                                 top: 8,
                                 right: 8,
@@ -995,11 +995,11 @@ $printScript
                 // 上传截图
                 String screenshotUrl = '';
                 bool uploadFailed = false;
-                if (screenshotBytes != null && screenshotBytes!.isNotEmpty) {
+                if (screenshotBytes != null && screenshotBytes.isNotEmpty) {
                   final url = await context
                       .read<FeedbackProvider>()
                       .uploadScreenshotBytes(
-                        screenshotBytes!,
+                        screenshotBytes,
                         'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
                       );
                   if (url != null) {
@@ -1015,7 +1015,7 @@ $printScript
                     await context.read<FeedbackProvider>().submitFeedback(
                           category: category,
                           content: text,
-                          messageId: msg.id ?? '',
+                          messageId: msg.id,
                           screenshotUrl: screenshotUrl,
                         );
                 if (mounted) {

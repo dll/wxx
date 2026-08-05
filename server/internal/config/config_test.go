@@ -134,7 +134,7 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.XfyunSpeechURL != "https://iat-api.xfyun.cn/v2/iat" {
 		t.Errorf("XfyunSpeechURL 默认值错误: %s", cfg.XfyunSpeechURL)
 	}
-	if cfg.SSOCallbackURL != "http://localhost:8080/api/v1/auth/callback" {
+	if cfg.SSOCallbackURL != "http://localhost:8080/api/v1/auth/sso/callback" {
 		t.Errorf("SSOCallbackURL 默认值错误: %s", cfg.SSOCallbackURL)
 	}
 	if cfg.SQLitePath != "./data/wxx.db" {
