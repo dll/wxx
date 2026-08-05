@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 直接测 process API
+      - name: SSH 用正确密码测 process API
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,14 +14,20 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 登录获取token ---"
+            echo "--- 用 student1/wxx123456 登录 ---"
+            RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"student1","password":"wrong"}')
+            echo "wrong pass: $(echo $RESP | head -c 100)"
             RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}')
-            TOKEN=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['token'])")
-            echo "token ok: ${#TOKEN} chars"
+            echo "wxx123456: $(echo $RESP | head -c 100)"
+            TOKEN=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['token'])" 2>/dev/null)
+            if [ -z "$TOKEN" ] || [ ${#TOKEN} -lt 10 ]; then
+              # 试试用 admin
+              RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"wxx123456"}')
+              echo "admin wxx123456: $(echo $RESP | head -c 150)"
+              TOKEN=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data']['token'])" 2>/dev/null)
+            fi
+            echo "token: ${#TOKEN} chars"
             echo "--- 查 process-registration-2026 ---"
-            curl -s "localhost:8080/api/v1/process/definitions/process-registration-2026" -H "Authorization: Bearer $TOKEN" -w "\nHTTP %{http_code}" | tail -3
-            echo ""
-            echo "--- 查所有 definitions ---"
-            curl -s "localhost:8080/api/v1/process/definitions" -H "Authorization: Bearer $TOKEN" -w "\nHTTP %{http_code}" | head -c 500
+            curl -s "localhost:8080/api/v1/process/definitions/process-registration-2026" -H "Authorization: Bearer $TOKEN" -w "\nHTTP %{http_code}" | python3 -c "import sys;text=sys.stdin.read();print(text[:300])" 2>/dev/null || curl -s "localhost:8080/api/v1/process/definitions/process-registration-2026" -H "Authorization: Bearer $TOKEN" -w "\nHTTP %{http_code}"
             echo ""
             echo "DIAG_END"
