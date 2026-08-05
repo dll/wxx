@@ -48,11 +48,11 @@ class SessionProvider extends ChangeNotifier {
   Future<bool> deleteSession(String id) async {
     final idx = _sessions.indexWhere((s) => s.id == id);
     if (idx == -1) return true; // 已不在列表中，视为成功
-    _sessions.removeAt(idx);
-    notifyListeners();
 
     try {
       await _api.delete(ApiConfig.sessionDelete(id));
+      _sessions.removeAt(idx);
+      notifyListeners();
       return true;
     } catch (e) {
       _error = '删除会话失败';

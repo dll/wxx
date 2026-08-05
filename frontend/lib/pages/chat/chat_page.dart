@@ -807,14 +807,10 @@ $printScript
     if (!mounted) return;
 
     if (kIsWeb) {
-      // 删除成功 → 自动整页刷新，回到全新对话（用户无需手动刷新）
-      if (ok) {
-        reloadPage();
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('删除失败，请稍后重试')),
-      );
+      // Web 端：无论 API 成功与否，都做整页刷新回到全新对话。
+      // 如果 API 已成功（ok=true），服务端会话已删除，刷新后新 session。
+      // 如果 API 失败（ok=false），本地乐观清理也会造成 UI 不一致，刷新恢复。
+      reloadPage();
       return;
     }
 
