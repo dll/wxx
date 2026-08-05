@@ -431,7 +431,7 @@ func parseTime(s string) time.Time {
 }
 
 // fixPasswordHashes 修复数据库中的密码哈希：
-//   - 空哈希 → 替换为 "admin123" 的 bcrypt 哈希
+//   - 空哈希 → 替换为 "wxx123456" 的 bcrypt 哈希
 //   - $2b$ 前缀 → 重新哈希（兼容 bcryptjs）
 func fixPasswordHashes(db *sql.DB) error {
 	rows, err := db.Query("SELECT id, password_hash FROM users")
@@ -445,6 +445,7 @@ func fixPasswordHashes(db *sql.DB) error {
 		hash string
 	}
 	var fixes []fix
+	const seedPassword = "wxx123456"
 
 	for rows.Next() {
 		var id int64
@@ -459,9 +460,9 @@ func fixPasswordHashes(db *sql.DB) error {
 			continue
 		}
 
-		// 尝试验证已知密码
+		// 验证当前哈希是否匹配种子密码
 		if hash != "" {
-			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin123")); err == nil {
+			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(seedPassword)); err == nil {
 				continue // 哈希有效，无需修复
 			}
 		}
@@ -473,7 +474,7 @@ func fixPasswordHashes(db *sql.DB) error {
 		return nil
 	}
 
-	newHash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	newHash, err := bcrypt.GenerateFromPassword([]byte(seedPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("生成密码哈希失败: %w", err)
 	}
