@@ -112,37 +112,44 @@ jobs:
           cd server
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../wxx-server ./cmd/server
           cd ..
-          ls -la wxx-server
-          file wxx-server
-          sha256sum wxx-server
+          mkdir -p dist-server
+          cp wxx-server dist-server/
+          ls -la dist-server/wxx-server
+          file dist-server/wxx-server
 
-      - name: 上传二进到 Release
+      - name: 上传 wxx-server 到腾讯云 (rsync)
+        uses: easingthemes/ssh-deploy@v5.0.3
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: "-rlgoDzvc -i"
+          SOURCE: "dist-server/"
+          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.SERVER_USER }}
+          TARGET: "/opt/wxx/"
+
+      - name: 上传二进到 Release（备份用）
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.0.16
-          files: wxx-server
+          files: dist-server/wxx-server
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 服务器重启 wxx（仅在二进已存在时）
+      - name: 重启 wxx 服务
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            set +e
-            echo "restarting wxx..."
+            chmod +x /opt/wxx/dist-server/wxx-server 2>/dev/null || chmod +x /opt/wxx/wxx-server
             sudo systemctl stop wxx 2>/dev/null || true
-            sleep 2
-            sudo systemctl start wxx || true
-            sleep 4
+            sleep 1
+            sudo systemctl start wxx 2>/dev/null || true
+            sleep 3
             systemctl is-active wxx || true
-            echo "health check..."
             curl -s -m 5 localhost:8080/health || echo "health check failed"
-            echo "recent logs..."
-            sudo journalctl -u wxx --no-pager -n 8 2>&1 | tail -8
               exit 1
             fi
 
