@@ -92,6 +92,13 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
+	// ── 3.5 种子账号密码修复 ──
+	// 保证内置账号（admin / collegeadmin / 各角色种子）都能用统一密码登录。
+	// 若缺失或哈希损坏，重置为 wxx123456；已存在的有效哈希保持不变。
+	if err := fixPasswordHashes(db); err != nil {
+		return nil, fmt.Errorf("修复种子账号密码失败: %w", err)
+	}
+
 	// ── 4. 初始化各层依赖 ──
 
 	// Repository 层
