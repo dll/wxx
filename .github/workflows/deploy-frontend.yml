@@ -150,7 +150,7 @@ jobs:
             sudo systemctl start wxx 2>/dev/null || true
             sleep 3
             systemctl is-active wxx || true
-            curl -s -m 5 localhost:8080/health || echo "health check failed"
+            curl -s -m 5 localhost:8080/health && echo "" || echo "health check failed"
               exit 1
             fi
 
