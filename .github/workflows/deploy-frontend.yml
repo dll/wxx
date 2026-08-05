@@ -107,52 +107,47 @@ jobs:
         run: go mod download
         working-directory: ./server
 
-      - name: 编译 wxx-server
+      - name: 编译 wxx-server 并上传到 Release
         run: |
           go build -ldflags="-s -w" -o wxx-server ./server/cmd/server
           ls -la wxx-server
+          # 上传到 Release 供服务器下载（softprops/action-gh-release 追加资产）
         working-directory: .
 
-      - name: scp 上传 wxx-server 到腾讯云
-        uses: appleboy/scp-action@v0.1.7
+      - name: 上传二进到 Release
+        uses: softprops/action-gh-release@v2
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: wxx-server
-          target: /opt/wxx/
+          tag_name: v0.0.16
+          files: wxx-server
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 重启 wxx 服务
+      - name: 服务器下载并重启 wxx
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "--- 更新权限 ---"
-            chmod +x /opt/wxx/wxx-server
-            echo "--- 重启 wxx ---"
-            sudo systemctl restart wxx || sudo systemctl start wxx
-            sleep 2
-            systemctl is-active wxx
-            echo "--- 健康检查 ---"
-            curl -s -m 5 localhost:8080/health || echo "health 检查失败"
-
-      - name: 重启 wxx 服务
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "--- 更新 wxx-server 权限 ---"
-            chmod +x /opt/wxx/wxx-server
-            echo "--- 重启 wxx ---"
-            sudo systemctl restart wxx || sudo systemctl start wxx
-            sleep 2
-            systemctl is-active wxx
-            echo "--- 健康检查 ---"
-            curl -s -m 5 localhost:8080/health || echo "health check 失败"
+            echo "--- 从 GitHub Release 下载 wxx-server ---"
+            curl -sL -m 120 -o /opt/wxx/wxx-server.new \
+              "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+            if [ -s /opt/wxx/wxx-server.new ]; then
+              file /opt/wxx/wxx-server.new
+              chmod +x /opt/wxx/wxx-server.new
+              mv /opt/wxx/wxx-server.new /opt/wxx/wxx-server
+              echo "--- 重启 wxx ---"
+              sudo systemctl restart wxx || sudo systemctl start wxx
+              sleep 2
+              systemctl is-active wxx
+              echo "--- 健康检查 ---"
+              curl -s -m 5 localhost:8080/health || echo "检查失败"
+            else
+              echo "ERROR: wxx-server 下载失败或文件为空"
+              exit 1
+            fi
 
   # ── Job 3：构建 Android APK 并上传制品 ───────────────────────────────
   build-apk:
