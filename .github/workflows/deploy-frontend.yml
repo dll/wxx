@@ -107,12 +107,14 @@ jobs:
         run: go mod download
         working-directory: ./server
 
-      - name: 编译 wxx-server 并上传到 Release
+      - name: 编译 wxx-server
         run: |
-          go build -ldflags="-s -w" -o wxx-server ./server/cmd/server
+          cd server
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../wxx-server ./cmd/server
+          cd ..
           ls -la wxx-server
-          # 上传到 Release 供服务器下载（softprops/action-gh-release 追加资产）
-        working-directory: .
+          file wxx-server
+          sha256sum wxx-server
 
       - name: 上传二进到 Release
         uses: softprops/action-gh-release@v2
@@ -134,18 +136,25 @@ jobs:
             curl -sL -m 120 -o /opt/wxx/wxx-server.new \
               "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+            echo "文件大小: $(stat -c%s /opt/wxx/wxx-server.new 2>/dev/null || wc -c < /opt/wxx/wxx-server.new)"
+            file /opt/wxx/wxx-server.new
             if [ -s /opt/wxx/wxx-server.new ]; then
-              file /opt/wxx/wxx-server.new
+              # 备份当前版本
+              cp /opt/wxx/wxx-server /opt/wxx/wxx-server.bak 2>/dev/null || true
               chmod +x /opt/wxx/wxx-server.new
               mv /opt/wxx/wxx-server.new /opt/wxx/wxx-server
               echo "--- 重启 wxx ---"
-              sudo systemctl restart wxx || sudo systemctl start wxx
+              sudo systemctl stop wxx
+              sleep 1
+              sudo systemctl start wxx
               sleep 2
-              systemctl is-active wxx
+              echo "服务状态: $(systemctl is-active wxx)"
               echo "--- 健康检查 ---"
               curl -s -m 5 localhost:8080/health || echo "检查失败"
+              echo "--- 最近日志 ---"
+              sudo journalctl -u wxx --no-pager -n 5 2>&1 | tail -5
             else
-              echo "ERROR: wxx-server 下载失败或文件为空"
+              echo "ERROR: wxx-server 下载失败或文件为空，保留原版"
               exit 1
             fi
 
