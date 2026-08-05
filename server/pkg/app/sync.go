@@ -460,10 +460,13 @@ func fixPasswordHashes(db *sql.DB) error {
 			continue
 		}
 
-		// 验证当前哈希是否匹配种子密码
+		// 尝试验证已知密码（旧 "admin123" 哈希与新 "wxx123456" 哈希都应保留）
 		if hash != "" {
+			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin123")); err == nil {
+				continue // 旧种子密码有效，无需修复
+			}
 			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(seedPassword)); err == nil {
-				continue // 哈希有效，无需修复
+				continue // 新种子密码有效，无需修复
 			}
 		}
 
