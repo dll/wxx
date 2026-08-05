@@ -132,20 +132,19 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            set +e  # 允许下载失败
+            set +e
             DL_OK=0
             for i in 1 2 3 4 5; do
-              echo "下载尝试 $i/5..."
-              curl -sL -m 180 --connect-timeout 30 -o /opt/wxx/wxx-server.dl \
+              echo "download attempt $i/5"
+              curl -sL --max-time 180 --connect-timeout 30 -o /opt/wxx/wxx-server.dl \
                 "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" \
-                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" || true
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" 2>&1 || true
               SIZE=$(wc -c < /opt/wxx/wxx-server.dl 2>/dev/null || echo 0)
-              echo "下载大小: ${SIZE} bytes"
-              if [ "${SIZE}" -gt 10000000 ] 2>/dev/null; then
-                DL_OK=1
-                break
+              echo "downloaded: ${SIZE} bytes"
+              if [ "${SIZE}" -gt 10000000 ]; then
+                DL_OK=1; break
               fi
-              echo "文件太小(${SIZE} bytes)，重试..."
+              echo "file too small (${SIZE} bytes), retry..."
               sleep 10
             done
             if [ "$DL_OK" = "1" ]; then
@@ -153,18 +152,20 @@ jobs:
               cp /opt/wxx/wxx-server /opt/wxx/wxx-server.bak 2>/dev/null || true
               chmod +x /opt/wxx/wxx-server.dl
               mv /opt/wxx/wxx-server.dl /opt/wxx/wxx-server
-              echo "--- 重启 wxx ---"
+              echo "restarting wxx..."
               sudo systemctl stop wxx 2>/dev/null || true
               sleep 2
               sudo systemctl start wxx || true
               sleep 4
               systemctl is-active wxx || true
-              echo "--- 健康检查 ---"
-              curl -s -m 5 localhost:8080/health || echo "健康检查失败（可能仍在启动中）"
-              echo "--- 最近日志 ---"
+              echo "health check..."
+              curl -s -m 5 localhost:8080/health || echo "health check failed (may be starting)"
+              echo "recent logs..."
               sudo journalctl -u wxx --no-pager -n 8 2>&1 | tail -8
             else
-              echo "FATAL: 5次重试后仍无法下载完整 wxx-server"
+              echo "FATAL: download failed after 5 retries"
+              exit 1
+            fi
               exit 1
             fi
 
