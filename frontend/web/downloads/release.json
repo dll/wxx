@@ -1,8 +1,8 @@
 {
+  "apk_file": "蔚小芯-v0.0.16.apk",
   "release_date": "2026-07-20",
-  "build_number": 15,
-  "apk_file": "蔚小芯-v0.0.15.apk",
-  "apk_url": "https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.15.apk",
+  "version": "0.0.16",
+  "build_number": 16,
   "app": "蔚小芯",
-  "version": "0.0.15"
+  "apk_url": "https://wxx-agent.pages.dev/downloads/%E8%94%9A%E5%B0%8F%E8%8A%AF-v0.0.16.apk"
 }

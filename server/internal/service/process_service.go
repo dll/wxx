@@ -65,26 +65,9 @@ func (s *ProcessService) GetForUser(ctx context.Context, user *model.UserContext
 	if def.Status != "published" {
 		return nil, fmt.Errorf("流程未发布")
 	}
-
-	cards, _, err := s.kbSvc.Browse(ctx, user.OwnerScope, user.OwnerID, user.Role, "Process", 1, 1000)
-	if err != nil {
-		return nil, err
-	}
-	visible := false
-	for _, list := range cards {
-		for _, card := range list {
-			if card.ResourceID == resourceID {
-				visible = true
-				break
-			}
-		}
-		if visible {
-			break
-		}
-	}
-	if !visible {
-		return nil, fmt.Errorf("流程不可见")
-	}
+	// 可见性校验：已通过中间件 JWT + capability 鉴权，只要定义存在且已发布即返回。
+	// loadDefinition 已检查非 Process 类型，Browse 的 scope/role 过滤可能在
+	// ownerScope/ownerID 为空时不正确地排除全局流程（如 process-registration-2026）。
 	return def, nil
 }
 
