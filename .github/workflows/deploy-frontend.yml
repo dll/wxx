@@ -113,15 +113,30 @@ jobs:
           ls -la wxx-server
         working-directory: .
 
-      - name: 上传 wxx-server 到腾讯云
-        uses: easingthemes/ssh-deploy@v5.0.3
+      - name: scp 上传 wxx-server 到腾讯云
+        uses: appleboy/scp-action@v0.1.7
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          ARGS: "-rlgoDzvc -i"
-          SOURCE: "wxx-server"
-          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
-          REMOTE_USER: ${{ secrets.SERVER_USER }}
-          TARGET: "/opt/wxx/"
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: wxx-server
+          target: /opt/wxx/
+
+      - name: 重启 wxx 服务
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "--- 更新权限 ---"
+            chmod +x /opt/wxx/wxx-server
+            echo "--- 重启 wxx ---"
+            sudo systemctl restart wxx || sudo systemctl start wxx
+            sleep 2
+            systemctl is-active wxx
+            echo "--- 健康检查 ---"
+            curl -s -m 5 localhost:8080/health || echo "health 检查失败"
 
       - name: 重启 wxx 服务
         uses: appleboy/ssh-action@v1
