@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH admin/admin123
+      - name: SSH sysadmin/admin123
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,12 +14,19 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}')
-            echo "login: $(echo $RESP | head -c 200)"
+            RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"sysadmin","password":"admin123"}')
+            echo "sysadmin login: $(echo $RESP | head -c 200)"
             TOKEN=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('data',{}).get('token',''))" 2>/dev/null)
             echo "token: ${#TOKEN}"
             if [ -n "$TOKEN" ] && [ ${#TOKEN} -gt 10 ]; then
               echo "--- process-registration-2026 ---"
-              curl -s "localhost:8080/api/v1/process/definitions/process-registration-2026" -H "Authorization: Bearer $TOKEN" | head -c 400
+              curl -s "localhost:8080/api/v1/process/definitions/process-registration-2026" -H "Authorization: Bearer $TOKEN" | head -c 500
+              echo ""
+            else
+              echo "=== 尝试所有种子用户 ==="
+              for u in schooladmin collegeadmin counselor_cs student1 teacher1; do
+                R=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d "{\"username\":\"$u\",\"password\":\"admin123\"}")
+                echo "$u: $(echo $R | head -c 80)"
+              done
             fi
             echo "DIAG_END"
