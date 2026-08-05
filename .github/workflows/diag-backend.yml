@@ -1,0 +1,25 @@
+name: Diag Backend
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH 检查后端是否运行
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "DIAG_BEGIN"
+            systemctl is-active wxx 2>&1
+            ps aux | grep wxx-server | grep -v grep
+            ss -tlnp | grep 8080
+            echo "--- health ---"
+            curl -s -m 5 localhost:8080/health
+            echo ""
+            echo "--- 最近日志 ---"
+            sudo journalctl -u wxx --no-pager -n 10 2>&1 | tail -10
+            echo "DIAG_END"
