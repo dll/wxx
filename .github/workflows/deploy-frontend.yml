@@ -132,14 +132,23 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "--- 从 GitHub Release 下载 wxx-server ---"
-            curl -sL -m 120 -o /opt/wxx/wxx-server.new \
-              "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
-            echo "文件大小: $(stat -c%s /opt/wxx/wxx-server.new 2>/dev/null || wc -c < /opt/wxx/wxx-server.new)"
+            echo "--- 从 GitHub Release 下载 wxx-server（带重试）---"
+            for i in 1 2 3; do
+              echo "尝试 $i/3..."
+              curl -sL -m 180 -o /opt/wxx/wxx-server.new \
+                "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+              SIZE=$(stat -c%s /opt/wxx/wxx-server.new 2>/dev/null || wc -c < /opt/wxx/wxx-server.new)
+              echo "下载大小: ${SIZE} bytes"
+              if [ "$SIZE" -gt 10000000 ]; then
+                echo "下载成功"
+                break
+              fi
+              echo "文件太小，重试..."
+              sleep 5
+            done
             file /opt/wxx/wxx-server.new
-            if [ -s /opt/wxx/wxx-server.new ]; then
-              # 备份当前版本
+            if [ -s /opt/wxx/wxx-server.new ] && [ "$SIZE" -gt 10000000 ]; then
               cp /opt/wxx/wxx-server /opt/wxx/wxx-server.bak 2>/dev/null || true
               chmod +x /opt/wxx/wxx-server.new
               mv /opt/wxx/wxx-server.new /opt/wxx/wxx-server
@@ -147,14 +156,14 @@ jobs:
               sudo systemctl stop wxx
               sleep 1
               sudo systemctl start wxx
-              sleep 2
+              sleep 3
               echo "服务状态: $(systemctl is-active wxx)"
               echo "--- 健康检查 ---"
               curl -s -m 5 localhost:8080/health || echo "检查失败"
               echo "--- 最近日志 ---"
               sudo journalctl -u wxx --no-pager -n 5 2>&1 | tail -5
             else
-              echo "ERROR: wxx-server 下载失败或文件为空，保留原版"
+              echo "ERROR: 3次重试后仍无法下载完整 wxx-server，保留原版"
               exit 1
             fi
 
