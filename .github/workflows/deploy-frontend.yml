@@ -121,7 +121,7 @@ jobs:
           SOURCE: "wxx-server"
           REMOTE_HOST: ${{ secrets.SERVER_HOST }}
           REMOTE_USER: ${{ secrets.SERVER_USER }}
-          TARGET: "/opt/wxx/wxx-server"
+          TARGET: "/opt/wxx/"
 
       - name: 重启 wxx 服务
         uses: appleboy/ssh-action@v1
@@ -131,8 +131,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "--- 更新 wxx-server 权限 ---"
-            chmod +x /opt/wxx/wxx-server/wxx-server
-            mv /opt/wxx/wxx-server/wxx-server /opt/wxx/wxx-server
+            chmod +x /opt/wxx/wxx-server
             echo "--- 重启 wxx ---"
             sudo systemctl restart wxx || sudo systemctl start wxx
             sleep 2
