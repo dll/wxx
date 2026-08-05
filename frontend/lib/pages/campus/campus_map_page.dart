@@ -5,7 +5,6 @@ import '../../config/api_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
 import '../../widgets/baidu_campus_map_embed.dart';
-import '../../widgets/inline_web_page.dart';
 import 'campus_step_admin_panel.dart';
 
 class CampusMapPage extends StatefulWidget {
@@ -287,26 +286,29 @@ class _CampusMapPageState extends State<CampusMapPage> {
   int _currentStep = 0;
   final Set<int> _completed = {};
   String _copiedText = '';
+
   /// 地图控制器，用于从外部（如管理员编辑后）同步刷新标注。
   final _mapController = BaiduCampusMapController();
 
   // ── 后端步骤加载 + 管理员编辑模式 ──
   final ApiService _api = ApiService();
+
   /// 各校区步骤的可变副本（后端加载成功后覆盖本地默认值）。
   final Map<String, List<_CheckinStep>> _campusStepsMap = {
     'huifeng': _huifengSteps,
     'langya': _langyaSteps,
   };
+
   /// 步骤后端 ID 映射（index → remote id），拖拽保存时用。
   /// 未从后端加载时为空，_remoteStepId 返回 null 走纯本地模式。
   final Map<int, int> _remoteIds = {};
   bool _loadingSteps = false;
+
   /// 管理员编辑模式：开启后地图标注可拖拽，松手自动保存坐标。
   bool _editMode = false;
 
   _CampusPlan get _campus => _campuses[_campusIndex];
-  List<_CheckinStep> get _steps =>
-      _campusStepsMap[_campus.id] ?? _campus.steps;
+  List<_CheckinStep> get _steps => _campusStepsMap[_campus.id] ?? _campus.steps;
 
   /// 判断当前用户是否有权编辑节点坐标（sys/school/college_admin）。
   bool get _canEditNodes {
@@ -513,8 +515,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
       return;
     }
     final RenderBox? button = buttonContext.findRenderObject() as RenderBox?;
-    final RenderBox? overlay =
-        Navigator.of(buttonContext).overlay?.context.findRenderObject() as RenderBox?;
+    final RenderBox? overlay = Navigator.of(buttonContext)
+        .overlay
+        ?.context
+        .findRenderObject() as RenderBox?;
     if (button == null || overlay == null || !button.hasSize) {
       _mapController.setVisible(true);
       return;
@@ -522,7 +526,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero),
+            ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -602,7 +607,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 final selected = t.tab == _currentTab;
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => _currentTab = t.tab),
+                    onTap: () => _openWebTab(t),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
@@ -767,9 +772,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
             final l = v.first;
             setState(() => _layer = l);
             // 通知地图切换底图图层（标准矢量 / 卫星影像）
-            _mapController.setLayer(l == _MapLayer.satellite
-                ? 'satellite'
-                : 'standard');
+            _mapController
+                .setLayer(l == _MapLayer.satellite ? 'satellite' : 'standard');
           },
         ),
         SegmentedButton<_MapMode>(
@@ -826,11 +830,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
                     const SizedBox(height: 8),
                     const Text('地图需要百度地图 AK',
                         style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold)),
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    const Text(
-                        '构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
+                    const Text('构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
                         style: TextStyle(color: Colors.white70, fontSize: 11)),
                   ]),
                 ),
@@ -861,8 +863,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(width: 8),
-                    Text('加载报到节点...',
-                        style: theme.textTheme.labelSmall),
+                    Text('加载报到节点...', style: theme.textTheme.labelSmall),
                   ]),
                 ),
               ),
@@ -1033,11 +1034,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.schedule, size: 12,
-                    color: theme.colorScheme.onSurfaceVariant),
+                Icon(Icons.schedule,
+                    size: 12, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 3),
-                Text(step.duration,
-                    style: theme.textTheme.labelSmall),
+                Text(step.duration, style: theme.textTheme.labelSmall),
                 const Spacer(),
                 _compactBtn(
                   icon: Icons.my_location,
@@ -1126,8 +1126,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
                   final selected = _campusIndex == index;
                   return ChoiceChip(
                     selected: selected,
-                    label: Text(campus.name,
-                        style: const TextStyle(fontSize: 11)),
+                    label:
+                        Text(campus.name, style: const TextStyle(fontSize: 11)),
                     onSelected: (_) => _switchCampus(index),
                     visualDensity: VisualDensity.compact,
                   );
@@ -1143,8 +1143,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
               SegmentedButton<_MapLayer>(
                 segments: const [
                   ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
-                  ButtonSegment(
-                      value: _MapLayer.satellite, label: Text('卫星')),
+                  ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
                 ],
                 selected: {_layer},
                 onSelectionChanged: (v) {
@@ -1178,7 +1177,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
                 Builder(
                   builder: (btnCtx) => IconButton(
                     icon: Icon(Icons.admin_panel_settings,
-                        size: 18, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                        size: 18,
+                        color: _editMode
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant),
                     tooltip: '管理',
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     onPressed: () => _openAdminMenu(btnCtx),
@@ -1251,8 +1253,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
               final selected = _campusIndex == index;
               return ChoiceChip(
                 selected: selected,
-                label: Text(campus.name,
-                    style: const TextStyle(fontSize: 12)),
+                label: Text(campus.name, style: const TextStyle(fontSize: 12)),
                 onSelected: (_) => _switchCampus(index),
                 visualDensity: VisualDensity.compact,
               );
@@ -1298,7 +1299,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
             Builder(
               builder: (btnCtx) => IconButton(
                 icon: Icon(Icons.admin_panel_settings,
-                    size: 20, color: _editMode ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                    size: 20,
+                    color: _editMode
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant),
                 tooltip: '管理',
                 onPressed: () => _openAdminMenu(btnCtx),
               ),
@@ -1447,7 +1451,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   /// 非地图 tab（VR全景/官网/迎新网站/抖音）：切换后页面内直接内嵌显示目标站点，
-  /// 不再新开浏览器；仅当点击「在新窗口打开」时才用系统浏览器外开。
+  /// 外部站点禁止内嵌时会拒绝访问，因此改为新窗口打开并保留本地引导页。
   Widget _buildWebTab(ThemeData theme) {
     final tab = _tabs.firstWhere((t) => t.tab == _currentTab);
     return Column(
@@ -1462,7 +1466,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text('${tab.label} · ${tab.subtitle}',
-                    style: theme.textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ),
               TextButton.icon(
                 onPressed: () => _openUrl(tab.url),
@@ -1477,10 +1483,51 @@ class _CampusMapPageState extends State<CampusMapPage> {
           ),
         ),
         Expanded(
-          child: InlineWebPage(url: tab.url),
+          child: Center(
+            child: Card(
+              margin: const EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(tab.icon, size: 64, color: tab.color),
+                    const SizedBox(height: 16),
+                    Text(tab.label, style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    Text(
+                      tab.subtitle,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: () => _openUrl(tab.url),
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('在新窗口打开'),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '外链地址：${tab.url}\n若站点暂不可用，可稍后重试或返回校园导航。',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
+  }
+
+  void _openWebTab(_CampusTabInfo tab) {
+    setState(() => _currentTab = tab.tab);
   }
 
   String get _routeUrl {
@@ -1491,8 +1538,21 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse(url);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('外链暂不可用，请稍后重试：$url')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('外链打开失败，请稍后重试：$url')),
+        );
+      }
+    }
   }
 }
 

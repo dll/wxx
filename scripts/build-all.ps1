@@ -18,6 +18,13 @@ $downloadsDir = Join-Path $frontend "build/web/downloads"
 $webDownloadsDir = Join-Path $frontend "web/downloads"
 $baseUrl = "https://wxx-agent.pages.dev"
 
+Write-Output ">>> 校验源码编码（UTF-8 无 BOM）..."
+& (Join-Path $PSScriptRoot "check-encoding.ps1") -Root (Resolve-Path "$PSScriptRoot/..")
+if ($LASTEXITCODE -ne 0) {
+    throw "源码编码校验失败，请先修复 UTF-8 编码问题"
+}
+Write-Output "  OK 源码编码校验通过"
+
 function Get-AppVersion {
     $text = Get-Content -LiteralPath $pubspec -Raw
     if ($text -notmatch '(?m)^version:\s*(\d+)\.(\d+)\.(\d+)\+(\d+)\s*$') {
