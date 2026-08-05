@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 带完整认证头查询
+      - name: SSH 简单查询
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,9 +14,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 先登录获取 token ---"
-            TOKEN=$(curl -sk -m 5 -X POST https://localhost/api/v1/auth/login -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('data',{}).get('token','NONE'))" 2>/dev/null)
-            echo "token=${TOKEN:0:20}..."
-            echo "--- 用 token 查 process-registration-2026 ---"
-            curl -sk -m 5 -H "Authorization: Bearer $TOKEN" -H "Host: www.wxx-agent.online" https://localhost/api/v1/process/definitions/process-registration-2026 | python3 -c "import sys,json;d=json.load(sys.stdin);print('code:',d.get('code'),'title:',d.get('data',{}).get('title','?'),'status:',d.get('data',{}).get('status','?'))" 2>&1
+            echo "--- 登录 ---"
+            RESP=$(curl -sk -m 5 -X POST https://localhost/api/v1/auth/login -H "Host: www.wxx-agent.online" -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}')
+            echo "$RESP" | head -c 200
+            TOKEN=$(echo "$RESP" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
+            echo ""
+            echo "token=${TOKEN:0:30}..."
+            echo "--- 查询 process ---"
+            curl -sk -m 5 -H "Authorization: Bearer $TOKEN" -H "Host: www.wxx-agent.online" https://localhost/api/v1/process/definitions/process-registration-2026 | head -c 500
+            echo ""
             echo "DIAG_END"
