@@ -301,6 +301,7 @@ campus_map_page.dart (BaieduCampusMapEmbed Widget)
 | 2 | DPV4F-B12 | **阻断** | 访问入口 | 域名未通过 ICP 备案，`www.wxx-agent.online` 公网不可达 |
 | 3 | DPV4F-B3 | 外部联调 | 对接 | SSO 需校方参数联调 |
 | 4 | DPV4F-B4 | 外部联调 | 对接 | 学工/一表通需真实凭证联调 |
+| 5 | DPV4F-B13 | **已修复** | 办事流程 | `process-registration-2026` 404——`Browse` 可见性过滤排除全局流程 |
 | 5 | DPV4F-W1 | 警告 | Context Engine | 包未接线 |
 | 6 | DPV4F-W2 | 警告 | 前端 | Hive 未落地，使用 shared_preferences |
 | 7 | DPV4F-W3 | 警告 | 质量看板 | 文档 3.3.5 指标缺多数实现 |
