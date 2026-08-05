@@ -266,6 +266,16 @@ type guestRegisterRequest struct {
 // SendCode 发送短信验证码
 // POST /api/v1/auth/send-code
 func (h *AuthHandler) SendCode(c *gin.Context) {
+	// 预研期游客注册默认关闭（无短信通道）；需开放时设 ENABLE_GUEST_REGISTER=true
+	if !h.authSvc.GuestRegisterEnabled() {
+		c.JSON(http.StatusForbidden, model.ErrorResponse{
+			Code:    403,
+			Message: "暂未开放注册，请联系管理员获取账号",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
 	var req sendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("auth SendCode bind err: %v", err)
@@ -302,6 +312,16 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 // GuestRegister 游客注册
 // POST /api/v1/auth/guest-register
 func (h *AuthHandler) GuestRegister(c *gin.Context) {
+	// 预研期游客注册默认关闭（无短信通道）；需开放时设 ENABLE_GUEST_REGISTER=true
+	if !h.authSvc.GuestRegisterEnabled() {
+		c.JSON(http.StatusForbidden, model.ErrorResponse{
+			Code:    403,
+			Message: "暂未开放注册，请联系管理员获取账号",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+
 	var req guestRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("auth GuestRegister bind err: %v", err)

@@ -89,6 +89,9 @@ type Config struct {
 	// 前端静态文件目录（临时 8080 直连方案）
 	FrontendStaticDir string // Flutter Web 构建产物目录，如 /opt/wxx/frontend/web
 
+	// 游客手机注册开关（预研期默认关闭：无短信通道，账号走管理员导入）
+	EnableGuestRegister bool // 环境变量 ENABLE_GUEST_REGISTER，默认 false
+
 	// 知识同步包签名（Q-05）
 	HMACSecret string // 知识导出包 HMAC-SHA256 签名密钥（环境变量 HMAC_SECRET）
 
@@ -121,6 +124,7 @@ func Load() *Config {
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
 		FrontendStaticDir: envOr("FRONTEND_STATIC_DIR", "/opt/wxx/frontend/web"),
+		EnableGuestRegister: envBoolOr("ENABLE_GUEST_REGISTER", false),
 
 		TursoDBUrl:   envOr("TURSO_DB_URL", ""),
 		TursoDBToken: envOr("TURSO_DB_TOKEN", ""),

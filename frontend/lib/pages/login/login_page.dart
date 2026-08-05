@@ -10,6 +10,10 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
 
+/// 游客手机注册是否开放（预研期关闭：无短信通道，账号由管理员导入分配）。
+/// 需开放时改为 true，并同步后端 ENABLE_GUEST_REGISTER=true。
+const bool _registerOpen = false;
+
 /// 登录页面 — 居中布局，Tab 切换登录/注册
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -588,6 +592,37 @@ class _RegisterTabContentState extends State<_RegisterTabContent> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 预研期游客注册关闭：仅提示，不再展示注册表单
+    if (!_registerOpen) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline,
+                  size: 48, color: theme.colorScheme.outline),
+              const SizedBox(height: 16),
+              Text('注册暂未开放',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(
+                '账号由学校统一导入分配，请联系辅导员或管理员获取。',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: widget.onLoginTap,
+                child: const Text('返回登录'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       child: Column(
         children: [

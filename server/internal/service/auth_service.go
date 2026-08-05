@@ -74,6 +74,11 @@ func (s *AuthService) DebugCodeEcho() bool {
 	return !s.cfg.IsRelease()
 }
 
+// GuestRegisterEnabled 游客手机注册是否开放（预研期默认关闭，账号走管理员导入）。
+func (s *AuthService) GuestRegisterEnabled() bool {
+	return s.cfg.EnableGuestRegister
+}
+
 // LoginResult 登录结果
 type LoginResult struct {
 	Token       string `json:"token"`
