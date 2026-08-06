@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 查 _migrations
+      - name: SSH 确认二进制并重启
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,5 +14,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');rows=c.execute('SELECT * FROM _migrations ORDER BY 1 DESC LIMIT 12').fetchall();[print(r) for r in rows]" 2>&1 | head -15
+            echo "--- 二进制时间与哈希 ---"
+            ls -la /opt/wxx/wxx-server
+            sha256sum /opt/wxx/wxx-server | head -c 40
+            echo ""
+            echo "--- 重启 wxx ---"
+            sudo systemctl restart wxx
+            sleep 4
+            systemctl is-active wxx
+            echo "--- 查迁移 ---"
+            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');rows=c.execute('SELECT filename FROM _migrations ORDER BY id DESC LIMIT 4').fetchall();[print(r[0]) for r in rows]" 2>&1
+            echo "--- 学科专业资源 ---"
+            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');print(c.execute('SELECT count(*) FROM kb_resources WHERE resource_id LIKE \"major-%\"').fetchone())" 2>&1
             echo "DIAG_END"
