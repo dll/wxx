@@ -1,0 +1,39 @@
+name: Diag Major
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH 从 Release 下载二进制并重启
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "DIAG_BEGIN"
+            for i in 1 2 3; do
+              echo "下载尝试 $i/3..."
+              curl -sL -m 300 --connect-timeout 30 -o /opt/wxx/wxx-server.new \
+                "https://github.com/dll/wxx/releases/download/v0.0.16/wxx-server" || true
+              SIZE=$(wc -c < /opt/wxx/wxx-server.new 2>/dev/null || echo 0)
+              echo "下载大小: $SIZE"
+              if [ "$SIZE" -gt 10000000 ]; then break; fi
+              sleep 5
+            done
+            if [ "$(wc -c < /opt/wxx/wxx-server.new 2>/dev/null)" -gt 10000000 ]; then
+              chmod +x /opt/wxx/wxx-server.new
+              mv /opt/wxx/wxx-server.new /opt/wxx/wxx-server
+              echo "二进制已更新"
+              strings /opt/wxx/wxx-server | grep -c "058_major_knowledge" || echo "0"
+              sudo systemctl restart wxx
+              sleep 4
+              systemctl is-active wxx
+              python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');print('迁移:',[r[0] for r in c.execute('SELECT filename FROM _migrations ORDER BY id DESC LIMIT 3')])" 2>&1
+              python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');print('学科资源:',c.execute('SELECT count(*) FROM kb_resources WHERE resource_id LIKE \"major-%\"').fetchone())" 2>&1
+            else
+              echo "下载失败"
+            fi
+            echo "DIAG_END"
