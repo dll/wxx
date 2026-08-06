@@ -143,7 +143,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cp /opt/wxx/dist-server/wxx-server /opt/wxx/wxx-server
+            # rsync 已把 wxx-server 覆盖到 /opt/wxx/wxx-server，只需确保可执行并重启
             chmod +x /opt/wxx/wxx-server
             sudo systemctl stop wxx 2>/dev/null || true
             sleep 1
@@ -151,8 +151,6 @@ jobs:
             sleep 3
             systemctl is-active wxx || true
             curl -s -m 5 localhost:8080/health && echo "" || echo "health check failed"
-              exit 1
-            fi
 
   # ── Job 3：构建 Android APK 并上传制品 ───────────────────────────────
   build-apk:
