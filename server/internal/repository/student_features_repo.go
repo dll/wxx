@@ -16,6 +16,95 @@ func NewStudentFeaturesRepo(db *sql.DB) *StudentFeaturesRepo {
 	return &StudentFeaturesRepo{db: db}
 }
 
+// AdminListCompetitions 管理端竞赛列表（含全部状态）
+func (r *StudentFeaturesRepo) AdminListCompetitions(level, category, status string, page, pageSize int) ([]map[string]interface{}, int, error) {
+	where := []string{"1=1"}
+	args := []interface{}{}
+	if level != "" {
+		where = append(where, "level = ?")
+		args = append(args, level)
+	}
+	if category != "" {
+		where = append(where, "category = ?")
+		args = append(args, category)
+	}
+	if status != "" {
+		where = append(where, "status = ?")
+		args = append(args, status)
+	}
+	whereSQL := strings.Join(where, " AND ")
+
+	var total int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM competitions WHERE `+whereSQL, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	rows, err := r.db.Query(
+		`SELECT id, name, level, category, organizer, description, requirements, registration_start, registration_end, competition_date, status, created_at
+		 FROM competitions WHERE `+whereSQL+` ORDER BY id DESC LIMIT ? OFFSET ?`,
+		append(args, pageSize, offset)...,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var list []map[string]interface{}
+	for rows.Next() {
+		var id int64
+		var name, levelV, categoryV, organizer, desc, req, regStart, regEnd, compDate, statusV, createdAt string
+		if err := rows.Scan(&id, &name, &levelV, &categoryV, &organizer, &desc, &req, &regStart, &regEnd, &compDate, &statusV, &createdAt); err == nil {
+			list = append(list, map[string]interface{}{
+				"id": id, "name": name, "level": levelV, "category": categoryV,
+				"organizer": organizer, "description": desc, "requirements": req,
+				"registration_start": regStart, "registration_end": regEnd,
+				"competition_date": compDate, "status": statusV, "created_at": createdAt,
+			})
+		}
+	}
+	return list, total, rows.Err()
+}
+
+// AdminCreateCompetition 新增竞赛
+func (r *StudentFeaturesRepo) AdminCreateCompetition(fields map[string]interface{}) (int64, error) {
+	res, err := r.db.Exec(
+		`INSERT INTO competitions (name, level, category, organizer, description, requirements, registration_start, registration_end, competition_date, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		fields["name"], fields["level"], fields["category"], fields["organizer"],
+		fields["description"], fields["requirements"], fields["registration_start"],
+		fields["registration_end"], fields["competition_date"], fields["status"],
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// AdminUpdateCompetition 更新竞赛
+func (r *StudentFeaturesRepo) AdminUpdateCompetition(id int64, fields map[string]interface{}) error {
+	setParts := []string{}
+	args := []interface{}{}
+	for _, k := range []string{"name", "level", "category", "organizer", "description", "requirements", "registration_start", "registration_end", "competition_date", "status"} {
+		if v, ok := fields[k]; ok {
+			setParts = append(setParts, k+" = ?")
+			args = append(args, v)
+		}
+	}
+	if len(setParts) == 0 {
+		return nil
+	}
+	args = append(args, id)
+	_, err := r.db.Exec(`UPDATE competitions SET `+strings.Join(setParts, ", ")+`, updated_at = datetime('now') WHERE id = ?`, args...)
+	return err
+}
+
+// AdminDeleteCompetition 删除竞赛
+func (r *StudentFeaturesRepo) AdminDeleteCompetition(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM competitions WHERE id = ?`, id)
+	return err
+}
+
 // ══════════════════════════════════════════════════════════════
 // 学科竞赛
 // ══════════════════════════════════════════════════════════════

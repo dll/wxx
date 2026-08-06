@@ -762,6 +762,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				graduation.GET("/stats", auth.RequireCapability(auth.SelfGraduationRead), graduationH.GetStats)
 				graduation.GET("/selections", auth.RequireCapability(auth.CollegeGraduationRead), graduationH.ListSelections)
 				graduation.PUT("/selections/:id/confirm", auth.RequireCapability(auth.CollegeGraduationWrite), graduationH.ConfirmSelection)
+				// ── 毕设选题管理（学院管理员）──
+				graduation.POST("/admin/topics", auth.RequireCapability(auth.CollegeGraduationWrite), graduationH.CreateTopic)
+				graduation.PUT("/admin/topics/:id", auth.RequireCapability(auth.CollegeGraduationWrite), graduationH.UpdateTopic)
+				graduation.DELETE("/admin/topics/:id", auth.RequireCapability(auth.CollegeGraduationWrite), graduationH.DeleteTopic)
 			}
 
 			// ── 学科竞赛 ──
@@ -774,6 +778,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				competition.GET("/my-registrations", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetMyCompetitionRegistrations)
 				competition.POST("/submit-work", auth.RequireCapability(auth.SelfCompetitionWrite), studentFeaturesH.SubmitWork)
 				competition.GET("/stats", auth.RequireCapability(auth.SelfCompetitionRead), studentFeaturesH.GetCompetitionStats)
+				// ── 竞赛管理（学校/学院管理员）──
+				competition.GET("/admin/list", auth.RequireCapability(auth.SystemSettingsWrite), studentFeaturesH.AdminListCompetitions)
+				competition.POST("/admin", auth.RequireCapability(auth.SystemSettingsWrite), studentFeaturesH.AdminCreateCompetition)
+				competition.PUT("/admin/:id", auth.RequireCapability(auth.SystemSettingsWrite), studentFeaturesH.AdminUpdateCompetition)
+				competition.DELETE("/admin/:id", auth.RequireCapability(auth.SystemSettingsWrite), studentFeaturesH.AdminDeleteCompetition)
 			}
 
 			// ── 大学规划 ──
@@ -1228,6 +1237,13 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				career.GET("/jobs/:id", auth.RequireCapability(auth.SelfCareerRead), educationH.GetJobPosting)
 				career.GET("/sessions", auth.RequireCapability(auth.SelfCareerRead), educationH.ListInfoSessions)
 				career.GET("/interview/questions", auth.RequireCapability(auth.SelfCareerRead), educationH.ListInterviewQuestions)
+				// ── 就业指导管理（学校/学院管理员）──
+				career.GET("/admin/policies", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminListCareerPolicies)
+				career.POST("/admin/policies", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminCreateCareerPolicy)
+				career.DELETE("/admin/policies/:id", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminDeleteCareerPolicy)
+				career.GET("/admin/jobs", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminListJobPostings)
+				career.POST("/admin/jobs", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminCreateJobPosting)
+				career.DELETE("/admin/jobs/:id", auth.RequireCapability(auth.SystemSettingsWrite), educationH.AdminDeleteJobPosting)
 			}
 
 			// ── 学业学习模块（全员可见）──

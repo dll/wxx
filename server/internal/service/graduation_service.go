@@ -104,3 +104,19 @@ func (s *GraduationService) ListSelections(topicID int64, batch, page, pageSize 
 func (s *GraduationService) ConfirmSelection(id int64) error {
 	return s.graduationRepo.UpdateSelectionStatus(id, "confirmed")
 }
+
+// CreateTopic 新增毕设选题（管理端）
+func (s *GraduationService) CreateTopic(t *model.ThesisTopic) (int64, error) {
+	return s.graduationRepo.CreateTopic(t)
+}
+
+// UpdateTopic 更新毕设选题（管理端）
+func (s *GraduationService) UpdateTopic(id int64, fields map[string]interface{}) error {
+	return s.graduationRepo.UpdateTopic(id, fields)
+}
+
+// DeleteTopic 删除毕设选题（管理端）
+func (s *GraduationService) DeleteTopic(id int64) error {
+	return s.graduationRepo.DeleteTopic(id)
+}
+

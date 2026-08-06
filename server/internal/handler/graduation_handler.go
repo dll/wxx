@@ -257,3 +257,55 @@ func (h *GraduationHandler) ConfirmSelection(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "选题已确认"})
 }
+
+// ======================== 管理端：毕设选题 CRUD ========================
+
+// CreateTopic 新增毕设选题
+// POST /api/v1/graduation/admin/topics
+func (h *GraduationHandler) CreateTopic(c *gin.Context) {
+	var req model.ThesisTopic
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
+		return
+	}
+	if req.Title == "" {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "选题标题不能为空"})
+		return
+	}
+	id, err := h.graduationService.CreateTopic(&req)
+	if err != nil {
+		log.Printf("创建选题失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "创建失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": id}})
+}
+
+// UpdateTopic 更新毕设选题
+// PUT /api/v1/graduation/admin/topics/:id
+func (h *GraduationHandler) UpdateTopic(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var fields map[string]interface{}
+	if err := c.ShouldBindJSON(&fields); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
+		return
+	}
+	if err := h.graduationService.UpdateTopic(id, fields); err != nil {
+		log.Printf("更新选题失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
+}
+
+// DeleteTopic 删除毕设选题
+// DELETE /api/v1/graduation/admin/topics/:id
+func (h *GraduationHandler) DeleteTopic(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err := h.graduationService.DeleteTopic(id); err != nil {
+		log.Printf("删除选题失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "选题已删除"})
+}

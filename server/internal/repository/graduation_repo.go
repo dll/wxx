@@ -213,6 +213,22 @@ func (r *GraduationRepo) UpdateTopic(id int64, fields map[string]interface{}) er
 	return nil
 }
 
+// DeleteTopic 删除毕设选题（先清理关联选题记录）
+func (r *GraduationRepo) DeleteTopic(id int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM student_topic_selections WHERE topic_id = ?`, id); err != nil {
+		return fmt.Errorf("清理选题关联记录失败: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM thesis_topics WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("删除选题失败: %w", err)
+	}
+	return tx.Commit()
+}
+
 // ── 学生选题相关 ──
 
 // ListSelections 获取学生选题列表

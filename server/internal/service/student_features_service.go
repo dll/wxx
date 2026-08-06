@@ -308,3 +308,25 @@ func (s *StudentFeaturesService) RegisterClubActivity(activityID, userID int64, 
 	}
 	return id, nil
 }
+
+// ── 竞赛管理（管理端）──
+
+// AdminListCompetitions 管理端竞赛列表
+func (s *StudentFeaturesService) AdminListCompetitions(level, category, status string, page, pageSize int) ([]map[string]interface{}, int, error) {
+	return s.repo.AdminListCompetitions(level, category, status, page, pageSize)
+}
+
+// AdminCreateCompetition 新增竞赛
+func (s *StudentFeaturesService) AdminCreateCompetition(fields map[string]interface{}) (int64, error) {
+	return s.repo.AdminCreateCompetition(fields)
+}
+
+// AdminUpdateCompetition 更新竞赛
+func (s *StudentFeaturesService) AdminUpdateCompetition(id int64, fields map[string]interface{}) error {
+	return s.repo.AdminUpdateCompetition(id, fields)
+}
+
+// AdminDeleteCompetition 删除竞赛
+func (s *StudentFeaturesService) AdminDeleteCompetition(id int64) error {
+	return s.repo.AdminDeleteCompetition(id)
+}

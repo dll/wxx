@@ -566,3 +566,102 @@ func (h *StudentFeaturesHandler) RegisterClubActivity(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "报名成功", "data": gin.H{"id": id}})
 }
+
+// ======================== 竞赛管理（管理端） ========================
+
+// AdminListCompetitions 管理端竞赛列表
+// GET /api/v1/competition/admin/list?page=&page_size=&level=&category=&status=
+func (h *StudentFeaturesHandler) AdminListCompetitions(c *gin.Context) {
+	level := c.Query("level")
+	category := c.Query("category")
+	status := c.Query("status")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	items, total, err := h.svc.AdminListCompetitions(level, category, status, page, pageSize)
+	if err != nil {
+		log.Printf("管理端竞赛列表失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询竞赛失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": items, "total": total})
+}
+
+// AdminCreateCompetition 新增竞赛
+// POST /api/v1/competition/admin
+func (h *StudentFeaturesHandler) AdminCreateCompetition(c *gin.Context) {
+	var req struct {
+		Name             string `json:"name"`
+		Level            string `json:"level"`
+		Category         string `json:"category"`
+		Organizer        string `json:"organizer"`
+		Description      string `json:"description"`
+		Requirements     string `json:"requirements"`
+		RegistrationStart string `json:"registration_start"`
+		RegistrationEnd  string `json:"registration_end"`
+		CompetitionDate  string `json:"competition_date"`
+		Status           string `json:"status"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
+		return
+	}
+	if req.Name == "" {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "竞赛名称不能为空"})
+		return
+	}
+	if req.Level == "" {
+		req.Level = "school"
+	}
+	if req.Status == "" {
+		req.Status = "upcoming"
+	}
+	fields := map[string]interface{}{
+		"name": req.Name, "level": req.Level, "category": req.Category,
+		"organizer": req.Organizer, "description": req.Description,
+		"requirements": req.Requirements, "registration_start": req.RegistrationStart,
+		"registration_end": req.RegistrationEnd, "competition_date": req.CompetitionDate,
+		"status": req.Status,
+	}
+	id, err := h.svc.AdminCreateCompetition(fields)
+	if err != nil {
+		log.Printf("新增竞赛失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增竞赛失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": id}})
+}
+
+// AdminUpdateCompetition 更新竞赛
+// PUT /api/v1/competition/admin/:id
+func (h *StudentFeaturesHandler) AdminUpdateCompetition(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var fields map[string]interface{}
+	if err := c.ShouldBindJSON(&fields); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})
+		return
+	}
+	if err := h.svc.AdminUpdateCompetition(id, fields); err != nil {
+		log.Printf("更新竞赛失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新竞赛失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
+}
+
+// AdminDeleteCompetition 删除竞赛
+// DELETE /api/v1/competition/admin/:id
+func (h *StudentFeaturesHandler) AdminDeleteCompetition(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err := h.svc.AdminDeleteCompetition(id); err != nil {
+		log.Printf("删除竞赛失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除竞赛失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
+}
