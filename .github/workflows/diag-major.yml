@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 用 python 查库
+      - name: SSH 查 _migrations
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,8 +14,5 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 数据库迁移表 ---"
-            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');print(c.execute(\"SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%migration%'\").fetchall());print(c.execute(\"SELECT * FROM schema_migrations ORDER BY version DESC LIMIT 8\").fetchall() if c.execute(\"SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'\").fetchone() else 'no schema_migrations')" 2>&1 | head -10
-            echo "--- 学科专业资源 ---"
-            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');print(c.execute(\"SELECT resource_id,title FROM kb_resources WHERE resource_id LIKE 'major-%'\").fetchall())" 2>&1 | head -5
+            python3 -c "import sqlite3;c=sqlite3.connect('/opt/wxx/data/wxx.db');rows=c.execute('SELECT * FROM _migrations ORDER BY 1 DESC LIMIT 12').fetchall();[print(r) for r in rows]" 2>&1 | head -15
             echo "DIAG_END"
