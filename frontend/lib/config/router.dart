@@ -18,6 +18,7 @@ import '../pages/admin/admin_dashboard_page.dart';
 import '../pages/admin/data_import_page.dart';
 import '../pages/admin/admin_users_page.dart';
 import '../pages/admin/admin_audit_page.dart';
+import '../pages/admin/admin_content_page.dart';
 import '../pages/admin/admin_settings_page.dart';
 import '../pages/admin/review_page.dart';
 import '../pages/admin/my_submissions_page.dart';
@@ -237,6 +238,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/admin/audit',
           builder: (context, state) => const AdminAuditPage(),
+        ),
+        GoRoute(
+          path: '/admin/content',
+          builder: (context, state) => const AdminContentPage(),
         ),
         GoRoute(
           path: '/admin/settings',

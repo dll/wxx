@@ -648,6 +648,9 @@ class _ProfilePageState extends State<ProfilePage> {
         if (_canAccessAdmin(role))
           _ProfileFeature('audit', '管理服务', Icons.history, '审计日志', '查看系统操作记录',
               '/admin/audit'),
+        if (_canAccessAdmin(role))
+          _ProfileFeature('content_admin', '管理服务', Icons.edit_note, '内容管理',
+              '毕设选题/就业指导/学科竞赛管理', '/admin/content'),
         if (role == 'sys_admin')
           _ProfileFeature('settings', '管理服务', Icons.settings_outlined, '系统配置',
               '管理系统运行参数', '/admin/settings'),

@@ -269,6 +269,14 @@ class ApiConfig {
   static const String graduationAdvisors = '$apiPrefix/graduation/advisors';
   static const String graduationTopics =
       '$apiPrefix/graduation/available-topics';
+  // 管理端毕设选题 CRUD（学院管理员）
+  static const String graduationAdminTopics = '$apiPrefix/graduation/admin/topics';
+  // 就业指导管理（学校/学院管理员）
+  static const String adminCareerPolicies = '$apiPrefix/career/admin/policies';
+  static const String adminCareerJobs = '$apiPrefix/career/admin/jobs';
+  // 学科竞赛管理（学校/学院管理员）
+  static const String adminCompetitionList = '$apiPrefix/competition/admin/list';
+  static const String adminCompetition = '$apiPrefix/competition/admin';
   static const String graduationSelect = '$apiPrefix/graduation/select-topic';
   static const String graduationMySelection =
       '$apiPrefix/graduation/my-selection';
