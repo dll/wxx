@@ -1,8 +1,9 @@
 // resetSeedPasswords — 一次性运维工具：重置内置/学生账号密码为 Wxx@2026
 // 用法：
-//   reset-seed-passwords <sqlite_path>                    # 仅重置 14 个内置种子账号
-//   reset-seed-passwords <sqlite_path> --all-students     # 重置所有 student 角色账号
-//   reset-seed-passwords <sqlite_path> <year>             # 重置种子账号 + 补种子学生入学年份
+//
+//	reset-seed-passwords <sqlite_path>                    # 仅重置 14 个内置种子账号
+//	reset-seed-passwords <sqlite_path> --all-students     # 重置所有 student 角色账号
+//	reset-seed-passwords <sqlite_path> <year>             # 重置种子账号 + 补种子学生入学年份
 package main
 
 import (
