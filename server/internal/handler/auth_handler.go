@@ -105,6 +105,17 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 		"owner_id":     userCtx.OwnerID,
 		"consented":    userCtx.Consented,
 	}
+
+	// 补充学院/专业/入学年份等学业字段（用于前端年级主题自动切换等）
+	if user, err := h.authSvc.GetProfile(userCtx.UserID); err == nil && user != nil {
+		data["college"] = user.College
+		data["major"] = user.Major
+		data["class_name"] = user.ClassName
+		data["enrollment_date"] = user.EnrollmentDate
+		data["enrollment_year"] = user.EnrollmentYear
+		data["status"] = user.Status
+	}
+
 	util.Success(c, data)
 }
 

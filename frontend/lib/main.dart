@@ -64,19 +64,72 @@ void main() async {
   runApp(const WxxApp());
 }
 
-/// 主题模式通知器 — 供全局切换亮色/暗色/跟随系统
+/// 主题模式通知器 — 支持亮色/暗色/跟随系统 + 年级主题自动切换
 class ThemeNotifier extends ChangeNotifier {
   ThemeMode _mode;
 
-  ThemeNotifier() : _mode = _fromString(Storage.themeMode);
+  /// 入学年份（如 2025），用于推导年级主题；null = 未登录/未知
+  int? _enrollmentYear;
+
+  /// 年级主题自动切换开关（默认开启）
+  bool _gradeThemeEnabled;
+
+  ThemeNotifier()
+      : _mode = _fromString(Storage.themeMode),
+        _gradeThemeEnabled = Storage.gradeThemeEnabled;
 
   ThemeMode get mode => _mode;
+
+  int? get enrollmentYear => _enrollmentYear;
+
+  bool get gradeThemeEnabled => _gradeThemeEnabled;
 
   void setMode(ThemeMode mode) {
     if (_mode == mode) return;
     _mode = mode;
     Storage.setThemeMode(mode.name);
     notifyListeners();
+  }
+
+  /// 设置入学年份（登录/刷新资料时调用），触发年级主题重算
+  void setEnrollmentYear(int? year) {
+    if (_enrollmentYear == year) return;
+    _enrollmentYear = year;
+    if (year != null) Storage.setEnrollmentYear(year);
+    notifyListeners();
+  }
+
+  /// 关闭/开启年级主题自动切换
+  void setGradeThemeEnabled(bool enabled) {
+    if (_gradeThemeEnabled == enabled) return;
+    _gradeThemeEnabled = enabled;
+    Storage.setGradeThemeEnabled(enabled);
+    notifyListeners();
+  }
+
+  /// 当前入学年份对应的年级（1~4），超出范围按 4 处理；未知返回 0
+  int get grade {
+    final y = _enrollmentYear;
+    if (y == null || y <= 0) return 0;
+    final currentYear = DateTime.now().year;
+    final g = currentYear - y + 1;
+    return g.clamp(1, 4);
+  }
+
+  /// 当前生效的年级主题 seed 色（开关关闭或年级未知时用统一滁院蓝）
+  Color get seedColor {
+    if (!_gradeThemeEnabled) return _GradeThemes.schoolBlue;
+    final g = grade;
+    if (g == 0) return _GradeThemes.schoolBlue;
+    return _GradeThemes.all[g - 1].seed;
+  }
+
+  /// 当前年级主题名（如「迎新」「追梦」）
+  String get gradeThemeName {
+    if (!_gradeThemeEnabled) return '滁院蓝';
+    final g = grade;
+    if (g == 0) return '滁院蓝';
+    return _GradeThemes.all[g - 1].name;
   }
 
   static ThemeMode _fromString(String s) {
@@ -91,15 +144,46 @@ class ThemeNotifier extends ChangeNotifier {
   }
 }
 
+/// 四个年级主题定义（按入学年份推导年级：1 大一迎新 → 4 大四创业）
+class _GradeThemes {
+  final String name;
+  final Color seed;
+  const _GradeThemes(this.name, this.seed);
+
+  /// 滁州学院统一蓝（默认/关闭开关时）
+  static const schoolBlue = Color(0xFF1565C0);
+
+  static const List<_GradeThemes> all = [
+    _GradeThemes('迎新', Color(0xFF00897B)), // 大一：温暖青绿
+    _GradeThemes('追梦', Color(0xFF1565C0)), // 大二：滁院蓝
+    _GradeThemes('奋斗', Color(0xFFEF6C00)), // 大三：奋斗橙
+    _GradeThemes('创业', Color(0xFF6A1B9A)), // 大四：创业紫
+  ];
+}
+
 /// 蔚小芯应用入口
-class WxxApp extends StatelessWidget {
+class WxxApp extends StatefulWidget {
   const WxxApp({super.key});
+
+  @override
+  State<WxxApp> createState() => _WxxAppState();
+}
+
+class _WxxAppState extends State<WxxApp> {
+  // 全局共享 ThemeNotifier：登录/刷新资料时由 AuthProvider 回写入学年份
+  final ThemeNotifier _themeNotifier = ThemeNotifier();
+
+  @override
+  void dispose() {
+    _themeNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider(_themeNotifier)),
         ChangeNotifierProvider(create: (_) {
           final p = ChatProvider();
           sessionResetCallbacks.add(p.reset);
@@ -143,16 +227,17 @@ class WxxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StudyPlanProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UpdateProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider(create: (_) => _themeNotifier),
       ],
       child: Consumer<ThemeNotifier>(
         builder: (_, themeNotifier, __) {
+          final seed = themeNotifier.seedColor;
           return MaterialApp.router(
             title: '蔚小芯',
             debugShowCheckedModeBanner: false,
             themeMode: themeNotifier.mode,
             theme: ThemeData(
-              colorSchemeSeed: const Color(0xFF1565C0), // 滁州学院蓝
+              colorSchemeSeed: seed, // 年级主题 seed（滁院蓝/迎新青绿/奋斗橙/创业紫）
               useMaterial3: true,
               brightness: Brightness.light,
               // 使用本地打包的 Roboto（见 pubspec fonts 段），避免 Web 引擎
@@ -173,7 +258,7 @@ class WxxApp extends StatelessWidget {
               ),
             ),
             darkTheme: ThemeData(
-              colorSchemeSeed: const Color(0xFF1565C0),
+              colorSchemeSeed: seed,
               useMaterial3: true,
               brightness: Brightness.dark,
               fontFamily: 'Roboto',

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../config/router.dart';
+import '../main.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
@@ -11,6 +12,7 @@ import '../utils/storage.dart';
 /// 认证状态管理
 class AuthProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
+  final ThemeNotifier? _themeNotifier;
 
   bool _loading = false;
   String? _error;
@@ -23,7 +25,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => Storage.isLoggedIn;
   int? get voiceEnabled => _voiceEnabled;
 
-  AuthProvider() {
+  AuthProvider([this._themeNotifier]) {
     // 设置 401 回调
     _api.onUnauthorized = _handleUnauthorized;
   }
@@ -86,6 +88,14 @@ class AuthProvider extends ChangeNotifier {
           role: _profile!.role,
           displayName: _profile!.displayName,
         );
+        // 同步入学年份到年级主题（登录/刷新资料时自动切换主题）
+        final year = _profile!.enrollmentYear;
+        if (year.isNotEmpty) {
+          final n = int.tryParse(year);
+          if (n != null && n > 0) {
+            _themeNotifier?.setEnrollmentYear(n);
+          }
+        }
       }
       // 拉取能力清单（用于菜单/按钮可见性）
       await _refreshCapabilities();

@@ -445,7 +445,7 @@ func fixPasswordHashes(db *sql.DB) error {
 		hash string
 	}
 	var fixes []fix
-	const seedPassword = "wxx123456"
+	const seedPassword = "Wxx@2026"
 
 	for rows.Next() {
 		var id int64

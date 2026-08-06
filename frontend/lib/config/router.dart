@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
+import '../widgets/fab_menu.dart';
 import '../pages/consent/consent_page.dart';
 import '../pages/login/login_page.dart';
 import '../pages/home/home_page.dart';
@@ -618,6 +619,7 @@ class MainShell extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: const FabMenu(),
     );
   }
 
@@ -653,6 +655,7 @@ class MainShell extends StatelessWidget {
           ),
         ),
       ),
+      floatingActionButton: const FabMenu(),
     );
   }
 

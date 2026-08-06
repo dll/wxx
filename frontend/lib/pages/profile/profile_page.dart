@@ -163,6 +163,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
         const SizedBox(height: 16),
 
+        // 年级主题自动切换开关
+        _buildGradeThemeToggle(context),
+
+        const SizedBox(height: 16),
+
         // 数字人形象显示开关（可系统设置）
         _buildAvatarToggle(context),
 
@@ -902,6 +907,38 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 年级主题自动切换开关
+  Widget _buildGradeThemeToggle(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final enabled = themeNotifier.gradeThemeEnabled;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: SwitchListTile(
+        secondary: Icon(
+          Icons.palette_outlined,
+          color: enabled
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        title: const Text('年级主题自动切换'),
+        subtitle: Text(
+          enabled
+              ? '当前主题：${themeNotifier.gradeThemeName}（按入学年份自动切换）'
+              : '已关闭，使用统一滁院蓝主题',
+        ),
+        value: enabled,
+        onChanged: (v) async {
+          themeNotifier.setGradeThemeEnabled(v);
+        },
       ),
     );
   }

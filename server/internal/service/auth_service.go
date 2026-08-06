@@ -74,6 +74,12 @@ func (s *AuthService) DebugCodeEcho() bool {
 	return !s.cfg.IsRelease()
 }
 
+// GetProfile 获取用户完整资料（含学院/专业/入学年份等学业字段）。
+// 返回 nil 表示用户不存在。
+func (s *AuthService) GetProfile(userID int64) (*model.User, error) {
+	return s.userRepo.GetByID(userID)
+}
+
 // GuestRegisterEnabled 游客手机注册是否开放（预研期默认关闭，账号走管理员导入）。
 func (s *AuthService) GuestRegisterEnabled() bool {
 	return s.cfg.EnableGuestRegister

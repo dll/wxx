@@ -15,6 +15,8 @@ class Storage {
   static const String _keyEnabledFeatures = 'enabled_features';
   static const String _keyGlobalFeatureSwitches = 'global_feature_switches';
   static const String _keyShowAvatar = 'show_avatar';
+  static const String _keyGradeThemeEnabled = 'grade_theme_enabled';
+  static const String _keyEnrollmentYear = 'enrollment_year';
 
   static late SharedPreferences _prefs;
 
@@ -107,4 +109,16 @@ class Storage {
   static bool get showAvatar => _prefs.getBool(_keyShowAvatar) ?? true;
   static Future<void> setShowAvatar(bool v) =>
       _prefs.setBool(_keyShowAvatar, v);
+
+  // ── 年级主题自动切换 ──
+  /// 是否按入学年份自动切换年级主题（默认开启）
+  static bool get gradeThemeEnabled =>
+      _prefs.getBool(_keyGradeThemeEnabled) ?? true;
+  static Future<void> setGradeThemeEnabled(bool v) =>
+      _prefs.setBool(_keyGradeThemeEnabled, v);
+
+  /// 缓存入学年份（如 2025）
+  static int? get enrollmentYear => _prefs.getInt(_keyEnrollmentYear);
+  static Future<void> setEnrollmentYear(int v) =>
+      _prefs.setInt(_keyEnrollmentYear, v);
 }
