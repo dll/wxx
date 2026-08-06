@@ -1026,6 +1026,12 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			student := secured.Group("/student")
 			{
 				student.GET("/home", auth.RequireCapability(auth.SelfStudyRead), studentH.Home)
+				student.GET("/profile", auth.RequireCapability(auth.SelfTwinRead), studentH.PersonalProfile)
+				student.GET("/twin-profile", auth.RequireCapability(auth.SelfTwinRead), studentH.TwinProfile)
+				student.GET("/personality-profile", auth.RequireCapability(auth.SelfPersonalityRead), studentH.PersonalityProfile)
+				// 头像上传与服务（GET 供前端 <img> 直接加载，认证保护）
+				student.POST("/avatar", auth.RequireCapability(auth.SelfProfileWrite), studentH.UploadAvatar)
+				student.GET("/avatar/:user_id", auth.RequireCapability(auth.SelfTwinRead), studentH.ServeAvatar)
 				student.GET("/daily-briefing", auth.RequireCapability(auth.SelfBriefingRead), studentH.DailyBriefing)
 				student.GET("/learning-diary", auth.RequireCapability(auth.SelfDiaryRead), studentH.LearningDiary)
 				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)

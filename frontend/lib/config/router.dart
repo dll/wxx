@@ -37,6 +37,7 @@ import '../pages/student/learning_diary_page.dart';
 import '../pages/student/checkin_page.dart';
 import '../pages/student/digital_twin_page.dart';
 import '../pages/student/personality_page.dart';
+import '../pages/student/student_profile_page.dart';
 import '../pages/student/achievements_page.dart';
 import '../pages/student/course_map_page.dart';
 import '../pages/student/course_analytics_page.dart';
@@ -400,6 +401,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/student/digital-twin',
             builder: (_, __) => const DigitalTwinPage()),
+        GoRoute(
+            path: '/student/profile',
+            builder: (_, __) => const StudentProfilePage()),
         GoRoute(
             path: '/student/personality',
             builder: (_, __) => const PersonalityInsightPage()),

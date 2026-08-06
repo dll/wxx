@@ -530,6 +530,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '学习打卡与连续记录', '/student/checkin'),
           _ProfileFeature('digital_twin', '学生服务', Icons.person_pin, '数字孪生',
               '我的数字画像', '/student/digital-twin'),
+          _ProfileFeature('student_profile', '学生服务', Icons.account_box,
+              '个人档案', '完整学生信息聚合', '/student/profile'),
           _ProfileFeature('personality', '学生服务', Icons.psychology_outlined,
               '性格洞察', 'AI 性格分析', '/student/personality'),
           _ProfileFeature('achievements', '学生服务', Icons.emoji_events_outlined,

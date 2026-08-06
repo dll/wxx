@@ -255,6 +255,32 @@ class StudentFeatureProvider extends ChangeNotifier {
     }
   }
 
+  // ── 学生个人信息档案聚合 ──
+  Map<String, dynamic>? _personalProfile;
+  Map<String, dynamic>? get personalProfile => _personalProfile;
+  bool _profileLoading = false;
+  bool get profileLoading => _profileLoading;
+
+  /// 拉取学生个人信息档案（基础/学业/竞赛/入党/社团/打卡/积分聚合）
+  Future<void> fetchPersonalProfile() async {
+    _profileLoading = true;
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.studentProfile);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data is Map ? (res.data['data'] ?? res.data) : null;
+        if (data is Map<String, dynamic>) {
+          _personalProfile = data;
+        }
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _profileLoading = false;
+      notifyListeners();
+    }
+  }
+
   // ── 学习周报 ──
   Map<String, dynamic>? _weeklyReport;
   Map<String, dynamic>? get weeklyReport => _weeklyReport;

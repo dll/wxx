@@ -1142,7 +1142,7 @@ class _HomePageState extends State<HomePage> {
     final provider = context.watch<StudentFeatureProvider>();
     final avatar = provider.avatar;
     return GestureDetector(
-      onTap: () => context.go('/student/digital-twin'),
+      onTap: () => context.go('/student/profile'),
       child: avatar != null
           ? AvatarCard(
               config: avatar,

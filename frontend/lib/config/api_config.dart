@@ -161,6 +161,12 @@ class ApiConfig {
 
   // ── 学生 AI 功能 ──
   static const String studentHome = '$apiPrefix/student/home';
+  static const String studentProfile = '$apiPrefix/student/profile';
+  static const String studentTwinProfile = '$apiPrefix/student/twin-profile';
+  static const String studentPersonalityProfile =
+      '$apiPrefix/student/personality-profile';
+  static const String avatarUpload = '$apiPrefix/student/avatar';
+  static const String avatarServe = '$apiPrefix/student/avatar/';
   static const String dailyBriefing = '$apiPrefix/student/daily-briefing';
   static const String learningDiary = '$apiPrefix/student/learning-diary';
   static const String checkin = '$apiPrefix/student/checkin';
