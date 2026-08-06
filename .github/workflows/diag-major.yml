@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 查看后端日志
+      - name: SSH 验证学科专业知识入库
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,9 +14,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- 后端最近日志 ---"
-            sudo journalctl -u wxx --no-pager -n 30 2>&1 | grep -iE "error|fail|问答|chat|检索|panic|severe" | tail -15
-            echo "--- 健康 ---"
-            curl -s localhost:8080/health | head -c 150
+            echo "--- 查学科专业知识入库 ---"
+            curl -s "localhost:8080/api/v1/knowledge/public?keyword=%E8%AE%A1%E7%AE%97%E6%9C%BA&resource_type=FAQ" | head -c 500
             echo ""
             echo "DIAG_END"
