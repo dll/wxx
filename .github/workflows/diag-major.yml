@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 检查 systemd 服务配置
+      - name: SSH 检查二进制含058
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,10 +14,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- wxx.service ExecStart ---"
-            systemctl cat wxx 2>/dev/null | grep -iE "ExecStart|WorkingDirectory|Environment"
-            echo "--- 运行进程 ---"
-            ps aux | grep wxx-server | grep -v grep | head -3
-            echo "--- 运行进程路径 ---"
-            readlink -f /proc/$(pgrep -f wxx-server | head -1)/exe 2>/dev/null || echo "无法获取"
+            echo "--- 二进制是否含 058 ---"
+            strings /opt/wxx/wxx-server 2>/dev/null | grep -c "058_major_knowledge" || echo "0"
+            echo "--- 进程启动时间 ---"
+            ps -o lstart,cmd -p $(pgrep -f wxx-server | head -1) 2>/dev/null
             echo "DIAG_END"
