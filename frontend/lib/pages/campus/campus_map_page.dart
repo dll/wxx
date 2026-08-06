@@ -17,7 +17,7 @@ class CampusMapPage extends StatefulWidget {
   State<CampusMapPage> createState() => _CampusMapPageState();
 }
 
-enum _CampusTab { map, vr, home, yxwz, douyin }
+enum _CampusTab { map, vr, home, yxwz, douyin, csci }
 
 /// 底图图层：标准矢量图 / 卫星影像图。
 enum _MapLayer { standard, satellite }
@@ -98,6 +98,8 @@ const _tabs = [
       Color(0xFFC62828),
       'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2',
       '搜索滁州学院官方抖音'),
+  _CampusTabInfo(_CampusTab.csci, '计算机学院', Icons.computer,
+      Color(0xFF2E7D32), 'https://csci.chzu.edu.cn/', '计算机科学与工程学院（网络空间安全学院）'),
 ];
 
 /// 会峰校区报到步骤（WGS-84，来源：OpenStreetMap 会峰校区 way 734826227）
@@ -602,14 +604,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
           preferredSize: const Size.fromHeight(48),
           child: Container(
             color: theme.colorScheme.surface,
-            child: Row(
-              children: _tabs.map((t) {
-                final selected = t.tab == _currentTab;
-                return Expanded(
-                  child: GestureDetector(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _tabs.map((t) {
+                  final selected = t.tab == _currentTab;
+                  return GestureDetector(
                     onTap: () => _openWebTab(t),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
@@ -642,9 +646,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),

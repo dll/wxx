@@ -944,7 +944,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 校园服务 — 地图/全景/招生抖音
+  /// 校园服务 — 地图/全景/学院/官网
   Widget _buildCampusService(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,18 +971,18 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 10),
             _buildKnowledgeCard(
               theme,
-              icon: Icons.school,
-              label: '学校首页',
-              color: const Color(0xFF1565C0),
-              onTap: () => context.go('/campus?v=home'),
+              icon: Icons.computer,
+              label: '计算机学院',
+              color: const Color(0xFF2E7D32),
+              onTap: () => context.go('/campus?v=csci'),
             ),
             const SizedBox(width: 10),
             _buildKnowledgeCard(
               theme,
-              icon: Icons.music_note,
-              label: '招生抖音',
-              color: const Color(0xFFC62828),
-              onTap: () => context.go('/campus?v=douyin'),
+              icon: Icons.school,
+              label: '学校首页',
+              color: const Color(0xFF1565C0),
+              onTap: () => context.go('/campus?v=home'),
             ),
           ],
         ),

@@ -41,7 +41,10 @@ func (r *StudentFeaturesRepo) AdminListCompetitions(level, category, status stri
 
 	offset := (page - 1) * pageSize
 	rows, err := r.db.Query(
-		`SELECT id, name, level, category, organizer, description, requirements, registration_start, registration_end, competition_date, status, created_at
+		`SELECT id, name, level, category, organizer,
+		 COALESCE(description,''), COALESCE(requirements,''),
+		 COALESCE(registration_start,''), COALESCE(registration_end,''),
+		 COALESCE(competition_date,''), status, COALESCE(created_at,'')
 		 FROM competitions WHERE `+whereSQL+` ORDER BY id DESC LIMIT ? OFFSET ?`,
 		append(args, pageSize, offset)...,
 	)
@@ -134,7 +137,13 @@ func (r *StudentFeaturesRepo) ListCompetitions(level, category, status string, p
 
 	offset := (page - 1) * pageSize
 	queryArgs := append(args, pageSize, offset)
-	rows, err := r.db.Query(fmt.Sprintf("SELECT id, name, level, category, organizer, description, requirements, features, registration_start, registration_end, competition_date, result_date, website, resource_links, max_team_size, is_team_competition, status, created_at FROM competitions WHERE %s ORDER BY competition_date DESC LIMIT ? OFFSET ?", whereStr), queryArgs...)
+	rows, err := r.db.Query(fmt.Sprintf("SELECT id, name, level, category, organizer, "+
+		"COALESCE(description,''), COALESCE(requirements,''), COALESCE(features,''), "+
+		"COALESCE(registration_start,''), COALESCE(registration_end,''), "+
+		"COALESCE(competition_date,''), COALESCE(result_date,''), "+
+		"COALESCE(website,''), COALESCE(resource_links,''), "+
+		"max_team_size, is_team_competition, status, COALESCE(created_at,'') "+
+		"FROM competitions WHERE %s ORDER BY competition_date DESC LIMIT ? OFFSET ?", whereStr), queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -166,7 +175,13 @@ func (r *StudentFeaturesRepo) ListCompetitions(level, category, status string, p
 func (r *StudentFeaturesRepo) GetCompetition(id int64) (map[string]interface{}, error) {
 	var maxTeamSize, isTeam int
 	var name, lev, cat, org, desc, req, feats, regStart, regEnd, compDate, resDate, website, resLinks, status, created string
-	err := r.db.QueryRow("SELECT name, level, category, organizer, description, requirements, features, registration_start, registration_end, competition_date, result_date, website, resource_links, max_team_size, is_team_competition, status, created_at FROM competitions WHERE id = ?", id).
+	err := r.db.QueryRow("SELECT name, level, category, organizer, "+
+		"COALESCE(description,''), COALESCE(requirements,''), COALESCE(features,''), "+
+		"COALESCE(registration_start,''), COALESCE(registration_end,''), "+
+		"COALESCE(competition_date,''), COALESCE(result_date,''), "+
+		"COALESCE(website,''), COALESCE(resource_links,''), "+
+		"max_team_size, is_team_competition, status, COALESCE(created_at,'') "+
+		"FROM competitions WHERE id = ?", id).
 		Scan(&name, &lev, &cat, &org, &desc, &req, &feats, &regStart, &regEnd, &compDate, &resDate, &website, &resLinks, &maxTeamSize, &isTeam, &status, &created)
 	if err != nil {
 		return nil, err
@@ -193,7 +208,9 @@ func (r *StudentFeaturesRepo) RegisterCompetition(competitionID, userID int64, s
 
 // GetMyCompetitionRegistrations 获取我的竞赛报名
 func (r *StudentFeaturesRepo) GetMyCompetitionRegistrations(userID int64) ([]map[string]interface{}, error) {
-	rows, err := r.db.Query(`SELECT cr.id, cr.competition_id, c.name, c.level, cr.status, cr.work_title, cr.award_level, cr.award_date, cr.created_at
+	rows, err := r.db.Query(`SELECT cr.id, cr.competition_id, c.name, c.level, cr.status,
+		COALESCE(cr.work_title,''), COALESCE(cr.award_level,''), COALESCE(cr.award_date,''),
+		COALESCE(cr.created_at,'')
 		FROM competition_registrations cr LEFT JOIN competitions c ON cr.competition_id = c.id
 		WHERE cr.user_id = ? ORDER BY cr.created_at DESC`, userID)
 	if err != nil {
