@@ -1,10 +1,13 @@
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
-/// 在所有认证页面右下角显示，展开后展示 问题反馈 / 语音导航 / 数字孪生
+/// 在所有认证页面右下角显示。菜单项按平台切换：
+///   - Web/桌面端：问题反馈 / 个人档案 / 数字孪生 / 校园导航
+///   - 移动端：问题反馈 / 语音导航 / 数字孪生
 class FabMenu extends StatefulWidget {
   const FabMenu({super.key});
 
@@ -24,8 +27,35 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   double _dx = 16;
   double _dy = 80;
 
-  /// 子菜单项：问题反馈 / 语音导航 / 数字孪生
-  static const _items = <_FabItem>[
+  /// 当前平台菜单项：Web 用桌面合适项，移动端保留语音导航
+  List<_FabItem> get _items => kIsWeb ? _webItems : _mobileItems;
+
+  /// Web/桌面端菜单
+  static const _webItems = <_FabItem>[
+    _FabItem(
+        icon: Icons.feedback_outlined,
+        label: '问题反馈',
+        color: Color(0xFF6750A4),
+        action: _FabAction.feedback),
+    _FabItem(
+        icon: Icons.account_box_outlined,
+        label: '个人档案',
+        color: Color(0xFF00897B),
+        action: _FabAction.profile),
+    _FabItem(
+        icon: Icons.person_pin_circle_outlined,
+        label: '数字孪生',
+        color: Color(0xFF1565C0),
+        action: _FabAction.twin),
+    _FabItem(
+        icon: Icons.map_outlined,
+        label: '校园导航',
+        color: Color(0xFF1677FF),
+        action: _FabAction.campus),
+  ];
+
+  /// 移动端菜单
+  static const _mobileItems = <_FabItem>[
     _FabItem(
         icon: Icons.feedback_outlined,
         label: '问题反馈',
@@ -58,7 +88,9 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       parent: _expandCtrl,
       curve: Curves.easeInOut,
     );
-    _slideAnims = List.generate(_items.length, (i) {
+    // 动画曲线长度固定，不随平台菜单项数量变化（web 最多 4 项）
+    const n = kIsWeb ? 4 : 3;
+    _slideAnims = List.generate(n, (i) {
       return CurvedAnimation(
         parent: _expandCtrl,
         curve: Interval(
@@ -68,7 +100,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         ),
       );
     });
-    _fadeAnims = List.generate(_items.length, (i) {
+    _fadeAnims = List.generate(n, (i) {
       return CurvedAnimation(
         parent: _expandCtrl,
         curve: Interval(0.02 + i * 0.09, 0.30 + i * 0.14),
@@ -230,12 +262,24 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       case _FabAction.twin:
         // 数字孪生：学生角色跳数字画像
         context.go('/student/digital-twin');
+      case _FabAction.profile:
+        // 个人档案：学生跳聚合档案页，其他跳个人中心
+        if (!Storage.isLoggedIn) {
+          context.go('/login');
+        } else if (Storage.role == 'student' || Storage.role == 'student_union') {
+          context.go('/student/profile');
+        } else {
+          context.go('/profile');
+        }
+      case _FabAction.campus:
+        // 校园导航：跳校园服务地图
+        context.go('/campus?v=map');
     }
   }
 }
 
 /// 子菜单动作枚举
-enum _FabAction { feedback, voice, twin }
+enum _FabAction { feedback, voice, twin, profile, campus }
 
 /// 子菜单项定义
 class _FabItem {
