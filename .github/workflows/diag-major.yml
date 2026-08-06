@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 验证学科专业问答
+      - name: SSH 查看完整响应
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -16,7 +16,6 @@ jobs:
             echo "DIAG_BEGIN"
             RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}')
             TOKEN=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['token'])" 2>/dev/null)
-            echo "token: ${#TOKEN}"
-            echo "--- 学科专业问答 ---"
-            curl -s -X POST localhost:8080/api/v1/chat -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"question":"计算机科学与技术专业的培养方案是什么"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print('code:',d.get('code'));print('answer:',str(d.get('data',{}).get('answer',d.get('data',{}).get('content','')))[:400])" 2>/dev/null
+            echo "--- 完整响应 keys ---"
+            curl -s -X POST localhost:8080/api/v1/chat -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"question":"计算机专业有哪些学科竞赛可以参加"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print('keys:',list(d.get('data',{}).keys()) if isinstance(d.get('data'),dict) else type(d.get('data')));import json as j;print(j.dumps(d,ensure_ascii=False)[:800])" 2>/dev/null
             echo "DIAG_END"
