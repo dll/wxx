@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> {
       _loadStudentHome();
       context
           .read<StudentFeatureProvider>()
-          .fetchAvatar(displayName: Storage.displayName ?? '同学');
+          .fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
     }
   }
 

@@ -37,7 +37,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         onRefresh: () async {
           final p = context.read<StudentFeatureProvider>();
           await p.fetchDigitalTwin();
-          await p.fetchAvatar(displayName: Storage.displayName ?? '同学');
+          await p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
         },
         child: provider.loading && provider.twin == null
             ? const Center(child: CircularProgressIndicator())

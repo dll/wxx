@@ -20,6 +20,9 @@ class AvatarConfig {
   final String displayName;
   final String major;
 
+  /// 用户角色（student/counselor/teacher/college_admin 等），驱动帽子/服装样式
+  final String role;
+
   AvatarConfig({
     required this.academic,
     required this.ability,
@@ -31,6 +34,7 @@ class AvatarConfig {
     this.personalityType = '',
     this.displayName = '同学',
     this.major = '',
+    this.role = 'student',
   });
 
   /// 综合分（五维加权，与后端一致：学业0.3/能力0.25/思想0.15/情感0.15/社交0.15）
@@ -78,12 +82,32 @@ class AvatarConfig {
   /// 滁州学院校徽蓝
   static const Color schoolBlue = Color(0xFF1565C0);
 
+  /// 帽子样式：teacher 用中式学位帽，其余用学士帽
+  String get hatStyle => role == 'teacher' ? 'chinese' : 'graduate';
+
+  /// 学位服主色（角色区分）：教师红/管理员紫/学生蓝/其他灰
+  Color get gownColor {
+    switch (role) {
+      case 'teacher':
+        return const Color(0xFFB71C1C);
+      case 'college_admin':
+      case 'school_admin':
+      case 'sys_admin':
+        return const Color(0xFF6A1B9A);
+      case 'counselor':
+        return const Color(0xFF1A237E);
+      default:
+        return const Color(0xFF1565C0);
+    }
+  }
+
   /// 从五维孪生数据 + 性格数据构建形象配置
   factory AvatarConfig.fromData({
     Map<String, dynamic>? twinJson,
     Map<String, dynamic>? personalityJson,
     String displayName = '同学',
     String major = '',
+    String role = 'student',
   }) {
     // 解析五维分数（后端 TwinResult.dimensions[]，key=academic 等）
     double dim(String key) {
@@ -117,6 +141,7 @@ class AvatarConfig {
       personalityType: (personalityJson?['type'] as String?) ?? '',
       displayName: displayName,
       major: major,
+      role: role,
     );
   }
 }

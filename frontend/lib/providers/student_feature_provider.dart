@@ -222,7 +222,8 @@ class StudentFeatureProvider extends ChangeNotifier {
   AvatarConfig? get avatar => _avatar;
 
   /// 并发拉取五维孪生 + 性格，聚合出数字人形象配置
-  Future<void> fetchAvatar({String displayName = '同学', String major = ''}) async {
+  Future<void> fetchAvatar(
+      {String displayName = '同学', String major = '', String role = 'student'}) async {
     try {
       final results = await Future.wait([
         _api.get(ApiConfig.digitalTwin),
@@ -247,6 +248,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         personalityJson: personalityJson,
         displayName: displayName,
         major: major,
+        role: role,
       );
       notifyListeners();
     } catch (e) {

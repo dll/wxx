@@ -22,7 +22,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       final p = context.read<StudentFeatureProvider>();
       p.fetchPersonalProfile();
       p.fetchDigitalTwin();
-      p.fetchAvatar(displayName: Storage.displayName ?? '同学');
+      p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
     });
   }
 
@@ -37,7 +37,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           final p = context.read<StudentFeatureProvider>();
           await p.fetchPersonalProfile();
           await p.fetchDigitalTwin();
-          await p.fetchAvatar(displayName: Storage.displayName ?? '同学');
+          await p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
         },
         child: provider.profileLoading && provider.personalProfile == null
             ? const Center(child: CircularProgressIndicator())
