@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 验证学科专业智能体
+      - name: SSH 验证学科专业问答
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -16,10 +16,11 @@ jobs:
             echo "DIAG_BEGIN"
             RESP=$(curl -s localhost:8080/api/v1/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"student1","password":"wxx123456"}')
             TOKEN=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('data',{}).get('token',''))" 2>/dev/null)
-            echo "login token: ${#TOKEN} chars"
-            echo "--- 学科专业问题问答 ---"
-            curl -s "localhost:8080/api/v1/chat?message=%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%B8%93%E4%B8%9A%E7%9A%84%E5%9F%B9%E5%85%BB%E6%96%B9%E6%A1%88" -H "Authorization: Bearer $TOKEN" | head -c 300
+            echo "token: ${#TOKEN}"
+            echo "--- 学科专业问答 ---"
+            curl -s -X POST "localhost:8080/api/v1/chat" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"message":"计算机科学与技术专业的培养方案是什么"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print('code:',d.get('code'));print('content:',str(d.get('data',{}).get('answer',d.get('data',{}).get('content','')))[:200])" 2>/dev/null
             echo ""
-            echo "--- 学科专业资源是否入库 ---"
-            curl -s "localhost:8080/api/v1/kb/list?resource_type=FAQ&keyword=%E8%AE%A1%E7%AE%97%E6%9C%BA" -H "Authorization: Bearer $TOKEN" | head -c 300
+            echo "--- 学科专业资源入库检查 ---"
+            curl -s "localhost:8080/api/v1/process/definitions" -H "Authorization: Bearer $TOKEN" | head -c 100
+            echo ""
             echo "DIAG_END"
