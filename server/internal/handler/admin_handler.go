@@ -27,6 +27,18 @@ func NewAdminHandler(adminSvc *service.AdminService, authSvc *service.AuthServic
 	return &AdminHandler{adminSvc: adminSvc, authSvc: authSvc}
 }
 
+// GetPublicFeatureSwitches 公开功能开关（登录用户可读）
+// GET /api/v1/public/feature-switches
+// 返回管理员配置的全局功能开关（feature.* 前缀），用于前端控制模块显示。
+func (h *AdminHandler) GetPublicFeatureSwitches(c *gin.Context) {
+	switches, err := h.adminSvc.GetFeatureSwitches()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "获取功能开关失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": switches})
+}
+
 // GetMetrics 质量看板 GET /api/v1/admin/metrics
 func (h *AdminHandler) GetMetrics(c *gin.Context) {
 	metrics, err := h.adminSvc.GetMetrics()

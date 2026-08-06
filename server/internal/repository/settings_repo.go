@@ -49,3 +49,21 @@ func (r *SettingsRepo) Upsert(key, value, updatedBy string) error {
 	)
 	return err
 }
+
+// GetByPrefix 获取指定前缀的配置项（如 feature.）
+func (r *SettingsRepo) GetByPrefix(prefix string) (map[string]string, error) {
+	rows, err := r.db.Query(`SELECT key, value FROM system_settings WHERE key LIKE ?`, prefix+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := map[string]string{}
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err == nil {
+			result[k] = v
+		}
+	}
+	return result, rows.Err()
+}

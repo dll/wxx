@@ -918,6 +918,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.POST("/users/batch/delete", auth.RequireCapability(auth.SchoolUserUpdate), adminH.BatchDelete)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), adminH.UpdateSettings)
+				// 公开功能开关：登录用户可读（管理员在 /admin/settings 里改 feature.* 键）
+				secured.GET("/public/feature-switches", adminH.GetPublicFeatureSwitches)
 
 				// 应用版本管理（sys_admin）
 				admin.GET("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.ListVersions)

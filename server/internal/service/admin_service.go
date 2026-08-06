@@ -267,6 +267,16 @@ func (s *AdminService) GetSettings() ([]*model.SystemSetting, error) {
 	return s.settingsRepo.GetAll()
 }
 
+// GetFeatureSwitches 获取全部功能开关（feature.* 前缀）
+func (s *AdminService) GetFeatureSwitches() (map[string]string, error) {
+	return s.settingsRepo.GetByPrefix("feature.")
+}
+
+// UpdateFeatureSwitch 更新单个功能开关
+func (s *AdminService) UpdateFeatureSwitch(key, value, updatedBy string) error {
+	return s.settingsRepo.Upsert(key, value, updatedBy)
+}
+
 // UpdateSettings 批量更新系统配置
 func (s *AdminService) UpdateSettings(settings map[string]string, updatedBy string) error {
 	for key, value := range settings {
