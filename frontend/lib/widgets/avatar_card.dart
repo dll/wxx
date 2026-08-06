@@ -17,8 +17,9 @@ class AvatarCard extends StatefulWidget {
 }
 
 class _AvatarCardState extends State<AvatarCard>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller;
+  bool _visible = true;
 
   AvatarConfig get config => widget.config;
 
@@ -30,12 +31,27 @@ class _AvatarCardState extends State<AvatarCard>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat();
+    // 监听应用生命周期：页面不可见时暂停动画，减少持续重绘
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final visible = state == AppLifecycleState.resumed;
+    if (visible == _visible) return;
+    _visible = visible;
+    if (visible) {
+      _controller.repeat();
+    } else {
+      _controller.stop();
+    }
   }
 
   @override

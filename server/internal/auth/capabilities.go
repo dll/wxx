@@ -36,6 +36,7 @@ const (
 	SelfPrivateChat     Capability = "self.private_chat"     // 站内私聊
 	SelfProcessRead     Capability = "self.process.read"     // 流程办理增强查看
 	SelfEmotionStats    Capability = "self.emotion.stats"    // 自身情感统计
+	SelfEmotionConsent  Capability = "self.emotion.consent"  // 情感分析独立授权（区别于通用 consent）
 	SelfTokenStats      Capability = "self.token.stats"      // 词元统计
 
 	// 校园文化（全员可见，骨架阶段直接归到 self.* 基线）
@@ -195,7 +196,7 @@ var roles = map[string]*roleNode{
 			SelfExportSelf, SelfAchievements, SelfCourseMapRead,
 			SelfCourseAnalytics, SelfWeeklyReport, SelfGenericAI,
 			SelfCommunityRead, SelfPrivateChat, SelfProcessRead,
-			SelfEmotionStats,
+			SelfEmotionStats, SelfEmotionConsent,
 			SelfTokenStats,
 			// 校园文化（全员）
 			SelfCultureAnthem, SelfCultureRadio, SelfCultureLectures,

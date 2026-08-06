@@ -41,3 +41,20 @@ www.wxx-agent.online {
 		format json
 	}
 }
+
+# IP 直连站点块：域名备案通过前，用户可通过 IP 直接访问。
+# 注意：HTTPS 证书 CN 绑定域名，IP 直连走 HTTP（或浏览器忽略证书告警）。
+# 域名备案通过后此块可移除。
+http://129.211.223.113 {
+	# API 反向代理：IP 直连时 /api/* 正确路由到 Go 后端（修复"无登录服务"）
+	handle /api/* {
+		reverse_proxy localhost:8080
+	}
+
+	# 其余请求服务静态文件
+	handle {
+		root * /opt/wxx/frontend/web
+		try_files {path} /index.html
+		encode zstd gzip
+	}
+}

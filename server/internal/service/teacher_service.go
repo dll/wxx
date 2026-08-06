@@ -1,3 +1,5 @@
+// TODO(DPV4F-N2): 本文件 LessonPlan/ExamPaper/Grading 在真实数据未配置时返回
+// fallback 演示数据（DataSource="fallback"）。接入真实备课/题库/批改数据后移除。
 package service
 
 import (

@@ -170,9 +170,9 @@ func Load() *Config {
 		TemporalNamespace: envOr("TEMPORAL_NAMESPACE", "wxx"),
 		TemporalTaskQueue: envOr("TEMPORAL_TASK_QUEUE", "wxx-critical"),
 
-		// LLM 配额
-		DailyChatQuotaPerUser:   envIntOr("DAILY_CHAT_QUOTA_PER_USER", 200),
-		MonthlyChatQuotaPerUser: envIntOr("MONTHLY_CHAT_QUOTA_PER_USER", 3000),
+		// LLM 配额（默认对齐文档 9.4：学生日 20 次）
+		DailyChatQuotaPerUser:   envIntOr("DAILY_CHAT_QUOTA_PER_USER", 20),
+		MonthlyChatQuotaPerUser: envIntOr("MONTHLY_CHAT_QUOTA_PER_USER", 300),
 
 		// CORS
 		CORSAllowedOrigins: envOr("CORS_ALLOWED_ORIGINS", "*"),

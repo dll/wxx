@@ -126,15 +126,26 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	graduationService := service.NewGraduationService(graduationRepo)
 	studentFeaturesService := service.NewStudentFeaturesService(studentFeaturesRepo)
 
-	// LLM 客户端（优先 DeepSeek，备选智谱）
+	// LLM 客户端（主模型 DeepSeek / 智谱，带 8s 超时 + 双模型失败切换）
 	var llmClient llm.ChatClient
+	var deepSeekClient llm.ChatClient
+	var zhipuClient llm.ChatClient
 	if cfg.DeepSeekAPIKey != "" {
-		llmClient = llm.NewDeepSeekClient(cfg)
-		log.Println("LLM 客户端: DeepSeek")
-	} else if cfg.ZhipuAPIKey != "" {
-		llmClient = llm.NewZhipuClient(cfg)
-		log.Println("LLM 客户端: 智谱清言")
-	} else {
+		deepSeekClient = llm.NewDeepSeekClient(cfg)
+		log.Println("LLM 主模型: DeepSeek")
+	}
+	if cfg.ZhipuAPIKey != "" {
+		zhipuClient = llm.NewZhipuClient(cfg)
+		log.Println("LLM 备选模型: 智谱清言")
+	}
+	switch {
+	case deepSeekClient != nil && zhipuClient != nil:
+		llmClient = llm.NewFailoverClient(deepSeekClient, zhipuClient, 0)
+	case deepSeekClient != nil:
+		llmClient = deepSeekClient
+	case zhipuClient != nil:
+		llmClient = zhipuClient
+	default:
 		log.Println("警告：未配置任何 LLM API Key，问答功能不可用")
 	}
 
@@ -726,8 +737,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			// ── 情感数据 ──
 			if emotionH != nil {
-				// 自身情感统计：所有用户都可看自己（self.emotion.stats 由 student 起继承）
-				secured.GET("/emotion/stats", auth.RequireCapability(auth.SelfEmotionStats), emotionH.GetStats)
+				// 自身情感统计：所有用户都可看自己。
+				// 独立授权语义：需同时拥有 self.emotion.consent（独立于通用隐私 consent）
+				secured.GET("/emotion/stats", auth.RequireAnyCapability(auth.SelfEmotionStats, auth.SelfEmotionConsent), emotionH.GetStats)
 			}
 
 			if emotionH != nil {

@@ -1,6 +1,10 @@
 // Package context_engine 知识检索管道（Context Engine）。
 // 核心流程：意图分类 → 结构化查询 → FTS/BM25 检索 → 来源加权重排 → 上下文拼装 → 来源附加。
 // 暴露统一的 Query 接口供 service 层调用，handler 禁止直接使用。
+//
+// ⚠️ 实验性/未接线：本包当前为独立实现，尚未接入生产问答链路。
+// 生产链路走 agent/major_agent.go + kbRepo.Search（结构化优先 + FTS）。
+// 如需启用结构化召回升级，将本包 Query 接入 chat_service 即可。
 package context_engine
 
 import (
