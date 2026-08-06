@@ -596,16 +596,16 @@ func (h *StudentFeaturesHandler) AdminListCompetitions(c *gin.Context) {
 // POST /api/v1/competition/admin
 func (h *StudentFeaturesHandler) AdminCreateCompetition(c *gin.Context) {
 	var req struct {
-		Name             string `json:"name"`
-		Level            string `json:"level"`
-		Category         string `json:"category"`
-		Organizer        string `json:"organizer"`
-		Description      string `json:"description"`
-		Requirements     string `json:"requirements"`
+		Name              string `json:"name"`
+		Level             string `json:"level"`
+		Category          string `json:"category"`
+		Organizer         string `json:"organizer"`
+		Description       string `json:"description"`
+		Requirements      string `json:"requirements"`
 		RegistrationStart string `json:"registration_start"`
-		RegistrationEnd  string `json:"registration_end"`
-		CompetitionDate  string `json:"competition_date"`
-		Status           string `json:"status"`
+		RegistrationEnd   string `json:"registration_end"`
+		CompetitionDate   string `json:"competition_date"`
+		Status            string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数校验失败"})

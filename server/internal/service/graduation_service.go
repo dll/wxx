@@ -119,4 +119,3 @@ func (s *GraduationService) UpdateTopic(id int64, fields map[string]interface{})
 func (s *GraduationService) DeleteTopic(id int64) error {
 	return s.graduationRepo.DeleteTopic(id)
 }
-
