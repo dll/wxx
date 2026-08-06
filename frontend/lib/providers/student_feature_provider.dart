@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/avatar_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
@@ -212,6 +213,44 @@ class StudentFeatureProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _loading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 数字人形象（AvatarConfig） ──
+  AvatarConfig? _avatar;
+  AvatarConfig? get avatar => _avatar;
+
+  /// 并发拉取五维孪生 + 性格，聚合出数字人形象配置
+  Future<void> fetchAvatar({String displayName = '同学', String major = ''}) async {
+    try {
+      final results = await Future.wait([
+        _api.get(ApiConfig.digitalTwin),
+        _api.get(ApiConfig.personalityInsight),
+      ]);
+      Map<String, dynamic>? twinJson;
+      Map<String, dynamic>? personalityJson;
+      for (final res in results) {
+        if (res.statusCode != 200 || res.data == null) continue;
+        final data = res.data is Map ? (res.data['data'] ?? res.data) : null;
+        if (data is Map<String, dynamic>) {
+          // 区分孪生（含 dimensions）与人格（含 big_five / type）
+          if (data.containsKey('dimensions')) {
+            twinJson = data;
+          } else {
+            personalityJson = data;
+          }
+        }
+      }
+      _avatar = AvatarConfig.fromData(
+        twinJson: twinJson,
+        personalityJson: personalityJson,
+        displayName: displayName,
+        major: major,
+      );
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
       notifyListeners();
     }
   }

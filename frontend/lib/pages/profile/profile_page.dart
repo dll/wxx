@@ -163,6 +163,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
         const SizedBox(height: 16),
 
+        // 数字人形象显示开关（可系统设置）
+        _buildAvatarToggle(context),
+
+        const SizedBox(height: 16),
+
         _buildFeatureTabs(context, profile?.role),
 
         const SizedBox(height: 16),
@@ -897,6 +902,39 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 数字人形象显示开关
+  Widget _buildAvatarToggle(BuildContext context) {
+    final theme = Theme.of(context);
+    final show = Storage.showAvatar;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: SwitchListTile(
+        secondary: Icon(
+          Icons.person_pin_circle_outlined,
+          color: show
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        title: const Text('数字人形象'),
+        subtitle: Text(show ? '首页与数字孪生展示个性化卡通形象' : '已隐藏数字人形象'),
+        value: show,
+        onChanged: (v) async {
+          await Storage.setShowAvatar(v);
+          if (context.mounted) {
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(v ? '数字人形象已开启' : '数字人形象已隐藏')),
+            );
+          }
+        },
       ),
     );
   }

@@ -1,7 +1,10 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
+import '../../utils/storage.dart';
+import '../../widgets/avatar_card.dart';
 import '../../widgets/error_view.dart';
 
 class DigitalTwinPage extends StatefulWidget {
@@ -15,7 +18,11 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<StudentFeatureProvider>().fetchDigitalTwin();
+      final provider = context.read<StudentFeatureProvider>();
+      provider.fetchDigitalTwin();
+      provider.fetchAvatar(
+        displayName: Storage.displayName ?? '同学',
+      );
     });
   }
 
@@ -26,10 +33,14 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('数字孪生画像')),
       body: RefreshIndicator(
-        onRefresh: () => provider.fetchDigitalTwin(),
-        child: provider.loading
+        onRefresh: () async {
+          final p = context.read<StudentFeatureProvider>();
+          await p.fetchDigitalTwin();
+          await p.fetchAvatar(displayName: Storage.displayName ?? '同学');
+        },
+        child: provider.loading && provider.twin == null
             ? const Center(child: CircularProgressIndicator())
-            : provider.error.isNotEmpty
+            : provider.error.isNotEmpty && provider.twin == null
                 ? ErrorView.error(
                     message: provider.error,
                     onRetry: () => provider.fetchDigitalTwin())
@@ -44,90 +55,259 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (t.dimensions.isNotEmpty) ...[
-          Text('能力维度', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          // 五维雷达图
-          SizedBox(
-            height: 240,
-            child: _RadarChart(
-              dimensions: t.dimensions,
-              idealDimensions: t.idealDimensions,
-              color: theme.colorScheme.primary,
-              secondaryColor: theme.colorScheme.tertiary,
-            ),
-          ),
+        // 数字人形象卡片（可由系统设置显示/隐藏）
+        if (Storage.showAvatar) ...[
+          if (provider.avatar != null)
+            AvatarCard(
+              config: provider.avatar!,
+              height: 320,
+            )
+          else
+            _buildAvatarLoading(theme),
           const SizedBox(height: 16),
-          // 各维度详情
-          ...t.dimensions.map((d) {
-            final normalized = d.score > 1 ? d.score / 100.0 : d.score;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child:
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(d.name),
-                  Text(
-                    d.label.isNotEmpty
-                        ? d.label
-                        : '${(normalized * 100).toInt()}%',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ]),
-                const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: normalized.clamp(0.0, 1.0),
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainerHighest,
-                  color: normalized >= 0.8
-                      ? Colors.green
-                      : normalized >= 0.5
-                          ? Colors.orange
-                          : Colors.red,
-                ),
-              ]),
-            );
-          }),
         ],
-        if (t.aiSummary.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Card(
-            color: theme.colorScheme.primaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Icon(Icons.psychology,
-                          color: theme.colorScheme.onPrimaryContainer),
-                      const SizedBox(width: 8),
-                      Text('AI 分析', style: theme.textTheme.titleSmall),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(t.aiSummary),
-                  ]),
-            ),
-          ),
-        ],
-        if (t.suggestions.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('成长建议', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...t.suggestions.asMap().entries.map(
-                (e) => Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor:
-                          theme.colorScheme.secondaryContainer,
-                      child: Text('${e.key + 1}'),
-                    ),
-                    title: Text(e.value),
-                  ),
+
+        // 信息概览：综合分 + 姓名 + 专业
+        _buildOverviewCard(theme, t, provider),
+
+        const SizedBox(height: 16),
+
+        // 能力维度 Tab 区
+        if (t.dimensions.isNotEmpty)
+          _buildTabsSection(theme, provider),
+      ],
+    );
+  }
+
+  /// 数字人加载占位
+  Widget _buildAvatarLoading(ThemeData theme) {
+    return Container(
+      height: 320,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  /// 综合概览卡片
+  Widget _buildOverviewCard(
+      ThemeData theme, dynamic t, StudentFeatureProvider provider) {
+    // 综合分：五维加权（后端顺序：学业/能力/思想/情感/社交，权重 0.30/0.25/0.15/0.15/0.15）
+    const weights = [0.30, 0.25, 0.15, 0.15, 0.15];
+    final dims = (t.dimensions as List);
+    double overall = 0;
+    for (int i = 0; i < dims.length && i < weights.length; i++) {
+      final d = dims[i];
+      final s = (d.score as num).toDouble();
+      overall += (s > 1 ? s / 100.0 : s) * weights[i];
+    }
+    overall *= 100;
+    final label = overall >= 80
+        ? '优秀'
+        : overall >= 60
+            ? '良好'
+            : '待提升';
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.tertiary,
+                  ],
                 ),
               ),
-        ],
-      ],
+              alignment: Alignment.center,
+              child: Text(
+                overall.toStringAsFixed(0),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '综合画像 · $label',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${Storage.displayName ?? '同学'} · ${Storage.role == 'student_union' ? '学生会' : '学生'}',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '点击下方雷达图查看各维度详情，数字人形象随数据自动变化',
+                    style: TextStyle(
+                      color: theme.colorScheme.outline,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Tab 区：雷达图 / AI 分析 / 成长建议
+  Widget _buildTabsSection(ThemeData theme, StudentFeatureProvider provider) {
+    final t = provider.twin!;
+    return DefaultTabController(
+      length: 3,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.radar, size: 20), text: '能力雷达'),
+                Tab(icon: Icon(Icons.psychology, size: 20), text: 'AI 分析'),
+                Tab(icon: Icon(Icons.lightbulb_outline, size: 20), text: '成长建议'),
+              ],
+            ),
+            SizedBox(
+              height: 380,
+              child: TabBarView(
+                children: [
+                  // 雷达图
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 240,
+                          child: _RadarChart(
+                            dimensions: t.dimensions,
+                            idealDimensions: t.idealDimensions,
+                            color: theme.colorScheme.primary,
+                            secondaryColor: theme.colorScheme.tertiary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // 各维度详情
+                        ...t.dimensions.map((d) {
+                          final normalized =
+                              d.score > 1 ? d.score / 100.0 : d.score;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(d.name),
+                                      Text(
+                                        d.label.isNotEmpty
+                                            ? d.label
+                                            : '${(normalized * 100).toInt()}%',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  LinearProgressIndicator(
+                                    value: normalized.clamp(0.0, 1.0),
+                                    backgroundColor: theme
+                                        .colorScheme.surfaceContainerHighest,
+                                    color: normalized >= 0.8
+                                        ? Colors.green
+                                        : normalized >= 0.5
+                                            ? Colors.orange
+                                            : Colors.red,
+                                  ),
+                                ]),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  // AI 分析
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: t.aiSummary.isNotEmpty
+                        ? Card(
+                            color: theme.colorScheme.primaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(children: [
+                                      Icon(Icons.psychology,
+                                          color: theme
+                                              .colorScheme.onPrimaryContainer),
+                                      const SizedBox(width: 8),
+                                      Text('AI 分析',
+                                          style: theme.textTheme.titleSmall),
+                                    ]),
+                                    const SizedBox(height: 8),
+                                    Text(t.aiSummary),
+                                  ]),
+                            ),
+                          )
+                        : const Center(child: Text('暂无 AI 分析')),
+                  ),
+                  // 成长建议
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: t.suggestions.isNotEmpty
+                        ? Column(
+                            children: t.suggestions.asMap().entries.map((e) {
+                              return Card(
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: theme
+                                        .colorScheme.secondaryContainer,
+                                    child: Text('${e.key + 1}'),
+                                  ),
+                                  title: Text(e.value),
+                                ),
+                              );
+                            }).toList(),
+                          )
+                        : const Center(child: Text('暂无成长建议')),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -211,7 +391,7 @@ class _RadarChartPainter extends CustomPainter {
       canvas.drawPath(
         path,
         Paint()
-          ..color = Colors.grey.withOpacity( 0.15)
+          ..color = Colors.grey.withOpacity(0.15)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1,
       );
@@ -226,7 +406,7 @@ class _RadarChartPainter extends CustomPainter {
         center,
         Offset(x, y),
         Paint()
-          ..color = Colors.grey.withOpacity( 0.3)
+          ..color = Colors.grey.withOpacity(0.3)
           ..strokeWidth = 1,
       );
     }
@@ -250,7 +430,7 @@ class _RadarChartPainter extends CustomPainter {
       canvas.drawPath(
         idealPath,
         Paint()
-          ..color = secondaryColor.withOpacity( 0.4)
+          ..color = secondaryColor.withOpacity(0.4)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
@@ -263,7 +443,7 @@ class _RadarChartPainter extends CustomPainter {
           Offset(center.dx + vRadius * cos(angle),
               center.dy + vRadius * sin(angle)),
           3,
-          Paint()..color = secondaryColor.withOpacity( 0.6),
+          Paint()..color = secondaryColor.withOpacity(0.6),
         );
       }
     }
@@ -288,7 +468,7 @@ class _RadarChartPainter extends CustomPainter {
     canvas.drawPath(
       dataPath,
       Paint()
-        ..color = color.withOpacity( 0.2)
+        ..color = color.withOpacity(0.2)
         ..style = PaintingStyle.fill,
     );
 

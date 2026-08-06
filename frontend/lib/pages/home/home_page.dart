@@ -8,12 +8,14 @@ import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/student_feature_provider.dart';
 import '../../providers/update_provider.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../utils/date_utils.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
+import '../../widgets/avatar_card.dart';
 import '../../widgets/consent_dialog.dart';
 import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
@@ -103,9 +105,12 @@ class _HomePageState extends State<HomePage> {
     context.read<SessionProvider>().fetchSessions();
     // 加载未读通知数量
     context.read<NotificationProvider>().fetchUnreadCount();
-    // 学生角色加载个性化首页数据
+    // 学生角色加载个性化首页数据 + 数字人形象
     if (role == 'student' || role == 'student_union') {
       _loadStudentHome();
+      context
+          .read<StudentFeatureProvider>()
+          .fetchAvatar(displayName: Storage.displayName ?? '同学');
     }
   }
 
@@ -272,6 +277,11 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
             // 学生个性化首页
             if (isStudent && loggedIn) ...[
+              // 数字人形象卡片（可被系统设置隐藏）
+              if (Storage.showAvatar) ...[
+                _buildAvatarBanner(theme),
+                const SizedBox(height: 20),
+              ],
               _buildStudentHomeContent(theme),
               const SizedBox(height: 20),
             ],
@@ -1126,6 +1136,60 @@ class _HomePageState extends State<HomePage> {
   // ============================================================
   // 学生个性化首页
   // ============================================================
+
+  /// 首页数字人形象横幅（数据驱动、可隐藏）
+  Widget _buildAvatarBanner(ThemeData theme) {
+    final provider = context.watch<StudentFeatureProvider>();
+    final avatar = provider.avatar;
+    return GestureDetector(
+      onTap: () => context.go('/student/digital-twin'),
+      child: avatar != null
+          ? AvatarCard(
+              config: avatar,
+              height: 220,
+            )
+          : Container(
+              height: 220,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary.withOpacity(0.10),
+                    theme.colorScheme.tertiary.withOpacity(0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.2),
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_pin_circle,
+                        size: 40, color: theme.colorScheme.primary),
+                    const SizedBox(height: 8),
+                    Text(
+                      '我的数字画像',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '点击查看个性化数字人',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
 
   /// 学生首页主内容
   Widget _buildStudentHomeContent(ThemeData theme) {

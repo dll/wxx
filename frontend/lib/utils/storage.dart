@@ -14,6 +14,7 @@ class Storage {
   static const String _keyListedFeatures = 'listed_features';
   static const String _keyEnabledFeatures = 'enabled_features';
   static const String _keyGlobalFeatureSwitches = 'global_feature_switches';
+  static const String _keyShowAvatar = 'show_avatar';
 
   static late SharedPreferences _prefs;
 
@@ -100,4 +101,10 @@ class Storage {
   static String get themeMode => _prefs.getString(_keyThemeMode) ?? 'light';
   static Future<void> setThemeMode(String mode) =>
       _prefs.setString(_keyThemeMode, mode);
+
+  // ── 数字人形象显示开关 ──
+  /// 是否显示数字人形象（默认开启）
+  static bool get showAvatar => _prefs.getBool(_keyShowAvatar) ?? true;
+  static Future<void> setShowAvatar(bool v) =>
+      _prefs.setBool(_keyShowAvatar, v);
 }
