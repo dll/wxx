@@ -44,6 +44,24 @@ func TestRouter_Route_UnknownFallback(t *testing.T) {
 	}
 }
 
+func TestRouter_Route_MajorIntent(t *testing.T) {
+	r := NewRouter()
+	cases := []string{
+		"计算机科学与技术专业介绍",
+		"计算机学院的培养方案是什么",
+		"网络空间安全专业学什么课程",
+		"计算机专业可以参加什么学科竞赛",
+		"人工智能专业的前沿技术有哪些",
+		"软件工程专业就业方向",
+	}
+	for _, q := range cases {
+		agents := r.Route(q)
+		if !contains(agents, "major-guide") {
+			t.Errorf("问题「%s」应路由到 major-guide，实际: %v", q, agents)
+		}
+	}
+}
+
 func TestRouter_Route_MultiIntent(t *testing.T) {
 	r := NewRouter()
 	agents := r.Route("转专业的政策规定和办理流程")

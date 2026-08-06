@@ -34,6 +34,7 @@ func NewOrchestrator(kbRepo *repository.KBRepo, llmClient llm.ChatClient) *Orche
 	o.Register(NewQAAgent())
 	o.Register(NewPolicyAgent())
 	o.Register(NewProcessAgent())
+	o.Register(NewMajorAgent())
 	o.Register(NewEmotionAgent(llmClient))
 
 	return o

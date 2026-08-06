@@ -15,6 +15,7 @@ const (
 	IntentActivity               // 活动通知
 	IntentFAQ                    // 常见问答
 	IntentEmotion                // 心理/情感
+	IntentMajor                  // 学科专业介绍/培养方案/课程/竞赛/就业/前沿
 )
 
 // keyword 带权重的关键词
@@ -30,7 +31,8 @@ var intentPriority = map[Intent]int{
 	IntentProcess:  2,
 	IntentActivity: 3,
 	IntentEmotion:  4,
-	IntentFAQ:      5,
+	IntentMajor:    5,
+	IntentFAQ:      6,
 }
 
 // domainKeywords 业务域关键词映射（规则路由）
@@ -231,6 +233,43 @@ var domainKeywords = map[Intent][]keyword{
 		{word: "教室", weight: 1},
 		{word: "宣讲会", weight: 1},
 	},
+	IntentMajor: {
+		// 核心关键词（权重 3）
+		{word: "培养方案", weight: 3},
+		{word: "专业介绍", weight: 3},
+		{word: "学科介绍", weight: 3},
+		{word: "专业方向", weight: 3},
+		{word: "课程体系", weight: 3},
+		{word: "专业课程", weight: 3},
+		{word: "学科竞赛", weight: 3},
+		{word: "创新创业", weight: 3},
+		{word: "前沿技术", weight: 3},
+		{word: "核心技术", weight: 3},
+		{word: "人工智能", weight: 3},
+		{word: "大数据", weight: 3},
+		{word: "网络安全", weight: 3},
+		{word: "计算机科学", weight: 3},
+		{word: "软件工程", weight: 3},
+		{word: "网络空间安全", weight: 3},
+		{word: "计算机专业", weight: 3},
+		// 一般关键词（权重 1）
+		{word: "计算机学院", weight: 1},
+		{word: "学科建设", weight: 1},
+		{word: "就业方向", weight: 1},
+		{word: "职业发展", weight: 1},
+		{word: "毕业去向", weight: 1},
+		{word: "科研方向", weight: 1},
+		{word: "研究方向", weight: 1},
+		{word: "技术栈", weight: 1},
+		{word: "发展前景", weight: 1},
+		{word: "专业能力", weight: 1},
+		{word: "机器学习", weight: 1},
+		{word: "深度学习", weight: 1},
+		{word: "大模型", weight: 1},
+		{word: "云计算", weight: 1},
+		{word: "物联网", weight: 1},
+		{word: "区块链", weight: 1},
+	},
 }
 
 // Router 意图路由器
@@ -342,6 +381,8 @@ func intentToAgent(intent Intent) string {
 		return "qa-default" // 活动类暂由 QA 处理
 	case IntentEmotion:
 		return "emotion-counselor"
+	case IntentMajor:
+		return "major-guide"
 	case IntentFAQ:
 		return "qa-default"
 	default:
