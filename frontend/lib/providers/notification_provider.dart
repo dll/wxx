@@ -210,4 +210,39 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> refresh() async {
     await fetchNotifications(type: _currentType, page: 1);
   }
+
+  // ── 管理员通知管理 ──
+
+  /// 管理员发送系统通知
+  Future<bool> sendSystemNotification(String title, String content,
+      {List<int>? targetUsers}) async {
+    try {
+      await _api.post(ApiConfig.adminNotificationSend, data: {
+        'title': title,
+        'content': content,
+        if (targetUsers != null && targetUsers.isNotEmpty)
+          'target_users': targetUsers,
+      });
+      return true;
+    } catch (e) {
+      _error = '发送通知失败: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// 管理员清空全部通知
+  Future<bool> clearAllNotifications() async {
+    try {
+      await _api.delete(ApiConfig.adminNotifications);
+      _items.clear();
+      _total = 0;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = '清空通知失败: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }

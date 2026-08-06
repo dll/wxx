@@ -252,6 +252,16 @@ func (s *AdminService) ListAudit(username, action, resource, startDate, endDate 
 	return logs, total, nil
 }
 
+// DeleteAudit 按条件清理审计日志，返回删除条数。
+func (s *AdminService) DeleteAudit(username, action, resource, startDate, endDate string) (int64, error) {
+	return s.auditRepo.Delete(username, action, resource, startDate, endDate)
+}
+
+// ClearAllAudit 清空全部审计日志。
+func (s *AdminService) ClearAllAudit() error {
+	return s.auditRepo.ClearAll()
+}
+
 // GetSettings 获取所有系统配置
 func (s *AdminService) GetSettings() ([]*model.SystemSetting, error) {
 	return s.settingsRepo.GetAll()

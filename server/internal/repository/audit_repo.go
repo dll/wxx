@@ -150,3 +150,40 @@ func (r *AuditRepo) TopActions(sinceDays, limit int) ([]ActionCount, error) {
 	}
 	return result, rows.Err()
 }
+
+// Delete 按条件删除审计日志（支持按时间范围/用户名/动作/资源过滤），返回删除条数。
+func (r *AuditRepo) Delete(username, action, resource, startDate, endDate string) (int64, error) {
+	query := `DELETE FROM audit_logs WHERE 1=1`
+	args := []interface{}{}
+	if username != "" {
+		query += ` AND username = ?`
+		args = append(args, username)
+	}
+	if action != "" {
+		query += ` AND action = ?`
+		args = append(args, action)
+	}
+	if resource != "" {
+		query += ` AND resource = ?`
+		args = append(args, resource)
+	}
+	if startDate != "" {
+		query += ` AND created_at >= ?`
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		query += ` AND created_at <= ?`
+		args = append(args, endDate)
+	}
+	res, err := r.db.Exec(query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// ClearAll 清空全部审计日志。
+func (r *AuditRepo) ClearAll() error {
+	_, err := r.db.Exec(`DELETE FROM audit_logs`)
+	return err
+}

@@ -434,6 +434,34 @@ func (h *AdminHandler) ListAudit(c *gin.Context) {
 	})
 }
 
+// DeleteAudit 清理审计日志 DELETE /api/v1/admin/audit
+// 支持按 username/action/resource/start_date/end_date 过滤；不带参数则清空全部。
+func (h *AdminHandler) DeleteAudit(c *gin.Context) {
+	username := c.Query("username")
+	action := c.Query("action")
+	resource := c.Query("resource")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	var n int64
+	var err error
+	if username == "" && action == "" && resource == "" && startDate == "" && endDate == "" {
+		// 无过滤条件 → 清空全部（需明确二次确认由前端承担）
+		err = h.adminSvc.ClearAllAudit()
+	} else {
+		n, err = h.adminSvc.DeleteAudit(username, action, resource, startDate, endDate)
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "清理审计日志失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": n})
+}
+
 // GetSettings 获取系统配置 GET /api/v1/admin/settings
 func (h *AdminHandler) GetSettings(c *gin.Context) {
 	settings, err := h.adminSvc.GetSettings()

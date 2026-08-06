@@ -374,6 +374,10 @@ class ApiConfig {
       '$apiPrefix/notifications/read-all';
   static const String adminNotificationSend =
       '$apiPrefix/admin/notifications/send';
+  static const String adminNotifications =
+      '$apiPrefix/admin/notifications';
+  static const String adminNotificationList =
+      '$apiPrefix/admin/notifications/list';
 
   // ── 校园报到步骤 ──
   static const String campusSteps = '$apiPrefix/campus/steps';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../utils/capability_utils.dart';
 import '../../widgets/error_view.dart';
 
 /// 通知页面
@@ -101,6 +102,83 @@ class _NotificationPageState extends State<NotificationPage>
     }
   }
 
+  /// 管理员发送系统通知
+  Future<void> _showSendDialog(BuildContext context) async {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('发送系统通知'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(
+                  labelText: '通知标题', hintText: '如：新生报到须知'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                  labelText: '通知内容', hintText: '通知详情...'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              final content = contentCtrl.text.trim();
+              if (title.isEmpty || content.isEmpty) return;
+              Navigator.pop(ctx);
+              final ok = await context
+                  .read<NotificationProvider>()
+                  .sendSystemNotification(title, content);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(ok ? '通知已发送' : '发送失败')),
+                );
+              }
+            },
+            child: const Text('发送'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 管理员清空全部通知
+  Future<void> _confirmClear(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('清空通知'),
+        content: const Text('确定清空全部通知吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('清空')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final success =
+        await context.read<NotificationProvider>().clearAllNotifications();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? '通知已清空' : '清空失败')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -110,6 +188,18 @@ class _NotificationPageState extends State<NotificationPage>
       appBar: AppBar(
         title: const Text('通知中心'),
         actions: [
+          if (CapabilityUtils.has(Capability.systemSettingsWrite)) ...[
+            IconButton(
+              tooltip: '发送通知',
+              icon: const Icon(Icons.send_outlined),
+              onPressed: () => _showSendDialog(context),
+            ),
+            IconButton(
+              tooltip: '清空通知',
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: () => _confirmClear(context),
+            ),
+          ],
           if (provider.unreadCount > 0)
             TextButton.icon(
               onPressed: _markAllAsRead,

@@ -41,7 +41,16 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('审计日志')),
+      appBar: AppBar(
+        title: const Text('审计日志'),
+        actions: [
+          IconButton(
+            tooltip: '清空审计日志',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: () => _confirmClear(context),
+          ),
+        ],
+      ),
       body: Consumer<AdminProvider>(
         builder: (_, provider, __) {
           if (provider.auditLoading && provider.auditLogs.isEmpty) {
@@ -76,6 +85,33 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           );
         },
       ),
+    );
+  }
+
+  /// 确认并清空全部审计日志
+  Future<void> _confirmClear(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('清空审计日志'),
+        content: const Text('确定清空全部审计日志吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('清空')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!mounted) return;
+    final success =
+        await context.read<AdminProvider>().clearAuditLogs();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(success ? '审计日志已清空' : '清空失败，请稍后重试')),
     );
   }
 }

@@ -460,6 +460,23 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  // ── 审计日志清理 ──
+
+  Future<bool> clearAuditLogs() async {
+    try {
+      await _api.delete(ApiConfig.adminAudit);
+      _auditLogs.clear();
+      _auditTotal = 0;
+      _auditPage = 1;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = '清理审计日志失败: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── 系统配置 ──
 
   Future<void> fetchSettings() async {

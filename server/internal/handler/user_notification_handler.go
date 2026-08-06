@@ -297,5 +297,76 @@ func (h *UserNotificationHandler) SendSystemNotification(c *gin.Context) {
 	})
 }
 
+// AdminListNotifications 管理端查看全部通知（供管理页使用）
+// GET /api/v1/admin/notifications/list?page=1&page_size=20&type=system
+func (h *UserNotificationHandler) AdminListNotifications(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	nType := c.Query("type")
+	offset := (page - 1) * pageSize
+
+	query := `SELECT id, user_id, title, content, type, related_type, related_id, is_read, created_at
+	          FROM user_notifications WHERE 1=1`
+	args := []interface{}{}
+	if nType != "" {
+		query += ` AND type = ?`
+		args = append(args, nType)
+	}
+	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	args = append(args, pageSize, offset)
+
+	rows, err := h.db.Query(query, args...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询通知列表失败"})
+		return
+	}
+	defer rows.Close()
+
+	var list []UserNotification
+	for rows.Next() {
+		var n UserNotification
+		if err := rows.Scan(&n.ID, &n.UserID, &n.Title, &n.Content, &n.Type, &n.RelatedType, &n.RelatedID, &n.IsRead, &n.CreatedAt); err == nil {
+			list = append(list, n)
+		}
+	}
+
+	var total int
+	_ = h.db.QueryRow(`SELECT COUNT(*) FROM user_notifications WHERE 1=1`).Scan(&total)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success", "data": list,
+		"total": total, "page": page, "page_size": pageSize,
+	})
+}
+
+// AdminDeleteNotification 删除一条通知（管理端）
+// DELETE /api/v1/admin/notifications/:id
+func (h *UserNotificationHandler) AdminDeleteNotification(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "无效的通知ID"})
+		return
+	}
+	res, err := h.db.Exec(`DELETE FROM user_notifications WHERE id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除通知失败"})
+		return
+	}
+	affected, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": affected})
+}
+
+// AdminClearNotifications 清空全部通知（管理端）
+// DELETE /api/v1/admin/notifications
+func (h *UserNotificationHandler) AdminClearNotifications(c *gin.Context) {
+	res, err := h.db.Exec(`DELETE FROM user_notifications`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "清空通知失败"})
+		return
+	}
+	affected, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": affected})
+}
+
 // 确保 auth 包被引用（用于权限中间件）
 var _ = auth.RequireCapability

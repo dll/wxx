@@ -906,6 +906,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), adminH.GetMetrics)
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsers)
 				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
+				admin.DELETE("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.DeleteAudit)
 
 				admin.PUT("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.UpdateUser)
 				admin.DELETE("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.DeleteUser)
@@ -1119,6 +1120,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			// ── 管理员发送系统通知 ──
 			secured.POST("/admin/notifications/send", auth.RequireCapability(auth.SystemSettingsWrite), userNotificationH.SendSystemNotification)
+
+			// ── 管理员站内通知管理（查看/删除/清空） ──
+			secured.GET("/admin/notifications/list", auth.RequireCapability(auth.SystemSettingsWrite), userNotificationH.AdminListNotifications)
+			secured.DELETE("/admin/notifications/:id", auth.RequireCapability(auth.SystemSettingsWrite), userNotificationH.AdminDeleteNotification)
+			secured.DELETE("/admin/notifications", auth.RequireCapability(auth.SystemSettingsWrite), userNotificationH.AdminClearNotifications)
 
 			// ── 文档解析 ──
 			secured.POST("/documents/parse", auth.RequireAnyCapability(auth.UnionKBSubmit, auth.CounselorKBWrite), documentH.ParseDocument)
