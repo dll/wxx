@@ -156,15 +156,15 @@ class _NotificationPageState extends State<NotificationPage>
   Future<void> _confirmClear(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('清空通知'),
         content: const Text('确定清空全部通知吗？此操作不可恢复。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('取消')),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('清空')),
         ],
       ),
@@ -176,6 +176,10 @@ class _NotificationPageState extends State<NotificationPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(success ? '通知已清空' : '清空失败')),
       );
+      // 清空后重新拉取列表，保证 UI 与后端一致（避免残留缓存显示旧数据）
+      if (success) {
+        await context.read<NotificationProvider>().refresh();
+      }
     }
   }
 

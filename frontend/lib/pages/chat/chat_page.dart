@@ -3,6 +3,7 @@ import '../../utils/web_export.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
@@ -608,7 +609,38 @@ class _ChatPageState extends State<ChatPage> {
                 bottomRight: Radius.circular(16),
               ),
             ),
-            child: Text(msg.content, style: const TextStyle(fontSize: 15)),
+            child: MarkdownBody(
+              data: msg.content,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(fontSize: 15, height: 1.6),
+                strong: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.bold, height: 1.6),
+                h1: theme.textTheme.titleLarge,
+                h2: theme.textTheme.titleMedium,
+                h3: theme.textTheme.titleSmall,
+                listBullet: const TextStyle(fontSize: 15, height: 1.6),
+                code: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  color: theme.colorScheme.onSurface,
+                ),
+                blockquoteDecoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                  border: Border(
+                    left: BorderSide(color: theme.colorScheme.primary, width: 3),
+                  ),
+                ),
+                tableBorder: TableBorder.all(
+                  color: theme.colorScheme.outlineVariant,
+                ),
+                a: TextStyle(
+                  color: theme.colorScheme.primary,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 16),

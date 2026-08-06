@@ -237,6 +237,8 @@ class NotificationProvider extends ChangeNotifier {
       await _api.delete(ApiConfig.adminNotifications);
       _items.clear();
       _total = 0;
+      _unreadCount = 0;
+      _error = '';
       notifyListeners();
       return true;
     } catch (e) {

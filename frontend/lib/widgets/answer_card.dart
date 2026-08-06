@@ -195,94 +195,65 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
     );
   }
 
-  /// 构建结论，支持引用标注
+  /// 构建结论，支持引用标注 + Markdown 渲染
+  /// 引用标注 [1] 转为 Markdown 链接 citation://N，由 MarkdownBody 渲染并可点击
   Widget _buildConclusionWithCitations(ThemeData theme) {
     final text = widget.card.conclusion;
     final pattern = RegExp(r'\[(?:资料)?(\d+)\]');
 
-    if (!pattern.hasMatch(text)) {
-      return MarkdownBody(
-        data: text,
-        selectable: true,
-        styleSheet: MarkdownStyleSheet(
-          p: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-          h1: theme.textTheme.titleLarge,
-          h2: theme.textTheme.titleMedium,
-          h3: theme.textTheme.titleSmall,
-          strong: const TextStyle(fontWeight: FontWeight.bold),
-          listBullet: theme.textTheme.bodyLarge,
-        ),
-      );
+    // 将引用标注转为 Markdown 链接（保持 Markdown 解析，不裸露语法符号）
+    String toMarkdown(String t) {
+      return t.replaceAllMapped(pattern, (m) {
+        final numStr = m.group(1)!;
+        final idx = int.tryParse(numStr);
+        if (idx != null && idx >= 1 && idx <= widget.card.sources.length) {
+          return '[$numStr](citation://$idx)';
+        }
+        return m.group(0)!;
+      });
     }
 
-    return _buildCitationRichText(text, theme);
-  }
-
-  /// 构建带引用标注的富文本
-  Widget _buildCitationRichText(String text, ThemeData theme) {
-    final pattern = RegExp(r'\[(?:资料)?(\d+)\]');
-    final spans = <InlineSpan>[];
-    int lastIndex = 0;
-
-    for (final match in pattern.allMatches(text)) {
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: text.substring(lastIndex, match.start),
-          style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-        ));
-      }
-
-      final numStr = match.group(1)!;
-      final sourceIndex = int.tryParse(numStr);
-
-      if (sourceIndex != null &&
-          sourceIndex >= 1 &&
-          sourceIndex <= widget.card.sources.length) {
-        final idx = sourceIndex - 1;
-        final source = widget.card.sources[idx];
-        spans.add(WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: InkWell(
-            onTap: () => _handleCitationTap(idx),
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: source.typeColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: source.typeColor.withOpacity(0.3)),
-              ),
-              child: Text(
-                '[$numStr]',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: source.typeColor,
-                ),
-              ),
+    return MarkdownBody(
+      data: toMarkdown(text),
+      selectable: true,
+      onTapLink: (text, href, title) {
+        if (href != null && href.startsWith('citation://')) {
+          final idx = int.tryParse(href.substring('citation://'.length));
+          if (idx != null && idx >= 1 && idx <= widget.card.sources.length) {
+            _handleCitationTap(idx - 1);
+          }
+        }
+      },
+      styleSheet: MarkdownStyleSheet(
+        p: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
+        h1: theme.textTheme.titleLarge,
+        h2: theme.textTheme.titleMedium,
+        h3: theme.textTheme.titleSmall,
+        strong: const TextStyle(fontWeight: FontWeight.bold),
+        listBullet: theme.textTheme.bodyLarge,
+        blockquoteDecoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+          border: Border(
+            left: BorderSide(
+              color: theme.colorScheme.primary,
+              width: 3,
             ),
           ),
-        ));
-      } else {
-        spans.add(TextSpan(
-          text: match.group(0)!,
-          style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-        ));
-      }
-
-      lastIndex = match.end;
-    }
-
-    if (lastIndex < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastIndex),
-        style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-      ));
-    }
-
-    return SelectableText.rich(
-      TextSpan(children: spans),
+        ),
+        code: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          color: theme.colorScheme.onSurface,
+        ),
+        tableBorder: TableBorder.all(
+          color: theme.colorScheme.outlineVariant,
+        ),
+        a: TextStyle(
+          color: theme.colorScheme.primary,
+          decoration: TextDecoration.none,
+        ),
+      ),
     );
   }
 
