@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - AI 备课助手
 class LessonPrepPage extends StatefulWidget {
@@ -63,17 +64,17 @@ class _LessonPrepPageState extends State<LessonPrepPage> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(provider.lessonPlan!.topic, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text('目标：${provider.lessonPlan!.outline}', style: theme.textTheme.bodyMedium),
+                  MdText('目标：${provider.lessonPlan!.outline}', style: theme.textTheme.bodyMedium),
                   const Divider(height: 24),
                   Text('重点难点', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
-                  ...provider.lessonPlan!.keyPoints.map((k) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [const Icon(Icons.circle, size: 6), const SizedBox(width: 8), Expanded(child: Text(k))]))),
+                  ...provider.lessonPlan!.keyPoints.map((k) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [const Icon(Icons.circle, size: 6), const SizedBox(width: 8), Expanded(child: MdText(k))]))),
                   const Divider(height: 24),
                   Text('教学策略', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
                   ...provider.lessonPlan!.strategies.map((a) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(children: [const Icon(Icons.check_circle_outline, size: 16), const SizedBox(width: 8), Expanded(child: Text(a))]),
+                    child: Row(children: [const Icon(Icons.check_circle_outline, size: 16), const SizedBox(width: 8), Expanded(child: MdText(a))]),
                   )),
                 ]),
               ),

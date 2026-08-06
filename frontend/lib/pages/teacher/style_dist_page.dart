@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - 学生学习风格分布
 class StyleDistPage extends StatefulWidget {
@@ -78,7 +79,7 @@ class _StyleDistPageState extends State<StyleDistPage> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         const Text('•  '),
-                        Expanded(child: Text(s, style: theme.textTheme.bodyMedium)),
+                        Expanded(child: MdText(s, style: theme.textTheme.bodyMedium)),
                       ]),
                     )),
               ],

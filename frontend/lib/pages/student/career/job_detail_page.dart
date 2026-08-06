@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/education_provider.dart';
 import '../../../widgets/error_view.dart';
+import '../../../widgets/md_text.dart';
 
 class JobDetailPage extends StatefulWidget {
   final String jobId;
@@ -132,7 +133,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(description, style: theme.textTheme.bodyMedium),
+                child: MdText(description, style: theme.textTheme.bodyMedium),
               ),
             ),
             const SizedBox(height: 16),
@@ -143,7 +144,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(requirements, style: theme.textTheme.bodyMedium),
+                child: MdText(requirements, style: theme.textTheme.bodyMedium),
               ),
             ),
             const SizedBox(height: 16),
@@ -154,7 +155,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(benefits, style: theme.textTheme.bodyMedium),
+                child: MdText(benefits, style: theme.textTheme.bodyMedium),
               ),
             ),
             const SizedBox(height: 24),

@@ -8,6 +8,7 @@ import '../../providers/knowledge_provider.dart';
 import '../../utils/capability_utils.dart';
 import '../../utils/web_export.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 /// 知识治理页面（增强版）
 /// 功能：搜索、多条件筛选、批量选择、批量操作、统计、预览、编辑
@@ -826,7 +827,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (full.summary.isNotEmpty) ...[
-                Text(full.summary,
+                MdText(full.summary,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         )),
@@ -834,7 +835,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
               ],
               Expanded(
                 child: SingleChildScrollView(
-                  child: SelectableText(
+                  child: MdText(
                       full.content.isEmpty ? full.summary : full.content),
                 ),
               ),

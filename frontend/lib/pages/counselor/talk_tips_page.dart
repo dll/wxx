@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 谈话话术推荐
 class TalkTipsPage extends StatefulWidget {
@@ -69,7 +70,7 @@ class _TalkTipsPageState extends State<TalkTipsPage> {
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: CircleAvatar(radius: 14, child: Text('${e.key + 1}', style: const TextStyle(fontSize: 12))),
-                title: Text(e.value, style: theme.textTheme.bodyMedium),
+                title: MdText(e.value, style: theme.textTheme.bodyMedium),
               ),
             )),
           ],

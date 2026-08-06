@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - AI 考试出题
 class ExamGenPage extends StatefulWidget {
@@ -77,7 +78,7 @@ class _ExamGenPageState extends State<ExamGenPage> {
                     Text('生成结果', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
                   const SizedBox(height: 12),
-                  Text(provider.examPaper!['content'] ?? '试卷内容加载中...', style: theme.textTheme.bodyMedium),
+                  MdText(provider.examPaper!['content'] ?? '试卷内容加载中...', style: theme.textTheme.bodyMedium),
                 ]),
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/process_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 import 'process_document.dart';
 
 class ProcessReviewPage extends StatefulWidget {
@@ -124,7 +125,7 @@ class _ProcessReviewPageState extends State<ProcessReviewPage> {
                 if (def.content.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   const Divider(),
-                  SelectableText(def.content),
+                  MdText(def.content),
                 ],
                 if (def.steps.isNotEmpty) ...[
                   const Divider(),

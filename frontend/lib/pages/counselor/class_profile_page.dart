@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 班级性格画像
 class ClassProfilePage extends StatefulWidget {
@@ -105,7 +106,7 @@ class _ClassProfilePageState extends State<ClassProfilePage> {
                     backgroundColor: theme.colorScheme.secondaryContainer,
                     child: Text('${e.key + 1}'),
                   ),
-                  title: Text(e.value),
+                  title: MdText(e.value),
                 ),
               )),
         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 干预方案生成
 class InterventionPage extends StatefulWidget {
@@ -66,7 +67,7 @@ class _InterventionPageState extends State<InterventionPage> {
                     Text('干预方案', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
                   const SizedBox(height: 12),
-                  Text(provider.intervention!['plan'] ?? provider.intervention!['content'] ?? '方案生成中...', style: theme.textTheme.bodyMedium),
+                  MdText(provider.intervention!['plan'] ?? provider.intervention!['content'] ?? '方案生成中...', style: theme.textTheme.bodyMedium),
                 ]),
               ),
             ),

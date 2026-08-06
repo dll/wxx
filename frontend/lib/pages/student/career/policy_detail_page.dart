@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/education_provider.dart';
 import '../../../widgets/error_view.dart';
+import '../../../widgets/md_text.dart';
 
 class PolicyDetailPage extends StatefulWidget {
   final String policyId;
@@ -115,7 +116,7 @@ class _PolicyDetailPageState extends State<PolicyDetailPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: SelectableText(
+                child: MdText(
                   content,
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.8),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 class WeeklyReportPage extends StatefulWidget {
   const WeeklyReportPage({super.key});
@@ -71,7 +72,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...highlights.map((h) => ListTile(
             leading: const Icon(Icons.star, color: Colors.amber, size: 20),
-            title: Text(h), dense: true,
+            title: MdText(h), dense: true,
           )),
         ],
         if (improvements.isNotEmpty) ...[
@@ -80,7 +81,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...improvements.map((i) => ListTile(
             leading: const Icon(Icons.trending_up, color: Colors.orange, size: 20),
-            title: Text(i), dense: true,
+            title: MdText(i), dense: true,
           )),
         ],
         if (nextWeekGoals.isNotEmpty) ...[
@@ -89,7 +90,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
           const SizedBox(height: 8),
           ...nextWeekGoals.map((g) => ListTile(
             leading: const Icon(Icons.flag, color: Colors.green, size: 20),
-            title: Text(g), dense: true,
+            title: MdText(g), dense: true,
           )),
         ],
       ],

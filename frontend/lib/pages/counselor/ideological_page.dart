@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 学生思想档案
 class CounselorIdeologicalPage extends StatefulWidget {
@@ -48,7 +49,7 @@ class _CounselorIdeologicalPageState extends State<CounselorIdeologicalPage> {
                 Text('思想动态总览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(data['summary'] ?? '暂无总结', style: theme.textTheme.bodyMedium),
+              MdText(data['summary'] ?? '暂无总结', style: theme.textTheme.bodyMedium),
             ]),
           ),
         ),

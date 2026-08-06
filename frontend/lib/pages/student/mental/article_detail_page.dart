@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/education_provider.dart';
 import '../../../widgets/error_view.dart';
+import '../../../widgets/md_text.dart';
 
 class ArticleDetailPage extends StatefulWidget {
   final String articleId;
@@ -109,7 +110,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
-          SelectableText(
+          MdText(
             content,
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.8),
           ),

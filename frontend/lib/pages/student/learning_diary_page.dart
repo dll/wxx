@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 class LearningDiaryPage extends StatefulWidget {
   const LearningDiaryPage({super.key});
@@ -66,7 +67,7 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('• ', style: TextStyle(fontSize: 16)),
-              Expanded(child: Text(p)),
+              Expanded(child: MdText(p)),
             ]),
           )),
         ],
@@ -90,7 +91,7 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
                 )),
                 if (e.value.explanation.isNotEmpty) ...[
                   const Divider(),
-                  Text(e.value.explanation, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  MdText(e.value.explanation, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ],
               ]),
             ),
@@ -98,7 +99,7 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
         ],
         if (d.tomorrowPlan.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Card(child: ListTile(leading: const Icon(Icons.calendar_today), title: const Text('明日计划'), subtitle: Text(d.tomorrowPlan))),
+          Card(child: ListTile(leading: const Icon(Icons.calendar_today), title: const Text('明日计划'), subtitle: MdText(d.tomorrowPlan))),
         ],
         if (d.encouragement.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -106,7 +107,7 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
             color: theme.colorScheme.tertiaryContainer,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(children: [const Icon(Icons.emoji_events), const SizedBox(width: 8), Expanded(child: Text(d.encouragement))]),
+              child: Row(children: [const Icon(Icons.emoji_events), const SizedBox(width: 8), Expanded(child: MdText(d.encouragement))]),
             ),
           ),
         ],

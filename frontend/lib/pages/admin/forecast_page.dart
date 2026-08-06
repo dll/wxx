@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/forecast_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 /// 问题预案页面（sys_admin、college_admin 可访问）
 class ForecastPage extends StatefulWidget {
@@ -271,19 +272,19 @@ class _ForecastPageState extends State<ForecastPage> {
               if (forecast.summary.isNotEmpty) ...[
                 const Text('摘要', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(forecast.summary),
+                MdText(forecast.summary),
                 const SizedBox(height: 12),
               ],
               if (forecast.rootCause.isNotEmpty) ...[
                 const Text('原因分析', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(forecast.rootCause),
+                MdText(forecast.rootCause),
                 const SizedBox(height: 12),
               ],
               if (forecast.recommendedAction.isNotEmpty) ...[
                 const Text('解决预案', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(forecast.recommendedAction),
+                MdText(forecast.recommendedAction),
               ],
             ],
           ),

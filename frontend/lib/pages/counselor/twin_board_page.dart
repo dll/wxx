@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 学生数字孪生看板
 class TwinBoardPage extends StatefulWidget {
@@ -55,7 +56,7 @@ class _TwinBoardPageState extends State<TwinBoardPage> {
                 if (item['risk_level'] != null) Chip(label: Text(item['risk_level'], style: const TextStyle(fontSize: 11))),
               ]),
               const SizedBox(height: 12),
-              if (item['summary'] != null) Text(item['summary'], style: theme.textTheme.bodyMedium),
+              if (item['summary'] != null) MdText(item['summary'], style: theme.textTheme.bodyMedium),
             ]),
           ),
         );

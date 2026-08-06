@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 class PersonalityInsightPage extends StatefulWidget {
   const PersonalityInsightPage({super.key});
@@ -55,7 +56,7 @@ class _PersonalityInsightPageState extends State<PersonalityInsightPage> {
             child: Column(children: [
               Text(mbtiType, style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer)),
               if (label.isNotEmpty) ...[const SizedBox(height: 4), Text(label, style: theme.textTheme.titleMedium)],
-              if (description.isNotEmpty) ...[const SizedBox(height: 8), Text(description, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center)],
+              if (description.isNotEmpty) ...[const SizedBox(height: 8), MdText(description, style: theme.textTheme.bodyMedium, inline: true), ],
             ]),
           ),
         ),
@@ -84,7 +85,7 @@ class _PersonalityInsightPageState extends State<PersonalityInsightPage> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('学习风格', style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
-              Text(learningStyle),
+              MdText(learningStyle),
             ]),
           )),
         ],

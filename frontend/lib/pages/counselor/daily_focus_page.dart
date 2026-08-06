@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - AI 今日关注
 class DailyFocusPage extends StatefulWidget {
@@ -138,7 +139,7 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
                       color: theme.colorScheme.tertiary, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
+                    child: MdText(
                       data.aiNarrative,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onTertiaryContainer,
@@ -211,7 +212,7 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
                     ),
                   ]),
                   const SizedBox(height: 8),
-                  Text('原因：${s.reason}',
+                  MdText('原因：${s.reason}',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                   if (s.suggestion.isNotEmpty) ...[
@@ -222,7 +223,7 @@ class _DailyFocusPageState extends State<DailyFocusPage> {
                           color: theme.colorScheme.primary),
                       const SizedBox(width: 4),
                       Expanded(
-                        child: Text('建议：${s.suggestion}',
+                        child: MdText('建议：${s.suggestion}',
                             style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.primary)),
                       ),

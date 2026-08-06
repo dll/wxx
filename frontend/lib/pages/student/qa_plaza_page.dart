@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 class QAPlazaPage extends StatefulWidget {
   const QAPlazaPage({super.key});
@@ -93,7 +94,7 @@ class _QAPlazaPageState extends State<QAPlazaPage> {
                                   color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text('💡 AI 解答：${q['ai_answer']}',
+                                child: MdText('💡 AI 解答：${q['ai_answer']}',
                                     style: theme.textTheme.bodySmall),
                               ),
                             ),

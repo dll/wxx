@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 class DailyBriefingPage extends StatefulWidget {
   const DailyBriefingPage({super.key});
@@ -101,7 +102,7 @@ class _DailyBriefingPageState extends State<DailyBriefingPage> {
                 children: [
                   const Icon(Icons.format_quote, color: Colors.grey),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(b.motto, style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic))),
+                  Expanded(child: MdText(b.motto, style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic))),
                 ],
               ),
             ),

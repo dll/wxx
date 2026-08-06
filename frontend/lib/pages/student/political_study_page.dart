@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../config/api_config.dart';
+import '../../widgets/md_text.dart';
 
 class PoliticalStudyPage extends StatefulWidget {
   const PoliticalStudyPage({super.key});
@@ -55,7 +56,7 @@ class _PoliticalStudyPageState extends State<PoliticalStudyPage> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: SelectableText(provider.aiResponse, style: theme.textTheme.bodyMedium),
+                        child: MdText(provider.aiResponse),
                       ),
                     )
                   else

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - AI 课堂互动
 class ClassInteractPage extends StatefulWidget {
@@ -73,7 +74,7 @@ class _ClassInteractPageState extends State<ClassInteractPage> {
                     Text('互动内容', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ]),
                   const SizedBox(height: 12),
-                  Text(provider.interactionData!['content'] ?? '生成中...', style: theme.textTheme.bodyMedium),
+                  MdText(provider.interactionData!['content'] ?? '生成中...', style: theme.textTheme.bodyMedium),
                 ]),
               ),
             ),

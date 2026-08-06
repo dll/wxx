@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - AI 教学反思
 class ReflectionPage extends StatefulWidget {
@@ -48,7 +49,7 @@ class _ReflectionPageState extends State<ReflectionPage> {
                 Text('教学反思', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(data['content'] ?? data['summary'] ?? '暂无反思内容', style: theme.textTheme.bodyMedium),
+              MdText(data['content'] ?? data['summary'] ?? '暂无反思内容', style: theme.textTheme.bodyMedium),
               if (data['suggestions'] != null) ...[
                 const Divider(height: 24),
                 Text('改进建议', style: theme.textTheme.titleSmall),
@@ -58,7 +59,7 @@ class _ReflectionPageState extends State<ReflectionPage> {
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Icon(Icons.lightbulb_outline, size: 16),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(s.toString())),
+                    Expanded(child: MdText(s.toString())),
                   ]),
                 )),
               ],

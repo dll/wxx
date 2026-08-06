@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/counselor_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 辅导员 - 班级学情日报
 class ClassReportPage extends StatefulWidget {
@@ -48,7 +49,7 @@ class _ClassReportPageState extends State<ClassReportPage> {
                 Text('日报概览', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 12),
-              Text(data.aiNarrative, style: theme.textTheme.bodyMedium),
+              MdText(data.aiNarrative, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 16),
               Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                 _buildStat('出勤率', '${(data.checkinRate * 100).toInt()}%', theme),

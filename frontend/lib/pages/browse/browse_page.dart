@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/knowledge_provider.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 /// 知识大厅页面 — 卡片式分类浏览
 class BrowsePage extends StatefulWidget {
@@ -198,14 +199,12 @@ class _BrowsePageState extends State<BrowsePage> {
               // 摘要
               if (card.summary.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(
+                MdText(
                   card.summary,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     height: 1.4,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
               // 标签

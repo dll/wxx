@@ -4,6 +4,7 @@ import '../../models/models.dart';
 import '../../providers/process_provider.dart';
 import '../../utils/capability_utils.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 import 'process_document.dart';
 import 'process_editor_page.dart';
 
@@ -178,7 +179,7 @@ class _ProcessManagePageState extends State<ProcessManagePage> {
                 if (def.content.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   const Divider(),
-                  SelectableText(def.content),
+                  MdText(def.content),
                 ],
                 if (def.steps.isNotEmpty) ...[
                   const SizedBox(height: 12),

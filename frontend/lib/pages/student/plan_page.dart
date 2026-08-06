@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_new_features_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 大学规划页面
 class PlanPage extends StatefulWidget {
@@ -130,7 +131,7 @@ class _PlanPageState extends State<PlanPage> with SingleTickerProviderStateMixin
       context: context,
       builder: (_) => AlertDialog(
         title: Text(t.name),
-        content: SingleChildScrollView(child: Text(t.content.isNotEmpty ? t.content : t.description)),
+        content: SingleChildScrollView(child: MdText(t.content.isNotEmpty ? t.content : t.description)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
           FilledButton(

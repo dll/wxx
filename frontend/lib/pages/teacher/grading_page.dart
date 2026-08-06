@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 /// 教师 - AI 作业批改
 class GradingPage extends StatefulWidget {
@@ -68,7 +69,7 @@ class _GradingPageState extends State<GradingPage> {
                   if (provider.gradingResult!['score'] != null)
                     Text('得分：${provider.gradingResult!['score']}', style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary)),
                   const SizedBox(height: 8),
-                  Text(provider.gradingResult!['feedback'] ?? provider.gradingResult!['content'] ?? '', style: theme.textTheme.bodyMedium),
+                  MdText(provider.gradingResult!['feedback'] ?? provider.gradingResult!['content'] ?? '', style: theme.textTheme.bodyMedium),
                 ]),
               ),
             ),

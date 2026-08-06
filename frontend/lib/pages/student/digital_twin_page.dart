@@ -6,6 +6,7 @@ import '../../providers/student_feature_provider.dart';
 import '../../utils/storage.dart';
 import '../../widgets/avatar_card.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 class DigitalTwinPage extends StatefulWidget {
   const DigitalTwinPage({super.key});
@@ -276,7 +277,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                                           style: theme.textTheme.titleSmall),
                                     ]),
                                     const SizedBox(height: 8),
-                                    Text(t.aiSummary),
+                                    MdText(t.aiSummary),
                                   ]),
                             ),
                           )

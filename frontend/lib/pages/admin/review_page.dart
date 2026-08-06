@@ -4,6 +4,7 @@ import '../../providers/knowledge_provider.dart';
 import '../../models/models.dart';
 import '../../utils/web_export.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/md_text.dart';
 
 /// 知识审核页面（counselor 及以上可访问）
 class ReviewPage extends StatefulWidget {
@@ -97,11 +98,8 @@ class _ReviewCard extends StatelessWidget {
             ),
             if (resource.summary.isNotEmpty) ...[
               const SizedBox(height: 6),
-              Text(resource.summary,
-                  style: theme.textTheme.bodySmall,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis),
-            ],
+              MdText(resource.summary,
+                  style: theme.textTheme.bodySmall),            ],
             if (resource.tags.isNotEmpty) ...[
               const SizedBox(height: 6),
               Wrap(
@@ -191,7 +189,7 @@ class _ReviewCard extends StatelessWidget {
         content: SizedBox(
           width: 720,
           child: SingleChildScrollView(
-            child: SelectableText(
+            child: MdText(
                 full.content.isEmpty ? full.summary : full.content),
           ),
         ),

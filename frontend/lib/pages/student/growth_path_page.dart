@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
+import '../../widgets/md_text.dart';
 
 class GrowthPathPage extends StatefulWidget {
   const GrowthPathPage({super.key});
@@ -68,7 +69,7 @@ class _GrowthPathPageState extends State<GrowthPathPage> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: SelectableText(gp['response'] ?? gp['content'] ?? '', style: theme.textTheme.bodyMedium),
+                        child: MdText(gp['response'] ?? gp['content'] ?? '', style: theme.textTheme.bodyMedium),
                       ),
                     ),
                 ],
@@ -96,7 +97,7 @@ class _GrowthPathPageState extends State<GrowthPathPage> {
                 Text('AI 成长总结', style: theme.textTheme.titleSmall),
               ]),
               const SizedBox(height: 8),
-              Text(summary, style: theme.textTheme.bodyMedium),
+              MdText(summary, style: theme.textTheme.bodyMedium),
             ]),
           ),
         ),

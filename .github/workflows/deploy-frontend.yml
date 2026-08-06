@@ -126,6 +126,10 @@ jobs:
           source: "dist-server/wxx-server"
           target: "/opt/wxx/"
           strip_components: 1
+          # scp 上传完成后偶发连接不关闭导致 job 挂起超时（历史多次）。
+          # command_timeout 强制命令在超时后退出——此时文件已上传完成，
+          # 后续重启步骤照常执行。
+          command_timeout: 90s
 
       - name: 上传二进到 Release（备份用）
         uses: softprops/action-gh-release@v2
@@ -143,7 +147,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # rsync 已把 wxx-server 覆盖到 /opt/wxx/wxx-server，只需确保可执行并重启
+            # scp 已把 wxx-server 覆盖到 /opt/wxx/wxx-server，只需确保可执行并重启
             chmod +x /opt/wxx/wxx-server
             sudo systemctl stop wxx 2>/dev/null || true
             sleep 1
