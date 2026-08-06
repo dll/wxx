@@ -5,24 +5,32 @@ import 'package:flutter/material.dart';
 
 import '../models/avatar_config.dart';
 
-/// 星星造型 AI 智能体数字人 — 数据驱动生成。
+/// 星星造型 AI 智能体数字人 — 数据驱动生成 + 动画特效。
 ///
 /// 设计：
 ///   - 头部：五角星形状（代表 AI 智能），戴学士帽/中式学位帽（角色区分）
-///   - 眼睛：两个大圆点，情感分越高越亮
+///   - 眼睛：两个大圆点，情感分越高越亮，随动画眨眼
 ///   - 嘴：弧形微笑，社交分越高越开
 ///   - 身体：学位服（V领 + 彩色镶边），角色/外向度驱动颜色
-///   - 光环：头顶漂浮光环，综合分高 → 发光
+///   - 光环：头顶漂浮光环，随动画脉冲发光
+///   - 星星：随动画轻微上下浮动（呼吸感）
 ///   - 配饰：眼镜（学业高）/ 奖牌（能力高）/ 徽章（思想高）
-///   - 背景：滁州学院建筑剪影 + 校徽水印 + 浮动粒子
+///   - 背景：滁州学院建筑剪影 + 校徽水印 + 漂移粒子
 ///   - 标签：右上角「蔚小芯·AI助手」
 class AvatarPainter extends CustomPainter {
   final AvatarConfig config;
   final Color primary;
   final Color secondary;
 
-  AvatarPainter(
-      {required this.config, required this.primary, required this.secondary});
+  /// 动画相位 0~1（由外层 AnimationController 驱动，-1 表示无动画）
+  final double t;
+
+  AvatarPainter({
+    required this.config,
+    required this.primary,
+    required this.secondary,
+    this.t = -1,
+  });
 
   // 确定性伪随机（固定 seed，避免每次重绘位置跳动）
   final Random _rand = Random(42);
@@ -124,33 +132,45 @@ class AvatarPainter extends CustomPainter {
     final cx = w / 2;
     final bodyTop = h * 0.46;
 
-    // 脚下阴影
+    // 星星上下浮动（呼吸感）：t 相位驱动 0~6px 位移
+    final floatY = t >= 0 ? sin(t * 2 * pi) * h * 0.015 : 0.0;
+
+    // 脚下阴影（随浮动缩放）
+    final shadowScale = t >= 0 ? 1.0 - sin(t * 2 * pi) * 0.12 : 1.0;
     canvas.drawOval(
       Rect.fromCenter(
-          center: Offset(cx, h * 0.82),
-          width: w * 0.32,
-          height: h * 0.03),
+          center: Offset(cx, h * 0.82 + floatY * 0.5),
+          width: w * 0.32 * shadowScale,
+          height: h * 0.03 * shadowScale),
       Paint()..color = Colors.black.withOpacity(0.10),
     );
 
-    // 光环（综合分高 → 更亮）
+    // 光环（综合分高 → 更亮，随动画脉冲）
     _drawHalo(canvas, cx, bodyTop, w, h);
+
+    // 整体上移 = floatY，模拟漂浮
+    canvas.save();
+    canvas.translate(0, floatY);
 
     // 学位服身体
     _drawBody(canvas, cx, bodyTop, w, h);
 
     // 星星头 + 帽子 + 表情
     _drawStarHead(canvas, cx, bodyTop, w, h);
+
+    canvas.restore();
   }
 
-  // ── 光环（AI 感漂浮光晕） ──
+  // ── 光环（AI 感漂浮光晕，随动画脉冲） ──
   void _drawHalo(Canvas canvas, double cx, double bodyTop, double w, double h) {
     final glow = config.overall / 100.0;
+    // 脉冲：t 驱动 0.9~1.1 缩放
+    final pulse = t >= 0 ? 1.0 + sin(t * 2 * pi) * 0.10 : 1.0;
     final ring = Paint()
-      ..color = Colors.white.withOpacity(0.25 + glow * 0.30)
+      ..color = Colors.white.withOpacity((0.25 + glow * 0.30) * (t >= 0 ? 1.0 + sin(t * 2 * pi) * 0.15 : 1.0))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
-    final r = w * 0.20;
+    final r = w * 0.20 * pulse;
     // 头顶后方光晕（部分遮挡）
     canvas.drawOval(
       Rect.fromCenter(
@@ -166,7 +186,7 @@ class AvatarPainter extends CustomPainter {
           width: r * 1.8,
           height: r * 0.6),
       Paint()
-        ..color = Colors.white.withOpacity(0.12)
+        ..color = Colors.white.withOpacity(0.10 + glow * 0.12)
         ..style = PaintingStyle.fill,
     );
   }
@@ -348,9 +368,13 @@ class AvatarPainter extends CustomPainter {
             height: h * 0.015),
         blush);
 
-    // 眼睛（情感分 → 明亮度）
+    // 眼睛（情感分 → 明亮度，随动画眨眼）
     final eyeBright = config.eyeBrightness;
     final eyeY = headCenter.dy - headH * 0.05;
+    // 眨眼：t 在 0.42~0.52 区间眼睛高度收缩
+    final blinkT = t >= 0 ? (t - 0.42) / 0.10 : -1.0;
+    final isBlinking = blinkT >= 0 && blinkT <= 1.0;
+    final eyeHeight = isBlinking ? h * 0.012 : h * 0.045; // 闭眼变细
     final eyeWhite = Paint()..color = Colors.white;
     final iris = Paint()
       ..color = Color.lerp(const Color(0xFF1565C0), const Color(0xFF00ACC1), eyeBright)!;
@@ -359,15 +383,18 @@ class AvatarPainter extends CustomPainter {
       final ex = cx + side * headW * 0.23;
       canvas.drawOval(
           Rect.fromCenter(
-              center: Offset(ex, eyeY), width: w * 0.07, height: h * 0.045),
+              center: Offset(ex, eyeY), width: w * 0.07, height: eyeHeight),
           eyeWhite);
-      canvas.drawCircle(Offset(ex, eyeY), w * 0.022, iris);
-      canvas.drawCircle(Offset(ex, eyeY), w * 0.011, pupil);
-      // 高光
-      canvas.drawCircle(
-          Offset(ex - w * 0.008, eyeY - h * 0.008),
-          w * 0.006,
-          Paint()..color = Colors.white.withOpacity(0.5 + eyeBright * 0.5));
+      // 非眨眼时画瞳孔
+      if (!isBlinking) {
+        canvas.drawCircle(Offset(ex, eyeY), w * 0.022, iris);
+        canvas.drawCircle(Offset(ex, eyeY), w * 0.011, pupil);
+        // 高光
+        canvas.drawCircle(
+            Offset(ex - w * 0.008, eyeY - h * 0.008),
+            w * 0.006,
+            Paint()..color = Colors.white.withOpacity(0.5 + eyeBright * 0.5));
+      }
     }
 
     // 嘴（社交分 → 微笑弧度）
@@ -488,15 +515,19 @@ class AvatarPainter extends CustomPainter {
     }
   }
 
-  // ── 浮动粒子 ──
+  // ── 浮动粒子（随动画缓慢漂移，营造 AI 科技感） ──
   void _drawParticles(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final particle = Paint();
     final density = 10 + (config.overall / 100 * 8).round(); // 综合分越高粒子越多
     for (int i = 0; i < density; i++) {
-      final x = _rand.nextDouble() * w;
-      final y = _rand.nextDouble() * h;
+      // 基于 i 的相位偏移，避免所有粒子同步动
+      final phase = i * 0.7;
+      final driftX = t >= 0 ? sin(t * 2 * pi + phase) * 4 : 0.0;
+      final driftY = t >= 0 ? cos(t * 2 * pi + phase) * 3 : 0.0;
+      final x = _rand.nextDouble() * w + driftX;
+      final y = _rand.nextDouble() * h + driftY;
       final r = _rand.nextDouble() * 2.5 + 1.0;
       final alpha = 0.15 + _rand.nextDouble() * 0.3;
       particle.color = Colors.white.withOpacity(alpha);
@@ -582,6 +613,7 @@ class AvatarPainter extends CustomPainter {
   bool shouldRepaint(covariant AvatarPainter oldDelegate) {
     return oldDelegate.config != config ||
         oldDelegate.primary != primary ||
-        oldDelegate.secondary != secondary;
+        oldDelegate.secondary != secondary ||
+        oldDelegate.t != t;
   }
 }

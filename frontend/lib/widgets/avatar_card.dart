@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import '../models/avatar_config.dart';
 import 'avatar_painter.dart';
 
-/// 数字人形象卡片 — 3D 透视 + 呼吸动画 + 磨砂背景 + 五维分数叠加层。
+/// 数字人形象卡片 — 动画特效 + 磨砂背景 + 五维分数叠加层。
 class AvatarCard extends StatefulWidget {
   final AvatarConfig config;
   final double height;
 
-  const AvatarCard({super.key, required this.config, this.height = 300});
+  const AvatarCard({super.key, required this.config, this.height = 280});
 
   @override
   State<AvatarCard> createState() => _AvatarCardState();
@@ -25,11 +25,11 @@ class _AvatarCardState extends State<AvatarCard>
   @override
   void initState() {
     super.initState();
-    // 呼吸动画：2.5 秒周期，1.0 ↔ 1.03 轻微缩放
+    // 动画：3 秒周期往返，驱动眨眼/漂浮/粒子/光环脉冲
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
   }
 
   @override
@@ -98,24 +98,17 @@ class _AvatarCardState extends State<AvatarCard>
               ),
             ),
 
-            // 3D 透视容器（轻微 X 轴旋转营造立体感）
+            // 动画驱动的数字人（眨眼/漂浮/粒子/光环脉冲）
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
                 final t = _controller.value;
-                final scale = 1.0 + t * 0.03;
-                return Transform(
-                  alignment: Alignment.bottomCenter,
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.0012) // 透视投影
-                    ..rotateX(0.04 + t * 0.03) // 呼吸微倾
-                    ..scale(scale),
-                  child: CustomPaint(
-                    painter: AvatarPainter(
-                      config: widget.config,
-                      primary: primary,
-                      secondary: secondary,
-                    ),
+                return CustomPaint(
+                  painter: AvatarPainter(
+                    config: widget.config,
+                    primary: primary,
+                    secondary: secondary,
+                    t: t,
                   ),
                 );
               },
