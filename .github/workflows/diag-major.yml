@@ -6,7 +6,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: SSH 检查迁移与二进制
+      - name: SSH 重启 wxx 并验证迁移
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -14,10 +14,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "DIAG_BEGIN"
-            echo "--- wxx-server 二进制时间 ---"
-            ls -la /opt/wxx/wxx-server
-            echo "--- 数据库迁移表 ---"
-            sudo sqlite3 /opt/wxx/data/wxx.db "SELECT filename FROM schema_migrations ORDER BY id DESC LIMIT 5" 2>&1 || echo "sqlite3 不可用"
+            echo "--- 重启 wxx ---"
+            sudo systemctl restart wxx
+            sleep 3
+            systemctl is-active wxx
+            echo "--- 健康 ---"
+            curl -s localhost:8080/health | head -c 100
+            echo ""
             echo "--- 学科专业资源 ---"
-            sudo sqlite3 /opt/wxx/data/wxx.db "SELECT resource_id, title FROM kb_resources WHERE resource_id LIKE 'major-%'" 2>&1 || echo "sqlite3 不可用"
+            curl -s "localhost:8080/api/v1/knowledge/public?keyword=%E8%AE%A1%E7%AE%97%E6%9C%BA" | head -c 500
+            echo ""
             echo "DIAG_END"
