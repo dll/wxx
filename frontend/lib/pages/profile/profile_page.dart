@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/release_config.dart';
+import '../../config/api_config.dart';
 import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
@@ -40,10 +41,30 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _listedFeatures = Storage.listedFeatures.toSet();
     _enabledFeatures = Storage.enabledFeatures.toSet();
+    // 加载全局功能开关（管理员在后端配置，登录用户读取）
+    _loadGlobalFeatureSwitches();
     // 加载用户资料
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<AuthProvider>().fetchProfile();
     });
+  }
+
+  /// 拉取管理员全局功能开关并缓存到本地
+  Future<void> _loadGlobalFeatureSwitches() async {
+    try {
+      final res = await ApiService().get(ApiConfig.publicFeatureSwitches);
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = (res.data as Map)['data'];
+        if (data is Map) {
+          final switches = <String, String>{};
+          data.forEach((k, v) => switches['$k'] = '$v');
+          await Storage.setGlobalFeatureSwitches(switches);
+          if (mounted) setState(() {});
+        }
+      }
+    } catch (_) {
+      // 网络异常时沿用本地缓存开关
+    }
   }
 
   @override
@@ -659,6 +680,12 @@ class _ProfilePageState extends State<ProfilePage> {
     final visible = all
         .where((f) =>
             _listedFeatures.contains(f.key) && _enabledFeatures.contains(f.key))
+        .where((f) {
+      // 管理员全局功能开关：feature.<key>=false 时对普通用户隐藏该模块
+      final g = Storage.globalFeatureSwitches['feature.${f.key}'];
+      if (g == null) return true; // 未配置默认开放
+      return g == 'true';
+    })
         .toList();
     final categories = [
       '常用',

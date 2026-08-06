@@ -44,6 +44,8 @@ class ApiConfig {
   // ── 知识大厅 ──
   static const String knowledge = '$apiPrefix/knowledge';
   static const String knowledgePublic = '$apiPrefix/knowledge/public';
+  // 全局功能开关（登录用户可读）
+  static const String publicFeatureSwitches = '$apiPrefix/public/feature-switches';
 
   // ── 情感预警 ──
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';

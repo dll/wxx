@@ -13,6 +13,7 @@ class Storage {
   static const String _keyCapabilities = 'capabilities';
   static const String _keyListedFeatures = 'listed_features';
   static const String _keyEnabledFeatures = 'enabled_features';
+  static const String _keyGlobalFeatureSwitches = 'global_feature_switches';
 
   static late SharedPreferences _prefs;
 
@@ -70,6 +71,20 @@ class Storage {
       _prefs.getStringList(_keyEnabledFeatures) ?? const [];
   static Future<void> setEnabledFeatures(List<String> keys) =>
       _prefs.setStringList(_keyEnabledFeatures, keys);
+
+  /// 管理员全局功能开关（key=feature.*，缓存自后端 /public/feature-switches）
+  static Map<String, String> get globalFeatureSwitches =>
+      (_prefs.getStringList(_keyGlobalFeatureSwitches) ?? const [])
+          .fold({}, (map, kv) {
+        final idx = kv.indexOf('=');
+        if (idx > 0) {
+          map[kv.substring(0, idx)] = kv.substring(idx + 1);
+        }
+        return map;
+      });
+  static Future<void> setGlobalFeatureSwitches(Map<String, String> switches) =>
+      _prefs.setStringList(_keyGlobalFeatureSwitches,
+          switches.entries.map((e) => '${e.key}=${e.value}').toList());
 
   /// 清除所有登录信息
   static Future<void> clearAll() async {
