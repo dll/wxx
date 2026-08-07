@@ -31,6 +31,7 @@ import '../pages/process/process_review_page.dart';
 import '../pages/bookmarks/bookmarks_page.dart';
 import '../pages/notification/notification_page.dart';
 import '../pages/about/about_page.dart';
+import '../pages/help/help_page.dart';
 // ── 学生 AI 功能页面 ──
 import '../pages/student/daily_briefing_page.dart';
 import '../pages/student/learning_diary_page.dart';
@@ -384,6 +385,10 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const AboutPage(),
         ),
         GoRoute(
+          path: '/help',
+          builder: (context, state) => const HelpPage(),
+        ),
+        GoRoute(
           path: '/campus',
           builder: (context, state) => CampusMapPage(
             initialTab: state.uri.queryParameters['v'],
@@ -573,6 +578,7 @@ const _navItems = [
   _NavItem('知识', Icons.menu_book_outlined, Icons.menu_book, '/browse'),
   _NavItem('办事', Icons.assignment_outlined, Icons.assignment, '/enrollment'),
   _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
+  _NavItem('帮助', Icons.help_outline, Icons.help, '/help'),
 ];
 
 /// 主页面外壳 — 响应式布局 + 磨砂玻璃导航
