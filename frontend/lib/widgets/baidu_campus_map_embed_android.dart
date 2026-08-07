@@ -73,8 +73,10 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
 
   /// 根据 provider 返回对应地图 HTML 的线上地址。
   /// 三套 HTML 均部署在 CF Pages 的 /assets/ 下，Baidu AK 域名校验通过。
+  /// 注意：必须使用 CF Pages 静态域名（wxx-agent.pages.dev），
+  /// 不能用 www.wxx-agent.online（该域名指向后端 Caddy，/assets/ 返回空页）。
   String get _mapUrl {
-    final base = 'https://www.wxx-agent.online/assets';
+    final base = 'https://wxx-agent.pages.dev/assets';
     return switch (widget.provider) {
       'amap' => '$base/amap_campus_map.html?v=2',
       'tencent' => '$base/tencent_campus_map.html?v=2',
