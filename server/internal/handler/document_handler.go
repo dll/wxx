@@ -84,10 +84,10 @@ func (h *DocumentHandler) ParseDocument(c *gin.Context) {
 			})
 			return
 		}
-		// 透传具体错误信息，让用户知道为何解析失败（如 DOCX 格式错误等）
+		// 透传错误类型但不再外泄内部细节，细节走日志
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": err.Error(),
+			"message": "文档解析失败",
 		})
 		return
 	}

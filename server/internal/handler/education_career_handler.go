@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -580,7 +581,8 @@ func (h *EducationHandler) AdminCreateCareerPolicy(c *gin.Context) {
 		req.PolicyID, req.Title, req.Category, req.Level, req.Source, req.Content, req.Summary, req.Tags, req.Status,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增政策失败: " + err.Error()})
+		log.Printf("新增就业政策失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增政策失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
@@ -680,7 +682,8 @@ func (h *EducationHandler) AdminCreateJobPosting(c *gin.Context) {
 		"job-"+strconv.FormatInt(time.Now().Unix(), 10), req.CompanyName, req.PositionName, req.PositionType, req.Industry, req.Location, req.Education, req.Description, req.Requirement, req.Status,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增招聘信息失败: " + err.Error()})
+		log.Printf("新增招聘信息失败: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增招聘信息失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})

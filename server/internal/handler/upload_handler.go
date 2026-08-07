@@ -84,7 +84,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 				})
 				return
 			}
-			util.FailInternalError(c, err.Error())
+			util.FailInternalError(c, "文档解析失败")
 			return
 		}
 

@@ -405,7 +405,8 @@ func (h *StudentHandler) CreateQAPost(c *gin.Context) {
 	}
 	id, err := h.phase2Svc.CreateQAPost(userCtx.UserID, req.Title, req.Content, req.Category)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		log.Printf("创建问答帖失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "id": id, "message": "发布成功"})
@@ -475,7 +476,8 @@ func (h *StudentHandler) AnswerQAPost(c *gin.Context) {
 	}
 	aid, err := h.phase2Svc.AnswerPost(id, userCtx.UserID, req.Content)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		log.Printf("回答问答帖失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "回答失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "answer_id": aid, "message": "回答成功"})

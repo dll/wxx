@@ -128,7 +128,7 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 	var req model.ProcessUpsertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("process Create bind err: %v", err)
-		util.FailBadRequest(c, "参数校验失败："+err.Error())
+		util.FailBadRequest(c, "参数校验失败")
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
@@ -139,7 +139,7 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 	def, err := h.svc.Create(c.Request.Context(), userCtx, &req)
 	if err != nil {
 		log.Printf("process Create err: %v", err)
-		util.FailBadRequest(c, "创建办事流程失败："+err.Error())
+		util.FailBadRequest(c, "创建办事流程失败")
 		return
 	}
 	c.JSON(http.StatusCreated, processDetailResponse{Code: 0, Message: "创建成功", Data: def})
@@ -149,7 +149,7 @@ func (h *ProcessHandler) Create(c *gin.Context) {
 func (h *ProcessHandler) Update(c *gin.Context) {
 	var req model.ProcessUpsertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		util.FailBadRequest(c, "参数校验失败："+err.Error())
+		util.FailBadRequest(c, "参数校验失败")
 		return
 	}
 	userCtx := middleware.GetUserContext(c)
@@ -160,7 +160,7 @@ func (h *ProcessHandler) Update(c *gin.Context) {
 	def, err := h.svc.Update(c.Request.Context(), userCtx, c.Param("id"), &req)
 	if err != nil {
 		log.Printf("process Update err: %v", err)
-		util.FailBadRequest(c, "更新办事流程失败："+err.Error())
+		util.FailBadRequest(c, "更新办事流程失败")
 		return
 	}
 	c.JSON(http.StatusOK, processDetailResponse{Code: 0, Message: "更新成功", Data: def})
@@ -185,7 +185,8 @@ func (h *ProcessHandler) Submit(c *gin.Context) {
 	}
 	def, err := h.svc.SubmitForReview(c.Request.Context(), c.Param("id"), userCtx.Username)
 	if err != nil {
-		util.FailBadRequest(c, "提交审核失败："+err.Error())
+		log.Printf("process Submit err: %v", err)
+		util.FailBadRequest(c, "提交审核失败")
 		return
 	}
 	c.JSON(http.StatusOK, processDetailResponse{Code: 0, Message: "已提交审核", Data: def})
@@ -200,7 +201,8 @@ func (h *ProcessHandler) Approve(c *gin.Context) {
 	}
 	def, err := h.svc.Approve(c.Request.Context(), c.Param("id"), userCtx.Username)
 	if err != nil {
-		util.FailBadRequest(c, "审核通过失败："+err.Error())
+		log.Printf("process Approve err: %v", err)
+		util.FailBadRequest(c, "审核通过失败")
 		return
 	}
 	c.JSON(http.StatusOK, processDetailResponse{Code: 0, Message: "审核通过，已发布", Data: def})
@@ -219,7 +221,8 @@ func (h *ProcessHandler) Reject(c *gin.Context) {
 	_ = c.ShouldBindJSON(&body)
 	def, err := h.svc.Reject(c.Request.Context(), c.Param("id"), userCtx.Username, body.Reason)
 	if err != nil {
-		util.FailBadRequest(c, "驳回失败："+err.Error())
+		log.Printf("process Reject err: %v", err)
+		util.FailBadRequest(c, "驳回失败")
 		return
 	}
 	c.JSON(http.StatusOK, processDetailResponse{Code: 0, Message: "已驳回", Data: def})
@@ -234,7 +237,8 @@ func (h *ProcessHandler) Retire(c *gin.Context) {
 	}
 	def, err := h.svc.Retire(c.Request.Context(), c.Param("id"), userCtx.Username)
 	if err != nil {
-		util.FailBadRequest(c, "下架失败："+err.Error())
+		log.Printf("process Retire err: %v", err)
+		util.FailBadRequest(c, "下架失败")
 		return
 	}
 	c.JSON(http.StatusOK, processDetailResponse{Code: 0, Message: "已下架", Data: def})

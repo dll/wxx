@@ -155,7 +155,7 @@ func (h *ExportHandler) ImportPackage(c *gin.Context) {
 		log.Printf("知识包导入失败 user=%s err=%v", userCtx.Username, err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
 			Code:    400,
-			Message: err.Error(),
+			Message: "知识包导入失败",
 			TraceID: middleware.GetTraceID(c),
 		})
 		return
@@ -177,7 +177,8 @@ func (h *ExportHandler) InitChunkUpload(c *gin.Context) {
 	}
 	resp, err := h.pkgSvc.InitChunkUpload(req.TotalChunks, req.ExpectedSha256)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error(), TraceID: middleware.GetTraceID(c)})
+		log.Printf("init chunk upload err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "初始化分片上传失败", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -202,7 +203,8 @@ func (h *ExportHandler) UploadChunk(c *gin.Context) {
 		return
 	}
 	if err := h.pkgSvc.PutChunk(uploadID, chunkIndex, body, c.GetHeader("X-Chunk-Sha256")); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error(), TraceID: middleware.GetTraceID(c)})
+		log.Printf("upload chunk err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "分片上传失败", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "分片上传成功"})
@@ -217,7 +219,8 @@ func (h *ExportHandler) ChunkUploadStatus(c *gin.Context) {
 	}
 	status, err := h.pkgSvc.ChunkStatus(c.Param("upload_id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error(), TraceID: middleware.GetTraceID(c)})
+		log.Printf("chunk status err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "查询分片状态失败", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 	c.JSON(http.StatusOK, status)
@@ -237,7 +240,8 @@ func (h *ExportHandler) CompleteChunkUpload(c *gin.Context) {
 	}
 	resp, err := h.pkgSvc.CompleteChunkUpload(c.Request.Context(), c.Param("upload_id"), userCtx.Username, middleware.GetTraceID(c))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error(), TraceID: middleware.GetTraceID(c)})
+		log.Printf("complete chunk upload err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "分片汇总导入失败", TraceID: middleware.GetTraceID(c)})
 		return
 	}
 	c.JSON(http.StatusOK, resp)
