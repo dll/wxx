@@ -17,6 +17,10 @@ class ApiConfig {
     return 'https://www.wxx-agent.online';
   }
 
+  /// 百度地图 AK（服务端校验域名白名单，固定随包分发，无需用户填写）。
+  /// Web 与 Android 均使用同一常量，避免依赖 --dart-define 导致 APK 缺失。
+  static const String baiduMapAk = 'OUouSU6WbYExGTlnDEFqqruhTH60KAwO';
+
   // API 版本前缀
   static const String apiPrefix = '/api/v1';
 

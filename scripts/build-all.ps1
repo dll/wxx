@@ -5,7 +5,7 @@
 #   pwsh scripts/build-all.ps1 -NoVersionBump # 保持当前版本号构建
 param(
     [switch]$NoVersionBump,
-    [string]$ReleaseDate = "2026-07-20"
+    [string]$ReleaseDate = (Get-Date).ToString("yyyy-MM-dd")
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,8 +42,10 @@ function Set-AppVersion($version) {
     $versionName = "$($version.Major).$($version.Minor).$($version.Patch)"
     $buildNumber = $version.Build
     $apkFileName = "蔚小芯-v$versionName.apk"
+    # APK 由 GitHub Release 分发（57MB+ 超出 Cloudflare Pages 单文件 25MB 限制），
+    # 使用 `latest/download/weixiaoxin.apk` 固定入口，发新版无需改本脚本。
     $encodedFileName = [uri]::EscapeDataString($apkFileName)
-    $apkUrl = "$baseUrl/downloads/$encodedFileName"
+    $apkUrl = "https://github.com/dll/wxx/releases/latest/download/weixiaoxin.apk"
 
     $pubspecText = Get-Content -LiteralPath $pubspec -Raw
     $pubspecText = [regex]::Replace($pubspecText, '(?m)^version:\s*\d+\.\d+\.\d+\+\d+\s*$', "version: $versionName+$buildNumber")

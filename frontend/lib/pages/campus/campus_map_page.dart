@@ -798,9 +798,9 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   Widget _buildCampusMapCanvas(ThemeData theme, {required bool desktop}) {
-    // 仅使用百度地图（BMapGL），2D/3D 视角 + 标准/卫星图层切换。
-    // VR 全景已由顶部「VR全景」Tab 独立提供，不再占用地图区域。
-    const baiduAk = String.fromEnvironment('BAIDU_MAP_AK', defaultValue: '');
+    // 百度地图 AK 硬编码随包分发（见 ApiConfig.baiduMapAk），无需构建参数，
+    // Web 与 Android 均直接使用，避免 APK 因缺少 --dart-define 而显示占位提示。
+    final baiduAk = ApiConfig.baiduMapAk;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Stack(
@@ -822,26 +822,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
               onMarkerMoved: _canEditNodes ? _onMarkerMoved : null,
             ),
           ),
-          // ── 未配置 AK 时的友好提示 ──
-          if (baiduAk.isEmpty)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                child: Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.key_off_outlined,
-                        color: Colors.white, size: 40),
-                    const SizedBox(height: 8),
-                    const Text('地图需要百度地图 AK',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    const Text('构建时添加 --dart-define=BAIDU_MAP_AK=你的AK',
-                        style: TextStyle(color: Colors.white70, fontSize: 11)),
-                  ]),
-                ),
-              ),
-            ),
           // ── 后端步骤加载中指示器 ──
           if (_loadingSteps)
             Positioned(
