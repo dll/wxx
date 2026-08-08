@@ -28,6 +28,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- 扫码登录 App Links：二维码 https://wxx-agent.online/qr-login?qr=xxx
+                 已安装 APK 时 Android 系统自动唤起本应用；未安装则浏览器打开 Web。 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="wxx-agent.online" android:pathPrefix="/qr-login"/>
+            </intent-filter>
+            <!-- 兼容 http + 备用域名 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http" android:host="wxx-agent.online" android:pathPrefix="/qr-login"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

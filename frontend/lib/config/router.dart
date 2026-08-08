@@ -130,8 +130,12 @@ class AuthRefreshNotifier extends ChangeNotifier {
 
 final authRefreshNotifier = AuthRefreshNotifier();
 
+/// 全局导航 key：供 deep link（扫码登录唤起 APK）回调导航到登录页
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// 应用路由配置
 final GoRouter appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   refreshListenable: authRefreshNotifier,
   initialLocation: '/home',
   redirect: (context, state) {
@@ -162,7 +166,8 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/login',
-      builder: (context, state) => const LoginPage(),
+      builder: (context, state) =>
+          LoginPage(qrSessionId: state.uri.queryParameters['qr']),
     ),
     ShellRoute(
       builder: (context, state, child) => MainShell(child: child),

@@ -16,7 +16,11 @@ const bool _registerOpen = false;
 
 /// 登录页面 — 居中布局，Tab 切换登录/注册
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  /// 扫码登录会话 ID：手机端通过二维码打开登录页时携带（#/login?qr=xxx），
+  /// 登录成功后自动确认该 QR 会话，使 PC 端 Web 自动登录。
+  final String? qrSessionId;
+
+  const LoginPage({super.key, this.qrSessionId});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -30,6 +34,32 @@ class _LoginPageState extends State<LoginPage>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    // 扫码登录：手机端已登录时，扫码打开本页自动确认 QR 会话并返回
+    final qrId = widget.qrSessionId;
+    if (qrId != null && qrId.isNotEmpty && Storage.isLoggedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoConfirmAndEnter(qrId);
+      });
+    }
+  }
+
+  /// 已登录用户扫码后自动确认 QR 会话并跳转首页（无需重复登录）
+  Future<void> _autoConfirmAndEnter(String sessionId) async {
+    try {
+      await ApiService().post('/api/v1/auth/qr-confirm', data: {
+        'session_id': sessionId,
+      });
+    } catch (_) {
+      // 忽略确认错误，继续进入应用
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('已确认登录，PC 端即将自动登录'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    context.go('/home');
   }
 
   @override
@@ -113,6 +143,7 @@ class _LoginPageState extends State<LoginPage>
                       controller: _tabCtrl,
                       children: [
                         _LoginTabContent(
+                          qrSessionId: widget.qrSessionId,
                           onGuestTap: () => _tabCtrl.animateTo(1),
                         ),
                         _RegisterTabContent(
@@ -245,8 +276,9 @@ bool _isValidPhone(String phone) {
 // ── 登录 Tab 内容（密码登录 / 扫码登录 子 Tab） ──
 
 class _LoginTabContent extends StatefulWidget {
+  final String? qrSessionId;
   final VoidCallback? onGuestTap;
-  const _LoginTabContent({this.onGuestTap});
+  const _LoginTabContent({this.qrSessionId, this.onGuestTap});
 
   @override
   State<_LoginTabContent> createState() => _LoginTabContentState();
@@ -305,7 +337,10 @@ class _LoginTabContentState extends State<_LoginTabContent>
             controller: _subTabCtrl,
             children: [
               SingleChildScrollView(
-                child: _PasswordLoginForm(onGuestTap: widget.onGuestTap),
+                child: _PasswordLoginForm(
+                  qrSessionId: widget.qrSessionId,
+                  onGuestTap: widget.onGuestTap,
+                ),
               ),
               const SingleChildScrollView(
                 child: _QRCodeLoginPanel(),
@@ -321,8 +356,10 @@ class _LoginTabContentState extends State<_LoginTabContent>
 // ── 密码登录表单 ──
 
 class _PasswordLoginForm extends StatefulWidget {
+  /// 扫码登录会话 ID：非空时登录成功后自动确认 QR 会话（PC 端自动登录）
+  final String? qrSessionId;
   final VoidCallback? onGuestTap;
-  const _PasswordLoginForm({this.onGuestTap});
+  const _PasswordLoginForm({this.qrSessionId, this.onGuestTap});
 
   @override
   State<_PasswordLoginForm> createState() => _PasswordLoginFormState();
@@ -360,11 +397,30 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
     final ok = await auth.login(username, password);
     if (!mounted) return;
     if (ok) {
+      // 扫码登录：登录成功后确认 QR 会话，使 PC 端 Web 自动登录
+      final qrId = widget.qrSessionId;
+      if (qrId != null && qrId.isNotEmpty) {
+        await _confirmQrSession(qrId);
+        if (!mounted) return;
+      }
       context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.error ?? '登录失败')),
       );
+    }
+  }
+
+  /// 确认扫码登录会话（手机端登录成功后调用）
+  /// 后端会从 Authorization 头读取当前已登录 token 写入 QR 会话，
+  /// PC 端轮询到 confirmed 后自动登录。
+  Future<void> _confirmQrSession(String sessionId) async {
+    try {
+      await ApiService().post('/api/v1/auth/qr-confirm', data: {
+        'session_id': sessionId,
+      });
+    } catch (_) {
+      // 确认失败不影响本地登录，PC 端可重新扫码
     }
   }
 
@@ -820,13 +876,15 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         final sessionId = data['session_id'] as String;
         _qrSessionId = sessionId;
         _qrPollSecret = data['poll_secret'] as String?;
+        // 二维码内容用 App Links URL：已安装 APK 的系统自动唤起本应用，
+        // 未安装则手机浏览器打开 Web（经 Caddy 重定向到 #/login?qr=xxx）。
         final encodedUrl = Uri.encodeComponent(
-            '${Uri.base.origin}/#/login?qr=$sessionId');
+            'https://wxx-agent.online/qr-login?qr=$sessionId');
         setState(() {
           _qrImageUrl =
               'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
           _qrStatus = 'active';
-          _message = '请使用手机浏览器扫描二维码';
+          _message = '请使用手机扫描二维码，已安装APP将自动唤起，否则打开网页';
         });
         _startPolling();
       } else {

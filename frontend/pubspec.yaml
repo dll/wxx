@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.23+23
+version: 0.0.24+24
 environment:
   sdk: ^3.4.0
 
@@ -61,6 +61,9 @@ dependencies:
 
   # 外部链接跳转（地图/抖音/VR全景）
   url_launcher: ^6.3.0
+
+  # Android App Links / deep link：扫码登录二维码唤起 APK（wxx-agent.online/qr-login）
+  app_links: ^6.1.1
   # WebView 嵌入百度地图（Android / iOS / Desktop）
   # 版本上限 <4.9.0：4.9.0+ 要求 Dart >=3.5.0，当前项目 Dart ^3.4.0 不兼容
   webview_flutter: ">=4.4.4 <4.9.0"
@@ -158,6 +161,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
 
 
 

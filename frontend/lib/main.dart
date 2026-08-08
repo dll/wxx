@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'config/router.dart';
 import 'services/api_service.dart';
@@ -30,6 +31,7 @@ import 'providers/notification_provider.dart';
 import 'providers/update_provider.dart';
 import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
+import 'services/voice/deep_link.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -172,6 +174,15 @@ class WxxApp extends StatefulWidget {
 class _WxxAppState extends State<WxxApp> {
   // 全局共享 ThemeNotifier：登录/刷新资料时由 AuthProvider 回写入学年份
   final ThemeNotifier _themeNotifier = ThemeNotifier();
+
+  @override
+  void initState() {
+    super.initState();
+    // 扫码登录 deep link：APK 被 App Links 唤起（qr-login?qr=xxx）时跳登录页确认
+    initQrDeepLink((sessionId) {
+      rootNavigatorKey.currentState?.context.go('/login?qr=$sessionId');
+    });
+  }
 
   @override
   void dispose() {

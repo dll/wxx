@@ -131,12 +131,14 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 			    OR kb.tags LIKE ?
 			    OR kb.resource_type LIKE ?)
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND (? IN ('sys_admin','school_admin')
+			    OR kb.role_scope = ''
+			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
 			 ORDER BY priority ASC
 			 LIMIT ?`,
 		query, likePattern, likePattern, likePattern,
 		query, likePattern, likePattern, likePattern,
-		ownerScope, ownerID, ownerScope, ownerID, role, limit,
+		ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -183,10 +185,12 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND (? IN ('sys_admin','school_admin')
+			    OR kb.role_scope = ''
+			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
 			 ORDER BY score
 			 LIMIT ?`,
-		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
+		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -461,10 +465,12 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 			   AND kb.status = 'published'
 			   AND kb.resource_type = 'FAQ'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (kb.role_scope = '' OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND (? IN ('sys_admin','school_admin')
+			    OR kb.role_scope = ''
+			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
 			 ORDER BY score
 			 LIMIT ?`,
-		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, limit,
+		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -994,9 +1000,11 @@ func (r *KBRepo) DeleteProcessFull(resourceID string) error {
 func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string, limit, offset int) (map[string][]*model.KnowledgeCard, int, error) {
 	whereClause := ` WHERE status = 'published'
 		   AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?)) OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
-		   AND (role_scope = '' OR (json_valid(role_scope) AND (json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))))`
-	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
-	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role}
+		   AND (? IN ('sys_admin','school_admin')
+		    OR role_scope = ''
+		    OR (json_valid(role_scope) AND (json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))))`
+	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
+	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
 
 	if resourceType != "" {
 		whereClause += ` AND resource_type = ?`

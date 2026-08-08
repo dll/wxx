@@ -13,6 +13,11 @@ wxx-agent.online {
 		reverse_proxy localhost:8080
 	}
 
+	# 扫码登录 App Links：未安装 APK 时浏览器打开 /qr-login，重定向到 Flutter hash 路由
+	handle /qr-login* {
+		redir https://wxx-agent.online/#/login?qr={query.qr} permanent
+	}
+
 	# 其余请求服务静态文件（Flutter Web 构建产物）
 	handle {
 		root * /opt/wxx/frontend/web
