@@ -120,6 +120,7 @@ import '../pages/student/mental/mental_page.dart';
 import '../pages/student/mental/scale_detail_page.dart';
 import '../pages/student/mental/counseling_page.dart';
 import '../pages/student/mental/article_detail_page.dart';
+import '../pages/student/health/health_page.dart';
 import '../pages/student/mental/mood_diary_page.dart';
 import '../utils/screenshot_capture.dart';
 
@@ -344,6 +345,8 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
             path: '/student/mental', builder: (_, __) => const MentalPage()),
+        GoRoute(
+            path: '/student/health', builder: (_, __) => const HealthPage()),
         GoRoute(
           path: '/student/mental/scale/:id',
           builder: (_, state) => ScaleDetailPage(

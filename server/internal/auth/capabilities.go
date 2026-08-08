@@ -69,6 +69,10 @@ const (
 	// ── 心理健康模块 ──
 	SelfMentalRead  Capability = "self.mental.read"  // 心理健康查看（量表、咨询师、文章、热线）
 	SelfMentalWrite Capability = "self.mental.write" // 心理健康操作（测评、预约、情绪日记）
+
+	// ── 身体健康模块 ──
+	SelfHealthRead  Capability = "self.health.read"  // 身体健康查看（基本信息、体检记录、病历记录）
+	SelfHealthWrite Capability = "self.health.write" // 身体健康操作（新增/编辑/删除）
 )
 
 // 学生会能力
@@ -207,10 +211,11 @@ var roles = map[string]*roleNode{
 			SelfPlanRead, SelfPlanWrite,
 			SelfPartyRead, SelfPartyWrite,
 			SelfClubRead, SelfClubWrite,
-			// 就业指导、学业学习、心理健康三大模块
+			// 就业指导、学业学习、心理健康、身体健康四大模块
 			SelfCareerRead, SelfCareerWrite,
 			SelfStudyRead, SelfStudyWrite,
 			SelfMentalRead, SelfMentalWrite,
+			SelfHealthRead, SelfHealthWrite,
 		},
 	},
 	"student_union": {

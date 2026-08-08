@@ -4,6 +4,7 @@ import '../../providers/feedback_provider.dart';
 import '../../models/models.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/feedback_screenshot.dart';
+import '../../widgets/feedback_repair.dart';
 
 /// 反馈管理页面（student_union 及以上可访问）
 class FeedbackPage extends StatefulWidget {
@@ -1010,37 +1011,53 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
 
   Widget _buildActionButtons(FeedbackEntry fb, BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _doResolve(context, fb, 'dismissed'),
-            icon: const Icon(Icons.close),
-            label: const Text('驳回'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-            ),
+        // 在线修复：基于反馈内容定位相关代码，在本机开发环境直接修复
+        FilledButton.icon(
+          onPressed: () => showOnlineRepair(context, fb),
+          icon: const Icon(Icons.build_circle_outlined),
+          label: const Text('在线修复'),
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.colorScheme.tertiary,
+            foregroundColor: theme.colorScheme.onTertiary,
           ),
         ),
-        const SizedBox(width: 8),
-        if (fb.status == 'pending')
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _doResolve(context, fb, 'processing'),
-              icon: const Icon(Icons.autorenew),
-              label: const Text('标记处理中'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.blue,
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _doResolve(context, fb, 'dismissed'),
+                icon: const Icon(Icons.close),
+                label: const Text('驳回'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
               ),
             ),
-          ),
-        if (fb.status == 'pending') const SizedBox(width: 8),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: () => _showReplyDialog(context, fb),
-            icon: const Icon(Icons.check),
-            label: const Text('标记解决'),
-          ),
+            const SizedBox(width: 8),
+            if (fb.status == 'pending')
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _doResolve(context, fb, 'processing'),
+                  icon: const Icon(Icons.autorenew),
+                  label: const Text('标记处理中'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                  ),
+                ),
+              ),
+            if (fb.status == 'pending') const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => _showReplyDialog(context, fb),
+                icon: const Icon(Icons.check),
+                label: const Text('标记解决'),
+              ),
+            ),
+          ],
         ),
       ],
     );

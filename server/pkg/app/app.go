@@ -1312,6 +1312,21 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				mental.POST("/mood", auth.RequireCapability(auth.SelfMentalWrite), educationH.CreateMoodDiary)
 			}
 
+			// ── 身体健康模块（学生本人）──
+			health := secured.Group("/health")
+			{
+				health.GET("/basic", auth.RequireCapability(auth.SelfHealthRead), educationH.GetHealthBasicInfo)
+				health.PUT("/basic", auth.RequireCapability(auth.SelfHealthWrite), educationH.UpsertHealthBasicInfo)
+				health.GET("/checkups", auth.RequireCapability(auth.SelfHealthRead), educationH.ListHealthCheckups)
+				health.POST("/checkups", auth.RequireCapability(auth.SelfHealthWrite), educationH.CreateHealthCheckup)
+				health.PUT("/checkups/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.UpdateHealthCheckup)
+				health.DELETE("/checkups/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.DeleteHealthCheckup)
+				health.GET("/records", auth.RequireCapability(auth.SelfHealthRead), educationH.ListHealthRecords)
+				health.POST("/records", auth.RequireCapability(auth.SelfHealthWrite), educationH.CreateHealthRecord)
+				health.PUT("/records/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.UpdateHealthRecord)
+				health.DELETE("/records/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.DeleteHealthRecord)
+			}
+
 			// ── 校园文化智能体（全员可见）──
 			cultureGroup := secured.Group("/culture")
 			{

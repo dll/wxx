@@ -6,6 +6,7 @@ import '../../config/api_config.dart';
 import '../../main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/admin_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/capability_utils.dart';
 import '../../utils/role_utils.dart';
@@ -33,14 +34,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late Set<String> _listedFeatures;
-  late Set<String> _enabledFeatures;
-
   @override
   void initState() {
     super.initState();
-    _listedFeatures = Storage.listedFeatures.toSet();
-    _enabledFeatures = Storage.enabledFeatures.toSet();
     // 加载全局功能开关（管理员在后端配置，登录用户读取）
     _loadGlobalFeatureSwitches();
     // 加载用户资料
@@ -534,6 +530,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '个人档案', '完整学生信息聚合', '/student/profile'),
           _ProfileFeature('personality', '学生服务', Icons.psychology_outlined,
               '性格洞察', 'AI 性格分析', '/student/personality'),
+          _ProfileFeature('health', '学生服务', Icons.favorite_outline,
+              '身体健康', '身体信息·体检·病历', '/student/health'),
           _ProfileFeature('achievements', '学生服务', Icons.emoji_events_outlined,
               '积分成就', '学习积分与成就', '/student/achievements'),
           _ProfileFeature('course_map', '学生服务', Icons.map_outlined, '课程地图',
@@ -670,37 +668,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildFeatureTabs(BuildContext context, String? role) {
     final all = _featuresFor(role);
-    final allKeys = all.map((e) => e.key).toSet();
-    var changed = false;
-    if (_listedFeatures.isEmpty) {
-      _listedFeatures = allKeys;
-      changed = true;
-    } else {
-      final before = _listedFeatures.length;
-      _listedFeatures.addAll(allKeys);
-      changed = changed || _listedFeatures.length != before;
-    }
-    if (_enabledFeatures.isEmpty) {
-      _enabledFeatures = allKeys;
-      changed = true;
-    } else {
-      final before = _enabledFeatures.length;
-      _enabledFeatures.addAll(allKeys);
-      changed = changed || _enabledFeatures.length != before;
-    }
-    if (changed) {
-      Storage.setListedFeatures(_listedFeatures.toList());
-      Storage.setEnabledFeatures(_enabledFeatures.toList());
-    }
+    // 修复"功能开关无法关闭"：_listedFeatures/_enabledFeatures 是历史遗留的
+    // 本机过滤缓存，不再强制 addAll 回填（否则用户关闭的项会被立即恢复）。
+    // 功能可见性统一由后端 feature.<key> 全局开关决定（见 _buildFeatureSwitches）。
     final visible = all
-        .where((f) =>
-            _listedFeatures.contains(f.key) && _enabledFeatures.contains(f.key))
         .where((f) {
-      // 管理员全局功能开关：feature.<key>=false 时对普通用户隐藏该模块
-      final g = Storage.globalFeatureSwitches['feature.${f.key}'];
-      if (g == null) return true; // 未配置默认开放
-      return g == 'true';
-    })
+          // 管理员全局功能开关：feature.<key>=false 时对普通用户隐藏该模块
+          final g = Storage.globalFeatureSwitches['feature.${f.key}'];
+          if (g == null) return true; // 未配置默认开放
+          return g == 'true';
+        })
         .toList();
     final categories = [
       '常用',
@@ -788,7 +765,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildFeatureSwitches(List<_ProfileFeature> features, String? role) {
     final sys = role == 'sys_admin';
-    final college = role == 'college_admin';
+    // 管理员开关直接读写后端 feature.<key> 全局配置（持久化，影响所有用户可见性），
+    // 不再操作仅本机的 _listedFeatures/_enabledFeatures（旧逻辑导致"无法关闭"）。
+    final adminProvider = context.watch<AdminProvider>();
+    if (!adminProvider.settingsLoading && adminProvider.settings.isEmpty) {
+      // 懒加载系统配置（含 feature.* 键）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<AdminProvider>().fetchSettings();
+      });
+    }
+    final settings = adminProvider.settings;
+    bool switchValue(String key) {
+      // 查找 feature.<key> 配置，未配置（null）默认开启
+      for (final s in settings) {
+        if (s.key == 'feature.$key') {
+          return s.value == 'true' || s.value == '1';
+        }
+      }
+      return true;
+    }
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -800,22 +796,19 @@ class _ProfilePageState extends State<ProfilePage> {
             secondary: Icon(f.icon),
             title: Text(f.title),
             subtitle: Text('${f.category} · ${f.subtitle}'),
-            value: sys
-                ? _listedFeatures.contains(f.key)
-                : _enabledFeatures.contains(f.key),
+            value: switchValue(f.key),
             onChanged: (v) async {
-              setState(() {
-                final target = sys ? _listedFeatures : _enabledFeatures;
-                if (v) {
-                  target.add(f.key);
-                } else {
-                  target.remove(f.key);
-                }
+              // 持久化到后端（feature.<key>=true/false），对普通用户即时生效
+              await context.read<AdminProvider>().updateSettings({
+                'feature.${f.key}': v ? 'true' : 'false',
               });
-              if (sys)
-                await Storage.setListedFeatures(_listedFeatures.toList());
-              if (college)
-                await Storage.setEnabledFeatures(_enabledFeatures.toList());
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${f.title}已${v ? '开启' : '关闭'}，对普通用户立即生效'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
             },
           ),
       ],

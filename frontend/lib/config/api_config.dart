@@ -384,6 +384,11 @@ class ApiConfig {
   static const String mentalHotlines = '$apiPrefix/mental/hotlines';
   static const String mentalMood = '$apiPrefix/mental/mood';
 
+  // ── 身体健康模块 ──
+  static const String healthBasic = '$apiPrefix/health/basic';
+  static const String healthCheckups = '$apiPrefix/health/checkups';
+  static const String healthRecords = '$apiPrefix/health/records';
+
   // ── 站内通知 ──
   static const String notifications = '$apiPrefix/notifications';
   static const String notificationsUnread =
