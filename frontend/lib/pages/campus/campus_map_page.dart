@@ -681,10 +681,16 @@ class _CampusMapPageState extends State<CampusMapPage> {
             ],
           );
         }
-        // 移动端：地图区独占全屏（内含顶部控件栏+地图+底部当前步骤面板）。
-        // 不再单独保留 140px 步骤列表栏，让地图获得最大高度（视觉放大），
-        // 用户通过底部当前步骤面板的「完成此步」推进、或点击地图标注切换。
-        return map;
+        // 移动端：上下布局 —— 地图在上（含顶部控件栏+地图+底部当前步骤操作面板），
+        // 完整报到流程列表在下，与 Web 端信息一致，无需额外弹出层。
+        return Column(
+          children: [
+            Expanded(flex: 5, child: map),
+            VerticalDivider(
+                width: 1, color: theme.colorScheme.outlineVariant),
+            Expanded(flex: 4, child: _buildStepsPanel(theme)),
+          ],
+        );
       },
     );
   }
