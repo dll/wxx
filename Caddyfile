@@ -28,9 +28,11 @@ wxx-agent.online {
 	}
 
 	# 安全头
+	# X-Frame-Options 用 SAMEORIGIN：校园地图 HTML 在同源 iframe 中嵌入，
+	# DENY 会阻止同源 iframe 加载（WebView 报 refused to connect）。
 	header {
 		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
+		X-Frame-Options SAMEORIGIN
 		Referrer-Policy strict-origin-when-cross-origin
 	}
 
