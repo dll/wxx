@@ -26,7 +26,10 @@ class ChatPage extends StatefulWidget {
   /// 从知识大厅跳转时携带的初始问题
   final String? initialQuestion;
 
-  const ChatPage({super.key, this.initialQuestion});
+  /// 是否进入页面后自动开启语音输入（悬浮菜单"语音导航"入口用）
+  final bool autoVoice;
+
+  const ChatPage({super.key, this.initialQuestion, this.autoVoice = false});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -54,6 +57,12 @@ class _ChatPageState extends State<ChatPage> {
       _handleInitialQuestion();
       // 加载可用的智能体列表
       context.read<ChatProvider>().loadAgents();
+      // 悬浮菜单"语音导航"入口：进入页面后自动开始语音识别/录音
+      if (widget.autoVoice) {
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) _toggleVoiceInput();
+        });
+      }
     });
   }
 

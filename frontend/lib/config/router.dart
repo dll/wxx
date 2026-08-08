@@ -175,7 +175,8 @@ final GoRouter appRouter = GoRouter(
           path: '/chat',
           builder: (context, state) {
             final askQuery = state.uri.queryParameters['ask'];
-            return ChatPage(initialQuestion: askQuery);
+            final autoVoice = state.uri.queryParameters['v'] == 'voice';
+            return ChatPage(initialQuestion: askQuery, autoVoice: autoVoice);
           },
         ),
         GoRoute(

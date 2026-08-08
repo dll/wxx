@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'feedback_dialog.dart';
 import '../utils/storage.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
@@ -173,20 +174,25 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       ).animate(_slideAnims[index]),
       child: FadeTransition(
         opacity: _fadeAnims[index],
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () {
-              _close();
-              _onTap(item);
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FrostedLabel(text: item.label, theme: theme),
-                const SizedBox(width: 6),
-                _IconCircle(icon: item.icon, color: item.color),
-              ],
+        child: IgnorePointer(
+          // 菜单未展开时子项虽被动画隐藏（透明+偏移），但若不禁用 hit-test，
+          // 点击其视觉偏移前的原位仍会触发菜单项（悬浮菜单未展开却触发的问题）。
+          ignoring: !_isOpen,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: GestureDetector(
+              onTap: () {
+                _close();
+                _onTap(item);
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FrostedLabel(text: item.label, theme: theme),
+                  const SizedBox(width: 6),
+                  _IconCircle(icon: item.icon, color: item.color),
+                ],
+              ),
             ),
           ),
         ),
@@ -250,15 +256,13 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   void _onTap(_FabItem item) {
     switch (item.action) {
       case _FabAction.feedback:
-        // 问题反馈：未登录跳登录页，已登录跳我的反馈
-        if (!Storage.isLoggedIn) {
-          context.go('/login');
-        } else {
-          context.go('/my-feedbacks');
-        }
+        // 问题反馈：弹窗（自动截屏 + 分类 + 内容描述 + 提交），
+        // 恢复历史行为；登录态由后端校验，未登录时也允许提交后统一处理。
+        showFeedbackDialog(context);
       case _FabAction.voice:
-        // 语音导航：跳对话页并聚焦语音输入
-        context.go('/chat');
+        // 语音导航：跳对话页并自动开启语音输入，
+        // 识别"去办事"等导航指令直接跳转，否则作为聊天消息与 AI 问答。
+        context.go('/chat?v=voice');
       case _FabAction.twin:
         // 数字孪生：学生角色跳数字画像
         context.go('/student/digital-twin');
