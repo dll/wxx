@@ -231,7 +231,7 @@ jobs:
             固定入口（始终指向最新版，应用内二维码使用）：
             https://github.com/${{ github.repository }}/releases/latest/download/weixiaoxin.apk
 
-            Web 端：https://www.wxx-agent.online
+            Web 端：https://wxx-agent.online
           files: |
             dist/weixiaoxin.apk
             dist/weixiaoxin-v${{ env.APK_VERSION }}.apk

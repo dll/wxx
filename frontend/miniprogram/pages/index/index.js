@@ -2,7 +2,7 @@
 Page({
   data: {
     // 前端地址（Cloudflare Pages）
-    src: 'https://wxx-agent.pages.dev'
+    src: 'https://wxx-agent.online'
   },
 
   onLoad() {

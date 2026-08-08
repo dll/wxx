@@ -90,7 +90,7 @@ SQLITE_PATH=/opt/wxx/data/wxx.db
 JWT_SECRET=<请填写64位随机字符串>
 DEEPSEEK_API_KEY=<请填写>
 ZHIPU_API_KEY=<请填写>
-CORS_ALLOWED_ORIGINS=https://www.wxx-agent.online
+CORS_ALLOWED_ORIGINS=https://wxx-agent.online,https://www.wxx-agent.online,https://wxx-agent.pages.dev
 WXXENV
     echo "⚠️  请编辑 /etc/wxx/env 填写实际的密钥和配置"
 fi

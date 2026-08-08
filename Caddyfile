@@ -4,14 +4,10 @@
 # 单一 Caddy 实例同时服务：
 #   - /api/*  → Go 后端 (localhost:8080)
 #   - /*      → Flutter Web 静态文件 (/opt/wxx/frontend/web)
-# 所有请求强制跳转到 www.wxx-agent.online
+# 正式入口为 wxx-agent.online（ICP 备案），www 永久重定向到该域名。
 
-# 无 www → 有 www 永久重定向
+# 正式入口站点块（apex）：静态文件 + API 反向代理
 wxx-agent.online {
-	redir https://www.wxx-agent.online{uri} permanent
-}
-
-www.wxx-agent.online {
 	# API 反向代理优先：所有 /api/* 请求转发到 Go 后端，不参与 SPA fallback
 	handle /api/* {
 		reverse_proxy localhost:8080
@@ -26,6 +22,9 @@ www.wxx-agent.online {
 
 		# 静态文件压缩
 		encode zstd gzip
+
+		# 服务静态文件（缺失时会自动处理 index/目录）
+		file_server
 	}
 
 	# 安全头
@@ -42,6 +41,11 @@ www.wxx-agent.online {
 	}
 }
 
+# www → apex 永久重定向（避免双域名同时解析导致 Baidu AK 白名单多个来源）
+www.wxx-agent.online {
+	redir https://wxx-agent.online{uri} permanent
+}
+
 # IP 直连站点块：域名备案通过前，用户可通过 IP 直接访问。
 # 注意：HTTPS 证书 CN 绑定域名，IP 直连走 HTTP（或浏览器忽略证书告警）。
 # 域名备案通过后此块可移除。
@@ -56,5 +60,6 @@ http://129.211.223.113 {
 		root * /opt/wxx/frontend/web
 		try_files {path} /index.html
 		encode zstd gzip
+		file_server
 	}
 }

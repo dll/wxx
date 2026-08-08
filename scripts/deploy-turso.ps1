@@ -98,7 +98,7 @@ $vercelEnv = @{
     "XFYUN_API_SECRET"     = $envMap["XFYUN_API_SECRET"]
     "XFYUN_SPEECH_URL"     = $envMap["XFYUN_SPEECH_URL"]
     "APP_MODE"             = "release"
-    "CORS_ALLOWED_ORIGINS" = "https://wxx-agent.pages.dev"
+    "CORS_ALLOWED_ORIGINS" = "https://wxx-agent.online,https://www.wxx-agent.online,https://wxx-agent.pages.dev"
 }
 
 foreach ($key in $vercelEnv.Keys) {

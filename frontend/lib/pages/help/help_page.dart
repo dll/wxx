@@ -116,7 +116,7 @@ class _SystemOverviewTab extends StatelessWidget {
           _row(theme, Icons.dns, '后端',
               'Go / Gin 服务，部署于腾讯云 Lighthouse 常驻服务器，本地 SQLite 数据库（含全文检索 FTS5）。'),
           _row(theme, Icons.public, '入口',
-              '正式入口 https://www.wxx-agent.online，备用 https://wxx-agent.pages.dev，APK 与首页二维码均可打开。'),
+              '正式入口 https://wxx-agent.online，备用 https://wxx-agent.pages.dev，APK 与首页二维码均可打开。'),
           _row(theme, Icons.smart_toy, '大模型',
               '接入智谱、DeepSeek、讯飞等第三方大模型：语义问答、日报、学习日记、性格洞察、出题评分等均由模型完成；语音识别 / 合成由讯飞提供。'),
         ]),
@@ -381,7 +381,7 @@ List<_RoleSection> _roleSections(String role) {
     case 'student':
       return const [
         _RoleSection('日常使用流程', Icons.calendar_view_day, [
-          '打开正式入口 www.wxx-agent.online 或安装蔚小芯.apk，用学号 + 初始密码登录。',
+          '打开正式入口 wxx-agent.online 或安装蔚小芯.apk，用学号 + 初始密码登录。',
           '首次登录建议先到「我的」→ 修改密码、完善个人资料与头像。',
           '每天首次打开「首页」查看 AI 今日速览；在「对话」中随时向 AI 提问。',
           '在「我的 → AI 学习工具」使用学习日记、每日打卡，形成每日学习闭环。',

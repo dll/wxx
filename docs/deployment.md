@@ -1,10 +1,10 @@
 # 部署指南 — 蔚小芯
 
-> 蔚小芯当前正式部署架构（2026-07-31 起）：
-> - **前端**：Cloudflare Pages（项目 `wxx-agent`），正式入口 `https://www.wxx-agent.online`（CF Pages 自定义域名），备用入口 `https://wxx-agent.pages.dev`
-> - **后端**：腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04），Go 二进制 systemd 常驻，Caddy 反向代理 + 自动 HTTPS（`https://www.wxx-agent.online`）
+> 蔚小芯当前正式部署架构：
+> - **前端**：正式入口 `https://wxx-agent.online`（腾讯云 Lighthouse Caddy 静态服务，ICP 备案皖ICP备2026004593号-2；`www.wxx-agent.online` 永久重定向至此），备用入口 `https://wxx-logistic.pages.dev`（Cloudflare Pages）
+> - **后端**：腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04），Go 二进制 systemd 常驻，Caddy 反向代理 + 自动 HTTPS（`https://wxx-agent.online`）
 > - **数据库**：服务器本地 SQLite（`/opt/wxx/data/wxx.db`，含 FTS5）
-> - **代理链路**：用户 → CF Pages（前端）→ CF Functions（JWT 鉴权）→ `http://129.211.223.113:8080`（Go 后端）→ 本地 SQLite
+> - **代理链路**：用户 → Caddy（`https://wxx-agent.online`）→ `/api/*` 反代 `http://localhost:8080`（Go 后端）→ 本地 SQLite；Caddy 同时静态服务 `/opt/wxx/frontend/web`
 >
 > 历史方案（Vercel Serverless + Turso）已于 2026-07-31 停用，仅作归档参考，见文末「历史方案」。
 
@@ -12,10 +12,10 @@
 
 | 地址 | 用途 | 状态 |
 |------|------|------|
-| `https://www.wxx-agent.online` | 用户正式入口（CF Pages 自定义域名） | 需在 CF Pages 绑定自定义域名后生效 |
+| `https://wxx-agent.online` | 用户正式入口（Lighthouse Caddy 静态 + API 反代，ICP 备案） | 有效 |
+| `https://www.wxx-agent.online` | www 入口（永久重定向到正式入口） | 有效 |
 | `https://wxx-agent.pages.dev` | 备用入口（CF Pages 原生域名） | 始终有效 |
-| `https://wxx-agent.pages.dev/downloads/` | Android APK 下载 | 始终有效 |
-| `http://129.211.223.113:8080` | 后端 API（CF Functions 内部代理用，用户不直接访问） | 内部 |
+| `http://129.211.223.113:8080` | 后端 API（内部代理用，用户不直接访问） | 内部 |
 
 > 登录：用户名 + 密码（由管理员分配）。角色与权限见 `docs/蔚小芯角色功能.md`。
 
@@ -235,9 +235,26 @@ pwsh -ExecutionPolicy Bypass -NoProfile -File scripts/build-all.ps1 -NoVersionBu
 
 `-NoVersionBump` 不用于常规发布；常规发布必须使用 `make deploy-release` 自动递增版本。
 
-## Cloudflare Pages 前端部署（强制流程）
+## 前端部署
 
-> 前端正式入口：`https://www.wxx-agent.online`（CF Pages 自定义域名），备用入口 `https://wxx-agent.pages.dev`。后端由 Cloudflare Pages Functions 鉴权后代理至腾讯云 Lighthouse（`129.211.223.113:8080`）。Vercel 前端旧域名与 Vercel 后端均已停用。
+> 前端正式入口：`https://wxx-agent.online`（腾讯云 Lighthouse Caddy 静态服务 + `/api/*` 反代，ICP 备案皖ICP备2026004593号-2），`www.wxx-agent.online` 永久重定向至此；备用入口 `https://wxx-agent.pages.dev`（Cloudflare Pages）。Vercel 前端旧域名与 Vercel 后端均已停用。
+
+### 正式入口部署（服务器 Caddy 静态服务）
+
+```bash
+# 构建 Web 后 rsync 到服务器 /opt/wxx/frontend/web，见 frontend/deploy-frontend.sh
+./frontend/deploy-frontend.sh
+```
+
+Caddy 站点块（`/etc/caddy/Caddyfile`，仓库根目录有同名副本）：
+
+```caddyfile
+wxx-agent.online {
+	handle /api/* { reverse_proxy localhost:8080 }
+	handle { root * /opt/wxx/frontend/web; try_files {path} /index.html; encode zstd gzip; file_server }
+}
+www.wxx-agent.online { redir https://wxx-agent.online{uri} permanent }
+```
 
 ### 标准部署命令（推荐）
 
@@ -256,11 +273,9 @@ Web + APK 联合发布请使用：
 make deploy-release
 ```
 
-### 绑定自定义域名
+### 绑定自定义域名（备用入口 CF Pages 自定义域）
 
-生产环境已绑定 `www.wxx-agent.online` 作为 CF Pages 自定义域名（由 Cloudflare 边缘提供，全球可达，无需 ICP 备案即可访问前端）。后续可再绑定学校官方子域名（如 `wxx-agent.chzu.edu.cn`）。
-
-> 注意：`www.wxx-agent.online` 作为**前端入口**时应指向 Cloudflare（CNAME → `wxx-agent.pages.dev`）；而后端 API 经 Caddy 使用同名 HTTPS 时指向服务器 IP。二者不能共用同一 DNS 记录——若前端用此域名，后端另用子域名（如 `api.wxx-agent.online`）或直连 IP。
+> 正式入口 `wxx-agent.online` 由服务器 Caddy 直接服务（A 记录 → `129.211.223.113`），不走 CF Pages。以下绑定流程仅用于「备用入口 `wxx-agent.pages.dev`」如需绑定额外自定义域名时的参考。
 
 ```bash
 # 1. 打开 Cloudflare Dashboard → Workers & Pages → wxx-agent

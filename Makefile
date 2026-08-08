@@ -122,23 +122,23 @@ flutter-build-apk-safe:
 flutter-test:
 	cd $(FLUTTER_DIR) && flutter test
 
-# ---- Cloudflare Pages 前端部署 ----
+# ---- Cloudflare Pages 前端部署（备用入口）----
 .PHONY: deploy-web deploy-web-prebuilt deploy-release
 
 # 标准部署：构建 Flutter Web 后同步 Pages Functions，发布到 wxx-agent 项目
-# 域名: https://wxx-agent.pages.dev （详见 docs/蔚小芯前端重新部署.md）
+# 正式入口: https://wxx-agent.online（服务器 Caddy），备用: https://wxx-agent.pages.dev（详见 docs/蔚小芯前端重新部署.md）
 deploy-web: flutter-build-web
 	cd $(FLUTTER_DIR)/functions && npm install
 	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
-	@echo "=== 已部署到 https://wxx-agent.pages.dev ==="
+	@echo "=== 已部署到备用入口 https://wxx-agent.pages.dev ==="
 
 # 仅推送已存在的 build/web 产物（不重新编译）
 deploy-web-prebuilt:
 	cd $(FLUTTER_DIR)/functions && npm install
-	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
+	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -rf deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
-	@echo "=== 已部署到 https://wxx-agent.pages.dev ==="
+	@echo "=== 已部署到备用入口 https://wxx-agent.pages.dev ==="
 
 # 发布 Web + APK：版本号 patch 自动 +1，APK 注入 build/web/downloads 后部署 Cloudflare Pages。
 deploy-release:
@@ -146,7 +146,7 @@ deploy-release:
 	cd $(FLUTTER_DIR)/functions && npm install
 	cd $(FLUTTER_DIR) && rm -rf deploy && mkdir -p deploy && cp -rf build/web/* deploy/ && cp -rf functions deploy/ && rm -f deploy/_routes.json
 	cd $(FLUTTER_DIR) && npx --yes wrangler pages deploy deploy --project-name wxx-agent --branch main
-	@echo "=== 已发布 Web + APK 到 https://wxx-agent.pages.dev ==="
+	@echo "=== 已发布 Web + APK 到备用入口 https://wxx-agent.pages.dev （正式入口请再上传服务器 /opt/wxx/frontend/web） ==="
 
 # ---- 前端全量构建 ----
 # 顺序构建 Web + APK（调用 PowerShell 7 脚本）

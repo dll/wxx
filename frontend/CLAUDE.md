@@ -50,7 +50,7 @@ flutter test test/path_to_test.dart
 - 用户可见名称统一为「蔚小芯」：`AndroidManifest.xml` 的 `android:label`、`web/index.html` 的 `<title>` 和 `apple-mobile-web-app-title`、`web/manifest.json` 的 `name` / `short_name`
 - 技术 ID 仍用 `wxx_app` / `com.wxx.wxx_app`
 - APK 分发文件名固定为 `蔚小芯.apk`（Makefile 自动从 `apk/release/蔚小芯-release.apk` 复制到 `flutter-apk/蔚小芯.apk`）
-- 前端正式入口是 Cloudflare Pages `https://wxx-agent.pages.dev`，不要再使用已停用的 Vercel 前端旧域名
+- 前端正式入口是 `https://wxx-agent.online`（Lighthouse Caddy 静态服务 + API 反代，ICP 备案皖ICP备2026004593号-2），备用 `https://wxx-agent.pages.dev`，不要再使用已停用的 Vercel 前端旧域名
 
 
 ## 架构概览
@@ -128,10 +128,9 @@ class XxxProvider extends ChangeNotifier {
 
 ## 部署
 
-Flutter Web 构建产物部署到 Cloudflare Pages **`wxx-agent`** 项目（域名 `https://wxx-agent.pages.dev`）。
+Flutter Web 构建产物有两个部署去向：
 
-```bash
-make deploy-web   # 自动构建 + 同步 Pages Functions + wrangler pages deploy
-```
+1. **正式入口**：rsync 到腾讯云 Lighthouse 服务器 `/opt/wxx/frontend/web`（Caddy 静态服务），域名 `https://wxx-agent.online`（ICP 备案皖ICP备2026004593号-2），`www.wxx-agent.online` 永久重定向至此。脚本：`./frontend/deploy-frontend.sh`。
+2. **备用入口**：部署到 Cloudflare Pages **`wxx-agent`** 项目（域名 `https://wxx-agent.pages.dev`）。脚本：`make deploy-web`。
 
-**不要再使用 Vercel 前端旧域名**：原 `wxx.pydaydayup.xyz` 已停用。前端发布和验收均以 `https://wxx-agent.pages.dev` 为准。
+**不要再使用停用的 Vercel 前端旧域名**：原 `wxx.pydaydayup.xyz` 已停用。前端发布和验收均以 `https://wxx-agent.online` 为准，备用 `https://wxx-agent.pages.dev`。

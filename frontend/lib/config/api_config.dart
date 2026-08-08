@@ -14,7 +14,7 @@ class ApiConfig {
       return 'http://localhost:8080';
     }
     if (kIsWeb) return '';
-    return 'https://www.wxx-agent.online';
+    return 'https://wxx-agent.online';
   }
 
   /// 百度地图 AK（服务端校验域名白名单，固定随包分发，无需用户填写）。

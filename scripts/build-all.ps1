@@ -16,7 +16,7 @@ $pubspec = Join-Path $frontend "pubspec.yaml"
 $releaseConfig = Join-Path $frontend "lib/config/release_config.dart"
 $downloadsDir = Join-Path $frontend "build/web/downloads"
 $webDownloadsDir = Join-Path $frontend "web/downloads"
-$baseUrl = "https://wxx-agent.pages.dev"
+$baseUrl = "https://wxx-agent.online"
 
 Write-Output ">>> 校验源码编码（UTF-8 无 BOM）..."
 & (Join-Path $PSScriptRoot "check-encoding.ps1") -Root (Resolve-Path "$PSScriptRoot/..")

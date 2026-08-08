@@ -30,7 +30,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **多智能体管理中心自研**；编排运行时 = Eino（开源）+ 自研封装
 - **Flutter UI 规范**：Material Design 3 基线，响应式布局 + 暗黑模式 + 磨砂质感 + 动画微交互，详见 `docs/蔚小芯开发规范.md` §13
 - **应用命名规范**：用户可见名称一律为「蔚小芯」（Android `android:label` / Web `<title>` / `manifest.json` 的 `name`/`short_name` / 后端 `/health` 的 `service` 字段）；APK 分发文件名固定为 `蔚小芯.apk`；技术 ID（`wxx_app` / `com.wxx.wxx_app` / 仓库 `wxx`）保持英文。详见 `docs/deployment.md`「应用命名规范」
-- **访问入口**：正式入口 `https://www.wxx-agent.online`（CF Pages 自定义域名，全球可达），备用入口 `https://wxx-agent.pages.dev`。前端托管 Cloudflare Pages；后端运行在腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04，systemd 常驻），由 Cloudflare Pages Functions 鉴权后代理至 `http://129.211.223.113:8080`（对外经 Caddy `https://www.wxx-agent.online`）。不要再使用已停用的 `wxx.pydaydayup.xyz`；后端已从 Vercel Serverless + Turso 迁移至常驻服务器 + 本地 SQLite，详见 `docs/deployment.md`
+- **访问入口**：正式入口 `https://wxx-agent.online`（腾讯云 Lighthouse Caddy 直连，ICP 备案号皖ICP备2026004593号-2），`www.wxx-agent.online` 永久重定向到该域名；备用入口 `https://wxx-agent.pages.dev`（Cloudflare Pages）。前端托管可由 Cloudflare Pages 分发或以 Caddy 静态服务部署到腾讯云；后端运行在腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04，systemd 常驻），Caddy 对 `https://wxx-agent.online` 反向代理 `/api/*` 至 `http://localhost:8080`。不要再使用已停用的 `wxx.pydaydayup.xyz`；后端已从 Vercel Serverless + Turso 迁移至常驻服务器 + 本地 SQLite，详见 `docs/deployment.md`
 - **二进制资产存储**：截图等二进制资产存入 SQLite（base64），当前反馈截图存于 `feedback.screenshot_url` 字段（`data:image/png;base64,...` 格式），前端用 `widgets/feedback_screenshot.dart` 的 `FeedbackScreenshot` 组件渲染。SQLite 位于服务器 `/opt/wxx/data/wxx.db`，为常驻持久化存储（非 Vercel `/tmp` 易失文件系统）
 - **前端 Provider 能力门控**：调用受保护接口前必须用 `CapabilityUtils.has(Capability.xxx)` 检查，否则低权限角色会触发 401/403。能力常量定义在 `frontend/lib/utils/capability_utils.dart`，与后端 `server/internal/auth/capabilities.go` 同步
 
