@@ -121,6 +121,105 @@ class HealthRecordItem {
   }
 }
 
+/// 日常健康记录模型（身高/体重/血压/心率）
+class HealthDailyRecord {
+  final int id;
+  final String recordDate;
+  final double heightCm;
+  final double weightKg;
+  final int systolic;
+  final int diastolic;
+  final int heartRate;
+  final String note;
+  final String createdAt;
+
+  const HealthDailyRecord({
+    this.id = 0,
+    this.recordDate = '',
+    this.heightCm = 0,
+    this.weightKg = 0,
+    this.systolic = 0,
+    this.diastolic = 0,
+    this.heartRate = 0,
+    this.note = '',
+    this.createdAt = '',
+  });
+
+  factory HealthDailyRecord.fromJson(Map<String, dynamic> json) {
+    return HealthDailyRecord(
+      id: json['id'] ?? 0,
+      recordDate: json['record_date'] ?? '',
+      heightCm: (json['height_cm'] as num?)?.toDouble() ?? 0,
+      weightKg: (json['weight_kg'] as num?)?.toDouble() ?? 0,
+      systolic: json['systolic'] ?? 0,
+      diastolic: json['diastolic'] ?? 0,
+      heartRate: json['heart_rate'] ?? 0,
+      note: json['note'] ?? '',
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+}
+
+/// 健身活动 / 竞技比赛模型
+class HealthActivity {
+  final String activityId;
+  final String title;
+  final String category;
+  final String description;
+  final String startAt;
+  final String endAt;
+  final String venue;
+  final String organizer;
+  final int capacity;
+  final String signupDeadline;
+  final String status;
+  final String creatorRole;
+  final int favoriteCount;
+  final int signupCount;
+  final bool isFavorite;
+  final bool isSignup;
+
+  const HealthActivity({
+    this.activityId = '',
+    this.title = '',
+    this.category = 'sports',
+    this.description = '',
+    this.startAt = '',
+    this.endAt = '',
+    this.venue = '',
+    this.organizer = '',
+    this.capacity = 0,
+    this.signupDeadline = '',
+    this.status = 'active',
+    this.creatorRole = '',
+    this.favoriteCount = 0,
+    this.signupCount = 0,
+    this.isFavorite = false,
+    this.isSignup = false,
+  });
+
+  factory HealthActivity.fromJson(Map<String, dynamic> json) {
+    return HealthActivity(
+      activityId: json['activity_id'] ?? '',
+      title: json['title'] ?? '',
+      category: json['category'] ?? 'sports',
+      description: json['description'] ?? '',
+      startAt: json['start_at'] ?? '',
+      endAt: json['end_at'] ?? '',
+      venue: json['venue'] ?? '',
+      organizer: json['organizer'] ?? '',
+      capacity: json['capacity'] ?? 0,
+      signupDeadline: json['signup_deadline'] ?? '',
+      status: json['status'] ?? 'active',
+      creatorRole: json['creator_role'] ?? '',
+      favoriteCount: json['favorite_count'] ?? 0,
+      signupCount: json['signup_count'] ?? 0,
+      isFavorite: json['is_favorite'] ?? false,
+      isSignup: json['is_signup'] ?? false,
+    );
+  }
+}
+
 /// 身体健康 Provider：身体基本信息 + 体检记录 + 病历记录
 class HealthProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -134,12 +233,18 @@ class HealthProvider extends ChangeNotifier {
   List<HealthCheckup> _checkups = [];
   // 病历记录
   List<HealthRecordItem> _records = [];
+  // 日常记录
+  List<HealthDailyRecord> _daily = [];
+  // 健身活动/竞技比赛
+  List<HealthActivity> _activities = [];
 
   bool get loading => _loading;
   String? get error => _error;
   HealthBasicInfo? get basicInfo => _basicInfo;
   List<HealthCheckup> get checkups => _checkups;
   List<HealthRecordItem> get records => _records;
+  List<HealthDailyRecord> get daily => _daily;
+  List<HealthActivity> get activities => _activities;
 
   Future<void> _guard(Future<void> Function() fn) async {
     _loading = true;
@@ -274,6 +379,101 @@ class HealthProvider extends ChangeNotifier {
       final res = await _api.delete('${ApiConfig.healthRecords}/$id');
       if (res.data['code'] == 0) {
         await fetchRecords();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── 日常记录 ──
+
+  Future<void> fetchDaily() {
+    return _guard(() async {
+      final res = await _api.get('${ApiConfig.healthDaily}?limit=180');
+      final list = (res.data['data'] as List?) ?? const [];
+      _daily = list
+          .map((e) =>
+              HealthDailyRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    });
+  }
+
+  Future<bool> saveDaily(Map<String, dynamic> body) async {
+    try {
+      final res = await _api.put(ApiConfig.healthDaily, data: body);
+      if (res.data['code'] == 0) {
+        await fetchDaily();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteDaily(String date) async {
+    try {
+      final res = await _api.delete('${ApiConfig.healthDaily}/$date');
+      if (res.data['code'] == 0) {
+        await fetchDaily();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── 健身活动 / 竞技比赛 ──
+
+  Future<void> fetchActivities() {
+    return _guard(() async {
+      final res = await _api.get('${ApiConfig.healthActivities}?category=');
+      final list = (res.data['data'] as List?) ?? const [];
+      _activities = list
+          .map((e) =>
+              HealthActivity.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    });
+  }
+
+  Future<bool> toggleFavorite(String activityId, bool favorite) async {
+    try {
+      final res = await _api.post(
+          '${ApiConfig.healthActivities}/$activityId/favorite',
+          data: {'favorite': favorite});
+      if (res.data['code'] == 0) {
+        await fetchActivities();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> toggleSignup(String activityId, bool signup) async {
+    try {
+      final res = await _api.post(
+          '${ApiConfig.healthActivities}/$activityId/signup',
+          data: {'signup': signup});
+      if (res.data['code'] == 0) {
+        await fetchActivities();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> createActivity(Map<String, dynamic> body) async {
+    try {
+      final res = await _api.post(ApiConfig.healthActivities, data: body);
+      if (res.data['code'] == 0) {
+        await fetchActivities();
         return true;
       }
       return false;

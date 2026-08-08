@@ -1325,6 +1325,13 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				health.POST("/records", auth.RequireCapability(auth.SelfHealthWrite), educationH.CreateHealthRecord)
 				health.PUT("/records/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.UpdateHealthRecord)
 				health.DELETE("/records/:id", auth.RequireCapability(auth.SelfHealthWrite), educationH.DeleteHealthRecord)
+				health.GET("/daily", auth.RequireCapability(auth.SelfHealthRead), educationH.ListHealthDaily)
+				health.PUT("/daily", auth.RequireCapability(auth.SelfHealthWrite), educationH.UpsertHealthDaily)
+				health.DELETE("/daily/:date", auth.RequireCapability(auth.SelfHealthWrite), educationH.DeleteHealthDaily)
+				health.GET("/activities", auth.RequireCapability(auth.SelfHealthRead), educationH.ListHealthActivities)
+				health.POST("/activities", auth.RequireCapability(auth.UnionEventPlan), educationH.CreateHealthActivity)
+				health.POST("/activities/:id/favorite", auth.RequireCapability(auth.SelfHealthWrite), educationH.ToggleActivityFavorite)
+				health.POST("/activities/:id/signup", auth.RequireCapability(auth.SelfHealthWrite), educationH.ToggleActivitySignup)
 			}
 
 			// ── 校园文化智能体（全员可见）──

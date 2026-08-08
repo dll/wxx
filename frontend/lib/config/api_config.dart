@@ -388,6 +388,8 @@ class ApiConfig {
   static const String healthBasic = '$apiPrefix/health/basic';
   static const String healthCheckups = '$apiPrefix/health/checkups';
   static const String healthRecords = '$apiPrefix/health/records';
+  static const String healthDaily = '$apiPrefix/health/daily';
+  static const String healthActivities = '$apiPrefix/health/activities';
 
   // ── 站内通知 ──
   static const String notifications = '$apiPrefix/notifications';

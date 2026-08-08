@@ -696,6 +696,17 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
               const SizedBox(height: 12),
               _buildTimelineSection(context),
               const SizedBox(height: 20),
+              // 在线修复：任何状态下都可用（已解决/已驳回的反馈也能查看代码定位）
+              FilledButton.icon(
+                onPressed: () => showOnlineRepair(context, fb),
+                icon: const Icon(Icons.build_circle_outlined),
+                label: const Text('在线修复'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.tertiary,
+                  foregroundColor: Theme.of(context).colorScheme.onTertiary,
+                ),
+              ),
+              const SizedBox(height: 10),
               if (fb.status == 'pending' || fb.status == 'processing')
                 _buildActionButtons(fb, context),
             ],
@@ -1014,17 +1025,6 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 在线修复：基于反馈内容定位相关代码，在本机开发环境直接修复
-        FilledButton.icon(
-          onPressed: () => showOnlineRepair(context, fb),
-          icon: const Icon(Icons.build_circle_outlined),
-          label: const Text('在线修复'),
-          style: FilledButton.styleFrom(
-            backgroundColor: theme.colorScheme.tertiary,
-            foregroundColor: theme.colorScheme.onTertiary,
-          ),
-        ),
-        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
