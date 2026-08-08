@@ -112,8 +112,18 @@ func DefaultFilter() *ContentFilter {
 	return defaultFilter
 }
 
+// 安全语境豁免词：这些词出现在拦截词附近时，判定为“防范/提醒”正常语境而非违规。
+// 例如"谨防电信诈骗""远离校园贷""防范网络诈骗"等安全教育内容不应被拦截。
+var safetyContextWords = []string{
+	"防", "谨防", "防范", "警惕", "预防", "抵制", "远离", "拒绝",
+	"举报", "提醒", "安全教育", "识破", "不上当", "避免被骗", "反诈", "防骗",
+	"增强", "提高警惕", "注意安全", "不要相信", "谨记",
+}
+
 // Check 检查文本是否包含敏感内容
-func (f *ContentFilter) Check(text string) FilterResult {
+// [allowSafetyContext] 为 true 时（LLM 输出检查），命中拦截词但相邻为安全语境（如"谨防诈骗"）则放行，
+// 避免正常的安全教育内容被误判为违规。
+func (f *ContentFilter) Check(text string, allowSafetyContext bool) FilterResult {
 	lower := strings.ToLower(text)
 
 	f.mu.RLock()
@@ -123,6 +133,10 @@ func (f *ContentFilter) Check(text string) FilterResult {
 	for category, words := range f.blockWords {
 		for _, word := range words {
 			if strings.Contains(lower, strings.ToLower(word)) {
+				// LLM 输出检查：若该词处于安全语境（前缀含"防/警惕"等）则放行
+				if allowSafetyContext && inSafetyContext(lower, word) {
+					continue
+				}
 				return FilterResult{
 					Action:     FilterBlock,
 					Reason:     "命中拦截词: " + word,
@@ -152,15 +166,32 @@ func (f *ContentFilter) Check(text string) FilterResult {
 	return FilterResult{Action: FilterPass}
 }
 
+// inSafetyContext 判断拦截词是否处于安全提醒语境（词前方存在安全前缀词）
+func inSafetyContext(text, word string) bool {
+	idx := strings.Index(text, strings.ToLower(word))
+	if idx < 0 {
+		return false
+	}
+	// 取拦截词前的一段文本（不含该词本身）作为安全语境。
+	// 用整段而非固定窗口，兼容"谨防电信诈骗和网络诈骗"等连词连接的多个拦截词。
+	prefix := text[:idx]
+	for _, sw := range safetyContextWords {
+		if strings.Contains(prefix, strings.ToLower(sw)) {
+			return true
+		}
+	}
+	return false
+}
+
 // CheckInput 检查用户输入（与 Check 相同，但可扩展特殊逻辑）
 func (f *ContentFilter) CheckInput(text string) FilterResult {
-	return f.Check(text)
+	return f.Check(text, false)
 }
 
 // CheckOutput 检查 LLM 输出（更严格的检查）
 func (f *ContentFilter) CheckOutput(text string) FilterResult {
-	// 对输出用相同的检查逻辑
-	return f.Check(text)
+	// 对输出用相同的检查逻辑，但放行安全语境（如"谨防电信诈骗"）
+	return f.Check(text, true)
 }
 
 // CheckCombined 同时检查输入和输出，返回更严格的判定
@@ -219,7 +250,7 @@ func (f *ContentFilter) CheckCombined(input, output string) FilterResult {
 
 // CheckContent 便捷函数：使用默认过滤器检查文本
 func CheckContent(text string) FilterResult {
-	return defaultFilter.Check(text)
+	return defaultFilter.Check(text, false)
 }
 
 // CheckUserInput 便捷函数：检查用户输入

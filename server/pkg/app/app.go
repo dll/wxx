@@ -140,7 +140,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	switch {
 	case deepSeekClient != nil && zhipuClient != nil:
-		llmClient = llm.NewFailoverClient(deepSeekClient, zhipuClient, 0)
+		llmClient = llm.NewFailoverClient(deepSeekClient, zhipuClient, 90*time.Second)
 	case deepSeekClient != nil:
 		llmClient = deepSeekClient
 	case zhipuClient != nil:

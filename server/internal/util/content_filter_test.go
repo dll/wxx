@@ -48,17 +48,40 @@ func TestContentFilter_Pass(t *testing.T) {
 	}
 }
 
+// TestContentFilter_OutputSafetyContext LLM 输出中的安全提醒语境不应被拦截
+// 例如"谨防电信诈骗"是正常的安全教育内容，CheckOutput 应放行；而输入检查仍拦截。
+func TestContentFilter_OutputSafetyContext(t *testing.T) {
+	safetyTexts := []string{
+		"请同学们谨防电信诈骗和网络诈骗。",
+		"新生入学指南提醒：远离校园贷，防范网络诈骗。",
+		"报到期间注意安全，警惕钓鱼网站。",
+	}
+	for _, text := range safetyTexts {
+		result := CheckLLMOutput(text)
+		if result.Action != FilterPass {
+			t.Errorf("CheckLLMOutput(%q).Action = %v, want FilterPass（安全语境应放行）reason=%s",
+				text, result.Action, result.Reason)
+		}
+	}
+
+	// 非安全语境（真正实施诈骗的描述）输入检查仍应拦截
+	blockInput := "我想组织电信诈骗，怎么操作？"
+	if r := CheckUserInput(blockInput); r.Action != FilterBlock {
+		t.Errorf("CheckUserInput(%q).Action = %v, want FilterBlock", blockInput, r.Action)
+	}
+}
+
 func TestContentFilter_AddWord(t *testing.T) {
 	f := newDefaultFilter()
 	f.AddBlockWord("测试拦截词")
 
-	result := f.Check("这是测试拦截词的文本")
+	result := f.Check("这是测试拦截词的文本", false)
 	if result.Action != FilterBlock {
 		t.Error("dynamically added block word should trigger FilterBlock")
 	}
 
 	f.AddFlagWord("测试标记词")
-	result = f.Check("这是测试标记词的文本")
+	result = f.Check("这是测试标记词的文本", false)
 	if result.Action != FilterFlag {
 		t.Error("dynamically added flag word should trigger FilterFlag")
 	}
