@@ -74,7 +74,7 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
                   children: [
                     _buildPanel(
                       keyCtrl: _dsKeyCtrl, keyHint: 'DeepSeek API Key',
-                      modelCtrl: _dsModelCtrl, modelHint: '模型名称（如 deepseek-v4-pro）',
+                      modelCtrl: _dsModelCtrl, modelHint: '模型名称（如 deepseek-v4-flash）',
                       temp: _dsTemp, onTempChanged: (v) => _dsTemp = v,
                       maxTokens: _dsMaxTokens, onTokensChanged: (v) => _dsMaxTokens = v,
                     ),

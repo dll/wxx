@@ -271,8 +271,8 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐',
               '/culture/volunteer'),
 
-          // 反馈管理（student_union 及以上）
-          if (_canSubmitKB(profile?.role))
+          // 反馈管理（管理员）
+          if (_canAccessAdmin(profile?.role))
             _buildMenuCard(context, Icons.feedback_outlined, '反馈管理',
                 '查看和处理用户反馈', '/feedback'),
 

@@ -138,7 +138,7 @@ func Load() *Config {
 
 		DeepSeekAPIKey:  envOr("DEEPSEEK_API_KEY", ""),
 		DeepSeekBaseURL: envOr("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"),
-		DeepSeekModel:   envOr("DEEPSEEK_MODEL", "deepseek-v4-pro"),
+		DeepSeekModel:   envOr("DEEPSEEK_MODEL", "deepseek-v4-flash"),
 
 		XfyunAppID:     envOr("XFYUN_APP_ID", ""),
 		XfyunAPIKey:    envOr("XFYUN_API_KEY", ""),
