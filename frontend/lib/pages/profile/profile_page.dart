@@ -634,6 +634,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _ProfileFeature('college_analysis', '管理服务', Icons.analytics, '数据分析',
               '学院数据分析报告', '/college/data-analysis'),
         ],
+        if (CapabilityUtils.has(Capability.unionFeedbackList))
+          _ProfileFeature('feedback_manage', '管理服务', Icons.feedback_outlined,
+              '反馈管理', '查看和处理用户反馈', '/feedback'),
         if (_canSubmitKB(role))
           _ProfileFeature('kb_submit', '知识治理', Icons.note_add_outlined, '知识提交',
               '创建和管理知识资源', '/my-submissions'),
