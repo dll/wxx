@@ -254,6 +254,7 @@ class FeedbackProvider extends ChangeNotifier {
     required String content,
     String messageId = '',
     String resourceId = '',
+    String module = '',
     String screenshotUrl = '',
   }) async {
     try {
@@ -262,6 +263,7 @@ class FeedbackProvider extends ChangeNotifier {
         'content': content,
         'message_id': messageId,
         'resource_id': resourceId,
+        'module': module,
         'screenshot_url': screenshotUrl,
       });
       if (response.data['code'] == 0) {
@@ -371,6 +373,27 @@ class FeedbackProvider extends ChangeNotifier {
       _error = '网络错误: $e';
       notifyListeners();
       return false;
+    }
+  }
+
+  /// AI 在线修复诊断（管理端）：解析截图 + 定位模块与代码文件。
+  /// 返回 null 表示调用失败（面板保留本地关键词定位）。
+  Future<AIRepairResult?> aiRepair(String feedbackId) async {
+    try {
+      final response = await _api
+          .post(ApiConfig.feedbackAIRepair(feedbackId), data: <String, dynamic>{});
+      if (response.data['code'] == 0 &&
+          response.data['data'] is Map<String, dynamic>) {
+        return AIRepairResult.fromJson(
+            response.data['data'] as Map<String, dynamic>);
+      }
+      _error = response.data['message'] ?? 'AI 诊断失败';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _error = 'AI 诊断请求失败: $e';
+      notifyListeners();
+      return null;
     }
   }
 

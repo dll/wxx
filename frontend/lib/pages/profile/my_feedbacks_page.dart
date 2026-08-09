@@ -150,6 +150,25 @@ class _MyFeedbackCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (feedback.module.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        feedback.module,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   Text(feedback.createdAt, style: theme.textTheme.labelSmall),
                 ],

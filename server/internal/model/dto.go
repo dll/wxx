@@ -516,6 +516,7 @@ type FeedbackCreateRequest struct {
 	MessageID     string `json:"message_id"`
 	ResourceID    string `json:"resource_id"`
 	Category      string `json:"category" binding:"required,oneof=answer_error suggestion other"`
+	Module        string `json:"module"` // 所属模块（可选，用于在线修复代码定位）
 	Content       string `json:"content" binding:"required"`
 	ScreenshotURL string `json:"screenshot_url"` // 截图路径（上传后回填）
 }
@@ -524,6 +525,17 @@ type FeedbackCreateRequest struct {
 type FeedbackUpdateRequest struct {
 	Status string `json:"status" binding:"required,oneof=processing resolved dismissed"`
 	Reply  string `json:"reply"` // 管理员回复（可选）
+}
+
+// AIRepairResponse AI 在线修复诊断结果
+type AIRepairResponse struct {
+	Module       string   `json:"module"`        // AI 判定最可能所属模块
+	Summary      string   `json:"summary"`       // 问题智能摘要（融合截图 OCR）
+	CodeFiles    []string `json:"code_files"`    // 最可能相关的项目代码文件
+	RootCause    string   `json:"root_cause"`    // 可能根因分析
+	RepairHint   string   `json:"repair_hint"`   // 修复建议（可直接执行）
+	OCRText      string   `json:"ocr_text"`      // 截图 OCR 识别的文字（可为空）
+	MatchedFiles []string `json:"matched_files"` // 结合 module 在项目中的映射文件（兜底）
 }
 
 // FeedbackListResponse 反馈列表响应

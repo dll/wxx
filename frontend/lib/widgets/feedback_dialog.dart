@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/feedback_provider.dart';
+import '../models/models.dart';
 import '../utils/screenshot_capture.dart';
 
 /// 反馈提交对话框 — 自动截屏 + 分类选择 + 内容描述
@@ -33,6 +34,7 @@ class _FeedbackDialog extends StatefulWidget {
 
 class _FeedbackDialogState extends State<_FeedbackDialog> {
   String _category = 'answer_error';
+  String _module = '';
   final _contentCtrl = TextEditingController();
   Uint8List? _screenshotBytes;
   bool _submitting = false;
@@ -79,6 +81,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
       final ok = await provider.submitFeedback(
         category: _category,
         content: _contentCtrl.text.isNotEmpty ? _contentCtrl.text : '(无文字描述)',
+        module: _module,
         screenshotUrl: screenshotUrl,
       );
 
@@ -148,6 +151,31 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                 selected: {_category},
                 onSelectionChanged: (v) => setState(() => _category = v.first),
                 style: _compactStyle,
+              ),
+              const SizedBox(height: 16),
+
+              // ── 所属模块 ──
+              Text('所属模块（便于快速修复）', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _module.isEmpty ? null : _module,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  hintText: '选择问题所属模块（可选）',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: '',
+                    child: Text('暂不选择'),
+                  ),
+                  for (final m in feedbackModules)
+                    DropdownMenuItem<String>(value: m, child: Text(m)),
+                ],
+                onChanged: (v) => setState(() => _module = v ?? ''),
               ),
               const SizedBox(height: 16),
 

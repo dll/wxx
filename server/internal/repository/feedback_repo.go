@@ -19,14 +19,14 @@ func NewFeedbackRepo(db *sql.DB) *FeedbackRepo {
 
 // listFeedbackCols 统一 SELECT 列名
 const listFeedbackCols = `id, feedback_id, user_id, username, message_id, resource_id,
- category, content, screenshot_url, status, resolved_by, resolved_at, reply,
+ category, module, content, screenshot_url, status, resolved_by, resolved_at, reply,
  rating, rating_comment, rated_at, linked_resource_note, linked_at, linked_by,
  created_at, updated_at`
 
 // scanFeedback 扫描一行反馈数据
 func scanFeedback(rows *sql.Rows, fb *model.Feedback) error {
 	return rows.Scan(&fb.ID, &fb.FeedbackID, &fb.UserID, &fb.Username,
-		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content, &fb.ScreenshotURL,
+		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Module, &fb.Content, &fb.ScreenshotURL,
 		&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.Reply,
 		&fb.Rating, &fb.RatingComment, &fb.RatedAt,
 		&fb.LinkedResourceNote, &fb.LinkedAt, &fb.LinkedBy,
@@ -36,7 +36,7 @@ func scanFeedback(rows *sql.Rows, fb *model.Feedback) error {
 // scanFeedbackRow 扫描单行反馈
 func scanFeedbackRow(row *sql.Row, fb *model.Feedback) error {
 	return row.Scan(&fb.ID, &fb.FeedbackID, &fb.UserID, &fb.Username,
-		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Content, &fb.ScreenshotURL,
+		&fb.MessageID, &fb.ResourceID, &fb.Category, &fb.Module, &fb.Content, &fb.ScreenshotURL,
 		&fb.Status, &fb.ResolvedBy, &fb.ResolvedAt, &fb.Reply,
 		&fb.Rating, &fb.RatingComment, &fb.RatedAt,
 		&fb.LinkedResourceNote, &fb.LinkedAt, &fb.LinkedBy,
@@ -46,9 +46,9 @@ func scanFeedbackRow(row *sql.Row, fb *model.Feedback) error {
 // Create 创建反馈（含截图链接）
 func (r *FeedbackRepo) Create(fb *model.Feedback) (int64, error) {
 	result, err := r.db.Exec(
-		`INSERT INTO feedback (feedback_id, user_id, username, message_id, resource_id, category, content, screenshot_url)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		fb.FeedbackID, fb.UserID, fb.Username, fb.MessageID, fb.ResourceID, fb.Category, fb.Content, fb.ScreenshotURL,
+		`INSERT INTO feedback (feedback_id, user_id, username, message_id, resource_id, category, module, content, screenshot_url)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		fb.FeedbackID, fb.UserID, fb.Username, fb.MessageID, fb.ResourceID, fb.Category, fb.Module, fb.Content, fb.ScreenshotURL,
 	)
 	if err != nil {
 		return 0, err

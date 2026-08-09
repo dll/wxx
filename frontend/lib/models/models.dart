@@ -1205,6 +1205,7 @@ class FeedbackEntry {
   final String messageId;
   final String resourceId;
   final String category;
+  final String module;
   final String content;
   final String screenshotUrl;
   final String status;
@@ -1228,6 +1229,7 @@ class FeedbackEntry {
     this.messageId = '',
     this.resourceId = '',
     this.category = 'answer_error',
+    this.module = '',
     this.content = '',
     this.screenshotUrl = '',
     this.status = 'pending',
@@ -1253,6 +1255,7 @@ class FeedbackEntry {
       messageId: json['message_id'] ?? '',
       resourceId: json['resource_id'] ?? '',
       category: json['category'] ?? 'answer_error',
+      module: json['module'] ?? '',
       content: json['content'] ?? '',
       screenshotUrl: json['screenshot_url'] ?? '',
       status: json['status'] ?? 'pending',
@@ -1288,6 +1291,56 @@ class FeedbackEntry {
       'dismissed': '已驳回',
     };
     return map[status] ?? status;
+  }
+}
+
+/// 反馈所属模块枚举（与 backend moduleFilesMap / 前端 feedback_repair._moduleMap 对应）
+const feedbackModules = <String>[
+  '登录 / 认证',
+  '对话 / 问答',
+  '知识库 / 检索',
+  '办事流程',
+  '报到 / 校园导航',
+  '语音',
+  '我的 / 个人中心',
+  '反馈系统',
+  '消息 / 通知',
+  '学生服务',
+  '教务 / 课表',
+  '心理 / 情感',
+  '管理端 / 数据',
+];
+
+/// AI 在线修复诊断结果（对应后端 model.AIRepairResponse）
+class AIRepairResult {
+  final String module;
+  final String summary;
+  final List<String> codeFiles;
+  final String rootCause;
+  final String repairHint;
+  final String ocrText;
+  final List<String> matchedFiles;
+
+  AIRepairResult({
+    this.module = '',
+    this.summary = '',
+    this.codeFiles = const [],
+    this.rootCause = '',
+    this.repairHint = '',
+    this.ocrText = '',
+    this.matchedFiles = const [],
+  });
+
+  factory AIRepairResult.fromJson(Map<String, dynamic> json) {
+    return AIRepairResult(
+      module: json['module'] ?? '',
+      summary: json['summary'] ?? '',
+      codeFiles: (json['code_files'] as List?)?.cast<String>() ?? const [],
+      rootCause: json['root_cause'] ?? '',
+      repairHint: json['repair_hint'] ?? '',
+      ocrText: json['ocr_text'] ?? '',
+      matchedFiles: (json['matched_files'] as List?)?.cast<String>() ?? const [],
+    );
   }
 }
 

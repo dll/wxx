@@ -157,6 +157,33 @@ func (h *FeedbackHandler) Get(c *gin.Context) {
 	})
 }
 
+// AIRepair AI 在线修复诊断 POST /api/v1/feedback/:id/ai-repair
+// 管理端能力 admin.feedback.write。
+func (h *FeedbackHandler) AIRepair(c *gin.Context) {
+	feedbackID := c.Param("id")
+	userCtx := middleware.GetUserContext(c)
+	operator := ""
+	if userCtx != nil {
+		operator = userCtx.Username
+	}
+
+	resp, err := h.feedbackSvc.AIRepair(c.Request.Context(), feedbackID, operator)
+	if err != nil {
+		log.Printf("feedback AIRepair err: %v", err)
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Code:    400,
+			Message: "AI 诊断失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    resp,
+	})
+}
+
 // Resolve 处理反馈 PUT /api/v1/feedback/:id
 func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	feedbackID := c.Param("id")

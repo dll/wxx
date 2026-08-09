@@ -163,6 +163,7 @@ type Feedback struct {
 	MessageID          string  `json:"message_id" db:"message_id"`
 	ResourceID         string  `json:"resource_id" db:"resource_id"`
 	Category           string  `json:"category" db:"category"`
+	Module             string  `json:"module" db:"module"` // 所属模块（用于在线修复代码定位）
 	Content            string  `json:"content" db:"content"`
 	ScreenshotURL      string  `json:"screenshot_url" db:"screenshot_url"` // 截图存储路径
 	Status             string  `json:"status" db:"status"`

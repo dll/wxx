@@ -493,6 +493,24 @@ class _FeedbackCard extends StatelessWidget {
                           fontWeight: FontWeight.w600),
                     ),
                   ),
+                  if (feedback.module.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        feedback.module,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSecondaryContainer,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   Text(feedback.createdAt, style: theme.textTheme.labelSmall),
                 ],
@@ -767,6 +785,23 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                         color: theme.colorScheme.onSecondaryContainer),
                   ),
                 ),
+                if (fb.module.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      fb.module,
+                      style: TextStyle(
+                          color: theme.colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Text(fb.feedbackId, style: theme.textTheme.labelSmall),
               ],

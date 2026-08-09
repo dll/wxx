@@ -898,6 +898,7 @@ $printScript
 
     final contentCtrl = TextEditingController();
     String category = 'answer_error';
+    String module = '';
     Uint8List? screenshotBytes = shot.bytes;
 
     showDialog(
@@ -1002,6 +1003,28 @@ $printScript
                         setState(() => category = v.first),
                   ),
                   const SizedBox(height: 16),
+                  const Text('所属模块（便于快速修复）',
+                      style: TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: module.isEmpty ? null : module,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      hintText: '选择问题所属模块（可选）',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('暂不选择'),
+                      ),
+                      for (final m in feedbackModules)
+                        DropdownMenuItem<String>(value: m, child: Text(m)),
+                    ],
+                    onChanged: (v) => setState(() => module = v ?? ''),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: contentCtrl,
                     maxLines: 4,
@@ -1053,6 +1076,7 @@ $printScript
                           category: category,
                           content: text,
                           messageId: msg.id,
+                          module: module,
                           screenshotUrl: screenshotUrl,
                         );
                 if (mounted) {

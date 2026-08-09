@@ -1,11 +1,18 @@
 package service
 
 import (
+	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
+	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/util"
@@ -21,6 +28,9 @@ type FeedbackService struct {
 	// 可选：用户反馈"回答有误"时回调（用于失效 FAQ 缓存等）
 	// messageID 是用户在前端记录的消息 id，由调用方决定如何用它定位原问题
 	onAnswerError func(messageID, content string)
+	// 可选：AI 在线修复依赖（视觉模型解析截图 + 文本模型诊断）
+	visionClient llm.VisionClient
+	llmClient    llm.ChatClient
 }
 
 // NewFeedbackService 创建反馈服务
@@ -37,6 +47,300 @@ func (s *FeedbackService) SetDB(db *sql.DB) {
 // 钩子在反馈成功保存后异步执行，不影响反馈提交结果
 func (s *FeedbackService) SetAnswerErrorHook(fn func(messageID, content string)) {
 	s.onAnswerError = fn
+}
+
+// SetAIRepairClients 注入 AI 在线修复依赖（视觉模型解析截图 + 文本模型诊断）。
+// 未注入时 AIRepair 仅返回基于本地模块映射的兜底结果。
+func (s *FeedbackService) SetAIRepairClients(vision llm.VisionClient, chat llm.ChatClient) {
+	s.visionClient = vision
+	s.llmClient = chat
+}
+
+// moduleFilesMap 模块 → 项目代码文件映射（与前端 feedback_repair._moduleMap 保持一致，
+// 作为 LLM 不可用时的离线兜底 + LLM 判定的对照表）
+var moduleFilesMap = map[string][]string{
+	"登录 / 认证": {
+		"frontend/lib/pages/login/login_page.dart",
+		"frontend/lib/providers/auth_provider.dart",
+		"server/internal/handler/auth_handler.go",
+	},
+	"对话 / 问答": {
+		"frontend/lib/pages/chat/chat_page.dart",
+		"frontend/lib/providers/chat_provider.dart",
+		"server/internal/service/chat_service.go",
+		"server/internal/context_engine/engine.go",
+	},
+	"知识库 / 检索": {
+		"server/internal/context_engine/",
+		"server/internal/repository/kb_repo.go",
+		"frontend/lib/pages/knowledge/",
+	},
+	"办事流程": {
+		"frontend/lib/pages/process/",
+		"server/internal/handler/process_handler.go",
+		"frontend/lib/providers/process_provider.dart",
+	},
+	"报到 / 校园导航": {
+		"frontend/lib/pages/campus/campus_map_page.dart",
+		"frontend/lib/widgets/baidu_campus_map_embed_web.dart",
+		"server/internal/handler/campus_handler.go",
+	},
+	"语音": {
+		"frontend/lib/services/voice/",
+		"server/internal/handler/voice_handler.go",
+	},
+	"我的 / 个人中心": {
+		"frontend/lib/pages/profile/profile_page.dart",
+		"frontend/lib/providers/auth_provider.dart",
+	},
+	"反馈系统": {
+		"frontend/lib/pages/admin/feedback_page.dart",
+		"frontend/lib/providers/feedback_provider.dart",
+		"server/internal/handler/feedback_handler.go",
+	},
+	"消息 / 通知": {
+		"frontend/lib/pages/notifications/",
+		"server/internal/handler/notification_handler.go",
+	},
+	"学生服务": {
+		"frontend/lib/pages/student/",
+		"server/internal/service/student_service.go",
+	},
+	"教务 / 课表": {
+		"frontend/lib/pages/student/",
+		"server/internal/service/study_service.go",
+	},
+	"心理 / 情感": {
+		"frontend/lib/pages/student/mental/",
+		"server/internal/service/emotion_service.go",
+	},
+	"管理端 / 数据": {
+		"frontend/lib/pages/admin/",
+		"server/internal/handler/admin_handler.go",
+	},
+}
+
+// moduleKeywords 模块 → 关键词（本地兜底匹配，与前端 _moduleMap.keywords 一致）
+var moduleKeywords = map[string][]string{
+	"登录 / 认证":      {"登录", "认证", "账号", "密码", "扫码", "token", "验证码", "login", "auth"},
+	"对话 / 问答":      {"回答", "问答", "对话", "聊天", "回复", "答案", "chat", "AI", "智能"},
+	"知识库 / 检索":     {"知识", "检索", "搜索", "词条", "知识库", "FTS", "搜索结果", "查不到"},
+	"办事流程":       {"办事", "流程", "手续", "申请", "审批", "process"},
+	"报到 / 校园导航":   {"报到", "地图", "导航", "校园", "节点", "校区", "campus", "map"},
+	"语音":          {"语音", "说话", "录音", "麦克风", "TTS", "ASR", "voice"},
+	"我的 / 个人中心":   {"我的", "个人", "资料", "头像", "设置", "profile", "个人信息"},
+	"反馈系统":       {"反馈", "意见", "投诉", "feedback"},
+	"消息 / 通知":     {"通知", "消息", "提醒", "公告", "notification"},
+	"学生服务":       {"学生", "学情", "打卡", "日记", "日报", "晨报", "student"},
+	"教务 / 课表":     {"课表", "课程", "成绩", "选课", "考试", "排课", "study", "schedule"},
+	"心理 / 情感":     {"心理", "情感", "心情", "咨询", "焦虑", "emotion", "mental"},
+	"管理端 / 数据":    {"管理", "统计", "看板", "用户管理", "导入", "admin", "仪表"},
+}
+
+// matchModuleByContent 本地关键词匹配模块（兜底，返回命中的模块名列表，按命中数排序）
+func matchModuleByContent(content string) []string {
+	text := strings.ToLower(content)
+	type scored struct {
+		module string
+		score  int
+	}
+	var list []scored
+	for module, kws := range moduleKeywords {
+		score := 0
+		for _, kw := range kws {
+			if strings.Contains(text, strings.ToLower(kw)) {
+				score++
+			}
+		}
+		if score > 0 {
+			list = append(list, scored{module: module, score: score})
+		}
+	}
+	// 稳定排序（模块名作次级 key）
+	sort.SliceStable(list, func(i, j int) bool {
+		if list[i].score != list[j].score {
+			return list[i].score > list[j].score
+		}
+		return list[i].module < list[j].module
+	})
+	top := make([]string, 0, len(list))
+	for i := 0; i < len(list) && i < 4; i++ {
+		top = append(top, list[i].module)
+	}
+	return top
+}
+
+// AIRepair AI 在线修复：解析截图 + 智能定位模块与代码文件。
+// 返回诊断结果；LLM/视觉不可用时自动降级为本地关键词匹配。
+func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator string) (*model.AIRepairResponse, error) {
+	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
+	if err != nil {
+		return nil, fmt.Errorf("查询反馈失败: %w", err)
+	}
+	if fb == nil {
+		return nil, fmt.Errorf("反馈不存在: %s", feedbackID)
+	}
+
+	resp := &model.AIRepairResponse{Module: fb.Module}
+
+	// 1. 若反馈带截图 → 用视觉模型解析截图文字
+	var ocrText string
+	if fb.ScreenshotURL != "" && s.visionClient != nil {
+		dataB64, mime, gerr := s.screenshotRepo.GetByFilename(filepath.Base(fb.ScreenshotURL))
+		if gerr == nil && dataB64 != "" {
+			imgBytes, derr := base64.StdEncoding.DecodeString(dataB64)
+			if derr == nil {
+				if mime == "" {
+					mime = "image/png"
+				}
+				if t, oerr := s.visionClient.OCR(ctx, []llm.OCRImage{{Data: imgBytes, MIME: mime}}); oerr == nil {
+					ocrText = strings.TrimSpace(t)
+				} else {
+					log.Printf("反馈截图 OCR 失败 feedback_id=%s err=%v", feedbackID, oerr)
+				}
+			}
+		}
+	}
+	resp.OCRText = ocrText
+
+	// 2. 本地兜底：按内容 + 模块 匹配代码文件
+	localModules := matchModuleByContent(fb.Content + " " + fb.Module)
+	if len(localModules) == 0 {
+		localModules = []string{fb.Module}
+	}
+	for _, m := range localModules {
+		if files, ok := moduleFilesMap[m]; ok {
+			resp.MatchedFiles = append(resp.MatchedFiles, files...)
+		}
+	}
+
+	// 3. 文本模型诊断（有对话客户端时，用内容+OCR 智能化生成）
+	if s.llmClient != nil {
+		diagnosis, derr := s.aiDiagnose(ctx, fb, ocrText)
+		if derr == nil && diagnosis != nil {
+			if diagnosis.Module != "" {
+				resp.Module = diagnosis.Module
+			}
+			resp.Summary = diagnosis.Summary
+			resp.CodeFiles = diagnosis.CodeFiles
+			resp.RootCause = diagnosis.RootCause
+			resp.RepairHint = diagnosis.RepairHint
+		} else if derr != nil {
+			log.Printf("AI 诊断失败 feedback_id=%s err=%v", feedbackID, derr)
+		}
+	}
+
+	// 4. 兜底默认值
+	if resp.Summary == "" {
+		resp.Summary = fb.Content
+	}
+	if resp.Module == "" {
+		resp.Module = "未识别"
+	}
+	if len(resp.CodeFiles) == 0 {
+		resp.CodeFiles = resp.MatchedFiles
+	}
+	if resp.RepairHint == "" {
+		resp.RepairHint = "请结合上方代码定位，在本机复现并修复；修复完成后回到本页将该反馈标记为已解决。"
+	}
+
+	// 记录处理日志
+	_ = s.feedbackRepo.AddLog(feedbackID, "ai_repair", operator, "AI 在线修复诊断")
+
+	return resp, nil
+}
+
+// aiDiagnoseResult 文本模型诊断输出结构
+type aiDiagnoseResult struct {
+	Module     string   `json:"module"`
+	Summary    string   `json:"summary"`
+	CodeFiles  []string `json:"code_files"`
+	RootCause  string   `json:"root_cause"`
+	RepairHint string   `json:"repair_hint"`
+}
+
+// aiDiagnose 调用文本模型，把反馈内容（+截图 OCR）转化为结构化诊断。
+func (s *FeedbackService) aiDiagnose(ctx context.Context, fb *model.Feedback, ocrText string) (*aiDiagnoseResult, error) {
+	catalog := s.fileCatalog()
+	ocrPart := ""
+	if strings.TrimSpace(ocrText) != "" {
+		ocrPart = "\n截图 OCR 识别文本：\n" + ocrText
+	}
+	userPrompt := fmt.Sprintf(`反馈内容：%s
+反馈分类：%s
+用户标注模块：%s%s
+
+请分析问题并按如下 JSON 返回（不要输出 JSON 以外的内容）：
+{
+  "module": "最可能的模块名（从下方候选模块中选择，不要编造）",
+  "summary": "一句话问题摘要（30字内）",
+  "code_files": ["相对仓库根的项目文件路径，1-4个，从下方候选文件中挑选"],
+  "root_cause": "可能根因分析（100字内）",
+  "repair_hint": "具体修复建议（可操作，200字内）"
+}
+
+候选模块与对应代码文件：
+%s`,
+		fb.Content, fb.Category, fb.Module, ocrPart, catalog,
+	)
+
+	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+		Messages: []llm.ChatMessage{
+			{Role: "system", Content: "你是校园智能问答助手「蔚小芯」的研发工程师，擅长根据用户反馈快速定位前后端代码问题。严格按照用户要求的 JSON 格式输出。"},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: 0.2,
+		MaxTokens:   800,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return parseAIRepairJSON(resp.Content)
+}
+
+// moduleListForPrompt 生成候选模块清单（用于 AI 诊断约束）
+func moduleListForPrompt() string {
+	keys := make([]string, 0, len(moduleFilesMap))
+	for k := range moduleFilesMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, "、")
+}
+
+// fileCatalog 拼装模块→代码文件 清单，供 AI 判定最相关文件
+func (s *FeedbackService) fileCatalog() string {
+	keys := make([]string, 0, len(moduleFilesMap))
+	for k := range moduleFilesMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString("- " + k + ": " + strings.Join(moduleFilesMap[k], ", ") + "\n")
+	}
+	return b.String()
+}
+
+// parseAIRepairJSON 解析 AI 返回的 JSON（容忍首尾噪声，从第一个 { 截取到最后一个 }）
+func parseAIRepairJSON(raw string) (*aiDiagnoseResult, error) {
+	s, e := strings.Index(raw, "{"), strings.LastIndex(raw, "}")
+	if s < 0 || e <= s {
+		return nil, fmt.Errorf("AI 输出非 JSON: %s", truncateStr(raw, 120))
+	}
+	var out aiDiagnoseResult
+	if err := json.Unmarshal([]byte(raw[s:e+1]), &out); err != nil {
+		return nil, fmt.Errorf("解析 AI JSON 失败: %v", err)
+	}
+	return &out, nil
+}
+
+// truncateStr 截断字符串用于日志
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
 
 // Submit 提交反馈（含可选截图）
@@ -59,6 +363,7 @@ func (s *FeedbackService) Submit(userID int64, username string, req *model.Feedb
 		MessageID:     req.MessageID,
 		ResourceID:    req.ResourceID,
 		Category:      req.Category,
+		Module:        req.Module,
 		Content:       req.Content,
 		ScreenshotURL: req.ScreenshotURL,
 		Status:        "pending",

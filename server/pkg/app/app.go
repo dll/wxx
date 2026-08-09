@@ -214,6 +214,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		ocrClient := llm.NewZhipu4VClient(cfg)
 		docSvc.SetOCRClient(ocrClient)
 		docParseSvc.SetOCRClient(ocrClient)
+		// 反馈「在线修复」：视觉解析截图 + 文本模型诊断
+		feedbackSvc.SetAIRepairClients(ocrClient, llmClient)
 		log.Printf("文档 OCR 已启用：%s（%s）", ocrClient.Name(), cfg.Zhipu4VModel)
 	}
 	// 启用知识库批量精修（复用精修器，逐条 LLM 精修存量资源元数据）
@@ -995,6 +997,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			// 管理员反馈列表和处理（注意：直接注册避免 Group 产生的尾部斜杠重定向丢 Authorization 头）
 			secured.GET("/feedback", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
 			secured.PUT("/feedback/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
+			secured.POST("/feedback/:id/ai-repair", auth.RequireCapability(auth.UnionFeedbackWrite), feedbackH.AIRepair)
 			// 管理端反馈统计
 			secured.GET("/admin/feedback/stats", auth.RequireCapability(auth.UnionFeedbackRead), feedbackH.Stats)
 			// 管理端关联知识资源

@@ -123,6 +123,7 @@ class ApiConfig {
   static const String feedbackMine = '$apiPrefix/feedback/mine';
   static String feedbackDetail(String id) => '$apiPrefix/feedback/$id';
   static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
+  static String feedbackAIRepair(String id) => '$apiPrefix/feedback/$id/ai-repair';
   static String feedbackRate(String id) => '$apiPrefix/feedback/$id/rate';
   static String feedbackLogs(String id) => '$apiPrefix/feedback/$id/logs';
   // 管理端
