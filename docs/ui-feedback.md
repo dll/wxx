@@ -1,0 +1,31 @@
+# 反馈管理与 AI 在线修复
+
+## 反馈提交（用户端）
+
+- 入口：对话纠错（chat_page）与全局反馈对话框（feedback_dialog）。
+- 字段：类型（回答有误/功能建议/其他）、**所属模块**（下拉，前端 `feedbackModules` 维护）、内容、截图（自动截屏）。
+- 提交接口：`POST /api/v1/feedback`（能力 `self.feedback.submit`）。
+
+## 反馈管理（管理端）
+
+- 入口：我的 → 管理服务 tab →「反馈管理」（`feedback_manage` feature，能力 `union.feedback.list`）。
+- 列表/详情/处理：状态流转、回复、满意度、关联知识资源、处理记录。
+- 模块字段在列表卡片与详情页展示，便于定位。
+
+## AI 在线修复（核心）
+
+反馈详情点击「在线修复」→ `POST /api/v1/feedback/:id/ai-repair`（能力 `admin.feedback.write`）。
+
+流程：
+1. **截图解析**：复用 `Zhipu4VClient`（GLM-4.6V-Flash）OCR 反馈截图（blob 从 `feedback_screenshots` 读取）。
+2. **AI 诊断**：文本模型（DeepSeek/智谱 failover）基于「内容 + 模块 + OCR 文本」输出 JSON：模块、摘要、代码文件、根因、修复建议。
+3. **降级**：LLM/视觉不可用时，用本地关键词模块映射（`moduleFilesMap`）兜底返回 `matched_files`。
+
+实现位置：
+- 后端：`internal/service/feedback_service.go`（`AIRepair`）、`internal/handler/feedback_handler.go`、路由 `app.go`。
+- 前端：`widgets/feedback_repair.dart`、`providers/feedback_provider.dart`（`aiRepair`）。
+- 模型配置：`ZHIPU_4V_MODEL`（服务器 `/etc/wxx/env`，现为 `glm-4.6v-flash`）。
+
+## 模块枚举同步
+
+前端 `models.dart#feedbackModules` 与后端 `feedback_service.go#moduleFilesMap/moduleKeywords` 需保持一致；新增模块时两处同步更新。
