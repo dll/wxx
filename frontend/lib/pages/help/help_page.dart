@@ -103,7 +103,7 @@ class _SystemOverviewTab extends StatelessWidget {
         _sectionTitle(theme, '一、蔚小芯是什么'),
         _card(theme, [
           _row(theme, Icons.school, '定位',
-              '蔚小芯是滁州学院计算机与网络空间安全学院学生工作数字化智能体，'
+              '蔚小芯是滁州学院计算机科学与工程学院（网络空间安全学院）学生工作数字化智能体，'
                   '面向「入学—在校—离校—就业」全生命周期，融合政治、思想、心理、专业四位一体育人。'),
           _row(theme, Icons.auto_awesome, 'AI 原生',
               '不是简单的信息查询器，而是用大模型生成日报、学习日记、数字孪生画像、心理陪伴与个性化建议的 AI 育人伙伴。'),
