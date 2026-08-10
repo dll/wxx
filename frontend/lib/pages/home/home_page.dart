@@ -954,8 +954,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildAIBriefingCard(ThemeData theme) {
     return Consumer<AIBriefingProvider>(
       builder: (context, provider, _) {
-        // 首次进入时拉取最新资讯（取前 3 条展示）
-        if (provider.userBriefings.isEmpty && !provider.userLoading) {
+        // 首次进入时拉取最新资讯（取前 3 条展示）；失败后不自动重试，避免叠加限流
+        if (!provider.userLoaded && !provider.userLoading) {
           Future.microtask(() {
             if (context.mounted) provider.fetchUserBriefings();
           });

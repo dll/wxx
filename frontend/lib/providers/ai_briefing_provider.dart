@@ -10,6 +10,7 @@ class AIBriefingProvider extends ChangeNotifier {
 
   // ── 用户端 ──
   bool _userLoading = false;
+  bool _userLoaded = false; // 是否已尝试过首次加载（防失败后无限自动重试触发限流）
   String _userError = '';
   List<AIBriefing> _userBriefings = const [];
   String _userCategory = '';
@@ -19,10 +20,13 @@ class AIBriefingProvider extends ChangeNotifier {
   String get userError => _userError;
   List<AIBriefing> get userBriefings => _userBriefings;
   String get userCategory => _userCategory;
+  /// 是否已完成首次加载（首页卡片据此决定是否自动触发请求）
+  bool get userLoaded => _userLoaded;
 
   Future<void> fetchUserBriefings({String? category, String? q}) async {
     _userLoading = true;
     _userError = '';
+    _userLoaded = true;
     if (category != null) _userCategory = category;
     if (q != null) _userQ = q;
     notifyListeners();

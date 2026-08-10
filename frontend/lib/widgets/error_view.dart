@@ -110,6 +110,9 @@ class ErrorView extends StatelessWidget {
   }
 
   String _safeMessage(String raw) {
+    if (raw.contains('429') || raw.contains('Too Many Requests')) {
+      return '请求过于频繁，请稍后再试';
+    }
     if (raw.contains('DioException') ||
         raw.contains('connection timeout') ||
         raw.contains('RequestOptions')) {
