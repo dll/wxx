@@ -78,12 +78,16 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       );
     }
 
-    final freshmen =
-        prov.definitions.where((d) => d.isFreshmenRelated).toList();
-    final others = prov.definitions.where((d) => !d.isFreshmenRelated).toList();
+    final filtered = prov.filteredDefinitions;
+    final audiences = <String>['新生', '在校生', '毕业生', '通用'];
+    final roles = <String>{};
+    for (final d in prov.definitions) {
+      roles.addAll(d.roleCodes);
+    }
+    final roleLabels = _roleLabels(roles);
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 230),
+      constraints: const BoxConstraints(maxHeight: 300),
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       color: theme.colorScheme.surface,
       child: Column(
@@ -98,42 +102,140 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.w600)),
               const Spacer(),
-              FilterChip(
-                label: const Text('只看新生相关'),
-                selected: prov.freshmenOnly,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                onSelected: (_) => prov.toggleFreshmenOnly(),
-              ),
+              if (prov.roleFilter.isNotEmpty || prov.audienceFilter != null)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: prov.clearFilters,
+                  child: const Text('清除筛选'),
+                ),
             ],
+          ),
+          const SizedBox(height: 4),
+          _buildFilterWrap(
+            theme,
+            prov.audienceFilter,
+            prov.roleFilter,
+            audiences,
+            roleLabels,
+            prov,
           ),
           const SizedBox(height: 4),
           Expanded(
             child: ListView(
               shrinkWrap: true,
               children: [
-                if (freshmen.isNotEmpty)
-                  _ProcessSection(
-                    title: '新生相关',
-                    expanded: true,
-                    definitions: freshmen,
-                    activeId: prov.flowType,
-                    onTap: prov.setFlowType,
-                  ),
-                if (!prov.freshmenOnly && others.isNotEmpty)
-                  _ProcessSection(
-                    title: '其他流程',
-                    expanded: false,
-                    definitions: others,
-                    activeId: prov.flowType,
-                    onTap: prov.setFlowType,
-                  ),
+                for (final audience in audiences)
+                  if (filtered.any((d) => d.audienceLabel == audience))
+                    _ProcessSection(
+                      title: audience,
+                      expanded: audience == (prov.audienceFilter ?? '新生'),
+                      definitions: filtered
+                          .where((d) => d.audienceLabel == audience)
+                          .toList(),
+                      activeId: prov.flowType,
+                      onTap: prov.setFlowType,
+                    ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildFilterWrap(
+    ThemeData theme,
+    String? audienceFilter,
+    Set<String> roleFilter,
+    List<String> audiences,
+    Map<String, String> roleLabels,
+    EnrollmentProvider prov,
+  ) {
+    Widget chip(String label, bool selected, VoidCallback onTap,
+        {bool isRole = false}) {
+      final color = isRole ? theme.colorScheme.tertiary : theme.colorScheme.primary;
+      return ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        labelStyle: TextStyle(
+          fontSize: 12,
+          color: selected ? color : theme.colorScheme.onSurfaceVariant,
+        ),
+        side: BorderSide(
+          color: selected ? color : theme.colorScheme.outlineVariant,
+        ),
+        selectedColor: color.withOpacity(0.12),
+        onSelected: (_) => onTap(),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              Text('群体 ', style: theme.textTheme.labelSmall),
+              for (final a in audiences)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: chip(
+                    a,
+                    audienceFilter == a,
+                    () => prov.setAudienceFilter(
+                        audienceFilter == a ? null : a),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (roleLabels.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Text('角色 ', style: theme.textTheme.labelSmall),
+                for (final entry in roleLabels.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: chip(
+                      entry.value,
+                      roleFilter.contains(entry.key),
+                      () => prov.toggleRoleFilter(entry.key),
+                      isRole: true,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Map<String, String> _roleLabels(Set<String> roles) {
+    const map = {
+      'student': '学生',
+      'student_union': '学生会',
+      'counselor': '辅导员',
+      'teacher': '教师',
+      'assistant': '教辅',
+      'college_admin': '学院管理员',
+      'school_admin': '学校管理员',
+      'sys_admin': '系统管理员',
+    };
+    if (roles.isEmpty) return const {};
+    final ordered = [
+      'student', 'student_union', 'counselor', 'teacher', 'college_admin'
+    ].where(roles.contains);
+    return {for (final r in ordered) r: map[r] ?? r};
   }
 
   Widget _buildBody(EnrollmentProvider prov, ThemeData theme) {

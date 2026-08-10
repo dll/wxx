@@ -10,7 +10,8 @@ class EnrollmentProvider extends ChangeNotifier {
 
   List<ProcessDefinition> _definitions = [];
   bool _definitionsLoading = false;
-  bool _freshmenOnly = true;
+  final Set<String> _roleFilter = {};
+  String? _audienceFilter;
 
   String _flowType = 'process-registration-2026';
   bool _loading = false;
@@ -24,7 +25,8 @@ class EnrollmentProvider extends ChangeNotifier {
 
   List<ProcessDefinition> get definitions => _definitions;
   bool get definitionsLoading => _definitionsLoading;
-  bool get freshmenOnly => _freshmenOnly;
+  Set<String> get roleFilter => Set.unmodifiable(_roleFilter);
+  String? get audienceFilter => _audienceFilter;
   String get flowType => _flowType;
   bool get loading => _loading;
   String? get error => _error;
@@ -96,9 +98,37 @@ class EnrollmentProvider extends ChangeNotifier {
     }
   }
 
-  void toggleFreshmenOnly() {
-    _freshmenOnly = !_freshmenOnly;
+  /// 按角色过滤（多选，再次点击取消）
+  void toggleRoleFilter(String role) {
+    if (!_roleFilter.add(role)) _roleFilter.remove(role);
     notifyListeners();
+  }
+
+  /// 按面向群体过滤（单选，传 null 清除）
+  void setAudienceFilter(String? audience) {
+    _audienceFilter = audience;
+    notifyListeners();
+  }
+
+  void clearFilters() {
+    _roleFilter.clear();
+    _audienceFilter = null;
+    notifyListeners();
+  }
+
+  /// 组合过滤后的流程列表
+  List<ProcessDefinition> get filteredDefinitions {
+    return _definitions.where((d) {
+      if (_audienceFilter != null && d.audienceLabel != _audienceFilter) {
+        return false;
+      }
+      if (_roleFilter.isNotEmpty &&
+          d.roleCodes.isNotEmpty &&
+          !d.roleCodes.any(_roleFilter.contains)) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   /// 切换流程；兼容旧的 flow_type 名（enrollment/graduation 等）和资源 ID

@@ -61,6 +61,7 @@ func (h *StudentHandler) DailyBriefing(c *gin.Context) {
 		if userCtx != nil {
 			briefing, err := h.svc.GenerateDailyBriefing(c.Request.Context(), userCtx.UserID)
 			if err == nil && briefing != nil {
+				h.enrichBriefingWithRealData(briefing, userCtx.UserID)
 				c.JSON(http.StatusOK, briefing)
 				return
 			}
@@ -68,6 +69,102 @@ func (h *StudentHandler) DailyBriefing(c *gin.Context) {
 	}
 	// 兜底：未注入 svc 或异常时使用旧 mock
 	h.mockDailyBriefing(c)
+}
+
+// enrichBriefingWithRealData 用 course_schedules / study_plan_tasks / academic_calendar_events
+// 的真实数据覆盖速览中的课程、待办与活动（仅当存在真实数据时覆盖，否则保留服务层兜底）
+func (h *StudentHandler) enrichBriefingWithRealData(b *service.DailyBriefing, userID int64) {
+	if b == nil || h.db == nil {
+		return
+	}
+
+	today := time.Now().Format("2006-01-02")
+	weekday := int(time.Now().Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	calendar, _ := h.resolveCurrentCalendar()
+
+	// 今日课程 → courses
+	if calendar != nil {
+		if realCourses := h.getTodayCourses(userID, weekday, calendar); len(realCourses) > 0 {
+			courses := make([]map[string]interface{}, 0, len(realCourses))
+			for _, c := range realCourses {
+				subtitle := c.Location
+				if c.Teacher != "" && subtitle != "" {
+					subtitle = c.Location + " · " + c.Teacher
+				} else if c.Teacher != "" {
+					subtitle = c.Teacher
+				}
+				courses = append(courses, map[string]interface{}{
+					"title":    c.CourseName,
+					"subtitle": subtitle,
+					"time":     c.Time,
+					"icon":     "book",
+				})
+			}
+			b.Courses = courses
+		}
+	}
+
+	// 今日计划任务 → deadlines
+	if realTasks := h.getTodayTasks(userID, today); len(realTasks) > 0 {
+		deadlines := make([]map[string]interface{}, 0, len(realTasks))
+		for _, t := range realTasks {
+			if t.Status == "done" || t.Status == "skipped" {
+				continue
+			}
+			deadlines = append(deadlines, map[string]interface{}{
+				"title":    t.Title,
+				"subtitle": "今日计划任务",
+				"time":     "今天",
+				"icon":     "assignment",
+			})
+		}
+		if len(deadlines) > 0 {
+			b.Deadlines = deadlines
+		}
+	}
+
+	// 近期考试/活动 → activities
+	if calendar != nil {
+		if realEvents := h.getUpcomingEvents(today, calendar); len(realEvents) > 0 {
+			activities := make([]map[string]interface{}, 0, len(realEvents))
+			for _, e := range realEvents {
+				timeLabel := "今天"
+				if e.DaysLeft > 0 {
+					timeLabel = fmt.Sprintf("%d 天后", e.DaysLeft)
+				}
+				activities = append(activities, map[string]interface{}{
+					"title":    e.EventName,
+					"subtitle": eventTypeLabel(e.EventType),
+					"time":     timeLabel,
+					"icon":     "event",
+				})
+			}
+			b.Activities = activities
+		}
+	}
+}
+
+// eventTypeLabel 校历事件类型的中文标签
+func eventTypeLabel(t string) string {
+	switch t {
+	case "exam":
+		return "考试"
+	case "deadline":
+		return "截止"
+	case "holiday":
+		return "节假日"
+	case "activity":
+		return "校园活动"
+	case "register":
+		return "报到注册"
+	case "break":
+		return "放假"
+	default:
+		return "校历"
+	}
 }
 
 // mockDailyBriefing 兜底 mock 数据（保留给开发环境/svc 未注入场景）
