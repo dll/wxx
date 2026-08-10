@@ -429,4 +429,18 @@ class ApiConfig {
 
   // ── 第三方应用中心 ──
   static const String externalApps = '$apiPrefix/apps';
+
+  // ── AI 简讯 ──
+  static const String aiBriefings = '$apiPrefix/ai-briefings';
+  static const String adminAIBriefings = '$apiPrefix/admin/ai-briefings';
+  static const String adminAIBriefingStats = '$apiPrefix/admin/ai-briefings/stats';
+  static const String adminAIBriefingSources = '$apiPrefix/admin/ai-briefings/sources';
+  static const String adminAIBriefingFetch = '$apiPrefix/admin/ai-briefings/fetch';
+  static const String adminAIBriefingExport = '$apiPrefix/admin/ai-briefings/export';
+  static const String adminAIBriefingClear = '$apiPrefix/admin/ai-briefings/clear';
+  static String adminAIBriefing(String id) => '$apiPrefix/admin/ai-briefings/$id';
+  static String adminAIBriefingStatus(String id) =>
+      '$apiPrefix/admin/ai-briefings/$id/status';
+  static String adminAIBriefingSource(String id) =>
+      '$apiPrefix/admin/ai-briefings/sources/$id';
 }

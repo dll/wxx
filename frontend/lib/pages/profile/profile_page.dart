@@ -211,6 +211,11 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.settings_outlined, '系统配置', '管理系统运行参数',
                 '/admin/settings'),
 
+          // AI 简讯管理（sys_admin 独占）
+          if (profile?.role == 'sys_admin')
+            _buildMenuCard(context, Icons.newspaper, 'AI 简讯管理',
+                '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
+
           // 问题预案（sys_admin、college_admin 可访问）
           if (profile?.role == 'sys_admin' || profile?.role == 'college_admin')
             _buildMenuCard(context, Icons.warning_amber_rounded, '问题预案',
@@ -272,6 +277,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '/culture/volunteer'),
           _buildMenuCard(context, Icons.apps_outlined, '应用中心', '第三方应用与链接',
               '/apps'),
+          _buildMenuCard(context, Icons.newspaper, 'AI 简讯', 'AI 教学/工具/版本/行业热点',
+              '/ai-briefings'),
 
           // 反馈管理（管理员）
           if (_canAccessAdmin(profile?.role))
@@ -669,6 +676,9 @@ class _ProfilePageState extends State<ProfilePage> {
         if (role == 'sys_admin')
           _ProfileFeature('settings', '管理服务', Icons.settings_outlined, '系统配置',
               '管理系统运行参数', '/admin/settings'),
+        if (role == 'sys_admin')
+          _ProfileFeature('ai_briefing_admin', '管理服务', Icons.newspaper, 'AI 简讯管理',
+              '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
       ];
 
   Widget _buildFeatureTabs(BuildContext context, String? role) {

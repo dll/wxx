@@ -38,6 +38,7 @@ const (
 	SelfEmotionStats    Capability = "self.emotion.stats"    // 自身情感统计
 	SelfEmotionConsent  Capability = "self.emotion.consent"  // 情感分析独立授权（区别于通用 consent）
 	SelfTokenStats      Capability = "self.token.stats"      // 词元统计
+	SelfAIBriefingRead  Capability = "self.ai_briefing.read" // 浏览 AI 简讯（首页资讯）
 
 	// 校园文化（全员可见，骨架阶段直接归到 self.* 基线）
 	SelfCultureAnthem    Capability = "self.culture.anthem"    // 校歌曲库
@@ -159,6 +160,7 @@ const (
 	SystemSettingsWrite Capability = "system.settings.write" // 全局配置
 	SystemAuditAll      Capability = "system.audit.all"      // 全局审计日志
 	SystemPasswordReset Capability = "system.password.reset" // 重置任意用户密码
+	SystemAIBriefing    Capability = "system.ai_briefing"    // AI 简讯管理（sys_admin 专属：CRUD/来源/导出/抓取）
 )
 
 // roleNode 角色继承节点
@@ -216,6 +218,8 @@ var roles = map[string]*roleNode{
 			SelfStudyRead, SelfStudyWrite,
 			SelfMentalRead, SelfMentalWrite,
 			SelfHealthRead, SelfHealthWrite,
+			// AI 简讯（首页资讯）
+			SelfAIBriefingRead,
 		},
 	},
 	"student_union": {
@@ -287,6 +291,7 @@ var roles = map[string]*roleNode{
 		parents: []string{"school_admin"},
 		capabilities: []Capability{
 			SystemSettingsWrite, SystemAuditAll, SystemPasswordReset,
+			SystemAIBriefing,
 		},
 	},
 }

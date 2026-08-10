@@ -288,6 +288,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 第三方应用中心
 	externalAppHandler := handler.NewExternalAppHandler(
 		service.NewExternalAppService(repository.NewExternalAppRepo(db)))
+	// AI 简讯（首页资讯 + 管理 CRUD + RSS 自动抓取）
+	aiBriefingSvc := service.NewAIBriefingService(repository.NewAIBriefingRepo(db))
+	aiBriefingHandler := handler.NewAIBriefingHandler(aiBriefingSvc)
 	studentHandler := handler.NewStudentHandler(studentSvc, db)
 	// 数字孪生五维聚合服务（S1.1）：注入现有 StudentHandler，/student/digital-twin 走真实数据，失败兜底 mock
 	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
@@ -369,7 +372,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
 	retentionSvc := service.NewRetentionService(db)
@@ -385,6 +388,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		cfg.RetentionEmotionDays,
 		cfg.RetentionExportDays,
 	)
+
+	// AI 简讯定时抓取调度（每分钟检查来源抓取时刻）
+	go aiBriefingSvc.RunLoop(context.Background())
 
 	return router, nil
 }
@@ -619,6 +625,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	campusH *handler.CampusHandler,
 	dataImportH *handler.DataImportHandler,
 	externalAppH *handler.ExternalAppHandler,
+	aiBriefingH *handler.AIBriefingHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -962,6 +969,24 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.DELETE("/apps/:id", auth.RequireCapability(auth.SystemSettingsWrite), externalAppH.Delete)
 				// 应用中心（登录用户可见，按角色过滤）
 				secured.GET("/apps", externalAppH.ListVisible)
+
+				// ── AI 简讯（sys_admin 管理）──
+				admin.GET("/ai-briefings", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.List)
+				admin.POST("/ai-briefings", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.Create)
+				admin.PUT("/ai-briefings/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.Update)
+				admin.PUT("/ai-briefings/:id/status", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.UpdateStatus)
+				admin.DELETE("/ai-briefings/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.Delete)
+				admin.POST("/ai-briefings/batch-delete", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.DeleteMany)
+				admin.DELETE("/ai-briefings/clear", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.ClearAll)
+				admin.GET("/ai-briefings/stats", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.Stats)
+				admin.POST("/ai-briefings/export", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.Export)
+				admin.POST("/ai-briefings/fetch", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.FetchNow)
+				admin.GET("/ai-briefings/sources", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.ListSources)
+				admin.POST("/ai-briefings/sources", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.CreateSource)
+				admin.PUT("/ai-briefings/sources/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.UpdateSource)
+				admin.DELETE("/ai-briefings/sources/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.DeleteSource)
+				// AI 简讯（登录用户可见）
+				secured.GET("/ai-briefings", aiBriefingH.ListUser)
 
 				// 游客管理（college_admin+）
 				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)

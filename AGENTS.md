@@ -47,6 +47,7 @@
 | **学生用户导入与账号管理** | `docs/user-import.md`（权限、Excel 模板、初始密码与验收） |
 | **报到节点坐标管理** | `docs/蔚小芯报到节点坐标管理.md`（管理员拖拽校正 + CRUD 工作流） |
 | **前端全量构建脚本** | `scripts/build-all.ps1`（一键构建 Web + APK，用法：`pwsh scripts/build-all.ps1` 或 `make all-frontend`） |
+| **AI 简讯模块** | `docs/ai-briefings.md`（首页资讯 + 管理 CRUD + RSS/Atom 自动抓取 + md/pdf 导出） |
 | **微信小程序（WebView 壳）** | `frontend/miniprogram/`（AppID: wx811d1225e67b8f38，加载 Cloudflare Pages 前端） |
 
 ## 内部知识（可选）
