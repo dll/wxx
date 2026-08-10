@@ -100,21 +100,30 @@ func (r *AIBriefingRepo) ListUserVisible(category, q string, limit int) ([]*mode
 // Get 单条查询
 func (r *AIBriefingRepo) Get(id int64) (*model.AIBriefing, error) {
 	var b model.AIBriefing
-	var fetchedAt sql.NullString
+	var fetchedAt, publishedAt, source, category, summary, content, link, keyword sql.NullString
+	var createdBy sql.NullInt64
+	var status sql.NullInt64
 	err := r.db.QueryRow(
 		"SELECT "+aiBriefingCols+" FROM ai_briefings WHERE id = ?", id,
-	).Scan(&b.ID, &b.Source, &b.Category, &b.Topic, &b.Summary, &b.Content,
-		&b.Link, &b.Keyword, &b.PublishedAt, &fetchedAt, &b.Status,
-		&b.CreatedBy, &b.CreatedAt, &b.UpdatedAt)
+	).Scan(&b.ID, &source, &category, &b.Topic, &summary, &content,
+		&link, &keyword, &publishedAt, &fetchedAt, &status,
+		&createdBy, &b.CreatedAt, &b.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if fetchedAt.Valid {
-		b.FetchedAt = fetchedAt.String
-	}
+	b.Source = source.String
+	b.Category = category.String
+	b.Summary = summary.String
+	b.Content = content.String
+	b.Link = link.String
+	b.Keyword = keyword.String
+	b.PublishedAt = publishedAt.String
+	b.FetchedAt = fetchedAt.String
+	b.Status = int(status.Int64)
+	b.CreatedBy = createdBy.Int64
 	return &b, nil
 }
 
@@ -363,15 +372,24 @@ func scanBriefings(rows *sql.Rows) ([]*model.AIBriefing, error) {
 	var list []*model.AIBriefing
 	for rows.Next() {
 		b := &model.AIBriefing{}
-		var fetchedAt sql.NullString
-		if err := rows.Scan(&b.ID, &b.Source, &b.Category, &b.Topic, &b.Summary, &b.Content,
-			&b.Link, &b.Keyword, &b.PublishedAt, &fetchedAt, &b.Status,
-			&b.CreatedBy, &b.CreatedAt, &b.UpdatedAt); err != nil {
+		var fetchedAt, publishedAt, source, category, summary, content, link, keyword sql.NullString
+		var createdBy sql.NullInt64
+		var status sql.NullInt64
+		if err := rows.Scan(&b.ID, &source, &category, &b.Topic, &summary, &content,
+			&link, &keyword, &publishedAt, &fetchedAt, &status,
+			&createdBy, &b.CreatedAt, &b.UpdatedAt); err != nil {
 			return nil, err
 		}
-		if fetchedAt.Valid {
-			b.FetchedAt = fetchedAt.String
-		}
+		b.Source = source.String
+		b.Category = category.String
+		b.Summary = summary.String
+		b.Content = content.String
+		b.Link = link.String
+		b.Keyword = keyword.String
+		b.PublishedAt = publishedAt.String
+		b.FetchedAt = fetchedAt.String
+		b.Status = int(status.Int64)
+		b.CreatedBy = createdBy.Int64
 		list = append(list, b)
 	}
 	if err := rows.Err(); err != nil {
