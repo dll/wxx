@@ -336,6 +336,33 @@ class ProcessDefinition {
   bool get isFreshmenRelated =>
       tags.any((t) => t.contains('新生') || t.contains('入学') || t.contains('报到'));
 
+  /// 流程适用角色（role_scope JSON 解码），空表示不限制
+  List<String> get roleCodes {
+    if (roleScope.isEmpty || roleScope == '[]') return const [];
+    try {
+      final decoded = jsonDecode(roleScope);
+      if (decoded is List) return decoded.map((e) => e.toString()).toList();
+    } catch (_) {}
+    return const [];
+  }
+
+  /// 面向群体（年级/身份维度），依据标题、摘要与 tags 判定
+  String get audienceLabel {
+    final s = '$title $summary ${tags.join(' ')}';
+    if (s.contains('新生') || s.contains('入学') || s.contains('报到')) {
+      return '新生';
+    }
+    if (s.contains('毕业') || s.contains('离校')) return '毕业生';
+    if (s.contains('请假') ||
+        s.contains('奖学金') ||
+        s.contains('转专业') ||
+        s.contains('助学贷款') ||
+        s.contains('在校')) {
+      return '在校生';
+    }
+    return '通用';
+  }
+
   String get statusLabel {
     switch (status) {
       case 'published':
@@ -2426,6 +2453,49 @@ class ImportResultDetail {
       displayName: json['display_name'] ?? '',
       success: json['success'] ?? false,
       error: json['error'] ?? '',
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 第三方应用（应用中心）
+// ═══════════════════════════════════════════════════════════════
+
+/// 第三方应用（GET /api/v1/apps 返回的可见应用）
+class ExternalAppItem {
+  final String id;
+  final String name;
+  final String icon;
+  final String category; // study | culture | service | admin | external
+  final String summary;
+  final String version;
+  final String type; // external_link | webview | reverse_proxy
+  final String url;
+  final String openIn; // _self | _blank | _native
+
+  const ExternalAppItem({
+    this.id = '',
+    this.name = '',
+    this.icon = '',
+    this.category = 'external',
+    this.summary = '',
+    this.version = '',
+    this.type = 'external_link',
+    this.url = '',
+    this.openIn = '_blank',
+  });
+
+  factory ExternalAppItem.fromJson(Map<String, dynamic> json) {
+    return ExternalAppItem(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      icon: json['icon'] ?? '',
+      category: json['category'] ?? 'external',
+      summary: json['summary'] ?? '',
+      version: json['version'] ?? '',
+      type: json['type'] ?? 'external_link',
+      url: json['url'] ?? '',
+      openIn: json['open_in'] ?? '_blank',
     );
   }
 }

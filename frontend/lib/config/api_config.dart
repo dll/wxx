@@ -426,4 +426,7 @@ class ApiConfig {
   // ── 版本更新 ──
   static const String versionCheck = '$apiPrefix/version/check';
   static const String versionLatest = '$apiPrefix/version/latest';
+
+  // ── 第三方应用中心 ──
+  static const String externalApps = '$apiPrefix/apps';
 }

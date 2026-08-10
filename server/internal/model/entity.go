@@ -190,6 +190,45 @@ type FeedbackLog struct {
 	CreatedAt  string `json:"created_at" db:"created_at"`
 }
 
+// FeedbackRepairJob 反馈 AI 自动修复工单，对应 feedback_repair_jobs 表。
+// 每次「在线修复并部署」创建一条，记录执行阶段 / 日志 / 结果 / 被修改文件，供前端轮询与审计。
+type FeedbackRepairJob struct {
+	ID          int64  `json:"id" db:"id"`
+	RunID       string `json:"run_id" db:"run_id"`
+	FeedbackID  string `json:"feedback_id" db:"feedback_id"`
+	Operator    string `json:"operator" db:"operator"`
+	Status      string `json:"status" db:"status"`                 // running | succeeded | failed | rolled_back
+	Stage       string `json:"stage" db:"stage"`                   // init/diagnose/apply/build/deploy/healthcheck/done/failed
+	LogText     string `json:"log_text" db:"log_text"`             // 执行日志（多行，前端滚动展示）
+	EditedFiles string `json:"edited_files" db:"edited_files"`     // JSON 数组：被修改文件（相对 /opt/wxx 仓库根）
+	Summary     string `json:"summary" db:"summary"`               // AI 问题摘要
+	Detail      string `json:"detail" db:"detail"`                 // 修复说明 / 错误描述
+	CreatedAt   string `json:"created_at" db:"created_at"`
+	UpdatedAt   string `json:"updated_at" db:"updated_at"`
+}
+
+// RepairJobStage 自动修复阶段常量
+const (
+	RepairStageInit        = "init"
+	RepairStageDiagnose    = "diagnose"
+	RepairStageGenPatch    = "gen_patch"
+	RepairStageApply       = "apply"
+	RepairStageBuild       = "build"
+	RepairStageVerify      = "verify" // 独立端口健康检查
+	RepairStageDeploy      = "deploy"
+	RepairStageHealthCheck = "healthcheck"
+	RepairStageDone        = "done"
+	RepairStageFailed      = "failed"
+)
+
+// RepairStatus 自动修复结果状态常量
+const (
+	RepairStatusRunning  = "running"
+	RepairStatusSucceeded = "succeeded"
+	RepairStatusFailed    = "failed"
+	RepairStatusRolledBack = "rolled_back"
+)
+
 // FeedbackStats 反馈统计数据
 type FeedbackStats struct {
 	Total           int             `json:"total"`

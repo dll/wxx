@@ -270,6 +270,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '活动报名与个性推送', '/culture/events'),
           _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐',
               '/culture/volunteer'),
+          _buildMenuCard(context, Icons.apps_outlined, '应用中心', '第三方应用与链接',
+              '/apps'),
 
           // 反馈管理（管理员）
           if (_canAccessAdmin(profile?.role))

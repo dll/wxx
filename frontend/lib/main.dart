@@ -30,6 +30,7 @@ import 'providers/study_plan_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/update_provider.dart';
 import 'providers/health_provider.dart';
+import 'providers/app_center_provider.dart';
 import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
 import 'services/voice/deep_link.dart';
@@ -240,6 +241,7 @@ class _WxxAppState extends State<WxxApp> {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UpdateProvider()),
         ChangeNotifierProvider(create: (_) => HealthProvider()),
+        ChangeNotifierProvider(create: (_) => AppCenterProvider()),
         ChangeNotifierProvider(create: (_) => _themeNotifier),
       ],
       child: Consumer<ThemeNotifier>(

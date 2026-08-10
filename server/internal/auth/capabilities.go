@@ -363,3 +363,30 @@ func IsKnownRole(role string) bool {
 	_, ok := roles[role]
 	return ok
 }
+
+// RoleMatches 判断当前角色是否命中目标角色（含继承：命中自己或任一祖先角色）
+// 用于 visible_to.roles 这类"面向角色"的名单判断。
+func RoleMatches(role, target string) bool {
+	if role == target {
+		return true
+	}
+	visited := make(map[string]bool)
+	return roleReaches(role, target, visited)
+}
+
+func roleReaches(role, target string, visited map[string]bool) bool {
+	if visited[role] {
+		return false
+	}
+	visited[role] = true
+	node, ok := roles[role]
+	if !ok {
+		return false
+	}
+	for _, parent := range node.parents {
+		if parent == target || roleReaches(parent, target, visited) {
+			return true
+		}
+	}
+	return false
+}

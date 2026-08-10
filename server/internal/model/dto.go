@@ -536,6 +536,21 @@ type AIRepairResponse struct {
 	RepairHint   string   `json:"repair_hint"`   // 修复建议（可直接执行）
 	OCRText      string   `json:"ocr_text"`      // 截图 OCR 识别的文字（可为空）
 	MatchedFiles []string `json:"matched_files"` // 结合 module 在项目中的映射文件（兜底）
+	RunID        string   `json:"run_id"`        // 修复工单运行 ID（若已注入工单仓库则非空）
+}
+
+// AIRepairJobResponse 修复工单查询响应
+type AIRepairJobResponse struct {
+	RunID       string `json:"run_id"`
+	FeedbackID  string `json:"feedback_id"`
+	Operator    string `json:"operator"`
+	Status      string `json:"status"` // running | succeeded | failed | rolled_back
+	Stage       string `json:"stage"`
+	EditedFiles string `json:"edited_files"`
+	Summary     string `json:"summary"`
+	Detail      string `json:"detail"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 // FeedbackListResponse 反馈列表响应
@@ -699,4 +714,59 @@ type KBQuery struct {
 	SortOrder    string
 	Page         int
 	PageSize     int
+}
+
+// ── 第三方应用（external_apps）DTO ──
+
+// ExternalAppManifest 应用 manifest（对齐 docs/external-apps.md v0.1）
+type ExternalAppManifest struct {
+	ID       string                   `json:"id"`
+	Name     string                   `json:"name"`
+	Icon     string                   `json:"icon"`
+	Category string                   `json:"category"` // study | culture | service | admin | external
+	Summary  string                   `json:"summary"`
+	Version  string                   `json:"version"`
+	Adapter  ExternalAppAdapter       `json:"adapter"`
+	Visible  ExternalAppVisibleConfig `json:"visible_to"`
+	UpdatedAt string                  `json:"updated_at"`
+}
+
+// ExternalAppAdapter 跳转适配配置
+type ExternalAppAdapter struct {
+	Type   string `json:"type"` // external_link | webview | reverse_proxy
+	URL    string `json:"url"`
+	OpenIn string `json:"open_in"` // _self | _blank | _native
+}
+
+// ExternalAppVisibleConfig 可见性配置
+type ExternalAppVisibleConfig struct {
+	Roles        []string `json:"roles"` // 角色白名单，留空即全员
+	Capabilities []string `json:"capabilities"`
+	Scope        string   `json:"scope"` // self | college | school | all
+}
+
+// ExternalAppView 应用中心返回给用户的视图（已解析 manifest）
+type ExternalAppView struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Icon     string   `json:"icon"`
+	Category string   `json:"category"`
+	Summary  string   `json:"summary"`
+	Version  string   `json:"version"`
+	Type     string   `json:"type"`
+	URL      string   `json:"url"`
+	OpenIn   string   `json:"open_in"`
+}
+
+// ExternalAppCreateRequest 管理员注册/更新应用
+type ExternalAppCreateRequest struct {
+	Manifest string `json:"manifest" binding:"required"`
+	Enabled  *int   `json:"enabled"` // 可省略，默认 1
+}
+
+// ExternalAppAdminView 管理员视图（含 enabled / 完整 manifest）
+type ExternalAppAdminView struct {
+	ExternalAppView
+	Manifest string `json:"manifest"`
+	Enabled  int    `json:"enabled"`
 }

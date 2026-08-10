@@ -64,6 +64,8 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"049_fts_tags.sql",
 		"039_feedback_closed_loop.sql",
 		"063_feedback_module.sql",
+		"064_feedback_repair_jobs.sql",
+		"065_external_apps.sql",
 	} {
 		p := resolveMigrationPath(t, m)
 		c, err := os.ReadFile(p)

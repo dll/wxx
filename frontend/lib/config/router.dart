@@ -122,6 +122,7 @@ import '../pages/student/mental/counseling_page.dart';
 import '../pages/student/mental/article_detail_page.dart';
 import '../pages/student/health/health_page.dart';
 import '../pages/student/mental/mood_diary_page.dart';
+import '../pages/apps/app_center_page.dart';
 import '../utils/screenshot_capture.dart';
 
 /// 鉴权状态刷新通知 — 当 token 过期/退出登录时通知 GoRouter 重新评估 redirect
@@ -212,6 +213,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/profile/model-config',
           builder: (context, state) => const ModelConfigPage(),
+        ),
+        GoRoute(
+          path: '/apps',
+          builder: (context, state) => const AppCenterPage(),
         ),
         // ── 校园文化智能体（全员可见）──
         GoRoute(

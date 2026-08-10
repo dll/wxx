@@ -194,6 +194,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	adminSvc.SetChatMetricsRepo(chatMetricsRepo)
 	feedbackSvc := service.NewFeedbackService(feedbackRepo, userRepo, feedbackScreenshotRepo)
 	feedbackSvc.SetDB(db)
+	feedbackSvc.SetRepairRepo(repository.NewFeedbackRepairRepo(db))
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
@@ -284,6 +285,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	tokenStatsHandler := handler.NewTokenStatsHandler(tokenStatsSvc)
 	processRecordHandler := handler.NewProcessRecordHandler(processRecordSvc)
 	processHandler := handler.NewProcessHandler(processSvc)
+	// 第三方应用中心
+	externalAppHandler := handler.NewExternalAppHandler(
+		service.NewExternalAppService(repository.NewExternalAppRepo(db)))
 	studentHandler := handler.NewStudentHandler(studentSvc, db)
 	// 数字孪生五维聚合服务（S1.1）：注入现有 StudentHandler，/student/digital-twin 走真实数据，失败兜底 mock
 	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
@@ -365,7 +369,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
 	retentionSvc := service.NewRetentionService(db)
@@ -614,6 +618,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	appVersionH *handler.AppVersionHandler,
 	campusH *handler.CampusHandler,
 	dataImportH *handler.DataImportHandler,
+	externalAppH *handler.ExternalAppHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -950,6 +955,14 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.PUT("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.UpdateVersion)
 				admin.DELETE("/app-versions/:id", auth.RequireCapability(auth.SystemSettingsWrite), appVersionH.DeleteVersion)
 
+				// 第三方应用管理（sys_admin）
+				admin.GET("/apps", auth.RequireCapability(auth.SystemSettingsWrite), externalAppH.ListAdmin)
+				admin.POST("/apps", auth.RequireCapability(auth.SystemSettingsWrite), externalAppH.Create)
+				admin.PUT("/apps/:id", auth.RequireCapability(auth.SystemSettingsWrite), externalAppH.Update)
+				admin.DELETE("/apps/:id", auth.RequireCapability(auth.SystemSettingsWrite), externalAppH.Delete)
+				// 应用中心（登录用户可见，按角色过滤）
+				secured.GET("/apps", externalAppH.ListVisible)
+
 				// 游客管理（college_admin+）
 				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)
 				admin.PUT("/guests/:id/approve", auth.RequireCapability(auth.CollegeUserRead), adminH.ApproveGuest)
@@ -998,6 +1011,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/feedback", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.List)
 			secured.PUT("/feedback/:id", auth.RequireCapability(auth.UnionFeedbackList), feedbackH.Resolve)
 			secured.POST("/feedback/:id/ai-repair", auth.RequireCapability(auth.UnionFeedbackWrite), feedbackH.AIRepair)
+			// 修复工单轮询/审计（管理端）
+			secured.GET("/feedback/:id/ai-repair/job", auth.RequireCapability(auth.UnionFeedbackWrite), feedbackH.LatestRepairJob)
 			// 管理端反馈统计
 			secured.GET("/admin/feedback/stats", auth.RequireCapability(auth.UnionFeedbackRead), feedbackH.Stats)
 			// 管理端关联知识资源
@@ -1345,12 +1360,6 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				cultureGroup.GET("/lectures", auth.RequireCapability(auth.SelfCultureLectures), cultureH.Lectures)
 				cultureGroup.GET("/events", auth.RequireCapability(auth.SelfCultureEvents), cultureH.Events)
 				cultureGroup.GET("/volunteer", auth.RequireCapability(auth.SelfCultureVolunteer), cultureH.Volunteer)
-				// ── 第三方应用接入（全员可见）──
-				appsGroup := secured.Group("/apps")
-				{
-					appsGroup.GET("", handler.NewExternalAppHandler().ListApps)
-					appsGroup.GET("/:key", handler.NewExternalAppHandler().GetApp)
-				}
 			}
 		}
 	}
