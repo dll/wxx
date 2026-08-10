@@ -125,3 +125,77 @@ func TestParseAIRepairJSON(t *testing.T) {
 		t.Errorf("unexpected code_files: %v", out.CodeFiles)
 	}
 }
+
+// TestAIRepair_PersistJob 注入工单仓库后，AI 修复应落库并记录 edited_files
+func TestAIRepair_PersistJob(t *testing.T) {
+	svc, db := setupFeedbackAIRepairTest(t)
+	repairRepo := repository.NewFeedbackRepairRepo(db)
+	svc.SetRepairRepo(repairRepo)
+
+	fb := &model.Feedback{
+		FeedbackID: "fb-job-persist",
+		UserID:     1,
+		Username:   "s1",
+		Category:   "answer_error",
+		Module:     "对话 / 问答",
+		Content:    "回答内容不准确，希望改进",
+		Status:     "pending",
+	}
+	if _, err := svc.feedbackRepo.Create(fb); err != nil {
+		t.Fatalf("creating feedback: %v", err)
+	}
+
+	resp, err := svc.AIRepair(context.Background(), fb.FeedbackID, "admin")
+	if err != nil {
+		t.Fatalf("AIRepair error: %v", err)
+	}
+	if resp.RunID == "" {
+		t.Fatal("expected non-empty run_id when repairRepo injected")
+	}
+
+	job, err := svc.LatestRepairJob(fb.FeedbackID)
+	if err != nil {
+		t.Fatalf("LatestRepairJob error: %v", err)
+	}
+	if job == nil {
+		t.Fatal("expected a persisted repair job")
+	}
+	if job.Status != model.RepairStatusSucceeded {
+		t.Errorf("expected status succeeded, got %q", job.Status)
+	}
+	if job.Stage != model.RepairStageDone {
+		t.Errorf("expected stage done, got %q", job.Stage)
+	}
+	if job.EditedFiles == "" {
+		t.Error("expected edited_files populated")
+	}
+	if job.RunID != resp.RunID {
+		t.Errorf("job run_id %q != resp run_id %q", job.RunID, resp.RunID)
+	}
+}
+
+// TestAIRepair_NoRepoNoRunID 未注入工单仓库时不落库、run_id 为空
+func TestAIRepair_NoRepoNoRunID(t *testing.T) {
+	svc, _ := setupFeedbackAIRepairTest(t)
+
+	fb := &model.Feedback{
+		FeedbackID: "fb-norepo",
+		UserID:     1,
+		Username:   "s1",
+		Category:   "answer_error",
+		Module:     "对话 / 问答",
+		Content:    "帮助",
+		Status:     "pending",
+	}
+	if _, err := svc.feedbackRepo.Create(fb); err != nil {
+		t.Fatalf("creating feedback: %v", err)
+	}
+
+	resp, err := svc.AIRepair(context.Background(), fb.FeedbackID, "admin")
+	if err != nil {
+		t.Fatalf("AIRepair error: %v", err)
+	}
+	if resp.RunID != "" {
+		t.Errorf("expected empty run_id without repairRepo, got %q", resp.RunID)
+	}
+}

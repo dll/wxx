@@ -184,6 +184,48 @@ func (h *FeedbackHandler) AIRepair(c *gin.Context) {
 	})
 }
 
+// LatestRepairJob 查询反馈最新修复工单 GET /api/v1/feedback/:id/ai-repair/job
+// 管理端能力 admin.feedback.write（与触发 AI 修复一致）。
+func (h *FeedbackHandler) LatestRepairJob(c *gin.Context) {
+	feedbackID := c.Param("id")
+
+	job, err := h.feedbackSvc.LatestRepairJob(feedbackID)
+	if err != nil {
+		log.Printf("feedback repair job err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询修复工单失败",
+		})
+		return
+	}
+
+	if job == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    0,
+			"message": "success",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"message": "success",
+		"data": model.AIRepairJobResponse{
+			RunID:       job.RunID,
+			FeedbackID:  job.FeedbackID,
+			Operator:    job.Operator,
+			Status:      job.Status,
+			Stage:       job.Stage,
+			EditedFiles: job.EditedFiles,
+			Summary:     job.Summary,
+			Detail:      job.Detail,
+			CreatedAt:   job.CreatedAt,
+			UpdatedAt:   job.UpdatedAt,
+		},
+	})
+}
+
 // Resolve 处理反馈 PUT /api/v1/feedback/:id
 func (h *FeedbackHandler) Resolve(c *gin.Context) {
 	feedbackID := c.Param("id")

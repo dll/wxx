@@ -24,6 +24,7 @@ type FeedbackService struct {
 	feedbackRepo   *repository.FeedbackRepo
 	userRepo       *repository.UserRepo
 	screenshotRepo *repository.FeedbackScreenshotRepo
+	repairRepo     *repository.FeedbackRepairRepo
 	db             *sql.DB
 	// 可选：用户反馈"回答有误"时回调（用于失效 FAQ 缓存等）
 	// messageID 是用户在前端记录的消息 id，由调用方决定如何用它定位原问题
@@ -41,6 +42,11 @@ func NewFeedbackService(feedbackRepo *repository.FeedbackRepo, userRepo *reposit
 // SetDB 设置数据库连接（用于发送站内通知）
 func (s *FeedbackService) SetDB(db *sql.DB) {
 	s.db = db
+}
+
+// SetRepairRepo 注入 AI 修复工单持久化仓库（可为 nil，注入后续记录每次修复工单）
+func (s *FeedbackService) SetRepairRepo(repo *repository.FeedbackRepairRepo) {
+	s.repairRepo = repo
 }
 
 // SetAnswerErrorHook 注入"回答有误"反馈钩子（如失效 FAQ 缓存）
@@ -172,6 +178,7 @@ func matchModuleByContent(content string) []string {
 
 // AIRepair AI 在线修复：解析截图 + 智能定位模块与代码文件。
 // 返回诊断结果；LLM/视觉不可用时自动降级为本地关键词匹配。
+// 若已注入 repairRepo，则把本次诊断持久化为修复工单（供前端轮询与审计）。
 func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator string) (*model.AIRepairResponse, error) {
 	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
 	if err != nil {
@@ -179,6 +186,36 @@ func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator str
 	}
 	if fb == nil {
 		return nil, fmt.Errorf("反馈不存在: %s", feedbackID)
+	}
+
+	// 0. 创建修复工单（审计 + 前端轮询）
+	jobID := int64(0)
+	runID := ""
+	if s.repairRepo != nil {
+		runID = "rp-" + strings.ReplaceAll(uuid.New().String()[:13], "-", "")
+		jobID, err = s.repairRepo.Create(&model.FeedbackRepairJob{
+			RunID:      runID,
+			FeedbackID: feedbackID,
+			Operator:   operator,
+			Status:     model.RepairStatusRunning,
+			Stage:      model.RepairStageDiagnose,
+			Summary:    fb.Content,
+		})
+		if err != nil {
+			log.Printf("反馈修复工单创建失败 feedback_id=%s err=%v", feedbackID, err)
+		} else {
+			_ = s.repairRepo.AppendLog(jobID, "初始化修复工单，开始 AI 诊断")
+		}
+	}
+	finish := func(status, stage, detail string, files []string) {
+		if s.repairRepo == nil || jobID == 0 {
+			return
+		}
+		if filesJSON, ferr := json.Marshal(files); ferr == nil {
+			_ = s.repairRepo.SetEditedFiles(jobID, string(filesJSON))
+		}
+		_ = s.repairRepo.UpdateStage(jobID, stage)
+		_ = s.repairRepo.Finalize(jobID, status, detail)
 	}
 
 	resp := &model.AIRepairResponse{Module: fb.Module}
@@ -244,10 +281,24 @@ func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator str
 		resp.RepairHint = "请结合上方代码定位，在本机复现并修复；修复完成后回到本页将该反馈标记为已解决。"
 	}
 
+	// 5. 持久化工单：诊断成功
+	finish(model.RepairStatusSucceeded, model.RepairStageDone,
+		resp.Summary+" ｜ 根因："+resp.RootCause, resp.CodeFiles)
+
 	// 记录处理日志
 	_ = s.feedbackRepo.AddLog(feedbackID, "ai_repair", operator, "AI 在线修复诊断")
 
+	resp.RunID = runID
 	return resp, nil
+}
+
+// LatestRepairJob 查询反馈的最新一次修复工单（用于前端轮询/审计）。
+// 未注入 repairRepo 时返回 nil。
+func (s *FeedbackService) LatestRepairJob(feedbackID string) (*model.FeedbackRepairJob, error) {
+	if s.repairRepo == nil {
+		return nil, nil
+	}
+	return s.repairRepo.LatestByFeedback(feedbackID)
 }
 
 // aiDiagnoseResult 文本模型诊断输出结构
