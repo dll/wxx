@@ -79,6 +79,10 @@ func TestParseFeed_Atom(t *testing.T) {
 func TestExportBriefings(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
+	// 清空 067 seed，隔离测试数据
+	if _, err := db.Exec("DELETE FROM ai_briefings"); err != nil {
+		t.Fatalf("清空 ai_briefings 失败: %v", err)
+	}
 	svc := NewAIBriefingService(repository.NewAIBriefingRepo(db))
 
 	// 无数据
@@ -100,13 +104,23 @@ func TestExportBriefings(t *testing.T) {
 	}
 	mk("ai_teaching", "大模型版本更新")
 	mk("ai_tool", "AI 工具测评")
-	items, _ := svc.repo.GetByIDs([]int64{1, 2})
+	// 清空 seed 后自增 id 不连续，按标题筛选本次条目
+	all, _, _ := svc.repo.List("", "", "", 1, 100)
+	items := make([]*model.AIBriefing, 0, 2)
+	for _, b := range all {
+		if b.Topic == "大模型版本更新" || b.Topic == "AI 工具测评" {
+			items = append(items, b)
+		}
+	}
+	if len(items) != 2 {
+		t.Fatalf("应筛出 2 条测试资讯，实际 %d", len(items))
+	}
 
 	md, err = svc.ExportBriefingsMarkdown(items)
 	if err != nil {
 		t.Fatalf("导出 md 失败: %v", err)
 	}
-	if !bytes.Contains(md, []byte("大模型")) || !bytes.Contains(md, []byte("AI 工具")) {
+	if !bytes.Contains(md, []byte("大模型版本更新")) || !bytes.Contains(md, []byte("AI 工具测评")) {
 		t.Fatalf("md 内容不符: %s", md)
 	}
 

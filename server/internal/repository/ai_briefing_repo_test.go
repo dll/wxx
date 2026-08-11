@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/dll/wxx/server/internal/model"
@@ -42,6 +43,7 @@ func sourceFixture() *model.AIBriefingSource {
 func TestAIBriefingRepo_CRUD(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
+	clearBriefings(t, db)
 	r := NewAIBriefingRepo(db)
 
 	// 新增
@@ -109,12 +111,16 @@ func TestAIBriefingRepo_CRUD(t *testing.T) {
 func TestAIBriefingRepo_Stats(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
+	clearBriefings(t, db)
 	r := NewAIBriefingRepo(db)
 
 	_, _ = r.Create(briefingFixture(1))
-	_, _ = r.Create(briefingFixture(2))
+	id2, _ := r.Create(briefingFixture(2))
 	// 其中一条下架
-	b, _ := r.Get(1)
+	b, _ := r.Get(id2)
+	if b == nil {
+		t.Fatal("id2 查询为空")
+	}
 	_ = r.UpdateStatus(b.ID, 0)
 
 	s, err := r.Stats()
@@ -165,5 +171,13 @@ func TestAIBriefingRepo_Sources(t *testing.T) {
 
 	if err := r.DeleteSource(id); err != nil {
 		t.Fatalf("DeleteSource 失败: %v", err)
+	}
+}
+
+// clearBriefings 清空 seed 资讯（067 迁移默认插入 20 条，测试需隔离）
+func clearBriefings(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if _, err := db.Exec("DELETE FROM ai_briefings"); err != nil {
+		t.Fatalf("清空 ai_briefings 失败: %v", err)
 	}
 }
