@@ -150,6 +150,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
         const SizedBox(height: 24),
 
+        // 我的操作日志（所有角色独立入口，非分组菜单）
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: ListTile(
+            leading: Icon(Icons.history, color: theme.colorScheme.primary),
+            title: const Text('我的操作日志'),
+            subtitle: const Text('查看自己的操作记录'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/my-logs'),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
         // 语音功能开关
         _buildVoiceToggle(context, auth),
 
@@ -252,10 +270,6 @@ class _ProfilePageState extends State<ProfilePage> {
           // 我的收藏（所有角色可访问）
           _buildMenuCard(
               context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
-
-          // 我的操作日志（所有角色可见）
-          _buildMenuCard(context, Icons.history, '我的操作日志',
-              '查看自己的操作记录', '/my-logs'),
 
           // 个人信息（弹窗：基本信息/联系方式/组织关系/学校门户绑定）
           Card(

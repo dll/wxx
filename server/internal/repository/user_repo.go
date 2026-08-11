@@ -272,6 +272,18 @@ func (r *UserRepo) RestoreUserStatus(id int64, status string) error {
 	return nil
 }
 
+// GetAvatar 查询用户头像 base64（无则空）
+func (r *UserRepo) GetAvatar(userID int64) (string, error) {
+	var b64 sql.NullString
+	err := r.db.QueryRow(
+		"SELECT COALESCE(avatar_base64,'') FROM users WHERE id = ?", userID,
+	).Scan(&b64)
+	if err != nil {
+		return "", err
+	}
+	return b64.String, nil
+}
+
 // GetStatusesByIDs 批量查询用户当前状态（用于操作快照）
 func (r *UserRepo) GetStatusesByIDs(ids []int64) (map[int64]string, error) {
 	if len(ids) == 0 {

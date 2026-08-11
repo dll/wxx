@@ -2723,6 +2723,9 @@ class PersonalDetail {
   final String wechat;
   final String qq;
   final String email;
+  // 头像
+  final String avatarBase64;
+  final String avatarMime;
   // 组织关系
   final List<ContactPerson> supervisors;
   final int subordinates;
@@ -2741,6 +2744,8 @@ class PersonalDetail {
     this.wechat = '',
     this.qq = '',
     this.email = '',
+    this.avatarBase64 = '',
+    this.avatarMime = 'image/png',
     this.supervisors = const [],
     this.subordinates = 0,
   });
@@ -2760,6 +2765,8 @@ class PersonalDetail {
       wechat: json['wechat'] ?? '',
       qq: json['qq'] ?? '',
       email: json['email'] ?? '',
+      avatarBase64: json['avatar_base64'] ?? '',
+      avatarMime: json['avatar_mime'] ?? 'image/png',
       supervisors: (json['supervisors'] as List? ?? [])
           .whereType<Map>()
           .map((e) => ContactPerson.fromJson(Map<String, dynamic>.from(e)))

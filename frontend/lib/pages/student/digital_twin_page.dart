@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../providers/twin_portrait_provider.dart';
+import '../../providers/personal_detail_provider.dart';
 import '../../utils/storage.dart';
 import '../../utils/portrait_photo_picker.dart';
 import '../../widgets/avatar_card.dart';
@@ -105,10 +106,16 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
 
   Widget _buildPortraitSection(ThemeData theme) {
     final p = context.watch<TwinPortraitProvider>();
-    // 首次进入拉取已生成画像
+    // 首次进入拉取已生成画像 + 个人信息（含头像，供图生图）
     if (!p.loading && p.current == null && p.error.isEmpty) {
       Future.microtask(() {
         if (mounted) context.read<TwinPortraitProvider>().fetchPortraits();
+      });
+    }
+    final detail = context.watch<PersonalDetailProvider>();
+    if (!detail.loading && detail.detail == null) {
+      Future.microtask(() {
+        if (mounted) context.read<PersonalDetailProvider>().fetchAll();
       });
     }
     return Card(
@@ -197,14 +204,24 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
   }
 
   Widget _buildPortraitEmpty(ThemeData theme, TwinPortraitProvider p) {
+    // 若个人中心已上传头像，可直接用它生成（图生图）
+    final detail = context.read<PersonalDetailProvider>().detail;
+    final hasAvatar = (detail?.avatarBase64 ?? '').isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => _showGenerateDialog(p),
-          icon: const Icon(Icons.add_a_photo_outlined),
-          label: const Text('上传照片生成'),
-        ),
+        if (hasAvatar)
+          OutlinedButton.icon(
+            onPressed: () => _generateFromAvatar(p, detail!.avatarBase64),
+            icon: const Icon(Icons.face_retouching_natural),
+            label: const Text('用我的头像生成'),
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: () => _showGenerateDialog(p),
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: const Text('上传照片生成'),
+          ),
         const SizedBox(height: 8),
         TextButton.icon(
           onPressed: () => _generateChaoXing(p),
@@ -213,6 +230,23 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         ),
       ],
     );
+  }
+
+  /// 用个人中心头像（图生图）生成画像
+  Future<void> _generateFromAvatar(TwinPortraitProvider p, String avatarB64) async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('正在用你的头像生成画像…')));
+    }
+    final ok = await p.generate(
+      prototypeType: 'photo',
+      photoBase64: avatarB64,
+      photoMime: 'image/png',
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
+    }
   }
 
   /// 生成弹窗：选择照片模式（可拍照/相册/粘贴）或直接生成

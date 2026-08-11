@@ -99,6 +99,10 @@ type ProfileDetail struct {
 	QQ     string `json:"qq"`
 	Email  string `json:"email"`
 
+	// 头像
+	AvatarBase64 string `json:"avatar_base64"`
+	AvatarMIME   string `json:"avatar_mime"`
+
 	// 组织关系（按角色不同）
 	Supervisors  []model.ContactPerson `json:"supervisors"`  // 上级/领导/辅导员
 	Subordinates int                   `json:"subordinates"` // 下级/管辖人数（辅导员带学生数等）
@@ -131,6 +135,11 @@ func (s *AuthService) GetProfileDetail(userID int64) (*ProfileDetail, error) {
 		QQ:             u.QQ,
 		Email:          u.Email,
 		Supervisors:    []model.ContactPerson{},
+	}
+
+	// 头像 base64（供前端展示与数字孪生画像图生图原型）
+	if avatar, err := s.userRepo.GetAvatar(u.ID); err == nil {
+		d.AvatarBase64 = avatar
 	}
 
 	switch u.Role {

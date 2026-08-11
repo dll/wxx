@@ -1,9 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../models/models.dart';
 import '../../providers/personal_detail_provider.dart';
+import '../../services/api_service.dart';
+import '../../utils/portrait_photo_picker.dart';
+import '../../utils/storage.dart';
 
 /// 个人详细信息弹窗 — 基本信息 / 联系方式 / 组织关系 / 学校门户绑定
 class PersonalDetailDialog extends StatefulWidget {
@@ -29,11 +35,16 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
   final TextEditingController _portalAccount = TextEditingController();
   final TextEditingController _portalPassword = TextEditingController();
   bool _pwdVisible = false;
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
+    // 门户账号默认取当前登录账号（学号，与本系统一致）
+    if (Storage.username != null && Storage.username!.isNotEmpty) {
+      _portalAccount.text = Storage.username!;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PersonalDetailProvider>().fetchAll();
     });
@@ -57,9 +68,11 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
       contentPadding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       content: SizedBox(
         width: 520,
-        height: 460,
+        height: 500,
         child: Column(
           children: [
+            _buildAvatarHeader(theme, p.detail),
+            const Divider(height: 1),
             TabBar(
               controller: _tab,
               tabs: const [
@@ -90,6 +103,121 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
         ),
       ],
     );
+  }
+
+  // ── 头像 ──
+  Widget _buildAvatarHeader(ThemeData theme, PersonalDetail? d) {
+    final name = d?.displayName ?? Storage.displayName ?? '?';
+    final hasPhoto = (d?.avatarBase64 ?? '').isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                foregroundImage: hasPhoto
+                    ? MemoryImage(base64Decode(d!.avatarBase64))
+                    : null,
+                child: hasPhoto
+                    ? null
+                    : Text(name.characters.first,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        )),
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: InkWell(
+                  onTap: _uploadingAvatar ? null : () => _changeAvatar(),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.primary,
+                    ),
+                    child: _uploadingAvatar
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.camera_alt,
+                            size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(d?.displayName ?? name,
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  hasPhoto ? '已上传照片，可用于数字孪生画像' : '点击相机上传照片，生成更好的数字孪生画像',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _changeAvatar() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final picked = await pickPortraitPhoto();
+    if (picked == null) return;
+    setState(() => _uploadingAvatar = true);
+    try {
+      final ext = _mimeToExt(picked.mime);
+      final res = await ApiService().uploadBytes(
+        ApiConfig.avatarUpload,
+        bytes: picked.bytes,
+        filename: 'avatar.$ext',
+        fieldName: 'file',
+      );
+      if (res.statusCode == 200) {
+        // 刷新个人信息（含头像）
+        await context.read<PersonalDetailProvider>().fetchAll();
+        messenger.showSnackBar(
+            const SnackBar(content: Text('头像已更新，可用于生成数字孪生画像')));
+      } else {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('头像上传失败')));
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+          SnackBar(content: Text('头像上传失败：$e')));
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  String _mimeToExt(String mime) {
+    switch (mime) {
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'image/gif':
+        return 'gif';
+      default:
+        return 'jpg';
+    }
   }
 
   // ── 基本信息 ──
@@ -260,7 +388,7 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
         TextField(
           controller: _portalAccount,
           decoration: const InputDecoration(
-            labelText: '门户账号（学号/工号）',
+            labelText: '门户账号（学号，已自动填入）',
             isDense: true,
             border: OutlineInputBorder(),
           ),
