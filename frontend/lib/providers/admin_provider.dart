@@ -659,4 +659,30 @@ class AdminProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// 我的日志：按视图加载（all=全部记录, 否则仅用户操作）
+  Future<void> fetchMyLogsAll(bool all) async {
+    _myLogsLoading = true;
+    notifyListeners();
+    try {
+      final response = await _api.get(ApiConfig.myLogs, params: {
+        'action_type': all ? 'all' : 'user',
+        'page_size': 50,
+      });
+      if (response.data != null && response.data['code'] == 0) {
+        final data = response.data['data'] as Map<String, dynamic>?;
+        final list = (data?['list'] as List?)
+                ?.map((e) => AuditLog.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+        _myLogs = list;
+        _myLogsTotal = data?['total'] ?? 0;
+      }
+    } catch (e) {
+      _error = '获取我的日志失败: $e';
+    } finally {
+      _myLogsLoading = false;
+      notifyListeners();
+    }
+  }
 }

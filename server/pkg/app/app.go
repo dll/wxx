@@ -936,6 +936,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			secured.GET("/user/profile/detail", authH.ProfileDetail)
 			// 我的操作日志（普通用户查看自己的日志）
 			secured.GET("/user/logs", adminH.MyLogs)
+			secured.DELETE("/user/logs/:id", adminH.DeleteMyLog)
 			// 学校门户凭证（加密存储，密码不回显）
 			secured.GET("/user/portal-credential", portalCredH.Get)
 			secured.PUT("/user/portal-credential", portalCredH.Save)

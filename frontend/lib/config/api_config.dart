@@ -95,6 +95,7 @@ class ApiConfig {
       '$apiPrefix/admin/audit/snapshots/$id/restore';
   // 我的操作日志
   static const String myLogs = '$apiPrefix/user/logs';
+  static String myLog(String id) => '$apiPrefix/user/logs/$id';
   static const String adminSettings = '$apiPrefix/admin/settings';
 
   // ── 知识管理 ──

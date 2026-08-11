@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../models/models.dart';
 import '../../providers/admin_provider.dart';
+import '../../services/api_service.dart';
 import '../../widgets/error_view.dart';
 
-/// 我的操作日志 — 所有角色查看自己的操作记录
+/// 我的操作日志 — 所有角色查看自己的操作记录（可管理：删除/清空）
 class MyLogsPage extends StatefulWidget {
   const MyLogsPage({super.key});
 
@@ -14,6 +16,8 @@ class MyLogsPage extends StatefulWidget {
 }
 
 class _MyLogsPageState extends State<MyLogsPage> {
+  String _view = 'user'; // user=仅操作 | all=全部
+
   @override
   void initState() {
     super.initState();
@@ -22,36 +26,91 @@ class _MyLogsPageState extends State<MyLogsPage> {
     });
   }
 
+  void _reload() {
+    context.read<AdminProvider>().fetchMyLogs();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<AdminProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('我的操作日志')),
-      body: RefreshIndicator(
-        onRefresh: () => provider.fetchMyLogs(),
-        child: provider.myLogsLoading && provider.myLogs.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : provider.error.isNotEmpty && provider.myLogs.isEmpty
-                ? ErrorView.error(
-                    message: provider.error,
-                    onRetry: () => provider.fetchMyLogs())
-                : _buildContent(theme, provider),
+      appBar: AppBar(
+        title: const Text('我的操作日志'),
+        actions: [
+          IconButton(
+            tooltip: '清空我的日志',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: _confirmClear,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'user', label: Text('我的操作')),
+                    ButtonSegment(value: 'all', label: Text('全部记录')),
+                  ],
+                  selected: {_view},
+                  onSelectionChanged: (s) {
+                    setState(() => _view = s.first);
+                    // 切换视图通过后端过滤
+                    context
+                        .read<AdminProvider>()
+                        .fetchMyLogsAll(_view == 'all');
+                  },
+                ),
+                const Spacer(),
+                Text('共 ${provider.myLogsTotal} 条',
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => provider.fetchMyLogs(),
+              child: provider.myLogsLoading && provider.myLogs.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : provider.error.isNotEmpty && provider.myLogs.isEmpty
+                      ? ErrorView.error(
+                          message: provider.error, onRetry: _reload)
+                      : provider.myLogs.isEmpty
+                          ? ErrorView.empty(
+                              message: '暂无操作记录', icon: Icons.history)
+                          : _buildList(theme, provider),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildContent(ThemeData theme, AdminProvider provider) {
-    if (provider.myLogs.isEmpty) {
-      return const Center(child: Text('暂无操作记录'));
-    }
+  Widget _buildList(ThemeData theme, AdminProvider provider) {
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: provider.myLogs.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final log = provider.myLogs[index];
-        return _buildLogCard(theme, log);
+        return Dismissible(
+          key: ValueKey(log.id),
+          direction: DismissDirection.endToStart,
+          onDismissed: (_) => _deleteOne(log.id),
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            color: theme.colorScheme.errorContainer,
+            child: Icon(Icons.delete_outline,
+                color: theme.colorScheme.error),
+          ),
+          child: _buildLogCard(theme, log),
+        );
       },
     );
   }
@@ -95,7 +154,7 @@ class _MyLogsPageState extends State<MyLogsPage> {
                 const SizedBox(width: 4),
                 Text(log.createdAt, style: theme.textTheme.bodySmall),
                 const Spacer(),
-                Text('结果 ${log.resultCode} · ${log.durationMs}ms',
+                Text('结果 ${log.resultCode}',
                     style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant)),
               ],
@@ -123,5 +182,35 @@ class _MyLogsPageState extends State<MyLogsPage> {
           style: theme.textTheme.labelSmall?.copyWith(
               color: color, fontWeight: FontWeight.w700)),
     );
+  }
+
+  Future<void> _deleteOne(int id) async {
+    try {
+      await ApiService().delete(ApiConfig.myLog('$id'));
+      _reload();
+    } catch (_) {}
+  }
+
+  Future<void> _confirmClear() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('清空我的日志'),
+        content: const Text('确定清空自己的操作日志吗？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('清空')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ApiService().delete(ApiConfig.myLog('0'));
+      _reload();
+    } catch (_) {}
   }
 }

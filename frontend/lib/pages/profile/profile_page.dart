@@ -166,6 +166,24 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
 
+        const SizedBox(height: 8),
+
+        // 学校门户（独立入口：登录校内网站）
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: ListTile(
+            leading: Icon(Icons.school, color: const Color(0xFF1565C0)),
+            title: const Text('学校门户'),
+            subtitle: const Text('登录校内网站，访问学工/一表通等系统'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/portal'),
+          ),
+        ),
+
         const SizedBox(height: 16),
 
         // 语音功能开关

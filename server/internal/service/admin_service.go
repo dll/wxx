@@ -285,17 +285,23 @@ func (s *AdminService) ClearAllAudit() error {
 }
 
 // ListMyAudit 查询当前用户自己的操作日志（我的日志）
-func (s *AdminService) ListMyAudit(userID int64, action, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
+// actionType: "" 仅用户操作(写操作)；"all" 全部
+func (s *AdminService) ListMyAudit(userID int64, actionType, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
 	offset, page, pageSize := util.Paginate(page, pageSize)
-	logs, err := s.auditRepo.ListByUser(userID, action, startDate, endDate, offset, pageSize)
+	logs, err := s.auditRepo.ListByUser(userID, actionType, startDate, endDate, offset, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("查询日志失败: %w", err)
 	}
-	total, err := s.auditRepo.CountByUser(userID, action, startDate, endDate)
+	total, err := s.auditRepo.CountByUser(userID, actionType, startDate, endDate)
 	if err != nil {
 		return nil, 0, fmt.Errorf("统计日志总数失败: %w", err)
 	}
 	return logs, total, nil
+}
+
+// DeleteMyLog 删除当前用户自己的日志（id<=0 清空操作日志）
+func (s *AdminService) DeleteMyLog(userID int64, id int64) (int64, error) {
+	return s.auditRepo.DeleteByUser(userID, id)
 }
 
 // ListSnapshots 列出可恢复的操作快照

@@ -505,19 +505,20 @@ func (h *AdminHandler) RestoreSnapshot(c *gin.Context) {
 }
 
 // MyLogs 当前用户自己的操作日志 GET /api/v1/user/logs
+// action_type: 默认 ""=仅用户操作(写操作)；all=全部
 func (h *AdminHandler) MyLogs(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	action := c.Query("action")
+	actionType := c.Query("action_type")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	logs, total, err := h.adminSvc.ListMyAudit(userCtx.UserID, action, startDate, endDate, page, pageSize)
+	logs, total, err := h.adminSvc.ListMyAudit(userCtx.UserID, actionType, startDate, endDate, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询日志失败"})
 		return
@@ -529,6 +530,23 @@ func (h *AdminHandler) MyLogs(c *gin.Context) {
 		"code": 0, "message": "success",
 		"data": gin.H{"list": logs, "total": total},
 	})
+}
+
+// DeleteMyLog 删除当前用户自己的日志 DELETE /api/v1/user/logs/:id
+// 不带 id 时清空自己的操作日志
+func (h *AdminHandler) DeleteMyLog(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
+		return
+	}
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	n, err := h.adminSvc.DeleteMyLog(userCtx.UserID, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除日志失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"deleted": n}})
 }
 
 // GetSettings 获取系统配置 GET /api/v1/admin/settings

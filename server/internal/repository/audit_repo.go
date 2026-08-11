@@ -189,13 +189,20 @@ func (r *AuditRepo) ClearAll() error {
 }
 
 // ListByUser 查询指定用户自己的操作日志（分页）
-func (r *AuditRepo) ListByUser(userID int64, action, startDate, endDate string, offset, limit int) ([]*model.AuditLog, error) {
+// actionType: "" 仅写操作(用户操作)；"all" 全部；其他 按指定 action
+func (r *AuditRepo) ListByUser(userID int64, actionType, startDate, endDate string, offset, limit int) ([]*model.AuditLog, error) {
 	query := `SELECT id, user_id, username, role, action, resource, detail, trace_id, ip, duration_ms, result_code, created_at
 		FROM audit_logs WHERE user_id = ?`
 	args := []interface{}{userID}
-	if action != "" {
+	switch actionType {
+	case "all":
+		// 全部
+	case "", "user":
+		// 仅用户操作（写操作，排除 GET 浏览）
+		query += " AND action IN ('POST','PUT','PATCH','DELETE')"
+	default:
 		query += " AND action = ?"
-		args = append(args, action)
+		args = append(args, actionType)
 	}
 	if startDate != "" {
 		query += " AND created_at >= ?"
@@ -227,12 +234,17 @@ func (r *AuditRepo) ListByUser(userID int64, action, startDate, endDate string, 
 }
 
 // CountByUser 统计用户自己的日志总数
-func (r *AuditRepo) CountByUser(userID int64, action, startDate, endDate string) (int, error) {
+func (r *AuditRepo) CountByUser(userID int64, actionType, startDate, endDate string) (int, error) {
 	query := `SELECT COUNT(*) FROM audit_logs WHERE user_id = ?`
 	args := []interface{}{userID}
-	if action != "" {
+	switch actionType {
+	case "all":
+		// 全部
+	case "", "user":
+		query += " AND action IN ('POST','PUT','PATCH','DELETE')"
+	default:
 		query += " AND action = ?"
-		args = append(args, action)
+		args = append(args, actionType)
 	}
 	if startDate != "" {
 		query += " AND created_at >= ?"
@@ -245,6 +257,22 @@ func (r *AuditRepo) CountByUser(userID int64, action, startDate, endDate string)
 	var n int
 	err := r.db.QueryRow(query, args...).Scan(&n)
 	return n, err
+}
+
+// DeleteByUser 删除用户自己的日志（按 id 或清空）
+func (r *AuditRepo) DeleteByUser(userID int64, id int64) (int64, error) {
+	if id > 0 {
+		res, err := r.db.Exec("DELETE FROM audit_logs WHERE user_id = ? AND id = ?", userID, id)
+		if err != nil {
+			return 0, err
+		}
+		return res.RowsAffected()
+	}
+	res, err := r.db.Exec("DELETE FROM audit_logs WHERE user_id = ? AND action IN ('POST','PUT','PATCH','DELETE')", userID)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // ── 审计恢复快照 ──
