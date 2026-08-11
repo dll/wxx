@@ -147,7 +147,7 @@ func (s *PortalProxyService) Proxy(userID int64, path string, query url.Values, 
 	if err != nil {
 		return 0, nil, nil, fmt.Errorf("创建代理请求失败: %w", err)
 	}
-	// 透传必要请求头
+	// 透传必要请求头（门户资源常校验 Referer/Origin）
 	if ua := header.Get("User-Agent"); ua != "" {
 		req.Header.Set("User-Agent", ua)
 	} else {
@@ -156,8 +156,17 @@ func (s *PortalProxyService) Proxy(userID int64, path string, query url.Values, 
 	if accept := header.Get("Accept"); accept != "" {
 		req.Header.Set("Accept", accept)
 	}
+	if acceptLang := header.Get("Accept-Language"); acceptLang != "" {
+		req.Header.Set("Accept-Language", acceptLang)
+	}
 	if referer := header.Get("Referer"); referer != "" {
 		req.Header.Set("Referer", referer)
+	}
+	if origin := header.Get("Origin"); origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	if xr := header.Get("X-Requested-With"); xr != "" {
+		req.Header.Set("X-Requested-With", xr)
 	}
 
 	resp, err := ss.client.Do(req)

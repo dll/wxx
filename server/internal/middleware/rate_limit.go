@@ -111,6 +111,11 @@ func isStaticAssetPath(path string) bool {
 	if strings.HasPrefix(path, "/canvaskit/") {
 		return true
 	}
+	// 门户代理路径：WebVPN/校内页面内联大量 js/css/img 资源并发加载，
+	// 若计入全局限流会在门户页加载时误伤成 429。改由 UserThrottleMiddleware 按用户限流。
+	if strings.HasPrefix(path, "/api/v1/user/portal") {
+		return true
+	}
 	switch path {
 	case "/index.html", "/main.dart.js", "/flutter_bootstrap.js",
 		"/flutter_service_worker.js", "/manifest.json", "/version.json",
