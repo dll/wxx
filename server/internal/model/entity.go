@@ -133,17 +133,17 @@ type AuditLog struct {
 
 // AuditSnapshot 审计恢复快照（可恢复的写操作前后状态）
 type AuditSnapshot struct {
-	ID          int64  `json:"id" db:"id"`
-	AuditID     int64  `json:"audit_id" db:"audit_id"`
-	OpTable     string `json:"op_table" db:"op_table"`
-	RecordID    string `json:"record_id" db:"record_id"`
-	Operation   string `json:"operation" db:"operation"`
-	BeforeJSON  string `json:"before_json" db:"before_json"`
-	AfterJSON   string `json:"after_json" db:"after_json"`
-	Restored    int    `json:"restored" db:"restored"`
-	RestoredAt  string `json:"restored_at" db:"restored_at"`
-	RestoredBy  string `json:"restored_by" db:"restored_by"`
-	CreatedAt   string `json:"created_at" db:"created_at"`
+	ID         int64  `json:"id" db:"id"`
+	AuditID    int64  `json:"audit_id" db:"audit_id"`
+	OpTable    string `json:"op_table" db:"op_table"`
+	RecordID   string `json:"record_id" db:"record_id"`
+	Operation  string `json:"operation" db:"operation"`
+	BeforeJSON string `json:"before_json" db:"before_json"`
+	AfterJSON  string `json:"after_json" db:"after_json"`
+	Restored   int    `json:"restored" db:"restored"`
+	RestoredAt string `json:"restored_at" db:"restored_at"`
+	RestoredBy string `json:"restored_by" db:"restored_by"`
+	CreatedAt  string `json:"created_at" db:"created_at"`
 }
 
 // EmotionLog 情感评估记录，对应 emotion_logs 表
@@ -227,12 +227,12 @@ type FeedbackRepairJob struct {
 	RunID       string `json:"run_id" db:"run_id"`
 	FeedbackID  string `json:"feedback_id" db:"feedback_id"`
 	Operator    string `json:"operator" db:"operator"`
-	Status      string `json:"status" db:"status"`                 // running | succeeded | failed | rolled_back
-	Stage       string `json:"stage" db:"stage"`                   // init/diagnose/apply/build/deploy/healthcheck/done/failed
-	LogText     string `json:"log_text" db:"log_text"`             // 执行日志（多行，前端滚动展示）
-	EditedFiles string `json:"edited_files" db:"edited_files"`     // JSON 数组：被修改文件（相对 /opt/wxx 仓库根）
-	Summary     string `json:"summary" db:"summary"`               // AI 问题摘要
-	Detail      string `json:"detail" db:"detail"`                 // 修复说明 / 错误描述
+	Status      string `json:"status" db:"status"`             // running | succeeded | failed | rolled_back
+	Stage       string `json:"stage" db:"stage"`               // init/diagnose/apply/build/deploy/healthcheck/done/failed
+	LogText     string `json:"log_text" db:"log_text"`         // 执行日志（多行，前端滚动展示）
+	EditedFiles string `json:"edited_files" db:"edited_files"` // JSON 数组：被修改文件（相对 /opt/wxx 仓库根）
+	Summary     string `json:"summary" db:"summary"`           // AI 问题摘要
+	Detail      string `json:"detail" db:"detail"`             // 修复说明 / 错误描述
 	CreatedAt   string `json:"created_at" db:"created_at"`
 	UpdatedAt   string `json:"updated_at" db:"updated_at"`
 }
@@ -253,9 +253,9 @@ const (
 
 // RepairStatus 自动修复结果状态常量
 const (
-	RepairStatusRunning  = "running"
-	RepairStatusSucceeded = "succeeded"
-	RepairStatusFailed    = "failed"
+	RepairStatusRunning    = "running"
+	RepairStatusSucceeded  = "succeeded"
+	RepairStatusFailed     = "failed"
 	RepairStatusRolledBack = "rolled_back"
 )
 

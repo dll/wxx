@@ -18,7 +18,7 @@ func NewAIBriefingRepo(db *sql.DB) *AIBriefingRepo {
 }
 
 const aiBriefingCols = `id, source, category, topic, summary, content, link, keyword,
-	published_at, fetched_at, status, created_by, created_at, updated_at`
+	heat, reason, published_at, fetched_at, status, created_by, created_at, updated_at`
 
 // List 按条件分页查询资讯。statusFilter: "" 全部；category: "" 全部；q 关键词（topic/summary/keyword）
 func (r *AIBriefingRepo) List(statusFilter, category, q string, page, pageSize int) ([]*model.AIBriefing, int64, error) {
@@ -51,7 +51,7 @@ func (r *AIBriefingRepo) List(statusFilter, category, q string, page, pageSize i
 	}
 
 	rows, err := r.db.Query(
-		"SELECT "+aiBriefingCols+" FROM ai_briefings WHERE "+cond+
+		"SELECT "+aiBriefingCols+", 0 AS favorited FROM ai_briefings WHERE "+cond+
 			" ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?",
 		append(args, pageSize, (page-1)*pageSize)...,
 	)
@@ -67,29 +67,41 @@ func (r *AIBriefingRepo) List(statusFilter, category, q string, page, pageSize i
 	return list, total, nil
 }
 
-// ListUserVisible 用户端列表：仅上架(status=1)，按发布时间倒序
-func (r *AIBriefingRepo) ListUserVisible(category, q string, limit int) ([]*model.AIBriefing, error) {
+// ListUserVisible 用户端列表：仅上架(status=1)，按发布时间倒序。
+// 若 userId > 0 则联查收藏态；hot=true 时按热度排序（热度榜）。
+func (r *AIBriefingRepo) ListUserVisible(category, q string, limit int, userId int64, hot bool) ([]*model.AIBriefing, error) {
 	if limit < 1 || limit > 100 {
 		limit = 50
 	}
-	where := []string{"status = 1"}
+	where := []string{"b.status = 1"}
 	args := []any{}
 	if category != "" {
-		where = append(where, "category = ?")
+		where = append(where, "b.category = ?")
 		args = append(args, category)
 	}
 	if strings.TrimSpace(q) != "" {
-		where = append(where, "(topic LIKE ? OR summary LIKE ? OR keyword LIKE ?)")
+		where = append(where, "(b.topic LIKE ? OR b.summary LIKE ? OR b.keyword LIKE ?)")
 		like := "%" + strings.TrimSpace(q) + "%"
 		args = append(args, like, like, like)
 	}
 	cond := strings.Join(where, " AND ")
+	order := "ORDER BY b.published_at DESC, b.id DESC"
+	if hot {
+		order = "ORDER BY b.heat DESC, b.published_at DESC, b.id DESC"
+	}
+	favCol := "0 AS favorited"
+	if userId > 0 {
+		favCol = "CASE WHEN f.id IS NULL THEN 0 ELSE 1 END AS favorited"
+	}
+	query := "SELECT b." + aiBriefingCols + ", " + favCol + " FROM ai_briefings b"
+	if userId > 0 {
+		query += " LEFT JOIN ai_briefing_favorites f ON f.briefing_id = b.id AND f.user_id = ?"
+		args = append(args, userId)
+	}
+	query += " WHERE " + cond + " " + order + " LIMIT ?"
+	args = append(args, limit)
 
-	rows, err := r.db.Query(
-		"SELECT "+aiBriefingCols+" FROM ai_briefings WHERE "+cond+
-			" ORDER BY published_at DESC, id DESC LIMIT ?",
-		append(args, limit)...,
-	)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,17 +109,61 @@ func (r *AIBriefingRepo) ListUserVisible(category, q string, limit int) ([]*mode
 	return scanBriefings(rows)
 }
 
+// ListFavorites 用户收藏列表（仅上架资讯）
+func (r *AIBriefingRepo) ListFavorites(userId int64, limit int) ([]*model.AIBriefing, error) {
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	rows, err := r.db.Query(
+		"SELECT b."+aiBriefingCols+", 1 AS favorited FROM ai_briefing_favorites f "+
+			"JOIN ai_briefings b ON b.id = f.briefing_id WHERE f.user_id = ? AND b.status = 1 "+
+			"ORDER BY f.created_at DESC, b.published_at DESC LIMIT ?", userId, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanBriefings(rows)
+}
+
+// IsFavorite 是否已收藏
+func (r *AIBriefingRepo) IsFavorite(userId, briefingId int64) (bool, error) {
+	var n int
+	err := r.db.QueryRow(
+		"SELECT COUNT(*) FROM ai_briefing_favorites WHERE user_id = ? AND briefing_id = ?",
+		userId, briefingId).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// Favorite 收藏（幂等）
+func (r *AIBriefingRepo) Favorite(userId, briefingId int64) error {
+	_, err := r.db.Exec(
+		"INSERT OR IGNORE INTO ai_briefing_favorites (user_id, briefing_id) VALUES (?, ?)",
+		userId, briefingId)
+	return err
+}
+
+// Unfavorite 取消收藏（幂等）
+func (r *AIBriefingRepo) Unfavorite(userId, briefingId int64) error {
+	_, err := r.db.Exec(
+		"DELETE FROM ai_briefing_favorites WHERE user_id = ? AND briefing_id = ?",
+		userId, briefingId)
+	return err
+}
+
 // Get 单条查询
 func (r *AIBriefingRepo) Get(id int64) (*model.AIBriefing, error) {
 	var b model.AIBriefing
-	var fetchedAt, publishedAt, source, category, summary, content, link, keyword sql.NullString
+	var fetchedAt, publishedAt, source, category, summary, content, link, keyword, reason sql.NullString
 	var createdBy sql.NullInt64
-	var status sql.NullInt64
+	var status, heat, favorited sql.NullInt64
 	err := r.db.QueryRow(
-		"SELECT "+aiBriefingCols+" FROM ai_briefings WHERE id = ?", id,
+		"SELECT "+aiBriefingCols+", 0 AS favorited FROM ai_briefings WHERE id = ?", id,
 	).Scan(&b.ID, &source, &category, &b.Topic, &summary, &content,
-		&link, &keyword, &publishedAt, &fetchedAt, &status,
-		&createdBy, &b.CreatedAt, &b.UpdatedAt)
+		&link, &keyword, &heat, &reason, &publishedAt, &fetchedAt, &status,
+		&createdBy, &b.CreatedAt, &b.UpdatedAt, &favorited)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -120,10 +176,13 @@ func (r *AIBriefingRepo) Get(id int64) (*model.AIBriefing, error) {
 	b.Content = content.String
 	b.Link = link.String
 	b.Keyword = keyword.String
+	b.Reason = reason.String
+	b.Heat = int(heat.Int64)
 	b.PublishedAt = publishedAt.String
 	b.FetchedAt = fetchedAt.String
 	b.Status = int(status.Int64)
 	b.CreatedBy = createdBy.Int64
+	b.Favorited = favorited.Int64 == 1
 	return &b, nil
 }
 
@@ -139,7 +198,7 @@ func (r *AIBriefingRepo) GetByIDs(ids []int64) ([]*model.AIBriefing, error) {
 		args[i] = id
 	}
 	rows, err := r.db.Query(
-		"SELECT "+aiBriefingCols+" FROM ai_briefings WHERE id IN ("+strings.Join(placeholders, ",")+
+		"SELECT "+aiBriefingCols+", 0 AS favorited FROM ai_briefings WHERE id IN ("+strings.Join(placeholders, ",")+
 			") ORDER BY published_at DESC, id DESC", args...)
 	if err != nil {
 		return nil, err
@@ -151,10 +210,10 @@ func (r *AIBriefingRepo) GetByIDs(ids []int64) ([]*model.AIBriefing, error) {
 // Create 新增资讯（手动录入，created_by 记录录入人）
 func (r *AIBriefingRepo) Create(b *model.AIBriefing) (int64, error) {
 	res, err := r.db.Exec(`
-		INSERT INTO ai_briefings (source, category, topic, summary, content, link, keyword, published_at, fetched_at, status, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO ai_briefings (source, category, topic, summary, content, link, keyword, heat, reason, published_at, fetched_at, status, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		b.Source, b.Category, b.Topic, b.Summary, b.Content, b.Link, b.Keyword,
-		b.PublishedAt, b.FetchedAt, b.Status, b.CreatedBy)
+		b.Heat, b.Reason, b.PublishedAt, b.FetchedAt, b.Status, b.CreatedBy)
 	if err != nil {
 		return 0, err
 	}
@@ -172,8 +231,8 @@ func (r *AIBriefingRepo) CreateMany(items []*model.AIBriefing) (int, error) {
 	}
 	defer tx.Rollback()
 	stmt, err := tx.Prepare(`
-		INSERT INTO ai_briefings (source, category, topic, summary, content, link, keyword, published_at, fetched_at, status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
+		INSERT INTO ai_briefings (source, category, topic, summary, content, link, keyword, heat, reason, published_at, fetched_at, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
 	if err != nil {
 		return 0, err
 	}
@@ -184,7 +243,7 @@ func (r *AIBriefingRepo) CreateMany(items []*model.AIBriefing) (int, error) {
 			continue
 		}
 		if _, err := stmt.Exec(b.Source, b.Category, b.Topic, b.Summary, b.Content, b.Link, b.Keyword,
-			b.PublishedAt, b.FetchedAt); err != nil {
+			b.Heat, b.Reason, b.PublishedAt, b.FetchedAt); err != nil {
 			continue
 		}
 		written++
@@ -199,9 +258,9 @@ func (r *AIBriefingRepo) CreateMany(items []*model.AIBriefing) (int, error) {
 func (r *AIBriefingRepo) Update(b *model.AIBriefing) error {
 	_, err := r.db.Exec(`
 		UPDATE ai_briefings SET source=?, category=?, topic=?, summary=?, content=?, link=?, keyword=?,
-			published_at=?, status=?, updated_at=datetime('now') WHERE id=?`,
+			heat=?, reason=?, published_at=?, status=?, updated_at=datetime('now') WHERE id=?`,
 		b.Source, b.Category, b.Topic, b.Summary, b.Content, b.Link, b.Keyword,
-		b.PublishedAt, b.Status, b.ID)
+		b.Heat, b.Reason, b.PublishedAt, b.Status, b.ID)
 	return err
 }
 
@@ -372,12 +431,13 @@ func scanBriefings(rows *sql.Rows) ([]*model.AIBriefing, error) {
 	var list []*model.AIBriefing
 	for rows.Next() {
 		b := &model.AIBriefing{}
-		var fetchedAt, publishedAt, source, category, summary, content, link, keyword sql.NullString
+		var fetchedAt, publishedAt, source, category, summary, content, link, keyword, reason sql.NullString
 		var createdBy sql.NullInt64
 		var status sql.NullInt64
+		var heat, favorited sql.NullInt64
 		if err := rows.Scan(&b.ID, &source, &category, &b.Topic, &summary, &content,
-			&link, &keyword, &publishedAt, &fetchedAt, &status,
-			&createdBy, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			&link, &keyword, &heat, &reason, &publishedAt, &fetchedAt, &status,
+			&createdBy, &b.CreatedAt, &b.UpdatedAt, &favorited); err != nil {
 			return nil, err
 		}
 		b.Source = source.String
@@ -386,10 +446,13 @@ func scanBriefings(rows *sql.Rows) ([]*model.AIBriefing, error) {
 		b.Content = content.String
 		b.Link = link.String
 		b.Keyword = keyword.String
+		b.Reason = reason.String
+		b.Heat = int(heat.Int64)
 		b.PublishedAt = publishedAt.String
 		b.FetchedAt = fetchedAt.String
 		b.Status = int(status.Int64)
 		b.CreatedBy = createdBy.Int64
+		b.Favorited = favorited.Int64 == 1
 		list = append(list, b)
 	}
 	if err := rows.Err(); err != nil {

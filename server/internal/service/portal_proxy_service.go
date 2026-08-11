@@ -83,7 +83,7 @@ func (s *PortalProxyService) getSession(userID int64) (*PortalSession, error) {
 		password:  decPwd,
 		portalURL: cred.PortalURL,
 		jar:       jar,
-		client:    &http.Client{Jar: jar, Timeout: 20 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		client: &http.Client{Jar: jar, Timeout: 20 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return http.ErrUseLastResponse
 			}

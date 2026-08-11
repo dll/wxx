@@ -80,7 +80,7 @@ func TestAIRepair_WithLLM(t *testing.T) {
 		UserID:        1,
 		Username:      "s1",
 		Category:      "answer_error",
-Module:        "对话 / 问答",
+		Module:        "对话 / 问答",
 		Content:       "回答内容不准确，希望改进",
 		ScreenshotURL: "/uploads/feedback/xxx.png",
 		Status:        "pending",

@@ -21,7 +21,7 @@ func TestAIBriefingSeed(t *testing.T) {
 	}
 
 	// 幂等：重新执行迁移不应新增（用 UpdateStatus 后无法直接测，这里校验 ListUserVisible 均为上架）
-	visible, _ := r.ListUserVisible("", "", 100)
+	visible, _ := r.ListUserVisible("", "", 100, 0, false)
 	if len(visible) != 20 {
 		t.Fatalf("seed 均应为上架，实际 %d", len(visible))
 	}

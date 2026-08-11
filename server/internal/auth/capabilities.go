@@ -185,10 +185,10 @@ var roles = map[string]*roleNode{
 		role:    "guest",
 		parents: nil,
 		capabilities: []Capability{
+			// 仅浏览公开信息。修复 GPT56SOL v3 P0-01：
+			// 此前 guest 持有 SelfChat/SelfKnowledgeRead/SelfProcessRead，
+			// 即使中间件拦截失败也无业务能力可用（纵深防御）。
 			SelfGuestRead,
-			SelfKnowledgeRead,
-			SelfChat,
-			SelfProcessRead,
 		},
 	},
 	"student": {

@@ -20,9 +20,9 @@ func TestPortalProxy_HostAllowed(t *testing.T) {
 		ok   bool
 	}{
 		{"my0.chzu.edu.cn", true},
-		{"jw.chzu.edu.cn", true},   // 子域
-		{"bbs.chzu.edu.cn", true},  // 子域
-		{"chzu.edu.cn", true},      // 门户根域
+		{"jw.chzu.edu.cn", true},  // 子域
+		{"bbs.chzu.edu.cn", true}, // 子域
+		{"chzu.edu.cn", true},     // 门户根域
 		{"evil.com", false},
 		{"my0.chzu.edu.cn.evil.com", false}, // 前缀混淆
 		{"192.168.1.1", false},

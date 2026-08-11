@@ -19,6 +19,7 @@ type CustomClaims struct {
 	DisplayName  string `json:"display_name"`
 	Consented    bool   `json:"consented"`
 	TokenVersion int    `json:"tv"`
+	Status       string `json:"status"` // 账号状态：active/pending/rejected/disabled，用于中间件即时校验
 	jwt.RegisteredClaims
 }
 
@@ -38,6 +39,7 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		DisplayName:  user.DisplayName,
 		Consented:    user.Consented == 1,
 		TokenVersion: user.TokenVersion,
+		Status:       user.Status, // 写入状态，中间件据此拦截 pending/rejected
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),

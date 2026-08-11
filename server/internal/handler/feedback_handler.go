@@ -209,7 +209,7 @@ func (h *FeedbackHandler) LatestRepairJob(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
+		"code":    0,
 		"message": "success",
 		"data": model.AIRepairJobResponse{
 			RunID:       job.RunID,

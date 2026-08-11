@@ -11,8 +11,8 @@ import (
 
 // PortalCredentialHandler 学校门户凭证 HTTP handler
 type PortalCredentialHandler struct {
-	svc       *service.PortalCredentialService
-	proxySvc  *service.PortalProxyService // 可选：凭证变更时失效已建立的代理会话
+	svc      *service.PortalCredentialService
+	proxySvc *service.PortalProxyService // 可选：凭证变更时失效已建立的代理会话
 }
 
 // NewPortalCredentialHandler 创建门户凭证 handler
@@ -49,8 +49,8 @@ func (h *PortalCredentialHandler) Save(c *gin.Context) {
 		return
 	}
 	var req struct {
-		PortalURL     string `json:"portal_url"`
-		PortalAccount string `json:"portal_account"`
+		PortalURL      string `json:"portal_url"`
+		PortalAccount  string `json:"portal_account"`
 		PortalPassword string `json:"portal_password"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {

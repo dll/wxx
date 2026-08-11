@@ -22,11 +22,14 @@ func NewAIBriefingHandler(svc *service.AIBriefingService) *AIBriefingHandler {
 }
 
 // ListUser 用户端资讯列表 GET /api/v1/ai-briefings
+// 支持 category / q / hot（hot=1 按热度排序）/ limit；返回含当前用户收藏态
 func (h *AIBriefingHandler) ListUser(c *gin.Context) {
 	category := c.Query("category")
 	q := c.Query("q")
+	hot := c.Query("hot") == "1" || c.Query("hot") == "true"
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
-	list, err := h.svc.ListUserVisible(category, q, limit)
+	userCtx := middleware.GetUserContext(c)
+	list, err := h.svc.ListUserVisible(category, q, limit, userCtx.UserID, hot)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询资讯失败"})
 		return
@@ -35,6 +38,66 @@ func (h *AIBriefingHandler) ListUser(c *gin.Context) {
 		list = []*model.AIBriefing{}
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list})
+}
+
+// ListUserHot 热度榜 GET /api/v1/ai-briefings/hot
+func (h *AIBriefingHandler) ListUserHot(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	userCtx := middleware.GetUserContext(c)
+	list, err := h.svc.ListUserVisible("", "", limit, userCtx.UserID, true)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询热度榜失败"})
+		return
+	}
+	if list == nil {
+		list = []*model.AIBriefing{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list})
+}
+
+// ListFavorites 我的收藏 GET /api/v1/ai-briefings/favorites
+func (h *AIBriefingHandler) ListFavorites(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	userCtx := middleware.GetUserContext(c)
+	list, err := h.svc.ListFavorites(userCtx.UserID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询收藏失败"})
+		return
+	}
+	if list == nil {
+		list = []*model.AIBriefing{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list})
+}
+
+// Favorite 收藏 POST /api/v1/ai-briefings/:id/favorite
+func (h *AIBriefingHandler) Favorite(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if err := h.svc.Favorite(userCtx.UserID, id); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "收藏失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "收藏成功"})
+}
+
+// Unfavorite 取消收藏 DELETE /api/v1/ai-briefings/:id/favorite
+func (h *AIBriefingHandler) Unfavorite(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id <= 0 {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "参数错误"})
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if err := h.svc.Unfavorite(userCtx.UserID, id); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "取消收藏失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已取消收藏"})
 }
 
 // List 管理端列表 GET /api/v1/admin/ai-briefings

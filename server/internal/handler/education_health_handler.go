@@ -513,7 +513,7 @@ func (h *EducationHandler) UpsertHealthDaily(c *gin.Context) {
 	}
 
 	var req struct {
-		RecordDate string  `json:"record_date" binding:"required"`
+		RecordDate string   `json:"record_date" binding:"required"`
 		HeightCm   *float64 `json:"height_cm"`
 		WeightKg   *float64 `json:"weight_kg"`
 		Systolic   *int     `json:"systolic"`

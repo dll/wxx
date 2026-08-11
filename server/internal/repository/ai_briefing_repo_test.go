@@ -90,7 +90,7 @@ func TestAIBriefingRepo_CRUD(t *testing.T) {
 		t.Fatalf("UpdateStatus 失败: %v", err)
 	}
 	// 用户端列表只显示上架
-	visible, _ := r.ListUserVisible("", "", 10)
+	visible, _ := r.ListUserVisible("", "", 10, 0, false)
 	if len(visible) != 1 {
 		t.Fatalf("上架资讯应 1 条，实际 %d", len(visible))
 	}

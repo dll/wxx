@@ -1019,6 +1019,10 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.DELETE("/ai-briefings/sources/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.DeleteSource)
 				// AI 简讯（登录用户可见）
 				secured.GET("/ai-briefings", aiBriefingH.ListUser)
+				secured.GET("/ai-briefings/hot", aiBriefingH.ListUserHot)
+				secured.GET("/ai-briefings/favorites", aiBriefingH.ListFavorites)
+				secured.POST("/ai-briefings/:id/favorite", aiBriefingH.Favorite)
+				secured.DELETE("/ai-briefings/:id/favorite", aiBriefingH.Unfavorite)
 
 				// 数字孪生画像（登录用户可见，文生图/图生图）
 				secured.GET("/twin-portraits", auth.RequireCapability(auth.SelfTwinRead), twinPortraitH.List)

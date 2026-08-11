@@ -524,8 +524,10 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 		// 安全修复 S-01：禁止把 JWT 携带的 role/owner_scope/owner_id 回写数据库，
 		// 否则被降权/改归属的旧令牌会"复活"过期权限。改为反向以数据库值覆盖 context。
 
-		// 1) 账户状态强制：停用/拒绝的账户一律拒绝访问（pending 游客不拦截）
-		if existing.Status == "disabled" || existing.Status == "rejected" {
+		// 1) 账户状态强制：非 active 状态一律拒绝访问。
+		// 修复 GPT56SOL v3 P0-02：此前仅拦截 disabled/rejected，注释明确"pending 游客不拦截"，
+		// 使 JIT/审核中账号可带着业务 JWT 访问能力。现在 pending/rejected/disabled 全部拒绝。
+		if existing.Status != "active" {
 			return model.ErrAccountDisabled
 		}
 
@@ -552,13 +554,18 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 		return err
 	}
 
-	// 用户不存在，插入新用户
-	status := "active"
+	// 用户不存在，插入新用户（JIT 冷启动兜底）。
+	// 修复 GPT56SOL v3 P0-02：此前 JIT 新用户被硬编码为 active+consented，且角色直接取自
+	// JWT 自述，凭签名有效的 JWT 即可凭空创建 active 高权限账号。
+	// 现在 JIT 创建的账号一律进入 pending 审核态，角色强制降级为 guest（无业务能力），
+	// consented 显式 0——必须经管理员审核 + 同意授权后才能获得业务能力。
+	// 注意：正常登录链路（密码/SSO）已由 AuthService 显式 Create 并审核，此处仅兜底未知 token。
+	status := "pending"
 	result, err := r.db.Exec(
 		`INSERT INTO users (
-			username, display_name, role, owner_scope, owner_id, status
-		) VALUES (?, ?, ?, ?, ?, ?)`,
-		userCtx.Username, userCtx.DisplayName, userCtx.Role,
+			username, display_name, role, owner_scope, owner_id, status, consented
+		) VALUES (?, ?, ?, ?, ?, ?, 0)`,
+		userCtx.Username, userCtx.DisplayName, "guest",
 		userCtx.OwnerScope, userCtx.OwnerID, status,
 	)
 	if err != nil {
@@ -566,8 +573,11 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 	}
 	newID, _ := result.LastInsertId()
 	userCtx.UserID = newID
-	// JIT 创建的用户 consented 采用数据库默认值 1（存量策略一致），避免 SSO 用户被锁死
-	userCtx.Consented = true
+	// JIT 创建的未知用户：不自动同意授权，role 已强制 guest，consented 以数据库 0 为准，
+	// status 同步为 pending 使后续鉴权上下文与数据库一致
+	userCtx.Role = "guest"
+	userCtx.Status = status
+	userCtx.Consented = false
 	return nil
 }
 

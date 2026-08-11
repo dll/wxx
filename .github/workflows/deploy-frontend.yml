@@ -1,5 +1,5 @@
 # 蔚小芯前端自动部署到腾讯云 Lighthouse
-# v0.0.16+：含后端 wxx-server 编译上传 + 服务重启
+# v0.0.17+：含后端 wxx-server 编译上传 + 服务重启 + 质量门禁
 name: Deploy Frontend
 
 on:
@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'server/**'
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
@@ -15,10 +16,74 @@ permissions:
   contents: write
 
 jobs:
+  # ── Job 0：质量门禁 — 部署前置检查 ─────────────────────────────────────
+  # 修复 GPT56SOL v3 §N3-03：此前 deploy-web/deploy-server/build-apk 均无 needs，
+  # 即使 ci.yml 全红生产仍会照常部署。现所有部署 job 均 needs: [quality-gate]。
+  quality-gate:
+    name: 质量门禁（gofmt / go vet / go build / flutter analyze）
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: 下载依赖
+        run: go mod download
+        working-directory: ./server
+
+      - name: 格式检查（gofmt）
+        run: |
+          unformatted=$(gofmt -l server/ || true)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未格式化，部署阻断："
+            echo "$unformatted"
+            exit 1
+          fi
+          echo "gofmt 检查通过"
+
+      - name: 静态检查（go vet）
+        run: go vet -tags fts5 ./...
+        working-directory: ./server
+
+      - name: 编译检查
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags fts5 ./...
+        working-directory: ./server
+
+      - name: 单元测试（快包，防回归）
+        run: go test -tags fts5 -count=1 -timeout=300s ./internal/auth ./internal/config ./internal/middleware
+        working-directory: ./server
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+        working-directory: ./frontend
+
+      - name: 静态分析（flutter analyze）
+        # 仅 error/warning 阻断；info 级（216 条）为已知可接受
+        run: flutter analyze --no-pub --no-fatal-infos
+        working-directory: ./frontend
+
+      - name: 前端测试
+        run: flutter test --no-pub
+        working-directory: ./frontend
+
   # ── Job 1：构建 Web 并部署到腾讯云 Lighthouse ─────────────────────────
   deploy-web:
     name: 构建并部署到腾讯云 Lighthouse
     runs-on: ubuntu-latest
+    needs: [quality-gate]
     timeout-minutes: 15
 
     steps:
@@ -92,6 +157,7 @@ jobs:
   deploy-server:
     name: 构建并部署后端到腾讯云
     runs-on: ubuntu-latest
+    needs: [quality-gate]
     timeout-minutes: 10
 
     steps:
@@ -160,6 +226,7 @@ jobs:
   build-apk:
     name: 构建 Android APK
     runs-on: ubuntu-latest
+    needs: [quality-gate]
     timeout-minutes: 60
 
     steps:

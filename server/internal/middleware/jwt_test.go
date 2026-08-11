@@ -164,6 +164,102 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 	}
 }
 
+// TestJWTAuth_PendingStatusBlocked P0-01 回归：待审核游客不得访问业务接口
+// 修复前 GuestRegister 对 Status="pending" 的用户无条件签发业务 JWT，且中间件
+// 只验签名不验状态，pending 可访问对话/知识库等能力。修复后签发 token 携带
+// status 字段，中间件对非 active 状态一律 403。
+func TestJWTAuth_PendingStatusBlocked(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{JWTSecret: "test-secret", JWTExpireHours: 2}
+
+	user := &model.User{
+		ID: 1, Username: "guest_138", Role: "guest",
+		OwnerScope: "college", OwnerID: "default",
+		Status: "pending", // 待审核游客
+	}
+	token, err := GenerateToken(cfg, user)
+	if err != nil {
+		t.Fatalf("签发 token 失败: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Request.Header.Set("Authorization", "Bearer "+token)
+
+	JWTAuth(cfg)(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("期望 403（pending 拒绝业务访问），得到 %d", w.Code)
+	}
+	if !c.IsAborted() {
+		t.Error("pending 请求应被中止")
+	}
+}
+
+// TestJWTAuth_RejectedStatusBlocked P0-01 回归：已拒绝游客同样被拦截
+func TestJWTAuth_RejectedStatusBlocked(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{JWTSecret: "test-secret", JWTExpireHours: 2}
+
+	user := &model.User{ID: 2, Username: "guest_139", Role: "guest", Status: "rejected"}
+	token, _ := GenerateToken(cfg, user)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Request.Header.Set("Authorization", "Bearer "+token)
+
+	JWTAuth(cfg)(c)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("期望 403（rejected 拒绝访问），得到 %d", w.Code)
+	}
+}
+
+// TestJWTAuth_ActiveStatusAllowed 回归：active 用户正常放行且注入 Status
+func TestJWTAuth_ActiveStatusAllowed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{JWTSecret: "test-secret", JWTExpireHours: 2}
+
+	user := &model.User{ID: 3, Username: "2021001", Role: "student", Status: "active"}
+	token, _ := GenerateToken(cfg, user)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Request.Header.Set("Authorization", "Bearer "+token)
+
+	JWTAuth(cfg)(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("期望 200（active 放行），得到 %d", w.Code)
+	}
+	if uc := GetUserContext(c); uc == nil || uc.Status != "active" {
+		t.Error("active 用户上下文应注入 Status=active")
+	}
+}
+
+// TestJWTAuth_EmptyStatusAllowed 兼容：旧 token（无 status 字段）不误伤
+func TestJWTAuth_EmptyStatusAllowed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{JWTSecret: "test-secret", JWTExpireHours: 2}
+
+	user := &model.User{ID: 4, Username: "legacy", Role: "student"}
+	token, _ := GenerateToken(cfg, user)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Request.Header.Set("Authorization", "Bearer "+token)
+
+	JWTAuth(cfg)(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("期望 200（旧 token 兼容放行），得到 %d", w.Code)
+	}
+}
+
 func TestGetUserContext_AfterAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{

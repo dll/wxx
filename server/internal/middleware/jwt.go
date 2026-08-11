@@ -109,6 +109,18 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// 账号状态校验：pending（待审核）/rejected（已拒绝）状态一律拒绝业务访问。
+		// 修复 GPT56SOL v3 P0-01：此前 pending 游客也能持业务 JWT 访问对话/知识库等能力。
+		// 空状态视为未带状态字段的旧 token，仅放行 active 语义（历史 token 不误伤）。
+		if claims.Status != "" && claims.Status != "active" {
+			log.Printf("[JWTAuth] 账号非 active 状态 path=%s method=%s user=%s status=%s", c.Request.URL.Path, c.Request.Method, maskName(claims.Username), claims.Status)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":    403,
+				"message": "账号未激活或待审核，请联系管理员",
+			})
+			return
+		}
+
 		// 注入用户上下文
 		userCtx := &model.UserContext{
 			Consented:    claims.Consented,
@@ -119,6 +131,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			OwnerID:      claims.OwnerID,
 			DisplayName:  claims.DisplayName,
 			TokenVersion: claims.TokenVersion,
+			Status:       claims.Status,
 		}
 		c.Set(contextKeyUser, userCtx)
 

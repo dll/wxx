@@ -64,6 +64,7 @@ type UserContext struct {
 	DisplayName  string // 显示名
 	Consented    bool   // 是否已同意隐私政策与用户协议
 	TokenVersion int    // JWT 令牌版本，用于令牌吊销比对
+	Status       string // 账号状态（active/pending/rejected/disabled），中间件注入，供服务层复核
 }
 
 // ── 知识导出 DTO ──
@@ -720,15 +721,15 @@ type KBQuery struct {
 
 // ExternalAppManifest 应用 manifest（对齐 docs/external-apps.md v0.1）
 type ExternalAppManifest struct {
-	ID       string                   `json:"id"`
-	Name     string                   `json:"name"`
-	Icon     string                   `json:"icon"`
-	Category string                   `json:"category"` // study | culture | service | admin | external
-	Summary  string                   `json:"summary"`
-	Version  string                   `json:"version"`
-	Adapter  ExternalAppAdapter       `json:"adapter"`
-	Visible  ExternalAppVisibleConfig `json:"visible_to"`
-	UpdatedAt string                  `json:"updated_at"`
+	ID        string                   `json:"id"`
+	Name      string                   `json:"name"`
+	Icon      string                   `json:"icon"`
+	Category  string                   `json:"category"` // study | culture | service | admin | external
+	Summary   string                   `json:"summary"`
+	Version   string                   `json:"version"`
+	Adapter   ExternalAppAdapter       `json:"adapter"`
+	Visible   ExternalAppVisibleConfig `json:"visible_to"`
+	UpdatedAt string                   `json:"updated_at"`
 }
 
 // ExternalAppAdapter 跳转适配配置
@@ -747,15 +748,15 @@ type ExternalAppVisibleConfig struct {
 
 // ExternalAppView 应用中心返回给用户的视图（已解析 manifest）
 type ExternalAppView struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Icon     string   `json:"icon"`
-	Category string   `json:"category"`
-	Summary  string   `json:"summary"`
-	Version  string   `json:"version"`
-	Type     string   `json:"type"`
-	URL      string   `json:"url"`
-	OpenIn   string   `json:"open_in"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Icon     string `json:"icon"`
+	Category string `json:"category"`
+	Summary  string `json:"summary"`
+	Version  string `json:"version"`
+	Type     string `json:"type"`
+	URL      string `json:"url"`
+	OpenIn   string `json:"open_in"`
 }
 
 // ExternalAppCreateRequest 管理员注册/更新应用

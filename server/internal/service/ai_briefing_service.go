@@ -37,9 +37,24 @@ func (s *AIBriefingService) List(statusFilter, category, q string, page, pageSiz
 	return s.repo.List(statusFilter, category, q, page, pageSize)
 }
 
-// ListUserVisible 用户端列表
-func (s *AIBriefingService) ListUserVisible(category, q string, limit int) ([]*model.AIBriefing, error) {
-	return s.repo.ListUserVisible(category, q, limit)
+// ListUserVisible 用户端列表（含收藏态；hot=true 按热度排序）
+func (s *AIBriefingService) ListUserVisible(category, q string, limit int, userId int64, hot bool) ([]*model.AIBriefing, error) {
+	return s.repo.ListUserVisible(category, q, limit, userId, hot)
+}
+
+// ListFavorites 用户收藏列表
+func (s *AIBriefingService) ListFavorites(userId int64, limit int) ([]*model.AIBriefing, error) {
+	return s.repo.ListFavorites(userId, limit)
+}
+
+// Favorite 收藏
+func (s *AIBriefingService) Favorite(userId, briefingId int64) error {
+	return s.repo.Favorite(userId, briefingId)
+}
+
+// Unfavorite 取消收藏
+func (s *AIBriefingService) Unfavorite(userId, briefingId int64) error {
+	return s.repo.Unfavorite(userId, briefingId)
 }
 
 // Get 单条
@@ -294,8 +309,8 @@ func (s *AIBriefingService) parseFeed(url string) []rssItem {
 	// 尝试 Atom 1.0
 	var atom struct {
 		Entries []struct {
-			Title   string `xml:"title"`
-			Link    struct {
+			Title string `xml:"title"`
+			Link  struct {
 				Href string `xml:"href,attr"`
 			} `xml:"link"`
 			Summary   string `xml:"summary"`
