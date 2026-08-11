@@ -126,7 +126,7 @@ func (s *KnowledgePackageService) ExportPackage(
 }
 
 // ImportPackage 校验并导入标准 zip 知识包。
-func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []byte, username, traceID string) (*model.KBImportPackageResponse, error) {
+func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []byte, userCtx *model.UserContext, traceID string) (*model.KBImportPackageResponse, error) {
 	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, fmt.Errorf("知识包不是有效 zip: %w", err)
@@ -173,7 +173,7 @@ func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []b
 		}
 	}
 
-	resp, err := s.kbSvc.ImportResources(ctx, string(ndjsonData), username)
+	resp, err := s.kbSvc.ImportResources(ctx, string(ndjsonData), userCtx)
 	if err != nil {
 		return nil, fmt.Errorf("知识包导入落库失败: %w", err)
 	}

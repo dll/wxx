@@ -15,6 +15,17 @@ import (
 const pollutedOOXML = `学 生 手 册 <w:p w:rsidR="00884AF8" w:rsidRDefault="00884AF8"/>` +
 	`</w:txbxContent><wps:bodyPr rot="0" wrap="square"/>请假需提前提交申请`
 
+// testAdminCtx 返回系统管理员上下文，用于清洗/导入类测试（scope 校验恒通过）
+func testAdminCtx() *model.UserContext {
+	return &model.UserContext{
+		Username:   "admin",
+		Role:       "sys_admin",
+		Status:     "active",
+		OwnerScope: "school",
+		OwnerID:    "all",
+	}
+}
+
 // TestKBServiceCreateSanitizesContent 入库前必须清洗，避免污染内容进入 FTS 索引
 func TestKBServiceCreateSanitizesContent(t *testing.T) {
 	db := testutil.NewTestDBFull(t)
@@ -29,7 +40,7 @@ func TestKBServiceCreateSanitizesContent(t *testing.T) {
 		Title:        pollutedOOXML,
 		Summary:      pollutedOOXML,
 		Content:      pollutedOOXML,
-	}, "tester")
+	}, testAdminCtx())
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
@@ -66,7 +77,7 @@ func TestKBServiceUpdateSanitizesContent(t *testing.T) {
 		OwnerID:      "cs",
 		Title:        "初始标题",
 		Content:      "初始正文",
-	}, "tester")
+	}, testAdminCtx())
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
@@ -74,7 +85,7 @@ func TestKBServiceUpdateSanitizesContent(t *testing.T) {
 	updated, err := svc.Update(context.Background(), created.ResourceID, &model.KBUpdateRequest{
 		Title:   pollutedOOXML,
 		Content: pollutedOOXML,
-	}, "tester")
+	}, testAdminCtx())
 	if err != nil {
 		t.Fatalf("更新失败: %v", err)
 	}
@@ -107,7 +118,7 @@ func TestKBServiceCreateFAQPreservesJSON(t *testing.T) {
 		OwnerID:      "cs",
 		Title:        "请假怎么办",
 		Content:      string(raw),
-	}, "tester")
+	}, testAdminCtx())
 	if err != nil {
 		t.Fatalf("创建 FAQ 失败: %v", err)
 	}

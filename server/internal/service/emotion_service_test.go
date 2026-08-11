@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/testutil"
 )
@@ -307,7 +308,13 @@ func TestEmotionService_UpdateAlertStatus(t *testing.T) {
 	}
 	created, _ := svc.AnalyzeAndLog(context.Background(), 1, "testuser", "sess-upd", "更新测试")
 
-	updated, err := svc.UpdateAlertStatus(created.AlertID, "acknowledged", "counselor1")
+	updated, err := svc.UpdateAlertStatus(&model.UserContext{
+		Username:   "counselor1",
+		Role:       "counselor",
+		Status:     "active",
+		OwnerScope: "college",
+		OwnerID:    "cs",
+	}, created.AlertID, "acknowledged")
 	if err != nil {
 		t.Fatalf("UpdateAlertStatus 失败: %v", err)
 	}

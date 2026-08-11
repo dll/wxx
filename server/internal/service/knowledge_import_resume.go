@@ -177,12 +177,12 @@ func (s *KnowledgePackageService) ChunkStatus(uploadID string) (*model.KBImportC
 }
 
 // CompleteChunkUpload 汇总分片并导入标准知识包。
-func (s *KnowledgePackageService) CompleteChunkUpload(ctx context.Context, uploadID, username, traceID string) (*model.KBImportPackageResponse, error) {
+func (s *KnowledgePackageService) CompleteChunkUpload(ctx context.Context, uploadID string, userCtx *model.UserContext, traceID string) (*model.KBImportPackageResponse, error) {
 	data, _, err := s.chunkStore.Assemble(uploadID)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.ImportPackage(ctx, data, username, traceID)
+	resp, err := s.ImportPackage(ctx, data, userCtx, traceID)
 	if err != nil {
 		return nil, err
 	}

@@ -518,15 +518,25 @@ func (r *KBRepo) Upsert(kb *model.KBResource) (int64, string, error) {
 // UpsertDetailed 返回 (id, action, reason, error)。
 // reason 用于区分 skipped 是否因版本冲突：version_low / duplicate / other。
 func (r *KBRepo) UpsertDetailed(kb *model.KBResource) (int64, string, string, error) {
-	kb.Title = util.SanitizeKnowledgeContent(kb.Title)
-	kb.Summary = util.SanitizeKnowledgeContent(kb.Summary)
-	kb.Content = util.SanitizeKnowledgeContentByType(kb.Content, kb.ResourceType)
-
-	// 查询是否已存在同名资源
 	existing, err := r.GetByResourceID(kb.ResourceID)
 	if err != nil {
 		return 0, "", "", fmt.Errorf("查询已有资源失败: %w", err)
 	}
+	return r.upsertDetailedExisting(kb, existing)
+}
+
+// UpsertDetailedExisting 幂等写入（调用方已持有 existing 记录时使用），避免重复查询。
+// 语义与 UpsertDetailed 一致；existing 为 nil 表示新建。
+func (r *KBRepo) UpsertDetailedExisting(kb *model.KBResource, existing *model.KBResource) (int64, string, string, error) {
+	return r.upsertDetailedExisting(kb, existing)
+}
+
+// upsertDetailedExisting 幂等写入核心：复用调用方已查到的 existing，避免重复查询。
+// 语义与 UpsertDetailed 完全一致；existing 为 nil 表示新建。
+func (r *KBRepo) upsertDetailedExisting(kb *model.KBResource, existing *model.KBResource) (int64, string, string, error) {
+	kb.Title = util.SanitizeKnowledgeContent(kb.Title)
+	kb.Summary = util.SanitizeKnowledgeContent(kb.Summary)
+	kb.Content = util.SanitizeKnowledgeContentByType(kb.Content, kb.ResourceType)
 
 	if existing != nil {
 		// 幂等冲突解决：高版本覆盖低版本；retired 状态必须传播
@@ -828,6 +838,51 @@ func (r *KBRepo) GetByResourceID(resourceID string) (*model.KBResource, error) {
 		return nil, err
 	}
 	return kb, nil
+}
+
+// GetByResourceIDs 批量按 resource_id 查询，返回以 resource_id 为键的映射。
+// 仅返回存在的资源；不存在的 ID 不出现在映射中。用于批量操作的权限复核，避免逐条 N+1 查询。
+func (r *KBRepo) GetByResourceIDs(resourceIDs []string) (map[string]*model.KBResource, error) {
+	if len(resourceIDs) == 0 {
+		return map[string]*model.KBResource{}, nil
+	}
+	placeholders := make([]string, len(resourceIDs))
+	args := make([]interface{}, len(resourceIDs))
+	for i, id := range resourceIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	rows, err := r.db.Query(
+		fmt.Sprintf(
+			`SELECT id, resource_id, resource_type, owner_scope, owner_id,
+					role_scope, version, status, title, summary,
+					content, source_link, source_version,
+					effective_at, expired_at, tags, remark,
+					updated_by, created_at, updated_at
+			 FROM kb_resources WHERE resource_id IN (%s)`,
+			strings.Join(placeholders, ","),
+		), args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("批量查询知识资源失败: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]*model.KBResource, len(resourceIDs))
+	for rows.Next() {
+		kb := &model.KBResource{}
+		if err := rows.Scan(
+			&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary,
+			&kb.Content, &kb.SourceLink, &kb.SourceVersion,
+			&kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags, &kb.Remark,
+			&kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("批量查询知识资源失败: %w", err)
+		}
+		result[kb.ResourceID] = kb
+	}
+	return result, rows.Err()
 }
 
 // Create 创建知识资源

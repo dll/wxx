@@ -87,7 +87,7 @@ func TestKBService_Create(t *testing.T) {
 		Content:      "这是测试内容",
 	}
 
-	kb, err := svc.Create(context.Background(), req, "admin")
+	kb, err := svc.Create(context.Background(), req, testAdminCtx())
 	if err != nil {
 		t.Fatalf("Create 失败: %v", err)
 	}
@@ -111,30 +111,37 @@ func TestKBService_Update(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db), db)
 
-	// 先创建
+	// 先创建（sys_admin → school/all）
 	created, _ := svc.Create(context.Background(), &model.KBCreateRequest{
 		ResourceType: "FAQ",
 		OwnerScope:   "college",
 		RoleScope:    `["student"]`,
 		Title:        "原始标题",
 		Content:      "原始内容",
-	}, "admin")
+	}, testAdminCtx())
 
-	// 更新
+	// 更新：editor 为 school_admin（可写 school 范围）
 	req := &model.KBUpdateRequest{
 		Title:   "更新后的标题",
 		Content: "更新后的内容",
 		Status:  "published",
 	}
-	updated, err := svc.Update(context.Background(), created.ResourceID, req, "editor")
+	updated, err := svc.Update(context.Background(), created.ResourceID, req, &model.UserContext{
+		Username:   "editor",
+		Role:       "school_admin",
+		Status:     "active",
+		OwnerScope: "school",
+		OwnerID:    "all",
+	})
 	if err != nil {
 		t.Fatalf("Update 失败: %v", err)
 	}
 	if updated.Title != "更新后的标题" {
 		t.Errorf("title 应为更新后的标题，得到 %s", updated.Title)
 	}
-	if updated.Status != "published" {
-		t.Errorf("status 应为 published，得到 %s", updated.Status)
+	// P0-06：PUT 不得绕过审核门直接置为 published，状态仍应为 draft
+	if updated.Status != "draft" {
+		t.Errorf("P0-06 修复后 status 应保持 draft（忽略请求体 Status），得到 %s", updated.Status)
 	}
 	if updated.UpdatedBy != "editor" {
 		t.Errorf("updated_by 应为 editor，得到 %s", updated.UpdatedBy)
@@ -147,7 +154,7 @@ func TestKBService_Update_NotFound(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db), db)
 
-	_, err := svc.Update(context.Background(), "nonexistent", &model.KBUpdateRequest{Title: "x"}, "admin")
+	_, err := svc.Update(context.Background(), "nonexistent", &model.KBUpdateRequest{Title: "x"}, testAdminCtx())
 	if err == nil {
 		t.Fatal("更新不存在的资源应返回错误")
 	}

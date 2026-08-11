@@ -103,14 +103,77 @@ func (s *KBService) Browse(ctx context.Context, ownerScope, ownerID, role, resou
 }
 
 // Create 创建知识资源
-func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, username string) (*model.KBResource, error) {
+// canWriteScope 判断调用者是否有权向目标 scope 写入资源。
+// 修复 GPT56SOL v3 P0-06：不再信任客户端自述的 owner_scope/owner_id，改为按调用者身份判定。
+// 规则：
+//   - school/sys_admin：可写 school 与任意下级 scope
+//   - college_admin：可写 school(仅自己归属) 与 college/class
+//   - counselor：仅可写自己归属的 college/class（owner_id 必须匹配）
+//   - student_union/student：无写权限（由 capability 门禁拦截，此处兜底）
+func canWriteScope(role, userOwnerID, targetScope, targetOwnerID string) bool {
+	switch role {
+	case "sys_admin", "school_admin":
+		// 校级可写全校范围
+		return true
+	case "college_admin":
+		// 学院级可写本校范围；写 college/class 时归属须匹配自己学院
+		return targetScope == "school" || targetScope == "college" || targetScope == "class"
+	case "counselor":
+		// 辅导员仅可写自己归属的 college/class，且 owner_id 必须匹配
+		if targetScope == "class" || targetScope == "college" {
+			return targetOwnerID == "" || targetOwnerID == userOwnerID
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+// resolveCreateScope 根据调用者身份决定新建资源的归属范围。
+// 忽略客户端提交的 OwnerScope/OwnerID，防越权创建跨范围资源。
+func resolveCreateScope(userCtx *model.UserContext) (scope, ownerID string) {
+	switch userCtx.Role {
+	case "sys_admin", "school_admin":
+		// 校级：默认 school/all
+		return "school", "all"
+	default:
+		// college_admin / counselor / student_union：归属自己学院
+		oid := userCtx.OwnerID
+		if oid == "" || oid == "default" {
+			oid = "default"
+		}
+		return "college", oid
+	}
+}
+
+// requireWritable 取回目标资源并复核调用者是否可写其归属范围。
+// 统一「查询 + canWriteScope + 越权错误文案」，避免各写路径复制粘贴。
+func (s *KBService) requireWritable(resourceID string, userCtx *model.UserContext) (*model.KBResource, error) {
+	existing, err := s.kbRepo.GetByResourceID(resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("查询知识资源失败: %w", err)
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+	}
+	if !canWriteScope(userCtx.Role, userCtx.OwnerID, existing.OwnerScope, existing.OwnerID) {
+		return nil, fmt.Errorf("无权操作该知识资源（归属范围 %s/%s 不在您的可写范围内）", existing.OwnerScope, existing.OwnerID)
+	}
+	return existing, nil
+}
+
+// Create 创建知识资源
+// 修复 GPT56SOL v3 P0-06：归属范围由调用者身份决定（resolveCreateScope），
+// 不信任客户端提交的 OwnerScope/OwnerID；新建资源一律 draft，禁止直发 published。
+func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, userCtx *model.UserContext) (*model.KBResource, error) {
 	resourceID := uuid.New().String()
 
+	scope, ownerID := resolveCreateScope(userCtx)
 	kb := &model.KBResource{
 		ResourceID:    resourceID,
 		ResourceType:  req.ResourceType,
-		OwnerScope:    req.OwnerScope,
-		OwnerID:       req.OwnerID,
+		OwnerScope:    scope,
+		OwnerID:       ownerID,
 		RoleScope:     req.RoleScope,
 		Version:       "1.0",
 		Status:        "draft",
@@ -122,7 +185,7 @@ func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, user
 		EffectiveAt:   req.EffectiveAt,
 		ExpiredAt:     req.ExpiredAt,
 		Tags:          req.Tags,
-		UpdatedBy:     username,
+		UpdatedBy:     userCtx.Username,
 	}
 
 	sanitizeKBContent(kb)
@@ -132,7 +195,7 @@ func (s *KBService) Create(ctx context.Context, req *model.KBCreateRequest, user
 		return nil, fmt.Errorf("创建知识资源失败: %w", err)
 	}
 
-	log.Printf("知识资源已创建 resource_id=%s id=%d by=%s", resourceID, id, username)
+	log.Printf("知识资源已创建 resource_id=%s id=%d by=%s scope=%s", resourceID, id, userCtx.Username, scope)
 
 	// 回查完整记录（包含 created_at 等数据库生成字段）
 	return s.kbRepo.GetByResourceID(resourceID)
@@ -155,31 +218,35 @@ func sanitizeKBContent(kb *model.KBResource) {
 }
 
 // Update 更新知识资源
-func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KBUpdateRequest, username string) (*model.KBResource, error) {
-	// 查询现有资源
-	existing, err := s.kbRepo.GetByResourceID(resourceID)
+// 修复 GPT56SOL v3 P0-06：
+//  1. 忽略请求体提交的 Status——状态转换只能走 SubmitForReview/Approve/Reject/Retire 服务端流程，
+//     普通 KBWrite 权限不得通过 PUT 把 status 直接置为 published 绕过 KBReview 审核门
+//  2. 目标资源归属须在调用者可写范围内（canWriteScope），防跨学院越权编辑
+func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KBUpdateRequest, userCtx *model.UserContext) (*model.KBResource, error) {
+	// 查询现有资源并复核归属范围
+	existing, err := s.requireWritable(resourceID, userCtx)
 	if err != nil {
-		return nil, fmt.Errorf("查询知识资源失败: %w", err)
-	}
-	if existing == nil {
-		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+		return nil, err
 	}
 
-	// 合并更新字段（仅覆盖非空值）
+	// 合并更新字段（仅覆盖非空值）。注意：Status 字段被忽略（见方法注释）。
 	if req.ResourceType != "" {
 		existing.ResourceType = req.ResourceType
 	}
-	if req.OwnerScope != "" {
-		existing.OwnerScope = req.OwnerScope
-	}
-	if req.OwnerID != "" {
-		existing.OwnerID = req.OwnerID
+	// 归属范围仅校级可改；改后仍须在调用者可写范围内
+	if (userCtx.Role == "sys_admin" || userCtx.Role == "school_admin") && (req.OwnerScope != "" || req.OwnerID != "") {
+		if req.OwnerScope != "" && !canWriteScope(userCtx.Role, userCtx.OwnerID, req.OwnerScope, req.OwnerID) {
+			return nil, fmt.Errorf("无权将资源归属改为 %s/%s", req.OwnerScope, req.OwnerID)
+		}
+		if req.OwnerScope != "" {
+			existing.OwnerScope = req.OwnerScope
+		}
+		if req.OwnerID != "" {
+			existing.OwnerID = req.OwnerID
+		}
 	}
 	if req.RoleScope != "" {
 		existing.RoleScope = req.RoleScope
-	}
-	if req.Status != "" {
-		existing.Status = req.Status
 	}
 	if req.Title != "" {
 		existing.Title = req.Title
@@ -205,7 +272,7 @@ func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KB
 	if req.Tags != "" {
 		existing.Tags = req.Tags
 	}
-	existing.UpdatedBy = username
+	existing.UpdatedBy = userCtx.Username
 
 	sanitizeKBContent(existing)
 
@@ -213,7 +280,7 @@ func (s *KBService) Update(ctx context.Context, resourceID string, req *model.KB
 		return nil, fmt.Errorf("更新知识资源失败: %w", err)
 	}
 
-	log.Printf("知识资源已更新 resource_id=%s by=%s", resourceID, username)
+	log.Printf("知识资源已更新 resource_id=%s by=%s", resourceID, userCtx.Username)
 
 	// 回查最新记录
 	return s.kbRepo.GetByResourceID(resourceID)
@@ -313,25 +380,22 @@ func (s *KBService) sendReviewResultNotification(kb *model.KBResource, title str
 }
 
 // ApproveResource 审核通过知识资源（pending → published）
-// 仅限 counselor 及以上角色调用
-func (s *KBService) ApproveResource(ctx context.Context, resourceID, username string) (*model.KBResource, error) {
-	existing, err := s.kbRepo.GetByResourceID(resourceID)
+// 仅限 counselor 及以上角色调用。修复 GPT56SOL v3 P0-06：审核前复核资源范围。
+func (s *KBService) ApproveResource(ctx context.Context, resourceID string, userCtx *model.UserContext) (*model.KBResource, error) {
+	existing, err := s.requireWritable(resourceID, userCtx)
 	if err != nil {
-		return nil, fmt.Errorf("查询知识资源失败: %w", err)
-	}
-	if existing == nil {
-		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+		return nil, err
 	}
 	if existing.Status != "pending" {
 		return nil, fmt.Errorf("仅待审核状态可批准，当前状态: %s", existing.Status)
 	}
 
 	existing.Status = "published"
-	existing.UpdatedBy = username
+	existing.UpdatedBy = userCtx.Username
 	if err := s.kbRepo.Update(existing); err != nil {
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
-	log.Printf("知识资源审核通过 resource_id=%s by=%s", resourceID, username)
+	log.Printf("知识资源审核通过 resource_id=%s by=%s", resourceID, userCtx.Username)
 
 	// 通知上传者审核通过
 	go s.sendReviewResultNotification(existing, "审核通过", fmt.Sprintf("您提交的知识资源「%s」已通过审核。", existing.Title))
@@ -340,25 +404,22 @@ func (s *KBService) ApproveResource(ctx context.Context, resourceID, username st
 }
 
 // RejectResource 驳回知识资源（pending → draft），附带驳回理由
-// 仅限 counselor 及以上角色调用
-func (s *KBService) RejectResource(ctx context.Context, resourceID, username, reason string) (*model.KBResource, error) {
-	existing, err := s.kbRepo.GetByResourceID(resourceID)
+// 仅限 counselor 及以上角色调用。修复 P0-06：驳回前复核资源范围。
+func (s *KBService) RejectResource(ctx context.Context, resourceID string, userCtx *model.UserContext, reason string) (*model.KBResource, error) {
+	existing, err := s.requireWritable(resourceID, userCtx)
 	if err != nil {
-		return nil, fmt.Errorf("查询知识资源失败: %w", err)
-	}
-	if existing == nil {
-		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+		return nil, err
 	}
 	if existing.Status != "pending" {
 		return nil, fmt.Errorf("仅待审核状态可驳回，当前状态: %s", existing.Status)
 	}
 
 	existing.Status = "draft"
-	existing.UpdatedBy = username
+	existing.UpdatedBy = userCtx.Username
 	if err := s.kbRepo.Update(existing); err != nil {
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
-	log.Printf("知识资源已驳回 resource_id=%s by=%s reason=%s", resourceID, username, reason)
+	log.Printf("知识资源已驳回 resource_id=%s by=%s reason=%s", resourceID, userCtx.Username, reason)
 
 	// 通知上传者审核驳回
 	go s.sendReviewResultNotification(existing, "审核驳回", fmt.Sprintf("您提交的知识资源「%s」被驳回，原因：%s。", existing.Title, reason))
@@ -367,31 +428,31 @@ func (s *KBService) RejectResource(ctx context.Context, resourceID, username, re
 }
 
 // RetireResource 下架知识资源（published → retired）
-// 仅限 counselor 及以上角色调用
-func (s *KBService) RetireResource(ctx context.Context, resourceID, username string) (*model.KBResource, error) {
-	existing, err := s.kbRepo.GetByResourceID(resourceID)
+// 仅限 counselor 及以上角色调用。修复 P0-06：下架前复核资源范围。
+func (s *KBService) RetireResource(ctx context.Context, resourceID string, userCtx *model.UserContext) (*model.KBResource, error) {
+	existing, err := s.requireWritable(resourceID, userCtx)
 	if err != nil {
-		return nil, fmt.Errorf("查询知识资源失败: %w", err)
-	}
-	if existing == nil {
-		return nil, fmt.Errorf("知识资源不存在: %s", resourceID)
+		return nil, err
 	}
 	if existing.Status != "published" {
 		return nil, fmt.Errorf("仅已发布状态可下架，当前状态: %s", existing.Status)
 	}
 
 	existing.Status = "retired"
-	existing.UpdatedBy = username
+	existing.UpdatedBy = userCtx.Username
 	if err := s.kbRepo.Update(existing); err != nil {
 		return nil, fmt.Errorf("更新状态失败: %w", err)
 	}
-	log.Printf("知识资源已下架 resource_id=%s by=%s", resourceID, username)
+	log.Printf("知识资源已下架 resource_id=%s by=%s", resourceID, userCtx.Username)
 	return s.kbRepo.GetByResourceID(resourceID)
 }
 
 // ImportResources 导入知识资源（NDJSON 格式，逐行 KBResource JSON）
 // 幂等键：(resource_id, version, status)；冲突按高版本覆盖、同版本跳过
-func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, username string) (*model.KBImportResponse, error) {
+// 修复 GPT56SOL v3 P0-06：不信任客户端提交的 owner_scope/owner_id ——
+//   - 新建资源：归属范围由导入者身份决定（resolveCreateScope），仅 sys_admin/school_admin 可用显式 scope 覆盖
+//   - 覆盖已有资源：先复核调用者可写范围（canWriteScope），越权行跳过并记录
+func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, userCtx *model.UserContext) (*model.KBImportResponse, error) {
 	lines := strings.Split(strings.TrimSpace(ndjsonData), "\n")
 	results := make([]*model.KBImportResult, 0, len(lines))
 	var created, updated, skipped, conflict int
@@ -439,10 +500,40 @@ func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, user
 		}
 
 		// 设置导入者
-		kb.UpdatedBy = username
+		kb.UpdatedBy = userCtx.Username
 
-		// 幂等导入
-		_, action, reason, err := s.kbRepo.UpsertDetailed(&kb)
+		// 范围复核与归属解析（P0-06）
+		existing, _ := s.kbRepo.GetByResourceID(kb.ResourceID)
+		if existing != nil {
+			// 覆盖已有资源：调用者必须可写该资源现有归属范围
+			if !canWriteScope(userCtx.Role, userCtx.OwnerID, existing.OwnerScope, existing.OwnerID) {
+				results = append(results, &model.KBImportResult{
+					ResourceID: kb.ResourceID,
+					Title:      kb.Title,
+					Action:     "skipped",
+					Message:    fmt.Sprintf("无权覆盖资源（归属范围 %s/%s 不在您的可写范围内）", existing.OwnerScope, existing.OwnerID),
+				})
+				skipped++
+				continue
+			}
+		} else {
+			// 新建资源：仅校级可保留客户端显式 scope，其余按身份解析归属
+			if userCtx.Role == "sys_admin" || userCtx.Role == "school_admin" {
+				if kb.OwnerScope == "" {
+					kb.OwnerScope = "school"
+				}
+				if kb.OwnerID == "" {
+					kb.OwnerID = "all"
+				}
+			} else {
+				scope, ownerID := resolveCreateScope(userCtx)
+				kb.OwnerScope = scope
+				kb.OwnerID = ownerID
+			}
+		}
+
+		// 幂等导入（复用上面已查到的 existing，避免重复查询）
+		_, action, reason, err := s.kbRepo.UpsertDetailedExisting(&kb, existing)
 		if err != nil {
 			results = append(results, &model.KBImportResult{
 				ResourceID: kb.ResourceID,
@@ -475,7 +566,7 @@ func (s *KBService) ImportResources(ctx context.Context, ndjsonData string, user
 		}
 	}
 
-	log.Printf("知识导入完成 total=%d created=%d updated=%d skipped=%d conflict=%d by=%s", len(results), created, updated, skipped, conflict, username)
+	log.Printf("知识导入完成 total=%d created=%d updated=%d skipped=%d conflict=%d by=%s", len(results), created, updated, skipped, conflict, userCtx.Username)
 
 	return &model.KBImportResponse{
 		Code:     0,
@@ -525,47 +616,77 @@ func (s *KBService) GetDictValues(ctx context.Context, column string) ([]string,
 }
 
 // BatchUpdateStatus 批量更新知识资源状态
-func (s *KBService) BatchUpdateStatus(ctx context.Context, resourceIDs []string, status string, operator string) (int64, error) {
+// 修复 GPT56SOL v3 P0-06：批量取回资源后统一复核调用者可写范围，任一越权即整体拒绝。
+func (s *KBService) BatchUpdateStatus(ctx context.Context, resourceIDs []string, status string, userCtx *model.UserContext) (int64, error) {
 	if len(resourceIDs) == 0 {
 		return 0, fmt.Errorf("资源ID列表不能为空")
 	}
 	if !validStatuses[status] {
 		return 0, fmt.Errorf("无效的状态值: %s", status)
 	}
-	count, err := s.kbRepo.BatchUpdateStatus(resourceIDs, status, operator)
+	// 一次 IN 查询取回全部资源并复核范围（避免逐条 N+1）
+	byID, err := s.kbRepo.GetByResourceIDs(resourceIDs)
+	if err != nil {
+		return 0, fmt.Errorf("批量查询资源失败: %w", err)
+	}
+	for _, rid := range resourceIDs {
+		existing, ok := byID[rid]
+		if !ok {
+			continue
+		}
+		if !canWriteScope(userCtx.Role, userCtx.OwnerID, existing.OwnerScope, existing.OwnerID) {
+			return 0, fmt.Errorf("无权操作资源 %s（归属范围 %s/%s 不在您的可写范围内）", rid, existing.OwnerScope, existing.OwnerID)
+		}
+	}
+	count, err := s.kbRepo.BatchUpdateStatus(resourceIDs, status, userCtx.Username)
 	if err != nil {
 		return 0, fmt.Errorf("批量更新状态失败: %w", err)
 	}
-	log.Printf("批量更新知识资源状态 count=%d status=%s by=%s", count, status, operator)
+	log.Printf("批量更新知识资源状态 count=%d status=%s by=%s", count, status, userCtx.Username)
 	return count, nil
 }
 
 // BatchDelete 批量删除知识资源
-func (s *KBService) BatchDelete(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
+// 修复 P0-06：批量取回资源后统一复核调用者可写范围，任一越权即整体拒绝。
+func (s *KBService) BatchDelete(ctx context.Context, resourceIDs []string, userCtx *model.UserContext) (int64, error) {
 	if len(resourceIDs) == 0 {
 		return 0, fmt.Errorf("资源ID列表不能为空")
+	}
+	// 一次 IN 查询取回全部资源并复核范围（避免逐条 N+1）
+	byID, err := s.kbRepo.GetByResourceIDs(resourceIDs)
+	if err != nil {
+		return 0, fmt.Errorf("批量查询资源失败: %w", err)
+	}
+	for _, rid := range resourceIDs {
+		existing, ok := byID[rid]
+		if !ok {
+			continue
+		}
+		if !canWriteScope(userCtx.Role, userCtx.OwnerID, existing.OwnerScope, existing.OwnerID) {
+			return 0, fmt.Errorf("无权删除资源 %s（归属范围 %s/%s 不在您的可写范围内）", rid, existing.OwnerScope, existing.OwnerID)
+		}
 	}
 	count, err := s.kbRepo.BatchDelete(resourceIDs)
 	if err != nil {
 		return 0, fmt.Errorf("批量删除失败: %w", err)
 	}
-	log.Printf("批量删除知识资源 count=%d by=%s", count, operator)
+	log.Printf("批量删除知识资源 count=%d by=%s", count, userCtx.Username)
 	return count, nil
 }
 
 // BatchApprove 批量审核通过
-func (s *KBService) BatchApprove(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(ctx, resourceIDs, "published", operator)
+func (s *KBService) BatchApprove(ctx context.Context, resourceIDs []string, userCtx *model.UserContext) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "published", userCtx)
 }
 
 // BatchReject 批量驳回
-func (s *KBService) BatchReject(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(ctx, resourceIDs, "draft", operator)
+func (s *KBService) BatchReject(ctx context.Context, resourceIDs []string, userCtx *model.UserContext) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "draft", userCtx)
 }
 
 // BatchRetire 批量下架
-func (s *KBService) BatchRetire(ctx context.Context, resourceIDs []string, operator string) (int64, error) {
-	return s.BatchUpdateStatus(ctx, resourceIDs, "retired", operator)
+func (s *KBService) BatchRetire(ctx context.Context, resourceIDs []string, userCtx *model.UserContext) (int64, error) {
+	return s.BatchUpdateStatus(ctx, resourceIDs, "retired", userCtx)
 }
 
 // GetStats 获取知识资源统计
@@ -581,14 +702,14 @@ func (s *KBService) GetStats(ctx context.Context) (*repository.KBStats, error) {
 //
 // 逐条：取正文 → LLM 精修 → 精修有效且非回退时写库（走 Update，FTS 触发器自动生效）。
 // 单条失败不影响其它条，逐条结果供前端展示；未注入精修器时全部回退。
-func (s *KBService) BatchRefine(ctx context.Context, resourceIDs []string, operator string) *model.KBRefineResult {
+func (s *KBService) BatchRefine(ctx context.Context, resourceIDs []string, userCtx *model.UserContext) *model.KBRefineResult {
 	result := &model.KBRefineResult{
 		Total:   len(resourceIDs),
 		Results: make([]*model.KBRefineItemResult, 0, len(resourceIDs)),
 	}
 
 	for _, rid := range resourceIDs {
-		item := s.refineOne(ctx, rid, operator)
+		item := s.refineOne(ctx, rid, userCtx)
 		if item.OK {
 			result.Success++
 		} else {
@@ -597,12 +718,12 @@ func (s *KBService) BatchRefine(ctx context.Context, resourceIDs []string, opera
 		result.Results = append(result.Results, item)
 	}
 	log.Printf("批量精修知识资源 total=%d success=%d failed=%d by=%s",
-		result.Total, result.Success, result.Failed, operator)
+		result.Total, result.Success, result.Failed, userCtx.Username)
 	return result
 }
 
 // refineOne 精修单个知识资源
-func (s *KBService) refineOne(ctx context.Context, resourceID, operator string) *model.KBRefineItemResult {
+func (s *KBService) refineOne(ctx context.Context, resourceID string, userCtx *model.UserContext) *model.KBRefineItemResult {
 	item := &model.KBRefineItemResult{ResourceID: resourceID}
 
 	existing, err := s.kbRepo.GetByResourceID(resourceID)
@@ -612,6 +733,10 @@ func (s *KBService) refineOne(ctx context.Context, resourceID, operator string) 
 	}
 	if existing == nil {
 		item.Message = "资源不存在"
+		return item
+	}
+	if !canWriteScope(userCtx.Role, userCtx.OwnerID, existing.OwnerScope, existing.OwnerID) {
+		item.Message = "无权精修该资源"
 		return item
 	}
 	if strings.TrimSpace(existing.Content) == "" {
@@ -646,7 +771,7 @@ func (s *KBService) refineOne(ctx context.Context, resourceID, operator string) 
 		Title:   refined.Title,
 		Summary: refined.Summary,
 		Tags:    string(tagsJSON),
-	}, operator)
+	}, userCtx)
 	if err != nil {
 		item.Message = "写库失败: " + err.Error()
 		return item

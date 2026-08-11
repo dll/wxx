@@ -404,8 +404,8 @@ func TestEmotionHandler_UpdateAlert_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("不存在的告警应返回 500，得到 %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusNotFound {
+		t.Errorf("不存在的告警应返回 404，得到 %d: %s", w.Code, w.Body.String())
 	}
 }
 

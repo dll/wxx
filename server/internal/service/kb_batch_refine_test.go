@@ -28,7 +28,7 @@ func TestKBService_BatchRefine_Success(t *testing.T) {
 	docSvc := newRefineDocSvc(t, mock)
 	svc.SetRefiner(docSvc)
 
-	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, "admin")
+	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, testAdminCtx())
 	if result.Total != 1 || result.Success != 1 || result.Failed != 0 {
 		t.Fatalf("汇总不符: %+v", result)
 	}
@@ -62,7 +62,7 @@ func TestKBService_BatchRefine_NoRefiner(t *testing.T) {
 
 	svc := NewKBService(repository.NewKBRepo(db), db)
 
-	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, "admin")
+	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, testAdminCtx())
 	if result.Success != 0 || result.Failed != 1 {
 		t.Fatalf("未注入精修器时应全部失败: %+v", result)
 	}
@@ -78,7 +78,7 @@ func TestKBService_BatchRefine_ResourceNotFound(t *testing.T) {
 	svc := NewKBService(repository.NewKBRepo(db), db)
 	svc.SetRefiner(newRefineDocSvc(t, llm.NewMockClient("mock")))
 
-	result := svc.BatchRefine(context.Background(), []string{"no-such-resource"}, "admin")
+	result := svc.BatchRefine(context.Background(), []string{"no-such-resource"}, testAdminCtx())
 	if result.Success != 0 || result.Failed != 1 {
 		t.Fatalf("不存在的资源应失败: %+v", result)
 	}
@@ -99,7 +99,7 @@ func TestKBService_BatchRefine_FallbackKeepsOriginal(t *testing.T) {
 	}
 	svc.SetRefiner(newRefineDocSvc(t, mock))
 
-	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, "admin")
+	result := svc.BatchRefine(context.Background(), []string{"policy-scholarship-2026"}, testAdminCtx())
 	if result.Success != 0 || result.Failed != 1 {
 		t.Fatalf("LLM 失败应回退: %+v", result)
 	}
@@ -132,7 +132,7 @@ func TestKBService_BatchRefine_Partial(t *testing.T) {
 	svc.SetRefiner(newRefineDocSvc(t, mock))
 
 	result := svc.BatchRefine(context.Background(),
-		[]string{"policy-scholarship-2026", "no-such-resource"}, "admin")
+		[]string{"policy-scholarship-2026", "no-such-resource"}, testAdminCtx())
 	if result.Total != 2 || result.Success != 1 || result.Failed != 1 {
 		t.Fatalf("部分失败汇总不符: %+v", result)
 	}

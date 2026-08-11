@@ -166,7 +166,7 @@ func (s *ProcessService) Create(ctx context.Context, user *model.UserContext, re
 		EffectiveAt:   req.EffectiveAt,
 		ExpiredAt:     req.ExpiredAt,
 		Tags:          string(tagsJSON),
-	}, user.Username)
+	}, user)
 	if err != nil {
 		return nil, fmt.Errorf("创建流程资源失败: %w", err)
 	}
@@ -239,24 +239,24 @@ func (s *ProcessService) SubmitForReview(ctx context.Context, resourceID, userna
 }
 
 // Approve 审核通过流程
-func (s *ProcessService) Approve(ctx context.Context, resourceID, username string) (*ProcessDefinition, error) {
-	if _, err := s.kbSvc.ApproveResource(ctx, resourceID, username); err != nil {
+func (s *ProcessService) Approve(ctx context.Context, resourceID string, user *model.UserContext) (*ProcessDefinition, error) {
+	if _, err := s.kbSvc.ApproveResource(ctx, resourceID, user); err != nil {
 		return nil, err
 	}
 	return s.loadDefinition(resourceID)
 }
 
 // Reject 驳回流程
-func (s *ProcessService) Reject(ctx context.Context, resourceID, username, reason string) (*ProcessDefinition, error) {
-	if _, err := s.kbSvc.RejectResource(ctx, resourceID, username, reason); err != nil {
+func (s *ProcessService) Reject(ctx context.Context, resourceID string, user *model.UserContext, reason string) (*ProcessDefinition, error) {
+	if _, err := s.kbSvc.RejectResource(ctx, resourceID, user, reason); err != nil {
 		return nil, err
 	}
 	return s.loadDefinition(resourceID)
 }
 
 // Retire 下架流程
-func (s *ProcessService) Retire(ctx context.Context, resourceID, username string) (*ProcessDefinition, error) {
-	if _, err := s.kbSvc.RetireResource(ctx, resourceID, username); err != nil {
+func (s *ProcessService) Retire(ctx context.Context, resourceID string, user *model.UserContext) (*ProcessDefinition, error) {
+	if _, err := s.kbSvc.RetireResource(ctx, resourceID, user); err != nil {
 		return nil, err
 	}
 	return s.loadDefinition(resourceID)

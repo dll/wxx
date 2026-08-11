@@ -175,7 +175,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.Create(c.Request.Context(), &req, userCtx.Username)
+	kb, err := h.kbSvc.Create(c.Request.Context(), &req, userCtx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -250,7 +250,7 @@ func (h *KBHandler) Import(c *gin.Context) {
 		ndjsonData = strings.Join(lines, "\n")
 	}
 
-	resp, err := h.kbSvc.ImportResources(c.Request.Context(), ndjsonData, userCtx.Username)
+	resp, err := h.kbSvc.ImportResources(c.Request.Context(), ndjsonData, userCtx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -297,7 +297,7 @@ func (h *KBHandler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.Update(c.Request.Context(), resourceID, &req, userCtx.Username)
+	kb, err := h.kbSvc.Update(c.Request.Context(), resourceID, &req, userCtx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -458,7 +458,7 @@ func (h *KBHandler) ApproveResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.ApproveResource(c.Request.Context(), resourceID, userCtx.Username)
+	kb, err := h.kbSvc.ApproveResource(c.Request.Context(), resourceID, userCtx)
 	if err != nil {
 		log.Printf("审核通过失败 resource_id=%s: %v", resourceID, err)
 		util.FailBadRequest(c, "审核通过失败，请检查资源状态")
@@ -497,7 +497,7 @@ func (h *KBHandler) RejectResource(c *gin.Context) {
 		req.Reason = "未提供理由"
 	}
 
-	kb, err := h.kbSvc.RejectResource(c.Request.Context(), resourceID, userCtx.Username, req.Reason)
+	kb, err := h.kbSvc.RejectResource(c.Request.Context(), resourceID, userCtx, req.Reason)
 	if err != nil {
 		log.Printf("驳回失败 resource_id=%s: %v", resourceID, err)
 		util.FailBadRequest(c, "驳回失败，请检查资源状态")
@@ -526,7 +526,7 @@ func (h *KBHandler) RetireResource(c *gin.Context) {
 		return
 	}
 
-	kb, err := h.kbSvc.RetireResource(c.Request.Context(), resourceID, userCtx.Username)
+	kb, err := h.kbSvc.RetireResource(c.Request.Context(), resourceID, userCtx)
 	if err != nil {
 		log.Printf("下架失败 resource_id=%s: %v", resourceID, err)
 		util.FailBadRequest(c, "下架失败，请检查资源状态")
@@ -640,7 +640,7 @@ func (h *KBHandler) BatchApprove(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchApprove(c.Request.Context(), req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchApprove(c.Request.Context(), req.IDs, userCtx)
 	if err != nil {
 		log.Printf("批量审核通过失败: %v", err)
 		util.FailInternalError(c, "批量审核通过失败")
@@ -677,7 +677,7 @@ func (h *KBHandler) BatchReject(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchReject(c.Request.Context(), req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchReject(c.Request.Context(), req.IDs, userCtx)
 	if err != nil {
 		log.Printf("批量驳回失败: %v", err)
 		util.FailInternalError(c, "批量驳回失败")
@@ -714,7 +714,7 @@ func (h *KBHandler) BatchRetire(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchRetire(c.Request.Context(), req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchRetire(c.Request.Context(), req.IDs, userCtx)
 	if err != nil {
 		log.Printf("批量下架失败: %v", err)
 		util.FailInternalError(c, "批量下架失败")
@@ -751,7 +751,7 @@ func (h *KBHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 
-	count, err := h.kbSvc.BatchDelete(c.Request.Context(), req.IDs, userCtx.Username)
+	count, err := h.kbSvc.BatchDelete(c.Request.Context(), req.IDs, userCtx)
 	if err != nil {
 		log.Printf("批量删除失败: %v", err)
 		util.FailInternalError(c, "批量删除失败")
@@ -797,7 +797,7 @@ func (h *KBHandler) BatchRefine(c *gin.Context) {
 		return
 	}
 
-	data := h.kbSvc.BatchRefine(c.Request.Context(), req.IDs, userCtx.Username)
+	data := h.kbSvc.BatchRefine(c.Request.Context(), req.IDs, userCtx)
 	c.JSON(http.StatusOK, model.KBRefineResponse{
 		Code:    0,
 		Message: "批量精修完成",

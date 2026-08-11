@@ -199,7 +199,7 @@ func (h *ProcessHandler) Approve(c *gin.Context) {
 		util.FailUnauthorized(c, "未获取到用户信息")
 		return
 	}
-	def, err := h.svc.Approve(c.Request.Context(), c.Param("id"), userCtx.Username)
+	def, err := h.svc.Approve(c.Request.Context(), c.Param("id"), userCtx)
 	if err != nil {
 		log.Printf("process Approve err: %v", err)
 		util.FailBadRequest(c, "审核通过失败")
@@ -219,7 +219,7 @@ func (h *ProcessHandler) Reject(c *gin.Context) {
 		Reason string `json:"reason"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	def, err := h.svc.Reject(c.Request.Context(), c.Param("id"), userCtx.Username, body.Reason)
+	def, err := h.svc.Reject(c.Request.Context(), c.Param("id"), userCtx, body.Reason)
 	if err != nil {
 		log.Printf("process Reject err: %v", err)
 		util.FailBadRequest(c, "驳回失败")
@@ -235,7 +235,7 @@ func (h *ProcessHandler) Retire(c *gin.Context) {
 		util.FailUnauthorized(c, "未获取到用户信息")
 		return
 	}
-	def, err := h.svc.Retire(c.Request.Context(), c.Param("id"), userCtx.Username)
+	def, err := h.svc.Retire(c.Request.Context(), c.Param("id"), userCtx)
 	if err != nil {
 		log.Printf("process Retire err: %v", err)
 		util.FailBadRequest(c, "下架失败")

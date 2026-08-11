@@ -4,38 +4,52 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"os"
-
-	"crypto/sha256"
 )
 
 const encryptionKeyEnv = "WXX_ENCRYPTION_KEY"
 
 var masterKey []byte
 
-func init() {
+// ensureKey 懒加载加密密钥（首次调用时读取环境变量）。
+// 未配置时返回错误，禁止敏感字段静默落为明文（P0-04）。
+func ensureKey() ([]byte, error) {
+	if masterKey != nil {
+		return masterKey, nil
+	}
 	keyHex := os.Getenv(encryptionKeyEnv)
 	if keyHex == "" {
-		log.Printf("[WARN] WXX_ENCRYPTION_KEY 未设置，密钥将以明文存储")
-		return
+		return nil, fmt.Errorf("环境变量 %s 未设置", encryptionKeyEnv)
 	}
 	h := sha256.Sum256([]byte(keyHex))
 	masterKey = h[:]
+	return masterKey, nil
+}
+
+// ValidateEncryptionKey 校验加密密钥是否已配置，未配置时返回错误。
+// 由生产启动入口（cmd/server）调用，缺密钥即拒绝启动，避免敏感字段静默明文落库。
+func ValidateEncryptionKey() error {
+	if _, err := ensureKey(); err != nil {
+		return fmt.Errorf("敏感字段加密不可用：%w", err)
+	}
+	return nil
 }
 
 func encrypt(plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil
 	}
-	if masterKey == nil {
-		return plaintext, nil
+	key, err := ensureKey()
+	if err != nil {
+		return "", err
 	}
 
-	block, err := aes.NewCipher(masterKey)
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
@@ -58,8 +72,9 @@ func decrypt(cipherHex string) (string, error) {
 	if cipherHex == "" {
 		return "", nil
 	}
-	if masterKey == nil {
-		return cipherHex, nil
+	key, err := ensureKey()
+	if err != nil {
+		return "", err
 	}
 
 	data, err := hex.DecodeString(cipherHex)
@@ -67,7 +82,7 @@ func decrypt(cipherHex string) (string, error) {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(masterKey)
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}

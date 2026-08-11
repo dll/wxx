@@ -1,10 +1,20 @@
 package repository
 
 import (
+	"os"
 	"testing"
 
 	"github.com/dll/wxx/server/internal/testutil"
 )
+
+// TestMain 注入加密密钥：crypto.go 已删除明文降级（P0-04），
+// 无密钥时 encrypt/decrypt 直接返回错误，故测试必须显式提供密钥。
+func TestMain(m *testing.M) {
+	os.Setenv(encryptionKeyEnv, "test-encryption-key-32bytes")
+	code := m.Run()
+	os.Unsetenv(encryptionKeyEnv)
+	os.Exit(code)
+}
 
 // TestPortalCredentialRepo_Store 校验门户凭证仓库功能正确（存/取/覆盖/删）
 func TestPortalCredentialRepo_Store(t *testing.T) {
@@ -44,7 +54,7 @@ func TestPortalCredentialRepo_Store(t *testing.T) {
 	}
 }
 
-// TestCryptoRoundTrip 校验 encrypt/decrypt 对称性（有密钥时密文≠明文）
+// TestCryptoRoundTrip 校验 encrypt/decrypt 对称性（配置密钥后密文 ≠ 明文）
 func TestCryptoRoundTrip(t *testing.T) {
 	plain := "SuperSecret#2026"
 	enc, err := encrypt(plain)
@@ -58,8 +68,8 @@ func TestCryptoRoundTrip(t *testing.T) {
 	if dec != plain {
 		t.Fatalf("解密结果不一致: %s != %s", dec, plain)
 	}
-	// 无密钥降级时明文存储；有密钥时密文 ≠ 明文
-	if masterKey != nil && enc == plain {
+	// P0-04：有密钥时必须真正加密，密文不得等于明文
+	if enc == plain {
 		t.Fatal("有密钥时密文不应等于明文")
 	}
 }

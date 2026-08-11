@@ -17,6 +17,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testAdminUserCtx 返回系统管理员上下文（scope 校验恒通过，用于导入类测试）
+func testAdminUserCtx() *model.UserContext {
+	return &model.UserContext{
+		Username:   "importer",
+		Role:       "sys_admin",
+		Status:     "active",
+		OwnerScope: "school",
+		OwnerID:    "all",
+	}
+}
+
 func TestKnowledgePackageRoundTrip(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
@@ -54,7 +65,7 @@ func TestKnowledgePackageRoundTrip(t *testing.T) {
 	pkgSvc2 := service.NewKnowledgePackageService(kbSvc2, kbRepo2)
 	pkgSvc2.SetHMACSecret("test-hmac-secret")
 
-	resp, err := pkgSvc2.ImportPackage(context.Background(), zipData, "importer", "trace-1")
+	resp, err := pkgSvc2.ImportPackage(context.Background(), zipData, testAdminUserCtx(), "trace-1")
 	require.NoError(t, err)
 	require.Equal(t, 1, resp.AppliedCount)
 	require.Equal(t, 0, resp.IgnoredCount)
@@ -81,7 +92,7 @@ func TestKnowledgePackageRejectsTamperedHash(t *testing.T) {
 	// 篡改 resources.ndjson 内容并保持 manifest 不变，导入必须被 hash 校验拦截。
 	tampered := rewriteZipResource(t, zipData, "resources.ndjson", "测试", "测试x")
 
-	_, err = pkgSvc.ImportPackage(context.Background(), tampered, "importer", "trace-2")
+	_, err = pkgSvc.ImportPackage(context.Background(), tampered, testAdminUserCtx(), "trace-2")
 	require.Error(t, err)
 }
 
@@ -123,7 +134,7 @@ func TestKnowledgeImportChunkResume(t *testing.T) {
 
 	require.NoError(t, targetPkgSvc.PutChunk(initResp.UploadID, 0, zipData[:chunkSize], ""))
 	require.NoError(t, targetPkgSvc.PutChunk(initResp.UploadID, 1, zipData[chunkSize:2*chunkSize], ""))
-	resp, err := targetPkgSvc.CompleteChunkUpload(context.Background(), initResp.UploadID, "importer", "trace-chunk")
+	resp, err := targetPkgSvc.CompleteChunkUpload(context.Background(), initResp.UploadID, testAdminUserCtx(), "trace-chunk")
 	require.NoError(t, err)
 	require.Equal(t, 1, resp.AppliedCount)
 }

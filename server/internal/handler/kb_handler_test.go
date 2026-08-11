@@ -90,7 +90,7 @@ func TestKBHandler_ListResources_Unauthenticated(t *testing.T) {
 func TestKBHandler_CreateResource_Success(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	body := `{
@@ -144,7 +144,7 @@ func TestKBHandler_CreateResource_StudentForbidden(t *testing.T) {
 func TestKBHandler_CreateResource_ValidationError(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "c1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "c1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	// 缺少必填字段 title
@@ -181,7 +181,7 @@ func TestKBHandler_GetResource_NotFound(t *testing.T) {
 func TestKBHandler_UpdateResource_Success(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "c1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "c1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	// 先创建
@@ -220,15 +220,16 @@ func TestKBHandler_UpdateResource_Success(t *testing.T) {
 	if updateResp.Data.Title != "新标题" {
 		t.Errorf("期望 title=新标题，得到 %s", updateResp.Data.Title)
 	}
-	if updateResp.Data.Status != "published" {
-		t.Errorf("期望 status=published，得到 %s", updateResp.Data.Status)
+	// P0-06：PUT 不得绕过审核门直接置为 published，状态仍应为 draft
+	if updateResp.Data.Status != "draft" {
+		t.Errorf("P0-06 修复后 status 应保持 draft（忽略请求体 Status），得到 %s", updateResp.Data.Status)
 	}
 }
 
 func TestKBHandler_Import_JSONWrapper(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	body := `{"resources":[
@@ -260,7 +261,7 @@ func TestKBHandler_Import_JSONWrapper(t *testing.T) {
 func TestKBHandler_Import_Idempotent(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	body := `{"resources":[
@@ -295,7 +296,7 @@ func TestKBHandler_Import_Idempotent(t *testing.T) {
 func TestKBHandler_Import_HigherVersion(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	body1 := `{"resources":[
@@ -473,7 +474,7 @@ func TestKBHandler_Import_StudentForbidden(t *testing.T) {
 func TestKBHandler_UpdateResource_NotFound(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "c1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "c1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	body := `{"title":"不会找到"}`
@@ -537,7 +538,7 @@ func TestKBHandler_BrowseKnowledge_PaginationBoundary(t *testing.T) {
 func TestKBHandler_BatchRefine_EmptyIDs(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine",
@@ -555,7 +556,7 @@ func TestKBHandler_BatchRefine_EmptyIDs(t *testing.T) {
 func TestKBHandler_BatchRefine_TooMany(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	ids := make([]string, 0, 21)
@@ -591,7 +592,7 @@ func TestKBHandler_BatchRefine_Unauthenticated(t *testing.T) {
 func TestKBHandler_BatchRefine_ResponseShape(t *testing.T) {
 	r, cfg := setupKBTestRouter(t)
 
-	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor"}
+	user := &model.User{ID: 1, Username: "counselor1", Role: "counselor", OwnerScope: "college", OwnerID: "cs", Status: "active"}
 	token, _ := middleware.GenerateToken(cfg, user)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/kb/batch/refine",

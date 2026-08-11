@@ -136,7 +136,7 @@ func TestKBService_ImportResources_SingleValid(t *testing.T) {
 
 	ndjson := `{"resource_id":"imp-1","resource_type":"Policy","title":"导入测试","content":"导入正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -155,8 +155,8 @@ func TestKBService_ImportResources_SingleValid(t *testing.T) {
 	if kb.Title != "导入测试" {
 		t.Errorf("期望 Title=导入测试，得到 %s", kb.Title)
 	}
-	if kb.UpdatedBy != "importer" {
-		t.Errorf("期望 UpdatedBy=importer，得到 %s", kb.UpdatedBy)
+	if kb.UpdatedBy != "admin" {
+		t.Errorf("期望 UpdatedBy=admin，得到 %s", kb.UpdatedBy)
 	}
 }
 
@@ -169,7 +169,7 @@ func TestKBService_ImportResources_MultipleLines(t *testing.T) {
 	ndjson := `{"resource_id":"multi-1","resource_type":"FAQ","title":"FAQ1","content":"正文1","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 {"resource_id":"multi-2","resource_type":"FAQ","title":"FAQ2","content":"正文2","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestKBService_ImportResources_InvalidJSON(t *testing.T) {
 	ndjson := `这不是JSON
 {"resource_id":"valid","resource_type":"Policy","title":"有效","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestKBService_ImportResources_MissingRequiredFields(t *testing.T) {
 	// 缺少 title 和 content
 	ndjson := `{"resource_id":"no-title","resource_type":"Policy","content":"","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestKBService_ImportResources_InvalidResourceType(t *testing.T) {
 
 	ndjson := `{"resource_id":"bad-type","resource_type":"InvalidType","title":"坏类型","content":"正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("ImportResources 失败: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestKBService_ImportResources_VersionUpsert(t *testing.T) {
 	// 先导入 v1.0
 	ndjson := `{"resource_id":"ver-test","resource_type":"Policy","title":"v1标题","content":"v1正文","owner_scope":"school","role_scope":"student","version":"1.0","status":"published"}
 `
-	resp, err := svc.ImportResources(context.Background(), ndjson, "importer")
+	resp, err := svc.ImportResources(context.Background(), ndjson, testAdminCtx())
 	if err != nil {
 		t.Fatalf("首次导入失败: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestKBService_ImportResources_VersionUpsert(t *testing.T) {
 	// 再导入 v2.0（应更新）
 	ndjson2 := `{"resource_id":"ver-test","resource_type":"Policy","title":"v2标题","content":"v2正文","owner_scope":"school","role_scope":"student","version":"2.0","status":"published"}
 `
-	resp2, err := svc.ImportResources(context.Background(), ndjson2, "importer")
+	resp2, err := svc.ImportResources(context.Background(), ndjson2, testAdminCtx())
 	if err != nil {
 		t.Fatalf("二次导入失败: %v", err)
 	}

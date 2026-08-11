@@ -11,11 +11,17 @@ import (
 
 	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/middleware"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/pkg/app"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// P0-04：生产启动缺加密密钥即 fail-fast，禁止敏感字段静默明文落库
+	if err := repository.ValidateEncryptionKey(); err != nil {
+		log.Fatalf("启动失败: %v", err)
+	}
 
 	// 设置运行模式
 	if cfg.AppMode == "release" {

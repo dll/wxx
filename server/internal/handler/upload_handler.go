@@ -173,7 +173,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		Tags:         string(tagsJSON),
 	}
 
-	created, saveErr := h.kbSvc.Create(c.Request.Context(), req, userCtx.Username)
+	created, saveErr := h.kbSvc.Create(c.Request.Context(), req, userCtx)
 
 	resourceID := ""
 	if created != nil {

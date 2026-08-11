@@ -150,7 +150,7 @@ func (h *ExportHandler) ImportPackage(c *gin.Context) {
 		})
 		return
 	}
-	resp, err := h.pkgSvc.ImportPackage(c.Request.Context(), body, userCtx.Username, middleware.GetTraceID(c))
+	resp, err := h.pkgSvc.ImportPackage(c.Request.Context(), body, userCtx, middleware.GetTraceID(c))
 	if err != nil {
 		log.Printf("知识包导入失败 user=%s err=%v", userCtx.Username, err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{
@@ -238,7 +238,7 @@ func (h *ExportHandler) CompleteChunkUpload(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息", TraceID: middleware.GetTraceID(c)})
 		return
 	}
-	resp, err := h.pkgSvc.CompleteChunkUpload(c.Request.Context(), c.Param("upload_id"), userCtx.Username, middleware.GetTraceID(c))
+	resp, err := h.pkgSvc.CompleteChunkUpload(c.Request.Context(), c.Param("upload_id"), userCtx, middleware.GetTraceID(c))
 	if err != nil {
 		log.Printf("complete chunk upload err: %v", err)
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "分片汇总导入失败", TraceID: middleware.GetTraceID(c)})
