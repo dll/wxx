@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/models.dart';
 import '../../providers/personal_detail_provider.dart';
@@ -231,9 +231,12 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              onPressed: () => _openPortal(portal.portalUrl),
+              onPressed: () {
+                Navigator.pop(context);
+                context.push('/portal');
+              },
               icon: const Icon(Icons.open_in_new, size: 16),
-              label: const Text('访问学校门户'),
+              label: const Text('进入学校门户'),
             ),
           ),
         ] else
@@ -334,12 +337,6 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
         ],
       ),
     );
-  }
-
-  Future<void> _openPortal(String url) async {
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {}
   }
 
   Widget _row(ThemeData theme, String label, String value) {

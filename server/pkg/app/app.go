@@ -306,6 +306,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	portalCredSvc := service.NewPortalCredentialService(portalCredRepo)
 	portalCredHandler := handler.NewPortalCredentialHandler(portalCredSvc)
 
+	// 学校门户会话代理（持凭证登录后代理校内页面；凭证仅内存态解密）
+	portalProxySvc := service.NewPortalProxyService(portalCredRepo)
+	portalProxyHandler := handler.NewPortalProxyHandler(portalProxySvc)
+	portalCredHandler.SetProxyService(portalProxySvc)
+
 	// 打卡服务（S1 学生核心功能）
 	checkinRepo := repository.NewCheckinRepo(db)
 	checkinSvc := service.NewCheckinService(checkinRepo)
@@ -382,7 +387,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler, twinPortraitHandler, portalCredHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler, twinPortraitHandler, portalCredHandler, portalProxyHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
 	retentionSvc := service.NewRetentionService(db)
@@ -638,6 +643,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	aiBriefingH *handler.AIBriefingHandler,
 	twinPortraitH *handler.TwinPortraitHandler,
 	portalCredH *handler.PortalCredentialHandler,
+	portalProxyH *handler.PortalProxyHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -928,10 +934,15 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			secured.GET("/user/profile", authH.Profile)
 			secured.GET("/user/profile/detail", authH.ProfileDetail)
+			// 我的操作日志（普通用户查看自己的日志）
+			secured.GET("/user/logs", adminH.MyLogs)
 			// 学校门户凭证（加密存储，密码不回显）
 			secured.GET("/user/portal-credential", portalCredH.Get)
 			secured.PUT("/user/portal-credential", portalCredH.Save)
 			secured.DELETE("/user/portal-credential", portalCredH.Delete)
+			// 学校门户页面代理（持用户门户凭证登录后访问校内各级网站）
+			secured.GET("/user/portal/*path", portalProxyH.Proxy)
+			secured.GET("/user/portal", portalProxyH.Proxy)
 			secured.POST("/auth/qr-confirm", handler.ConfirmQRSession)
 			secured.POST("/user/consent", authH.Consent)
 			secured.PUT("/user/password", authH.ChangePassword)
@@ -959,6 +970,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsers)
 				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
 				admin.DELETE("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.DeleteAudit)
+				// 审计恢复快照（college_admin+ 可查看，sys_admin 可恢复）
+				admin.GET("/audit/snapshots", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListSnapshots)
+				admin.POST("/audit/snapshots/:id/restore", auth.RequireCapability(auth.SystemAuditAll), adminH.RestoreSnapshot)
 
 				admin.PUT("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.UpdateUser)
 				admin.DELETE("/users/:id", auth.RequireCapability(auth.SchoolUserUpdate), adminH.DeleteUser)

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/api_config.dart';
@@ -80,5 +81,26 @@ class PersonalDetailProvider extends ChangeNotifier {
       }
     } catch (_) {}
     return false;
+  }
+
+  /// 通过门户代理访问校内页面（Dio 携带登录态）
+  Future<({int status, String body, String contentType})?> proxyPortal(
+      String path) async {
+    try {
+      final res = await _api.get('${ApiConfig.portalProxy}$path',
+          options: Options(responseType: ResponseType.plain));
+      if (res.statusCode == 200 || res.statusCode == 302) {
+        final st = res.statusCode ?? 0;
+        return (
+          status: st,
+          body: res.data?.toString() ?? '',
+          contentType: res.headers.value('content-type') ?? 'text/html',
+        );
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+    notifyListeners();
+    return null;
   }
 }

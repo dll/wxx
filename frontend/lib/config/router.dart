@@ -10,6 +10,8 @@ import '../pages/home/home_page.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/sessions/sessions_page.dart';
 import '../pages/profile/profile_page.dart';
+import '../pages/profile/my_logs_page.dart';
+import '../pages/profile/portal_browse_page.dart';
 import '../pages/enrollment/enrollment_page.dart';
 import '../pages/browse/browse_page.dart';
 import '../pages/emotion/emotion_dashboard_page.dart';
@@ -215,6 +217,14 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/profile/model-config',
           builder: (context, state) => const ModelConfigPage(),
+        ),
+        GoRoute(
+          path: '/portal',
+          builder: (context, state) => const PortalBrowsePage(),
+        ),
+        GoRoute(
+          path: '/my-logs',
+          builder: (context, state) => const MyLogsPage(),
         ),
         GoRoute(
           path: '/apps',

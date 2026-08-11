@@ -61,8 +61,9 @@ class ApiService {
 
   // ── 通用请求方法 ──
 
-  Future<Response> get(String path, {Map<String, dynamic>? params}) {
-    return _dio.get(path, queryParameters: params);
+  Future<Response> get(String path,
+      {Map<String, dynamic>? params, Options? options}) {
+    return _dio.get(path, queryParameters: params, options: options);
   }
 
   Future<Response> post(String path, {dynamic data}) {

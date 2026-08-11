@@ -11,12 +11,18 @@ import (
 
 // PortalCredentialHandler 学校门户凭证 HTTP handler
 type PortalCredentialHandler struct {
-	svc *service.PortalCredentialService
+	svc       *service.PortalCredentialService
+	proxySvc  *service.PortalProxyService // 可选：凭证变更时失效已建立的代理会话
 }
 
 // NewPortalCredentialHandler 创建门户凭证 handler
 func NewPortalCredentialHandler(svc *service.PortalCredentialService) *PortalCredentialHandler {
 	return &PortalCredentialHandler{svc: svc}
+}
+
+// SetProxyService 注入门户代理服务（凭证变更/删除时同步失效会话）
+func (h *PortalCredentialHandler) SetProxyService(ps *service.PortalProxyService) {
+	h.proxySvc = ps
 }
 
 // Get 查询绑定状态 GET /api/v1/user/portal-credential
@@ -55,6 +61,10 @@ func (h *PortalCredentialHandler) Save(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
 		return
 	}
+	// 凭证已变更，失效旧代理会话
+	if h.proxySvc != nil {
+		h.proxySvc.Invalidate(userCtx.UserID)
+	}
 	// 审计：记录保存/更新门户绑定（不含密码）
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已保存，门户凭证加密存储，仅你本人可见"})
 }
@@ -69,6 +79,9 @@ func (h *PortalCredentialHandler) Delete(c *gin.Context) {
 	if err := h.svc.Delete(userCtx.UserID); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "清除失败"})
 		return
+	}
+	if h.proxySvc != nil {
+		h.proxySvc.Invalidate(userCtx.UserID)
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已清除"})
 }

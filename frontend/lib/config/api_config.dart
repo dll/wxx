@@ -90,6 +90,11 @@ class ApiConfig {
   static const String adminUsersBatchDelete =
       '$apiPrefix/admin/users/batch/delete';
   static const String adminAudit = '$apiPrefix/admin/audit';
+  static const String adminAuditSnapshots = '$apiPrefix/admin/audit/snapshots';
+  static String adminAuditRestore(String id) =>
+      '$apiPrefix/admin/audit/snapshots/$id/restore';
+  // 我的操作日志
+  static const String myLogs = '$apiPrefix/user/logs';
   static const String adminSettings = '$apiPrefix/admin/settings';
 
   // ── 知识管理 ──
@@ -436,6 +441,8 @@ class ApiConfig {
   static const String profileDetail = '$apiPrefix/user/profile/detail';
   // 学校门户凭证（加密存储，密码不回显）
   static const String portalCredential = '$apiPrefix/user/portal-credential';
+  // 学校门户页面代理
+  static const String portalProxy = '$apiPrefix/user/portal';
 
   // ── 第三方应用中心 ──
   static const String externalApps = '$apiPrefix/apps';

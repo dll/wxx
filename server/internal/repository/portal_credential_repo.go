@@ -56,3 +56,8 @@ func (r *PortalCredentialRepo) Delete(userID int64) error {
 	_, err := r.db.Exec("DELETE FROM user_portal_credentials WHERE user_id = ?", userID)
 	return err
 }
+
+// DecryptPortalPassword 解密门户密码（供代理服务登录会话使用；仅内存态，不落日志）
+func DecryptPortalPassword(cipherHex string) (string, error) {
+	return decrypt(cipherHex)
+}
