@@ -32,6 +32,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   final TextEditingController _fLink = TextEditingController();
   final TextEditingController _fKeyword = TextEditingController();
   final TextEditingController _fPublishedAt = TextEditingController();
+  final TextEditingController _fHeat = TextEditingController();
+  final TextEditingController _fReason = TextEditingController();
   String _fCategory = 'ai_teaching';
   int _fStatus = 1;
   int? _editId;
@@ -68,6 +70,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
     _fLink.dispose();
     _fKeyword.dispose();
     _fPublishedAt.dispose();
+    _fHeat.dispose();
+    _fReason.dispose();
     _sName.dispose();
     _sUrl.dispose();
     _sTime.dispose();
@@ -518,6 +522,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
     _fLink.text = b?.link ?? '';
     _fKeyword.text = b?.keyword ?? '';
     _fPublishedAt.text = b?.publishedAt ?? '';
+    _fHeat.text = b == null ? '' : '${b.heat}';
+    _fReason.text = b?.reason ?? '';
     _fStatus = b?.status ?? 1;
 
     showDialog(
@@ -544,6 +550,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
               _textField(_fLink, '详情链接'),
               _textField(_fKeyword, '关键词（逗号分隔）'),
               _textField(_fPublishedAt, '发布时间（YYYY-MM-DD HH:MM:SS）'),
+              _textField(_fHeat, '热度值（整数，热度榜排序依据）'),
+              _textField(_fReason, '推荐理由（展示于信息流）'),
               DropdownButtonFormField<int>(
                 value: _fStatus,
                 decoration: const InputDecoration(labelText: '状态'),

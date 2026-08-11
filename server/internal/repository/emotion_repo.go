@@ -143,8 +143,21 @@ func (r *EmotionRepo) GetStats(ownerScope string, ownerID string, role string) (
 	return stats, nil
 }
 
-// GetByAlertID 根据告警 ID 查询
-func (r *EmotionRepo) GetByAlertID(alertID string) (*model.EmotionLog, error) {
+// GetByAlertID 根据告警 ID 查询。
+// 修复 GPT56SOL v3 P0-05：读路径增加资源范围过滤（JOIN users 按 ownerScope/ownerID/role），
+// 防止跨学院越权读取原始敏感消息文本。role 为 school_admin/sys_admin 时不过滤。
+func (r *EmotionRepo) GetByAlertID(alertID string, ownerScope, ownerID, role string) (*model.EmotionLog, error) {
+	where := "e.alert_id = ?"
+	args := []interface{}{alertID}
+	if role == "counselor" || role == "college_admin" {
+		where += " AND u.owner_scope = ?"
+		args = append(args, ownerScope)
+		if role == "counselor" && ownerID != "" {
+			where += " AND u.owner_id = ?"
+			args = append(args, ownerID)
+		}
+	}
+
 	a := &model.EmotionLog{}
 	err := r.db.QueryRow(
 		`SELECT e.id, e.user_id, e.username, e.session_id, e.alert_id,
@@ -152,7 +165,8 @@ func (r *EmotionRepo) GetByAlertID(alertID string) (*model.EmotionLog, error) {
 		        e.notified, e.status, e.acknowledged_by,
 		        COALESCE(e.acknowledged_at,''), e.created_at
 		 FROM emotion_logs e
-		 WHERE e.alert_id = ?`, alertID,
+		 JOIN users u ON e.user_id = u.id
+		 WHERE `+where, args...,
 	).Scan(
 		&a.ID, &a.UserID, &a.Username, &a.SessionID, &a.AlertID,
 		&a.MessageText, &a.Score, &a.RiskLevel, &a.AnalysisJSON,
@@ -212,20 +226,41 @@ func (r *EmotionRepo) GetTrends(days int, ownerScope, ownerID, role string) ([]*
 	return points, rows.Err()
 }
 
-// UpdateStatus 更新告警状态
-func (r *EmotionRepo) UpdateStatus(alertID string, status string, acknowledgedBy string) error {
-	_, err := r.db.Exec(
+// UpdateStatus 更新告警状态。
+// 修复 GPT56SOL v3 P0-05：写路径增加资源范围谓词（JOIN users 按 ownerScope/ownerID/role），
+// 与读路径 ListAlerts/GetStats/GetTrends 对齐，防止跨学院越权修改他人学院告警。
+// 返回受影响行数：0 表示无匹配（越权或不存在）。
+func (r *EmotionRepo) UpdateStatus(alertID string, status string, acknowledgedBy string, ownerScope, ownerID, role string) (int64, error) {
+	// 范围谓词：仅 counselor/college_admin 需按归属过滤；school_admin/sys_admin 不过滤
+	whereScope := "1=1"
+	scopeArgs := []interface{}{}
+	if role == "counselor" || role == "college_admin" {
+		whereScope += " AND u.owner_scope = ?"
+		scopeArgs = append(scopeArgs, ownerScope)
+		if role == "counselor" && ownerID != "" {
+			whereScope += " AND u.owner_id = ?"
+			scopeArgs = append(scopeArgs, ownerID)
+		}
+	}
+
+	// 占位符顺序：status, ack×3, 外层 alert_id, 子查询 alert_id, 范围参数
+	allArgs := append([]interface{}{status, acknowledgedBy, acknowledgedBy, acknowledgedBy, alertID, alertID}, scopeArgs...)
+	result, err := r.db.Exec(
 		`UPDATE emotion_logs SET
 		 status = ?,
 		 acknowledged_by = CASE WHEN ? != '' THEN ? ELSE acknowledged_by END,
 		 acknowledged_at = CASE WHEN ? != '' THEN datetime('now') ELSE acknowledged_at END
-		 WHERE alert_id = ?`,
-		status, acknowledgedBy, acknowledgedBy, acknowledgedBy, alertID,
+		 WHERE alert_id = ? AND id IN (
+			SELECT e.id FROM emotion_logs e JOIN users u ON e.user_id = u.id
+			WHERE e.alert_id = ? AND `+whereScope+`
+		 )`,
+		allArgs...,
 	)
 	if err != nil {
-		return fmt.Errorf("更新告警状态失败: %w", err)
+		return 0, fmt.Errorf("更新告警状态失败: %w", err)
 	}
-	return nil
+	n, _ := result.RowsAffected()
+	return n, nil
 }
 
 // ListRecentByUser 读取某用户最近 N 条情感分析记录（按时间倒序），供个人心理健康报告使用。

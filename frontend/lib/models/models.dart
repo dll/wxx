@@ -2514,9 +2514,12 @@ class AIBriefing {
   final String content;
   final String link;
   final String keyword;
+  final int heat;
+  final String reason;
   final String publishedAt;
   final String fetchedAt;
   final int status;
+  final bool favorited;
 
   const AIBriefing({
     this.id = 0,
@@ -2527,9 +2530,12 @@ class AIBriefing {
     this.content = '',
     this.link = '',
     this.keyword = '',
+    this.heat = 0,
+    this.reason = '',
     this.publishedAt = '',
     this.fetchedAt = '',
     this.status = 1,
+    this.favorited = false,
   });
 
   factory AIBriefing.fromJson(Map<String, dynamic> json) {
@@ -2542,9 +2548,12 @@ class AIBriefing {
       content: json['content'] ?? '',
       link: json['link'] ?? '',
       keyword: json['keyword'] ?? '',
+      heat: json['heat'] ?? 0,
+      reason: json['reason'] ?? '',
       publishedAt: json['published_at'] ?? '',
       fetchedAt: json['fetched_at'] ?? '',
       status: json['status'] ?? 1,
+      favorited: json['favorited'] == true,
     );
   }
 
@@ -2557,9 +2566,30 @@ class AIBriefing {
         'content': content,
         'link': link,
         'keyword': keyword,
+        'heat': heat,
+        'reason': reason,
         'published_at': publishedAt,
         'status': status,
       };
+
+  AIBriefing copyWith({bool? favorited}) {
+    return AIBriefing(
+      id: id,
+      source: source,
+      category: category,
+      topic: topic,
+      summary: summary,
+      content: content,
+      link: link,
+      keyword: keyword,
+      heat: heat,
+      reason: reason,
+      publishedAt: publishedAt,
+      fetchedAt: fetchedAt,
+      status: status,
+      favorited: favorited ?? this.favorited,
+    );
+  }
 }
 
 /// AI 简讯来源配置

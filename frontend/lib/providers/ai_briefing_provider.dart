@@ -13,12 +13,20 @@ class AIBriefingProvider extends ChangeNotifier {
   bool _userLoaded = false; // 是否已尝试过首次加载（防失败后无限自动重试触发限流）
   String _userError = '';
   List<AIBriefing> _userBriefings = const [];
+  List<AIBriefing> _hotBriefings = const [];
+  List<AIBriefing> _favoriteBriefings = const [];
+  bool _hotLoading = false;
+  bool _favoritesLoading = false;
   String _userCategory = '';
   String _userQ = '';
 
   bool get userLoading => _userLoading;
   String get userError => _userError;
   List<AIBriefing> get userBriefings => _userBriefings;
+  List<AIBriefing> get hotBriefings => _hotBriefings;
+  List<AIBriefing> get favoriteBriefings => _favoriteBriefings;
+  bool get hotLoading => _hotLoading;
+  bool get favoritesLoading => _favoritesLoading;
   String get userCategory => _userCategory;
   /// 是否已完成首次加载（首页卡片据此决定是否自动触发请求）
   bool get userLoaded => _userLoaded;
@@ -51,6 +59,87 @@ class AIBriefingProvider extends ChangeNotifier {
       _userLoading = false;
       notifyListeners();
     }
+  }
+
+  /// 热度榜
+  Future<void> fetchHotBriefings() async {
+    _hotLoading = true;
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.aiBriefingsHot,
+          params: {'limit': 50});
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data is Map ? (res.data as Map)['data'] : res.data;
+        if (data is List) {
+          _hotBriefings = data
+              .whereType<Map>()
+              .map((e) => AIBriefing.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        }
+      }
+    } catch (_) {
+    } finally {
+      _hotLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 我的收藏
+  Future<void> fetchFavoriteBriefings() async {
+    _favoritesLoading = true;
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.aiBriefingsFavorites);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data is Map ? (res.data as Map)['data'] : res.data;
+        if (data is List) {
+          _favoriteBriefings = data
+              .whereType<Map>()
+              .map((e) => AIBriefing.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        }
+      }
+    } catch (_) {
+    } finally {
+      _favoritesLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 收藏/取消收藏并同步三份列表的收藏态
+  Future<bool> toggleFavorite(AIBriefing b) async {
+    final target = !b.favorited;
+    try {
+      final res = target
+          ? await _api.post(ApiConfig.aiBriefingFavorite('${b.id}'))
+          : await _api.delete(ApiConfig.aiBriefingFavorite('${b.id}'));
+      if (res.statusCode != 200) return false;
+    } catch (_) {
+      return false;
+    }
+    _applyFavoriteState(b.id, target);
+    if (target) {
+      _favoriteBriefings = [
+        b.copyWith(favorited: true),
+        ..._favoriteBriefings.where((e) => e.id != b.id),
+      ];
+    } else {
+      _favoriteBriefings =
+          _favoriteBriefings.where((e) => e.id != b.id).toList();
+    }
+    notifyListeners();
+    return true;
+  }
+
+  void _applyFavoriteState(int id, bool favorited) {
+    _userBriefings = [
+      for (final e in _userBriefings)
+        e.id == id ? e.copyWith(favorited: favorited) : e,
+    ];
+    _hotBriefings = [
+      for (final e in _hotBriefings)
+        e.id == id ? e.copyWith(favorited: favorited) : e,
+    ];
   }
 
   // ── 管理端 ──

@@ -10,4 +10,7 @@ var (
 
 	// ErrTokenRevoked JWT 令牌版本旧于数据库权威版本，令牌已被吊销（映射 401）
 	ErrTokenRevoked = errors.New("令牌已被吊销，请重新登录")
+
+	// ErrAlertNotFound 情感告警不存在或不在当前用户范围内（映射 404/403）
+	ErrAlertNotFound = errors.New("告警不存在或无权访问")
 )

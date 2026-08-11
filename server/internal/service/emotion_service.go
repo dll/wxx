@@ -204,21 +204,30 @@ func (s *EmotionService) GetTrendReport(days int, ownerScope, ownerID, role stri
 	return report, nil
 }
 
-// UpdateAlertStatus 更新告警状态（确认/已处理）
-func (s *EmotionService) UpdateAlertStatus(alertID, status, acknowledgedBy string) (*model.EmotionLog, error) {
-	if err := s.emotionRepo.UpdateStatus(alertID, status, acknowledgedBy); err != nil {
+// UpdateAlertStatus 更新告警状态（确认/已处理）。
+// 修复 GPT56SOL v3 P0-05：接收 UserContext，按角色归属范围复核后才允许更新，
+// 防止跨学院越权修改他人告警或读取原始敏感消息文本。
+func (s *EmotionService) UpdateAlertStatus(userCtx *model.UserContext, alertID, status string) (*model.EmotionLog, error) {
+	// 范围谓词校验写路径
+	n, err := s.emotionRepo.UpdateStatus(alertID, status, userCtx.Username,
+		userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role)
+	if err != nil {
 		return nil, err
 	}
+	if n == 0 {
+		return nil, model.ErrAlertNotFound
+	}
 
-	logEntry, err := s.emotionRepo.GetByAlertID(alertID)
+	// 读回（同样带范围过滤，防止越权读取 message_text）
+	logEntry, err := s.emotionRepo.GetByAlertID(alertID, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role)
 	if err != nil {
 		return nil, err
 	}
 	if logEntry == nil {
-		return nil, fmt.Errorf("告警不存在: %s", alertID)
+		return nil, model.ErrAlertNotFound
 	}
 
-	log.Printf("告警状态已更新 alert_id=%s status=%s by=%s", alertID, status, acknowledgedBy)
+	log.Printf("告警状态已更新 alert_id=%s status=%s by=%s", alertID, status, userCtx.Username)
 	return logEntry, nil
 }
 

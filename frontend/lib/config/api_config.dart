@@ -450,6 +450,10 @@ class ApiConfig {
 
   // ── AI 简讯 ──
   static const String aiBriefings = '$apiPrefix/ai-briefings';
+  static const String aiBriefingsHot = '$apiPrefix/ai-briefings/hot';
+  static const String aiBriefingsFavorites = '$apiPrefix/ai-briefings/favorites';
+  static String aiBriefingFavorite(String id) =>
+      '$apiPrefix/ai-briefings/$id/favorite';
   static const String adminAIBriefings = '$apiPrefix/admin/ai-briefings';
   static const String adminAIBriefingStats = '$apiPrefix/admin/ai-briefings/stats';
   static const String adminAIBriefingSources = '$apiPrefix/admin/ai-briefings/sources';

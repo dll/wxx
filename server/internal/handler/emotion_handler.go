@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -192,8 +193,17 @@ func (h *EmotionHandler) UpdateAlert(c *gin.Context) {
 		return
 	}
 
-	logEntry, err := h.emotionSvc.UpdateAlertStatus(alertID, req.Status, userCtx.Username)
+	// P0-05：更新带用户上下文范围复核，防跨学院越权写/越权读原始文本
+	logEntry, err := h.emotionSvc.UpdateAlertStatus(userCtx, alertID, req.Status)
 	if err != nil {
+		if errors.Is(err, model.ErrAlertNotFound) {
+			c.JSON(http.StatusNotFound, model.ErrorResponse{
+				Code:    404,
+				Message: "告警不存在或无权访问",
+				TraceID: middleware.GetTraceID(c),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "更新告警状态失败，请稍后重试",
