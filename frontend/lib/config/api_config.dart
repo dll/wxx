@@ -49,7 +49,8 @@ class ApiConfig {
   static const String knowledge = '$apiPrefix/knowledge';
   static const String knowledgePublic = '$apiPrefix/knowledge/public';
   // 全局功能开关（登录用户可读）
-  static const String publicFeatureSwitches = '$apiPrefix/public/feature-switches';
+  static const String publicFeatureSwitches =
+      '$apiPrefix/public/feature-switches';
 
   // ── 情感预警 ──
   static const String emotionAnalyze = '$apiPrefix/emotion/analyze';
@@ -129,7 +130,8 @@ class ApiConfig {
   static const String feedbackMine = '$apiPrefix/feedback/mine';
   static String feedbackDetail(String id) => '$apiPrefix/feedback/$id';
   static String feedbackResolve(String id) => '$apiPrefix/feedback/$id';
-  static String feedbackAIRepair(String id) => '$apiPrefix/feedback/$id/ai-repair';
+  static String feedbackAIRepair(String id) =>
+      '$apiPrefix/feedback/$id/ai-repair';
   static String feedbackRate(String id) => '$apiPrefix/feedback/$id/rate';
   static String feedbackLogs(String id) => '$apiPrefix/feedback/$id/logs';
   // 管理端
@@ -287,12 +289,14 @@ class ApiConfig {
   static const String graduationTopics =
       '$apiPrefix/graduation/available-topics';
   // 管理端毕设选题 CRUD（学院管理员）
-  static const String graduationAdminTopics = '$apiPrefix/graduation/admin/topics';
+  static const String graduationAdminTopics =
+      '$apiPrefix/graduation/admin/topics';
   // 就业指导管理（学校/学院管理员）
   static const String adminCareerPolicies = '$apiPrefix/career/admin/policies';
   static const String adminCareerJobs = '$apiPrefix/career/admin/jobs';
   // 学科竞赛管理（学校/学院管理员）
-  static const String adminCompetitionList = '$apiPrefix/competition/admin/list';
+  static const String adminCompetitionList =
+      '$apiPrefix/competition/admin/list';
   static const String adminCompetition = '$apiPrefix/competition/admin';
   static const String graduationSelect = '$apiPrefix/graduation/select-topic';
   static const String graduationMySelection =
@@ -408,8 +412,7 @@ class ApiConfig {
       '$apiPrefix/notifications/read-all';
   static const String adminNotificationSend =
       '$apiPrefix/admin/notifications/send';
-  static const String adminNotifications =
-      '$apiPrefix/admin/notifications';
+  static const String adminNotifications = '$apiPrefix/admin/notifications';
   static const String adminNotificationList =
       '$apiPrefix/admin/notifications/list';
 
@@ -436,7 +439,8 @@ class ApiConfig {
   // ── 数字孪生画像 ──
   static const String twinPortraits = '$apiPrefix/twin-portraits';
   static String twinPortrait(String type) => '$apiPrefix/twin-portraits/$type';
-  static const String twinPortraitGenerate = '$apiPrefix/twin-portraits/generate';
+  static const String twinPortraitGenerate =
+      '$apiPrefix/twin-portraits/generate';
 
   // ── 个人详细信息 ──
   static const String profileDetail = '$apiPrefix/user/profile/detail';
@@ -451,16 +455,23 @@ class ApiConfig {
   // ── AI 简讯 ──
   static const String aiBriefings = '$apiPrefix/ai-briefings';
   static const String aiBriefingsHot = '$apiPrefix/ai-briefings/hot';
-  static const String aiBriefingsFavorites = '$apiPrefix/ai-briefings/favorites';
+  static const String aiBriefingsFavorites =
+      '$apiPrefix/ai-briefings/favorites';
   static String aiBriefingFavorite(String id) =>
       '$apiPrefix/ai-briefings/$id/favorite';
   static const String adminAIBriefings = '$apiPrefix/admin/ai-briefings';
-  static const String adminAIBriefingStats = '$apiPrefix/admin/ai-briefings/stats';
-  static const String adminAIBriefingSources = '$apiPrefix/admin/ai-briefings/sources';
-  static const String adminAIBriefingFetch = '$apiPrefix/admin/ai-briefings/fetch';
-  static const String adminAIBriefingExport = '$apiPrefix/admin/ai-briefings/export';
-  static const String adminAIBriefingClear = '$apiPrefix/admin/ai-briefings/clear';
-  static String adminAIBriefing(String id) => '$apiPrefix/admin/ai-briefings/$id';
+  static const String adminAIBriefingStats =
+      '$apiPrefix/admin/ai-briefings/stats';
+  static const String adminAIBriefingSources =
+      '$apiPrefix/admin/ai-briefings/sources';
+  static const String adminAIBriefingFetch =
+      '$apiPrefix/admin/ai-briefings/fetch';
+  static const String adminAIBriefingExport =
+      '$apiPrefix/admin/ai-briefings/export';
+  static const String adminAIBriefingClear =
+      '$apiPrefix/admin/ai-briefings/clear';
+  static String adminAIBriefing(String id) =>
+      '$apiPrefix/admin/ai-briefings/$id';
   static String adminAIBriefingStatus(String id) =>
       '$apiPrefix/admin/ai-briefings/$id/status';
   static String adminAIBriefingSource(String id) =>

@@ -230,8 +230,7 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
       ),
       child: Row(
         children: [
-          Text('已选 ${_selected.length} 条',
-              style: theme.textTheme.bodyMedium),
+          Text('已选 ${_selected.length} 条', style: theme.textTheme.bodyMedium),
           const Spacer(),
           TextButton.icon(
             onPressed: () => _exportSelected('md'),
@@ -283,8 +282,7 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
                 onPressed: _confirmClearAll,
               ),
               const Spacer(),
-              Text('共 ${provider.total} 条',
-                  style: theme.textTheme.bodySmall),
+              Text('共 ${provider.total} 条', style: theme.textTheme.bodySmall),
               const SizedBox(width: 8),
             ],
           );
@@ -329,8 +327,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
                     children: [
                       Expanded(
                         child: Text(b.topic,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
@@ -340,8 +338,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
                   const SizedBox(height: 4),
                   Text(
                     '${AIBriefingCategory.labelOf(b.category)} · 来源：${b.source} · ${b.publishedAt}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -370,8 +368,7 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('编辑')),
                 PopupMenuItem(
-                    value: 'toggle',
-                    child: Text(b.status == 1 ? '下架' : '上架')),
+                    value: 'toggle', child: Text(b.status == 1 ? '下架' : '上架')),
                 const PopupMenuItem(value: 'del', child: Text('删除')),
               ],
             ),
@@ -405,8 +402,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
         const SizedBox(height: 4),
         Text(
           '配置 RSS/Atom 来源与抓取时间，服务将按设定时间自动拉取并入库存档；抓取内容归入对应分类。',
-          style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -486,11 +483,10 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.schedule, size: 14,
-                    color: theme.colorScheme.outline),
+                Icon(Icons.schedule,
+                    size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 4),
-                Text('每日抓取：${s.fetchTime}',
-                    style: theme.textTheme.bodySmall),
+                Text('每日抓取：${s.fetchTime}', style: theme.textTheme.bodySmall),
                 const SizedBox(width: 16),
                 Icon(Icons.sync, size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 4),
@@ -540,10 +536,11 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
                 value: _fCategory,
                 decoration: const InputDecoration(labelText: '分类'),
                 items: AIBriefingCategory.all
-                    .map((c) => DropdownMenuItem(
-                        value: c.key, child: Text(c.label)))
+                    .map((c) =>
+                        DropdownMenuItem(value: c.key, child: Text(c.label)))
                     .toList(),
-                onChanged: (v) => setState(() => _fCategory = v ?? 'ai_teaching'),
+                onChanged: (v) =>
+                    setState(() => _fCategory = v ?? 'ai_teaching'),
               ),
               _textField(_fSummary, '摘要'),
               _textField(_fContent, '正文'),
@@ -565,8 +562,10 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(onPressed: () => _saveBriefing(ctx), child: const Text('保存')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => _saveBriefing(ctx), child: const Text('保存')),
         ],
       ),
     );
@@ -595,10 +594,11 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
                 value: _sCategory,
                 decoration: const InputDecoration(labelText: '抓取归入分类'),
                 items: AIBriefingCategory.all
-                    .map((c) => DropdownMenuItem(
-                        value: c.key, child: Text(c.label)))
+                    .map((c) =>
+                        DropdownMenuItem(value: c.key, child: Text(c.label)))
                     .toList(),
-                onChanged: (v) => setState(() => _sCategory = v ?? 'ai_teaching'),
+                onChanged: (v) =>
+                    setState(() => _sCategory = v ?? 'ai_teaching'),
               ),
               _textField(_sTime, '每日抓取时间（HH:MM）'),
               SwitchListTile(
@@ -615,8 +615,10 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(onPressed: () => _saveSource(ctx), child: const Text('保存')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => _saveSource(ctx), child: const Text('保存')),
         ],
       ),
     );
@@ -670,8 +672,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   void _saveBriefing(BuildContext ctx) {
     final topic = _fTopic.text.trim();
     if (topic.isEmpty) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(content: Text('主题不能为空')));
+      ScaffoldMessenger.of(ctx)
+          .showSnackBar(const SnackBar(content: Text('主题不能为空')));
       return;
     }
     final b = AIBriefing(
@@ -683,6 +685,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
       content: _fContent.text.trim(),
       link: _fLink.text.trim(),
       keyword: _fKeyword.text.trim(),
+      heat: int.tryParse(_fHeat.text.trim()) ?? 0,
+      reason: _fReason.text.trim(),
       publishedAt: _fPublishedAt.text.trim(),
       status: _fStatus,
     );
@@ -691,13 +695,14 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
     ok.then((success) {
       if (success) {
         Navigator.pop(ctx);
-        p.fetchAdminBriefings(status: _status, category: _category, q: _searchCtrl.text.trim());
+        p.fetchAdminBriefings(
+            status: _status, category: _category, q: _searchCtrl.text.trim());
         p.fetchStats();
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('保存成功')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存成功')));
       } else {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(content: Text('保存失败')));
+        ScaffoldMessenger.of(ctx)
+            .showSnackBar(const SnackBar(content: Text('保存失败')));
       }
     });
   }
@@ -705,8 +710,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   void _saveSource(BuildContext ctx) {
     final name = _sName.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(content: Text('来源名称不能为空')));
+      ScaffoldMessenger.of(ctx)
+          .showSnackBar(const SnackBar(content: Text('来源名称不能为空')));
       return;
     }
     final s = AIBriefingSource(
@@ -724,11 +729,11 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
       if (success) {
         Navigator.pop(ctx);
         p.fetchSources();
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('保存成功')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存成功')));
       } else {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(content: Text('保存失败')));
+        ScaffoldMessenger.of(ctx)
+            .showSnackBar(const SnackBar(content: Text('保存失败')));
       }
     });
   }
@@ -736,7 +741,9 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   void _toggleStatus(AIBriefing b) {
     final p = context.read<AIBriefingProvider>();
     p.updateBriefingStatus(b.id, b.status == 1 ? 0 : 1).then((ok) {
-      if (ok) p.fetchAdminBriefings(status: _status, category: _category, q: _searchCtrl.text.trim());
+      if (ok)
+        p.fetchAdminBriefings(
+            status: _status, category: _category, q: _searchCtrl.text.trim());
     });
   }
 
@@ -744,7 +751,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
     final messenger = ScaffoldMessenger.of(context);
     final result = await context.read<AIBriefingProvider>().fetchNow();
     if (result != null) {
-      final summary = result.entries.map((e) => '${e.key}+${e.value}').join(' ');
+      final summary =
+          result.entries.map((e) => '${e.key}+${e.value}').join(' ');
       messenger.showSnackBar(SnackBar(
           content: Text(result.isEmpty ? '抓取完成（无可用来源）' : '抓取完成：$summary')));
       _reload();
@@ -754,7 +762,9 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   }
 
   void _exportAll(String format) {
-    _openExport(context.read<AIBriefingProvider>().exportUrl(format: format, all: true));
+    _openExport(context
+        .read<AIBriefingProvider>()
+        .exportUrl(format: format, all: true));
   }
 
   void _exportSelected(String format) {
@@ -776,11 +786,15 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
         title: const Text('删除资讯'),
         content: Text('确定删除「${b.topic}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.read<AIBriefingProvider>().deleteBriefing(b.id).then((ok) {
+              context
+                  .read<AIBriefingProvider>()
+                  .deleteBriefing(b.id)
+                  .then((ok) {
                 if (ok) _reload();
               });
             },
@@ -798,13 +812,17 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
         title: const Text('批量删除'),
         content: Text('确定删除选中的 ${_selected.length} 条资讯？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               final ids = _selected.toList();
               _selected.clear();
-              context.read<AIBriefingProvider>().deleteManyBriefings(ids).then((ok) {
+              context
+                  .read<AIBriefingProvider>()
+                  .deleteManyBriefings(ids)
+                  .then((ok) {
                 if (ok) {
                   _reload();
                   setState(() {});
@@ -825,7 +843,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
         title: const Text('清空历史'),
         content: const Text('确定清空全部资讯记录？此操作不可恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -847,7 +866,8 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
         title: const Text('删除来源'),
         content: Text('确定删除来源「${s.name}」？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);

@@ -28,6 +28,7 @@ class AIBriefingProvider extends ChangeNotifier {
   bool get hotLoading => _hotLoading;
   bool get favoritesLoading => _favoritesLoading;
   String get userCategory => _userCategory;
+
   /// 是否已完成首次加载（首页卡片据此决定是否自动触发请求）
   bool get userLoaded => _userLoaded;
 
@@ -39,11 +40,10 @@ class AIBriefingProvider extends ChangeNotifier {
     if (q != null) _userQ = q;
     notifyListeners();
     try {
-      final res = await _api.get(ApiConfig.aiBriefings,
-          params: {
-            if (_userCategory.isNotEmpty) 'category': _userCategory,
-            if (_userQ.isNotEmpty) 'q': _userQ,
-          });
+      final res = await _api.get(ApiConfig.aiBriefings, params: {
+        if (_userCategory.isNotEmpty) 'category': _userCategory,
+        if (_userQ.isNotEmpty) 'q': _userQ,
+      });
       if (res.statusCode == 200 && res.data != null) {
         final data = res.data is Map ? (res.data as Map)['data'] : res.data;
         if (data is List) {
@@ -66,8 +66,8 @@ class AIBriefingProvider extends ChangeNotifier {
     _hotLoading = true;
     notifyListeners();
     try {
-      final res = await _api.get(ApiConfig.aiBriefingsHot,
-          params: {'limit': 50});
+      final res =
+          await _api.get(ApiConfig.aiBriefingsHot, params: {'limit': 50});
       if (res.statusCode == 200 && res.data != null) {
         final data = res.data is Map ? (res.data as Map)['data'] : res.data;
         if (data is List) {
@@ -220,8 +220,7 @@ class AIBriefingProvider extends ChangeNotifier {
 
   Future<bool> createBriefing(AIBriefing b) async {
     try {
-      final res =
-          await _api.post(ApiConfig.adminAIBriefings, data: b.toJson());
+      final res = await _api.post(ApiConfig.adminAIBriefings, data: b.toJson());
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -230,8 +229,8 @@ class AIBriefingProvider extends ChangeNotifier {
 
   Future<bool> updateBriefing(AIBriefing b) async {
     try {
-      final res = await _api.put(
-          ApiConfig.adminAIBriefing('${b.id}'), data: b.toJson());
+      final res = await _api.put(ApiConfig.adminAIBriefing('${b.id}'),
+          data: b.toJson());
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -318,7 +317,8 @@ class AIBriefingProvider extends ChangeNotifier {
 
   /// 导出：format=md|pdf, ids=[] 且 all=true 时导出全部
   /// 返回下载 URL（GET 直接触发浏览器下载）
-  String exportUrl({required String format, List<int> ids = const [], bool all = false}) {
+  String exportUrl(
+      {required String format, List<int> ids = const [], bool all = false}) {
     final sb = StringBuffer()
       ..write(ApiConfig.adminAIBriefingExport)
       ..write('?format=$format');

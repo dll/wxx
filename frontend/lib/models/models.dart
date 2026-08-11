@@ -1366,7 +1366,8 @@ class AIRepairResult {
       rootCause: json['root_cause'] ?? '',
       repairHint: json['repair_hint'] ?? '',
       ocrText: json['ocr_text'] ?? '',
-      matchedFiles: (json['matched_files'] as List?)?.cast<String>() ?? const [],
+      matchedFiles:
+          (json['matched_files'] as List?)?.cast<String>() ?? const [],
     );
   }
 }

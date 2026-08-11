@@ -89,8 +89,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                 ? const Center(child: CircularProgressIndicator())
                 : provider.userError.isNotEmpty &&
                         provider.userBriefings.isEmpty
-                    ? _scrollableError(provider.userError, () => provider
-                        .fetchUserBriefings(category: _category))
+                    ? _scrollableError(provider.userError,
+                        () => provider.fetchUserBriefings(category: _category))
                     : provider.userBriefings.isEmpty
                         ? _scrollableEmpty('暂无资讯')
                         : _buildGroupedFeed(theme, provider),
@@ -133,7 +133,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                   const SizedBox(height: 120),
                   _scrollableEmpty('暂无热度数据'),
                 ])
-              :                   ListView(
+              : ListView(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   children: [
                     _buildHotHeader(theme),
@@ -145,16 +145,15 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
   }
 
   Widget _buildHotHeader(ThemeData theme) {
-    final colors = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            colors.brandPrimary.withOpacity(0.12),
-            colors.aiAccent.withOpacity(0.08),
-          ],
+        colors: [
+          AppColors.brandPrimary.withOpacity(0.12),
+          AppColors.aiAccent.withOpacity(0.08),
+        ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -163,7 +162,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
       ),
       child: Row(
         children: [
-          Icon(Icons.local_fire_department, color: colors.attention, size: 22),
+          Icon(Icons.local_fire_department, color: AppColors.attention, size: 22),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -173,8 +172,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700)),
                 Text('按热度值排序，热度越高越受关注',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -238,8 +237,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
             },
             itemBuilder: (_) => [
               const PopupMenuItem(value: '', child: Text('全部分类')),
-              ...AIBriefingCategory.all.map((c) =>
-                  PopupMenuItem(value: c.key, child: Text(c.label))),
+              ...AIBriefingCategory.all.map(
+                  (c) => PopupMenuItem(value: c.key, child: Text(c.label))),
             ],
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -264,7 +263,6 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
 
   /// 信息流卡片（AIHOT 风格：来源 · 时间 · 热度 · 分类 · 标题 · 摘要 · 推荐理由 · 收藏）
   Widget _buildBriefingCard(ThemeData theme, AIBriefing b) {
-    final colors = AppColors.of(context);
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       elevation: 0,
@@ -282,16 +280,15 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
             children: [
               Row(
                 children: [
-                  if (b.source.isNotEmpty)
-                    _sourceBadge(theme, b.source),
+                  if (b.source.isNotEmpty) _sourceBadge(theme, b.source),
                   const SizedBox(width: 8),
                   if (b.heat > 0) ...[
                     Icon(Icons.local_fire_department,
-                        size: 14, color: colors.attention),
+                        size: 14, color: AppColors.attention),
                     const SizedBox(width: 2),
                     Text('${b.heat}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.attention,
+                            color: AppColors.attention,
                             fontWeight: FontWeight.w700)),
                     const SizedBox(width: 8),
                   ],
@@ -321,7 +318,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                     icon: Icon(
                       b.favorited ? Icons.star : Icons.star_border,
                       color: b.favorited
-                          ? colors.attention
+                          ? AppColors.attention
                           : theme.colorScheme.outline,
                     ),
                   ),
@@ -336,8 +333,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                 Text(b.summary,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
               if (b.reason.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -351,8 +348,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                         size: 14, color: theme.colorScheme.primary),
                     const SizedBox(width: 4),
                     Text('阅读原文',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary)),
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: theme.colorScheme.primary)),
                   ],
                 ),
               ],
@@ -380,26 +377,25 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
   }
 
   Widget _reasonBox(ThemeData theme, String reason) {
-    final colors = AppColors.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colors.aiAccent.withOpacity(0.06),
+        color: AppColors.aiAccent.withOpacity(0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.aiAccent.withOpacity(0.25)),
+        border: Border.all(color: AppColors.aiAccent.withOpacity(0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.auto_awesome, size: 15, color: colors.aiAccent),
+          Icon(Icons.auto_awesome, size: 15, color: AppColors.aiAccent),
           const SizedBox(width: 6),
           Expanded(
             child: Text(reason,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant)),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ),
         ],
       ),
@@ -408,8 +404,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
 
   Widget _timeText(ThemeData theme, String publishedAt) {
     return Text(_timeLabel(publishedAt),
-        style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.outline));
+        style: theme.textTheme.labelSmall
+            ?.copyWith(color: theme.colorScheme.outline));
   }
 
   Widget _scrollableError(String message, VoidCallback onRetry) {
@@ -454,20 +450,22 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
     final today = _dateKey(
         '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
     if (dateKey == today) return '今天';
-    final yesterday = _dateKey(now.subtract(const Duration(days: 1))
+    final yesterday = _dateKey(now
+        .subtract(const Duration(days: 1))
         .toIso8601String()
         .substring(0, 10));
     if (dateKey == yesterday) return '昨天';
     final parts = dateKey.split('-');
-    if (parts.length == 3) return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
+    if (parts.length == 3)
+      return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
     return dateKey;
   }
 
   String _weekdayLabel(String dateKey) {
     try {
       final parts = dateKey.split('-');
-      final d = DateTime(int.parse(parts[0]), int.parse(parts[1]),
-          int.parse(parts[2]));
+      final d = DateTime(
+          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
       const week = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
       return week[d.weekday - 1];
     } catch (_) {
@@ -487,8 +485,8 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法打开链接')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法打开链接')));
       }
     }
   }
@@ -513,8 +511,8 @@ class _GroupHeader extends StatelessWidget {
           if (weekday.isNotEmpty) ...[
             const SizedBox(width: 8),
             Text(weekday,
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant)),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ],
           const SizedBox(width: 8),
           Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
