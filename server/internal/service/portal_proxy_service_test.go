@@ -48,3 +48,36 @@ func TestPortalProxy_ProxyWithoutCredential(t *testing.T) {
 		t.Fatalf("错误信息应提示未绑定: %v", err)
 	}
 }
+
+// TestRewriteHTML 校验门户 HTML 链接改写为代理路径
+func TestRewriteHTML(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+	s := NewPortalProxyService(repository.NewPortalCredentialRepo(db))
+
+	html := `<html>
+<a href="/home">首页</a>
+<a href="https://my0.chzu.edu.cn/edu/course">选课</a>
+<a href="/assets/app.js">脚本</a>
+<form action="/login" method="post"></form>
+<img src="/img/logo.png">
+</html>`
+
+	out := string(s.rewriteHTML([]byte(html), "https://my0.chzu.edu.cn/"))
+	if !strings.Contains(out, `href="/api/v1/user/portal/home"`) {
+		t.Errorf("相对链接未改写: %s", out)
+	}
+	if !strings.Contains(out, `href="/api/v1/user/portal/edu/course"`) {
+		t.Errorf("绝对链接未改写: %s", out)
+	}
+	if !strings.Contains(out, `action="/api/v1/user/portal/login"`) {
+		t.Errorf("表单 action 未改写: %s", out)
+	}
+	// 静态资源不应改写
+	if !strings.Contains(out, `src="/img/logo.png"`) {
+		t.Errorf("静态资源不应改写: %s", out)
+	}
+	if !strings.Contains(out, `href="/assets/app.js"`) {
+		t.Errorf("assets 静态资源不应改写: %s", out)
+	}
+}

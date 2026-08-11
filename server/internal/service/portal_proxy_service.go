@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -175,7 +176,60 @@ func (s *PortalProxyService) Proxy(userID int64, path string, query url.Values, 
 			out.Set(k, v)
 		}
 	}
+	// HTML 页面改写内部链接，使其通过代理访问
+	ct := resp.Header.Get("Content-Type")
+	if strings.Contains(ct, "text/html") {
+		body = s.rewriteHTML(body, ss.portalURL)
+	}
 	return resp.StatusCode, out, body, nil
+}
+
+// rewriteHTML 改写 HTML 中的内部链接与表单 action 为代理路径。
+// 目标：门户页内的相对链接与门户域绝对链接都能经 /api/v1/user/portal/* 继续访问。
+func (s *PortalProxyService) rewriteHTML(body []byte, portalURL string) []byte {
+	text := string(body)
+	base := strings.TrimRight(portalURL, "/")
+	proxyPrefix := "/api/v1/user/portal"
+
+	// 1) 门户域绝对链接：https://my0.chzu.edu.cn/xxx → /api/v1/user/portal/xxx
+	text = strings.ReplaceAll(text, base+"/", proxyPrefix+"/")
+	// 裸域名（无协议前缀，如 //my0.chzu.edu.cn/xxx）
+	host := strings.TrimPrefix(strings.TrimPrefix(portalURL, "https://"), "http://")
+	host = strings.Split(host, "/")[0]
+	text = strings.ReplaceAll(text, "//"+host+"/", proxyPrefix+"/")
+
+	// 2) 根路径相对链接：href="/xxx" / action="/xxx" / src="/xxx" → proxy/xxx
+	//    用正则处理避免误伤 CSS/JS 外部资源
+	re := regexp.MustCompile(`(href|action|src)\s*=\s*"/([^"]*)"`)
+	text = re.ReplaceAllStringFunc(text, func(m string) string {
+		// 已带代理前缀的跳过
+		if strings.Contains(m, proxyPrefix) {
+			return m
+		}
+		sub := re.FindStringSubmatch(m)
+		if len(sub) < 3 {
+			return m
+		}
+		attr := sub[1]
+		path := sub[2]
+		// 静态资源(js/css/img)保持相对门户域访问，避免代理会话开销
+		if isStaticResourcePath(path) {
+			return m
+		}
+		return fmt.Sprintf(`%s="%s/%s"`, attr, proxyPrefix, path)
+	})
+	return []byte(text)
+}
+
+// isStaticResourcePath 判断是否为门户静态资源路径
+func isStaticResourcePath(p string) bool {
+	if strings.HasPrefix(p, "assets/") || strings.HasPrefix(p, "static/") ||
+		strings.HasPrefix(p, "js/") || strings.HasPrefix(p, "css/") ||
+		strings.HasPrefix(p, "img/") || strings.HasPrefix(p, "images/") ||
+		strings.HasPrefix(p, "fonts/") || strings.HasPrefix(p, "favicon") {
+		return true
+	}
+	return false
 }
 
 // hostAllowed 判断目标主机是否在允许列表（门户及其子域）
