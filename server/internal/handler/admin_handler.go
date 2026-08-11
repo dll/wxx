@@ -474,6 +474,63 @@ func (h *AdminHandler) DeleteAudit(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": n})
 }
 
+// ListSnapshots 列出可恢复操作快照 GET /api/v1/admin/audit/snapshots
+func (h *AdminHandler) ListSnapshots(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	snaps, err := h.adminSvc.ListSnapshots(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询快照失败"})
+		return
+	}
+	if snaps == nil {
+		snaps = []*model.AuditSnapshot{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": snaps})
+}
+
+// RestoreSnapshot 恢复操作 POST /api/v1/admin/audit/snapshots/:id/restore
+func (h *AdminHandler) RestoreSnapshot(c *gin.Context) {
+	snapID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
+		return
+	}
+	n, err := h.adminSvc.RestoreSnapshot(snapID, userCtx.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "恢复成功", "data": gin.H{"restored": n}})
+}
+
+// MyLogs 当前用户自己的操作日志 GET /api/v1/user/logs
+func (h *AdminHandler) MyLogs(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
+		return
+	}
+	action := c.Query("action")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	logs, total, err := h.adminSvc.ListMyAudit(userCtx.UserID, action, startDate, endDate, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询日志失败"})
+		return
+	}
+	if logs == nil {
+		logs = []*model.AuditLog{}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"list": logs, "total": total},
+	})
+}
+
 // GetSettings 获取系统配置 GET /api/v1/admin/settings
 func (h *AdminHandler) GetSettings(c *gin.Context) {
 	settings, err := h.adminSvc.GetSettings()

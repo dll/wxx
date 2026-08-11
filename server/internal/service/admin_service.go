@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -194,9 +195,30 @@ func (s *AdminService) BatchUpdateStatus(ids []int64, status string, operator st
 	if status != "active" && status != "disabled" {
 		return 0, fmt.Errorf("无效的状态值: %s", status)
 	}
+	// 操作快照（供管理端恢复）：记录受影响用户操作前后的状态
+	// 注意：须在更新前读取 before，更新后再读会得到新状态
+	beforeMap := map[int64]string{}
+	if s.auditRepo != nil {
+		beforeMap, _ = s.userRepo.GetStatusesByIDs(ids)
+	}
 	count, err := s.userRepo.BatchUpdateStatus(ids, status)
 	if err != nil {
 		return 0, err
+	}
+	if s.auditRepo != nil {
+		for _, id := range ids {
+			before := beforeMap[id]
+			if before == "" || before == status {
+				continue
+			}
+			_ = s.auditRepo.CreateSnapshot(&model.AuditSnapshot{
+				OpTable:    "users",
+				RecordID:   fmt.Sprintf("%d", id),
+				Operation:  "user.status",
+				BeforeJSON: before,
+				AfterJSON:  status,
+			})
+		}
 	}
 	log.Printf("批量更新用户状态 count=%d status=%s by=%s", count, status, operator)
 	return count, nil
@@ -260,6 +282,63 @@ func (s *AdminService) DeleteAudit(username, action, resource, startDate, endDat
 // ClearAllAudit 清空全部审计日志。
 func (s *AdminService) ClearAllAudit() error {
 	return s.auditRepo.ClearAll()
+}
+
+// ListMyAudit 查询当前用户自己的操作日志（我的日志）
+func (s *AdminService) ListMyAudit(userID int64, action, startDate, endDate string, page, pageSize int) ([]*model.AuditLog, int, error) {
+	offset, page, pageSize := util.Paginate(page, pageSize)
+	logs, err := s.auditRepo.ListByUser(userID, action, startDate, endDate, offset, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询日志失败: %w", err)
+	}
+	total, err := s.auditRepo.CountByUser(userID, action, startDate, endDate)
+	if err != nil {
+		return nil, 0, fmt.Errorf("统计日志总数失败: %w", err)
+	}
+	return logs, total, nil
+}
+
+// ListSnapshots 列出可恢复的操作快照
+func (s *AdminService) ListSnapshots(limit int) ([]*model.AuditSnapshot, error) {
+	return s.auditRepo.ListSnapshots(limit)
+}
+
+// RestoreSnapshot 恢复操作（按快照回滚到操作前状态）
+// 返回已恢复条数与恢复说明。
+func (s *AdminService) RestoreSnapshot(snapshotID int64, operator string) (int64, error) {
+	snap, err := s.auditRepo.GetSnapshotByID(snapshotID)
+	if err != nil {
+		return 0, err
+	}
+	if snap == nil {
+		return 0, fmt.Errorf("快照不存在")
+	}
+	if snap.Restored == 1 {
+		return 0, fmt.Errorf("该操作已恢复过")
+	}
+
+	switch snap.Operation {
+	case "user.status":
+		// 回滚用户状态到 before（仅当非 sys_admin）
+		id, _ := strconv.ParseInt(snap.RecordID, 10, 64)
+		if id <= 0 {
+			return 0, fmt.Errorf("快照记录标识无效")
+		}
+		before := snap.BeforeJSON
+		if before != "active" && before != "disabled" && before != "rejected" && before != "pending" {
+			return 0, fmt.Errorf("快照状态值非法: %s", before)
+		}
+		if err := s.userRepo.RestoreUserStatus(id, before); err != nil {
+			return 0, err
+		}
+	default:
+		return 0, fmt.Errorf("不支持恢复该操作: %s", snap.Operation)
+	}
+
+	if err := s.auditRepo.MarkSnapshotRestored(snap.ID, operator); err != nil {
+		return 0, err
+	}
+	return 1, nil
 }
 
 // GetSettings 获取所有系统配置

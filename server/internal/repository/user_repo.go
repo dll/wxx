@@ -257,6 +257,49 @@ func (r *UserRepo) GetDistinctValues(column string, role, ownerScope, ownerID st
 }
 
 // BatchUpdateStatus 批量更新用户状态
+// RestoreUserStatus 恢复用户状态到指定值（审计恢复用；sys_admin 不可被恢复操作改动）
+func (r *UserRepo) RestoreUserStatus(id int64, status string) error {
+	res, err := r.db.Exec(
+		"UPDATE users SET status=?, updated_at=datetime('now') WHERE id=? AND role != 'sys_admin'",
+		status, id)
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("未找到可恢复的用户（或为 sys_admin）: id=%d", id)
+	}
+	return nil
+}
+
+// GetStatusesByIDs 批量查询用户当前状态（用于操作快照）
+func (r *UserRepo) GetStatusesByIDs(ids []int64) (map[int64]string, error) {
+	if len(ids) == 0 {
+		return map[int64]string{}, nil
+	}
+	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	rows, err := r.db.Query(
+		"SELECT id, status FROM users WHERE id IN ("+placeholders+")", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := make(map[int64]string, len(ids))
+	for rows.Next() {
+		var id int64
+		var status string
+		if err := rows.Scan(&id, &status); err != nil {
+			return nil, err
+		}
+		m[id] = status
+	}
+	return m, rows.Err()
+}
+
 func (r *UserRepo) BatchUpdateStatus(ids []int64, status string) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil

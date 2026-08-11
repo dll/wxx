@@ -131,6 +131,21 @@ type AuditLog struct {
 	CreatedAt  string `json:"created_at" db:"created_at"`
 }
 
+// AuditSnapshot 审计恢复快照（可恢复的写操作前后状态）
+type AuditSnapshot struct {
+	ID          int64  `json:"id" db:"id"`
+	AuditID     int64  `json:"audit_id" db:"audit_id"`
+	OpTable     string `json:"op_table" db:"op_table"`
+	RecordID    string `json:"record_id" db:"record_id"`
+	Operation   string `json:"operation" db:"operation"`
+	BeforeJSON  string `json:"before_json" db:"before_json"`
+	AfterJSON   string `json:"after_json" db:"after_json"`
+	Restored    int    `json:"restored" db:"restored"`
+	RestoredAt  string `json:"restored_at" db:"restored_at"`
+	RestoredBy  string `json:"restored_by" db:"restored_by"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+}
+
 // EmotionLog 情感评估记录，对应 emotion_logs 表
 type EmotionLog struct {
 	ID             int64   `json:"id" db:"id"`

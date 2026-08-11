@@ -187,3 +187,149 @@ func (r *AuditRepo) ClearAll() error {
 	_, err := r.db.Exec(`DELETE FROM audit_logs`)
 	return err
 }
+
+// ListByUser 查询指定用户自己的操作日志（分页）
+func (r *AuditRepo) ListByUser(userID int64, action, startDate, endDate string, offset, limit int) ([]*model.AuditLog, error) {
+	query := `SELECT id, user_id, username, role, action, resource, detail, trace_id, ip, duration_ms, result_code, created_at
+		FROM audit_logs WHERE user_id = ?`
+	args := []interface{}{userID}
+	if action != "" {
+		query += " AND action = ?"
+		args = append(args, action)
+	}
+	if startDate != "" {
+		query += " AND created_at >= ?"
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		query += " AND created_at <= ?"
+		args = append(args, endDate)
+	}
+	query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []*model.AuditLog
+	for rows.Next() {
+		l := &model.AuditLog{}
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.Role, &l.Action,
+			&l.Resource, &l.Detail, &l.TraceID, &l.IP, &l.DurationMs, &l.ResultCode, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
+}
+
+// CountByUser 统计用户自己的日志总数
+func (r *AuditRepo) CountByUser(userID int64, action, startDate, endDate string) (int, error) {
+	query := `SELECT COUNT(*) FROM audit_logs WHERE user_id = ?`
+	args := []interface{}{userID}
+	if action != "" {
+		query += " AND action = ?"
+		args = append(args, action)
+	}
+	if startDate != "" {
+		query += " AND created_at >= ?"
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		query += " AND created_at <= ?"
+		args = append(args, endDate)
+	}
+	var n int
+	err := r.db.QueryRow(query, args...).Scan(&n)
+	return n, err
+}
+
+// ── 审计恢复快照 ──
+
+const auditSnapshotCols = `id, audit_id, op_table, record_id, operation, before_json, after_json,
+	restored, restored_at, restored_by, created_at`
+
+// CreateSnapshot 记录可恢复操作快照
+func (r *AuditRepo) CreateSnapshot(s *model.AuditSnapshot) error {
+	_, err := r.db.Exec(`
+		INSERT INTO audit_snapshots (audit_id, op_table, record_id, operation, before_json, after_json)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		s.AuditID, s.OpTable, s.RecordID, s.Operation, s.BeforeJSON, s.AfterJSON)
+	return err
+}
+
+// GetSnapshotByAuditID 按审计 ID 查询快照（最新一条）
+func (r *AuditRepo) GetSnapshotByAuditID(auditID int64) (*model.AuditSnapshot, error) {
+	var s model.AuditSnapshot
+	var restoredAt, restoredBy sql.NullString
+	err := r.db.QueryRow(
+		"SELECT "+auditSnapshotCols+" FROM audit_snapshots WHERE audit_id = ? ORDER BY id DESC LIMIT 1",
+		auditID,
+	).Scan(&s.ID, &s.AuditID, &s.OpTable, &s.RecordID, &s.Operation, &s.BeforeJSON,
+		&s.AfterJSON, &s.Restored, &restoredAt, &restoredBy, &s.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	s.RestoredAt = restoredAt.String
+	s.RestoredBy = restoredBy.String
+	return &s, nil
+}
+
+// GetSnapshotByID 按快照 ID 查询
+func (r *AuditRepo) GetSnapshotByID(id int64) (*model.AuditSnapshot, error) {
+	var s model.AuditSnapshot
+	var restoredAt, restoredBy sql.NullString
+	err := r.db.QueryRow(
+		"SELECT "+auditSnapshotCols+" FROM audit_snapshots WHERE id = ?", id,
+	).Scan(&s.ID, &s.AuditID, &s.OpTable, &s.RecordID, &s.Operation, &s.BeforeJSON,
+		&s.AfterJSON, &s.Restored, &restoredAt, &restoredBy, &s.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	s.RestoredAt = restoredAt.String
+	s.RestoredBy = restoredBy.String
+	return &s, nil
+}
+
+// ListSnapshots 列出未恢复的快照（管理端恢复列表）
+func (r *AuditRepo) ListSnapshots(limit int) ([]*model.AuditSnapshot, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := r.db.Query(
+		"SELECT "+auditSnapshotCols+" FROM audit_snapshots WHERE restored = 0 ORDER BY id DESC LIMIT ?", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*model.AuditSnapshot
+	for rows.Next() {
+		s := &model.AuditSnapshot{}
+		var restoredAt, restoredBy sql.NullString
+		if err := rows.Scan(&s.ID, &s.AuditID, &s.OpTable, &s.RecordID, &s.Operation, &s.BeforeJSON,
+			&s.AfterJSON, &s.Restored, &restoredAt, &restoredBy, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		s.RestoredAt = restoredAt.String
+		s.RestoredBy = restoredBy.String
+		list = append(list, s)
+	}
+	return list, rows.Err()
+}
+
+// MarkSnapshotRestored 标记快照已恢复
+func (r *AuditRepo) MarkSnapshotRestored(snapshotID int64, by string) error {
+	_, err := r.db.Exec(
+		"UPDATE audit_snapshots SET restored = 1, restored_at = datetime('now'), restored_by = ? WHERE id = ?",
+		by, snapshotID)
+	return err
+}

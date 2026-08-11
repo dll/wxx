@@ -583,4 +583,80 @@ class AdminProvider extends ChangeNotifier {
     _importResult = null;
     notifyListeners();
   }
+
+  // ── 审计恢复快照 ──
+
+  bool _snapshotsLoading = false;
+  List<AuditSnapshot> _snapshots = const [];
+
+  bool get snapshotsLoading => _snapshotsLoading;
+  List<AuditSnapshot> get snapshots => _snapshots;
+
+  Future<void> fetchSnapshots() async {
+    _snapshotsLoading = true;
+    notifyListeners();
+    try {
+      final response = await _api.get(ApiConfig.adminAuditSnapshots);
+      if (response.data != null && response.data['code'] == 0) {
+        final list = (response.data['data'] as List?)
+                ?.map((e) => AuditSnapshot.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+        _snapshots = list;
+      }
+    } catch (e) {
+      _error = '获取恢复快照失败: $e';
+    } finally {
+      _snapshotsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> restoreSnapshot(int id) async {
+    try {
+      final response =
+          await _api.post(ApiConfig.adminAuditRestore('$id'), data: {});
+      if (response.data != null && response.data['code'] == 0) {
+        await fetchSnapshots();
+        return true;
+      }
+    } catch (e) {
+      _error = '恢复失败: $e';
+    }
+    notifyListeners();
+    return false;
+  }
+
+  // ── 我的日志 ──
+
+  bool _myLogsLoading = false;
+  List<AuditLog> _myLogs = const [];
+  int _myLogsTotal = 0;
+
+  bool get myLogsLoading => _myLogsLoading;
+  List<AuditLog> get myLogs => _myLogs;
+  int get myLogsTotal => _myLogsTotal;
+
+  Future<void> fetchMyLogs({int page = 1, int pageSize = 50}) async {
+    _myLogsLoading = true;
+    notifyListeners();
+    try {
+      final response = await _api.get(ApiConfig.myLogs,
+          params: {'page': page, 'page_size': pageSize});
+      if (response.data != null && response.data['code'] == 0) {
+        final data = response.data['data'] as Map<String, dynamic>?;
+        final list = (data?['list'] as List?)
+                ?.map((e) => AuditLog.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+        _myLogs = list;
+        _myLogsTotal = data?['total'] ?? 0;
+      }
+    } catch (e) {
+      _error = '获取我的日志失败: $e';
+    } finally {
+      _myLogsLoading = false;
+      notifyListeners();
+    }
+  }
 }

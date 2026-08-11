@@ -2795,3 +2795,52 @@ class PortalCredential {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 审计恢复快照
+// ═══════════════════════════════════════════════════════════════
+
+/// 审计恢复快照（可恢复的写操作前后状态）
+class AuditSnapshot {
+  final int id;
+  final int auditId;
+  final String opTable;
+  final String recordId;
+  final String operation;
+  final String beforeJson;
+  final String afterJson;
+  final int restored;
+  final String restoredAt;
+  final String restoredBy;
+  final String createdAt;
+
+  const AuditSnapshot({
+    this.id = 0,
+    this.auditId = 0,
+    this.opTable = '',
+    this.recordId = '',
+    this.operation = '',
+    this.beforeJson = '',
+    this.afterJson = '',
+    this.restored = 0,
+    this.restoredAt = '',
+    this.restoredBy = '',
+    this.createdAt = '',
+  });
+
+  factory AuditSnapshot.fromJson(Map<String, dynamic> json) {
+    return AuditSnapshot(
+      id: json['id'] ?? 0,
+      auditId: json['audit_id'] ?? 0,
+      opTable: json['op_table'] ?? '',
+      recordId: json['record_id'] ?? '',
+      operation: json['operation'] ?? '',
+      beforeJson: json['before_json'] ?? '',
+      afterJson: json['after_json'] ?? '',
+      restored: json['restored'] ?? 0,
+      restoredAt: json['restored_at'] ?? '',
+      restoredBy: json['restored_by'] ?? '',
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+}
