@@ -84,6 +84,7 @@ class PersonalDetailProvider extends ChangeNotifier {
   }
 
   /// 通过门户代理访问校内页面（Dio 携带登录态）
+  /// 返回 status/body/contentType；失败返回 null 并设置友好 _error
   Future<({int status, String body, String contentType})?> proxyPortal(
       String path) async {
     try {
@@ -97,10 +98,47 @@ class PersonalDetailProvider extends ChangeNotifier {
           contentType: res.headers.value('content-type') ?? 'text/html',
         );
       }
+      // 200/302 之外（如 3xx 跳转、4xx）尝试解析后端 message
+      final data = res.data;
+      final msg = _extractMessage(data);
+      _error = msg ?? '门户返回状态 ${res.statusCode}';
     } catch (e) {
-      _error = e.toString();
+      _error = _friendlyError(e);
     }
     notifyListeners();
+    return null;
+  }
+
+  /// 从 Dio 异常中提取后端 message，给出友好提示
+  String _friendlyError(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      final msg = _extractMessage(data);
+      if (msg != null) {
+        // 未绑定 → 明确提示
+        if (msg.contains('未绑定')) {
+          return '未绑定学校门户登录信息，请先到「个人信息」填写学号与密码';
+        }
+        if (msg.contains('登录')) {
+          return '门户登录失败，请检查账号密码是否正确';
+        }
+        return msg;
+      }
+      switch (e.response?.statusCode) {
+        case 400:
+          return '门户请求参数错误';
+        case 502:
+          return '门户暂不可用，请稍后重试';
+      }
+    }
+    return '门户访问失败，请稍后重试';
+  }
+
+  /// 从后端 JSON 响应提取 message 字段
+  String? _extractMessage(Object? data) {
+    if (data is Map && data['message'] != null) {
+      return data['message'].toString();
+    }
     return null;
   }
 }
