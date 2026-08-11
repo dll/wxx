@@ -80,6 +80,81 @@ func (s *AuthService) GetProfile(userID int64) (*model.User, error) {
 	return s.userRepo.GetByID(userID)
 }
 
+// ProfileDetail 个人详细信息聚合：基本信息 + 联系方式 + 组织关系
+type ProfileDetail struct {
+	// 基本信息
+	UserID         int64  `json:"user_id"`
+	Username       string `json:"username"`        // 登录账号
+	DisplayName    string `json:"display_name"`    // 姓名
+	Role           string `json:"role"`            // 角色
+	College        string `json:"college"`         // 学院
+	Major          string `json:"major"`           // 专业
+	ClassName      string `json:"class_name"`      // 班级
+	EnrollmentDate string `json:"enrollment_date"` // 入学时间
+	EnrollmentYear string `json:"enrollment_year"` // 入学年份
+
+	// 联系方式
+	Phone  string `json:"phone"`
+	Wechat string `json:"wechat"`
+	QQ     string `json:"qq"`
+	Email  string `json:"email"`
+
+	// 组织关系（按角色不同）
+	Supervisors  []model.ContactPerson `json:"supervisors"`  // 上级/领导/辅导员
+	Subordinates int                   `json:"subordinates"` // 下级/管辖人数（辅导员带学生数等）
+}
+
+// GetProfileDetail 获取个人详细信息（含组织关系）。
+// 组织关系：学生 → 同学院辅导员；教师/教辅 → 同学院/学校管理员领导；
+// 辅导员 → 所带学生数；管理员 → 管辖用户数。
+func (s *AuthService) GetProfileDetail(userID int64) (*ProfileDetail, error) {
+	u, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, ErrUserNotFound
+	}
+
+	d := &ProfileDetail{
+		UserID:         u.ID,
+		Username:       u.Username,
+		DisplayName:    u.DisplayName,
+		Role:           u.Role,
+		College:        u.College,
+		Major:          u.Major,
+		ClassName:      u.ClassName,
+		EnrollmentDate: u.EnrollmentDate,
+		EnrollmentYear: u.EnrollmentYear,
+		Phone:          u.Phone,
+		Wechat:         u.Wechat,
+		QQ:             u.QQ,
+		Email:          u.Email,
+		Supervisors:    []model.ContactPerson{},
+	}
+
+	switch u.Role {
+	case "student", "student_union":
+		// 学生：查找同学院辅导员作为"我的辅导员"
+		d.Supervisors = s.userRepo.FindRelatedByRole(u.College, "counselor", 3)
+	case "counselor":
+		// 辅导员：学生是下属，领导是学院管理员
+		d.Subordinates = s.userRepo.CountByRoleCollege("student", u.College)
+		d.Supervisors = s.userRepo.FindRelatedByRole(u.College, "college_admin", 3)
+	case "teacher", "assistant":
+		// 教师/教辅：查找同学院管理员领导
+		d.Supervisors = s.userRepo.FindRelatedByRole(u.College, "college_admin", 3)
+	case "college_admin":
+		d.Subordinates = s.userRepo.CountByRoleCollege("", u.College)
+		d.Supervisors = s.userRepo.FindRelatedByRole("", "school_admin", 3)
+	case "school_admin", "sys_admin":
+		d.Subordinates = s.userRepo.CountAllActive()
+		d.Supervisors = s.userRepo.FindRelatedByRole("", "sys_admin", 3)
+	}
+
+	return d, nil
+}
+
 // GuestRegisterEnabled 游客手机注册是否开放（预研期默认关闭，账号走管理员导入）。
 func (s *AuthService) GuestRegisterEnabled() bool {
 	return s.cfg.EnableGuestRegister

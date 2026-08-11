@@ -12,6 +12,7 @@ import '../../utils/capability_utils.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/personal_detail_dialog.dart';
 
 class _ProfileFeature {
   final String key;
@@ -251,6 +252,24 @@ class _ProfilePageState extends State<ProfilePage> {
           // 我的收藏（所有角色可访问）
           _buildMenuCard(
               context, Icons.star_outline, '我的收藏', '查看已收藏的问答记录', '/bookmarks'),
+
+          // 个人信息（弹窗：基本信息/联系方式/组织关系/学校门户绑定）
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.badge_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: const Text('个人信息'),
+              subtitle: const Text('基本信息 · 联系方式 · 组织关系 · 学校门户绑定'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => PersonalDetailDialog.show(context),
+            ),
+          ),
 
           // 我的反馈（所有角色可访问，查看自己提交的反馈与处理结果）
           _buildMenuCard(context, Icons.rate_review, '我的反馈', '查看自己提交的反馈与处理状态',

@@ -13,6 +13,10 @@ type User struct {
 	ClassName      string `json:"class_name" db:"class_name"`           // 班级
 	EnrollmentDate string `json:"enrollment_date" db:"enrollment_date"` // 入学日期
 	EnrollmentYear string `json:"enrollment_year" db:"enrollment_year"` // 入学年份
+	Phone          string `json:"phone" db:"phone"`                     // 手机号
+	Wechat         string `json:"wechat" db:"wechat"`                   // 微信号
+	QQ             string `json:"qq" db:"qq"`                           // QQ
+	Email          string `json:"email" db:"email"`                     // 邮箱
 	PasswordHash   string `json:"-" db:"password_hash"`                 // bcrypt 密码哈希；可登录账号不得为空
 	VoiceEnabled   int    `json:"voice_enabled" db:"voice_enabled"`     // 语音开关：0=关闭 1=开启
 	Status         string `json:"status" db:"status"`                   // active/pending/rejected/disabled
@@ -20,6 +24,17 @@ type User struct {
 	Consented      int    `json:"consented" db:"consented"`             // 是否已同意隐私政策与用户协议：0=否 1=是
 	CreatedAt      string `json:"created_at" db:"created_at"`
 	UpdatedAt      string `json:"updated_at" db:"updated_at"`
+}
+
+// ContactPerson 组织关系联系人（辅导员/领导等）
+type ContactPerson struct {
+	ID       int64  `json:"id" db:"id"`
+	Name     string `json:"name" db:"display_name"`
+	Role     string `json:"role" db:"role"`
+	RoleName string `json:"role_name"`
+	Phone    string `json:"phone" db:"phone"`
+	Wechat   string `json:"wechat" db:"wechat"`
+	Email    string `json:"email" db:"email"`
 }
 
 // Session 会话，对应 sessions 表

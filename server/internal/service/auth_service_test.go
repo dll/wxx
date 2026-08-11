@@ -81,3 +81,45 @@ func TestAuthService_LoginByUsername_RejectsDisabledAccount(t *testing.T) {
 		t.Fatalf("停用账号应被拒绝，得到: %v", err)
 	}
 }
+
+// TestProfileDetail_StudentFindsCounselor 校验学生个人信息详情能聚合出辅导员联系人
+func TestProfileDetail_StudentFindsCounselor(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	t.Cleanup(func() { _ = db.Close() })
+	repo := repository.NewUserRepo(db)
+
+	// 学生（cs 学院）
+	studentHash, _ := bcrypt.GenerateFromPassword([]byte("p1"), bcrypt.MinCost)
+	_, _ = repo.Create(&model.User{
+		Username: "stu1", DisplayName: "张同学", Role: "student",
+		OwnerScope: "college", OwnerID: "cs", PasswordHash: string(studentHash), Status: "active",
+		College: "计算机学院", Major: "软件工程", ClassName: "软工1班",
+	})
+	// 辅导员（cs 学院，应被聚合）
+	counselorHash, _ := bcrypt.GenerateFromPassword([]byte("p2"), bcrypt.MinCost)
+	counID, _ := repo.Create(&model.User{
+		Username: "coun1", DisplayName: "李辅导员", Role: "counselor",
+		OwnerScope: "college", OwnerID: "cs", PasswordHash: string(counselorHash), Status: "active",
+		College: "计算机学院",
+	})
+	// Create 不写入联系方式，用 SQL 补 phone
+	if _, err := db.Exec("UPDATE users SET phone = ? WHERE id = ?", "13800000000", counID); err != nil {
+		t.Fatalf("补 phone 失败: %v", err)
+	}
+
+	svc := NewAuthService(&config.Config{}, repo)
+	stu, _ := repo.GetByUsername("stu1")
+	detail, err := svc.GetProfileDetail(stu.ID)
+	if err != nil {
+		t.Fatalf("GetProfileDetail 失败: %v", err)
+	}
+	if detail.College != "计算机学院" || detail.Major != "软件工程" {
+		t.Fatalf("基本信息不符: %+v", detail)
+	}
+	if len(detail.Supervisors) != 1 || detail.Supervisors[0].Name != "李辅导员" {
+		t.Fatalf("学生应聚合到辅导员: %+v", detail.Supervisors)
+	}
+	if detail.Supervisors[0].Phone != "13800000000" {
+		t.Fatalf("辅导员联系方式未带回: %+v", detail.Supervisors[0])
+	}
+}

@@ -119,6 +119,26 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 	util.Success(c, data)
 }
 
+// ProfileDetail 个人详细信息（基本信息 + 联系方式 + 组织关系）
+// GET /api/v1/user/profile/detail
+func (h *AuthHandler) ProfileDetail(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+	detail, err := h.authSvc.GetProfileDetail(userCtx.UserID)
+	if err != nil {
+		if err == service.ErrUserNotFound {
+			util.FailUnauthorized(c, "用户不存在")
+			return
+		}
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询个人信息失败"})
+		return
+	}
+	util.Success(c, detail)
+}
+
 // Consent 记录用户同意隐私政策与用户协议
 // POST /api/v1/user/consent
 func (h *AuthHandler) Consent(c *gin.Context) {

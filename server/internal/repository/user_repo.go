@@ -21,6 +21,7 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 // userCols 统一 SELECT 列名
 const userCols = `id, username, display_name, role, owner_scope, owner_id,
 	college, major, class_name, enrollment_date, enrollment_year,
+	phone, wechat, qq, email,
 	password_hash, voice_enabled, status, token_version, consented, created_at, updated_at`
 
 // GetByUsername 根据用户名查询用户
@@ -31,6 +32,7 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
 
@@ -51,6 +53,7 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
 
@@ -700,4 +703,65 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateRes
 	}
 
 	return results, nil
+}
+
+// FindRelatedByRole 查找组织关系联系人（可按学院过滤，limit 上限）。
+// 用于「我的辅导员/领导」等展示，按 id 升序返回前 limit 名。
+func (r *UserRepo) FindRelatedByRole(college, role string, limit int) []model.ContactPerson {
+	if limit <= 0 {
+		limit = 3
+	}
+	where := []string{"status = 'active'", "role = ?"}
+	args := []any{role}
+	if strings.TrimSpace(college) != "" {
+		where = append(where, "college = ?")
+		args = append(args, strings.TrimSpace(college))
+	}
+	cond := strings.Join(where, " AND ")
+	rows, err := r.db.Query(
+		"SELECT id, display_name, role, college, phone, wechat, email FROM users WHERE "+cond+" ORDER BY id ASC LIMIT ?",
+		append(args, limit)...,
+	)
+	if err != nil {
+		return []model.ContactPerson{}
+	}
+	defer rows.Close()
+	var list []model.ContactPerson
+	for rows.Next() {
+		var c model.ContactPerson
+		var phone, wechat, email, college sql.NullString
+		if err := rows.Scan(&c.ID, &c.Name, &c.Role, &college, &phone, &wechat, &email); err != nil {
+			continue
+		}
+		c.RoleName = c.Role
+		c.Phone = phone.String
+		c.Wechat = wechat.String
+		c.Email = email.String
+		list = append(list, c)
+	}
+	return list
+}
+
+// CountByRoleCollege 统计某角色在指定学院的人数（college 为空则全校）。
+func (r *UserRepo) CountByRoleCollege(role, college string) int {
+	where := []string{"status = 'active'"}
+	args := []any{}
+	if role != "" {
+		where = append(where, "role = ?")
+		args = append(args, role)
+	}
+	if strings.TrimSpace(college) != "" {
+		where = append(where, "college = ?")
+		args = append(args, strings.TrimSpace(college))
+	}
+	var n int
+	_ = r.db.QueryRow("SELECT COUNT(*) FROM users WHERE "+strings.Join(where, " AND "), args...).Scan(&n)
+	return n
+}
+
+// CountAllActive 统计全部激活用户数。
+func (r *UserRepo) CountAllActive() int {
+	var n int
+	_ = r.db.QueryRow("SELECT COUNT(*) FROM users WHERE status = 'active'").Scan(&n)
+	return n
 }
