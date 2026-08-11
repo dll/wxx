@@ -9,7 +9,7 @@ on:
 jobs:
   redeploy-tar:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
       - name: SSH 下载源码并部署后端
         uses: appleboy/ssh-action@v1
