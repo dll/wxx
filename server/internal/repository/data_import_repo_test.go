@@ -25,8 +25,8 @@ func setupDataImportTestDB(t *testing.T) *DataImportRepo {
 			grade_level TEXT DEFAULT '',
 			passed INTEGER NOT NULL DEFAULT 0,
 			credits_earned REAL NOT NULL DEFAULT 0,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+			updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(user_id, course_id, semester, grade_type)
 		);
 		CREATE TABLE IF NOT EXISTS course_schedules (
@@ -42,7 +42,7 @@ func setupDataImportTestDB(t *testing.T) *DataImportRepo {
 			location TEXT,
 			teacher TEXT,
 			color TEXT DEFAULT '#1565C0',
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(user_id, course_id, weekday, start_period, semester_code)
 		);
 		CREATE TABLE IF NOT EXISTS exam_schedules (
@@ -57,7 +57,7 @@ func setupDataImportTestDB(t *testing.T) *DataImportRepo {
 			location TEXT NOT NULL,
 			seat TEXT DEFAULT '',
 			semester TEXT NOT NULL,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(course_id, exam_type, semester)
 		);
 		CREATE TABLE IF NOT EXISTS users (

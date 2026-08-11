@@ -249,7 +249,7 @@ func (r *EmotionRepo) UpdateStatus(alertID string, status string, acknowledgedBy
 		`UPDATE emotion_logs SET
 		 status = ?,
 		 acknowledged_by = CASE WHEN ? != '' THEN ? ELSE acknowledged_by END,
-		 acknowledged_at = CASE WHEN ? != '' THEN datetime('now') ELSE acknowledged_at END
+		 acknowledged_at = CASE WHEN ? != '' THEN CURRENT_TIMESTAMP ELSE acknowledged_at END
 		 WHERE alert_id = ? AND id IN (
 			SELECT e.id FROM emotion_logs e JOIN users u ON e.user_id = u.id
 			WHERE e.alert_id = ? AND `+whereScope+`

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,21 +20,21 @@ func SyncDB(cfg *config.Config) error {
 	}
 
 	log.Println("正在连接本地 SQLite...")
-	localDB, err := initDB(cfg.SQLitePath)
+	localDB, err := initDB(cfg, cfg.SQLitePath, dbutil.DriverSQLite)
 	if err != nil {
 		return fmt.Errorf("本地 SQLite 连接失败: %w", err)
 	}
 	defer localDB.Close()
 
 	log.Println("正在连接 Turso 云数据库...")
-	remoteDB, err := initDB(dsn)
+	remoteDB, err := initDB(cfg, dsn, dbutil.DriverTurso)
 	if err != nil {
 		return fmt.Errorf("Turso 连接失败: %w", err)
 	}
 	defer remoteDB.Close()
 
 	log.Println("━━━ Phase 1: Schema 迁移（Turso） ━━━")
-	if err := runMigrations(remoteDB, true); err != nil {
+	if err := runMigrations(remoteDB, dbutil.DriverTurso); err != nil {
 		return fmt.Errorf("Turso 迁移失败: %w", err)
 	}
 
@@ -489,7 +490,7 @@ func fixPasswordHashes(db *sql.DB) error {
 	defer tx.Rollback()
 
 	for _, f := range fixes {
-		_, err := tx.Exec("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?", string(newHash), f.id)
+		_, err := tx.Exec("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", string(newHash), f.id)
 		if err != nil {
 			return fmt.Errorf("更新用户 %d 密码失败: %w", f.id, err)
 		}

@@ -260,7 +260,7 @@ func (r *UserRepo) GetDistinctValues(column string, role, ownerScope, ownerID st
 // RestoreUserStatus 恢复用户状态到指定值（审计恢复用；sys_admin 不可被恢复操作改动）
 func (r *UserRepo) RestoreUserStatus(id int64, status string) error {
 	res, err := r.db.Exec(
-		"UPDATE users SET status=?, updated_at=datetime('now') WHERE id=? AND role != 'sys_admin'",
+		"UPDATE users SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND role != 'sys_admin'",
 		status, id)
 	if err != nil {
 		return err
@@ -318,9 +318,9 @@ func (r *UserRepo) BatchUpdateStatus(ids []int64, status string) (int64, error) 
 	}
 	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
 	// 安全修复 S-01：停用/拒绝时递增 token_version 吊销旧令牌；启用等其它状态不动版本。
-	setClause := "status=?, updated_at=datetime('now')"
+	setClause := "status=?, updated_at=CURRENT_TIMESTAMP"
 	if status == "disabled" || status == "rejected" {
-		setClause = "status=?, token_version = token_version + 1, updated_at=datetime('now')"
+		setClause = "status=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP"
 	}
 	query := fmt.Sprintf(`UPDATE users SET %s WHERE id IN (%s) AND role != 'sys_admin'`, setClause, placeholders)
 
@@ -344,7 +344,7 @@ func (r *UserRepo) BatchResetPassword(ids []int64, hash string) (int64, error) {
 	}
 	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
 	// 安全修复 S-01：批量改密递增 token_version，登出相关用户所有旧会话。
-	query := fmt.Sprintf(`UPDATE users SET password_hash=?, token_version = token_version + 1, updated_at=datetime('now') WHERE id IN (%s)`, placeholders)
+	query := fmt.Sprintf(`UPDATE users SET password_hash=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id IN (%s)`, placeholders)
 
 	args := make([]interface{}, 0, len(ids)+1)
 	args = append(args, hash)
@@ -441,7 +441,7 @@ func (r *UserRepo) Count(role, ownerScope, ownerID string) (int, error) {
 // 避免被降权用户凭旧 JWT 继续以原权限访问。
 func (r *UserRepo) Update(user *model.User) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=datetime('now') WHERE id=?`,
+		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		user.Role, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
 	)
 	return err
@@ -499,13 +499,13 @@ func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 func (r *UserRepo) UpdateStatus(userID int64, status string) error {
 	if status == "disabled" || status == "rejected" {
 		_, err := r.db.Exec(
-			`UPDATE users SET status = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
+			`UPDATE users SET status = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 			status, userID,
 		)
 		return err
 	}
 	_, err := r.db.Exec(
-		`UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		status, userID,
 	)
 	return err
@@ -548,7 +548,7 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 
 		// 4) 仅刷新 updated_at 以标记活跃，不写回任何权限字段
 		_, err = r.db.Exec(
-			`UPDATE users SET updated_at=datetime('now') WHERE id=?`,
+			`UPDATE users SET updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 			existing.ID,
 		)
 		return err
@@ -589,7 +589,7 @@ func (r *UserRepo) SetConsented(userID int64, consented bool) error {
 		v = 1
 	}
 	_, err := r.db.Exec(
-		`UPDATE users SET consented = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET consented = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		v, userID,
 	)
 	return err
@@ -599,7 +599,7 @@ func (r *UserRepo) SetConsented(userID int64, consented bool) error {
 // 安全修复 S-01：角色变更递增 token_version 使旧令牌失效。
 func (r *UserRepo) UpdateRole(userID int64, role string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET role = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		role, userID,
 	)
 	return err
@@ -609,7 +609,7 @@ func (r *UserRepo) UpdateRole(userID int64, role string) error {
 // 安全修复 S-01：用户名/角色变更递增 token_version，要求用户以新身份重新登录。
 func (r *UserRepo) UpdateUsernameAndRole(userID int64, username, role string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET username = ?, role = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET username = ?, role = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		username, role, userID,
 	)
 	return err
@@ -662,7 +662,7 @@ func (r *UserRepo) Delete(userID int64) error {
 // 安全修复 S-01：改密递增 token_version，登出该用户所有旧会话（含被盗令牌）。
 func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET password_hash = ?, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET password_hash = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		hash, userID,
 	)
 	return err
@@ -671,7 +671,7 @@ func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 // UpdateVoiceEnabled 更新用户语音开关
 func (r *UserRepo) UpdateVoiceEnabled(userID int64, enabled int) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET voice_enabled = ?, updated_at = datetime('now') WHERE id = ?`,
+		`UPDATE users SET voice_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		enabled, userID,
 	)
 	return err

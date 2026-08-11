@@ -36,8 +36,8 @@ func TestEnrichBriefingWithRealData(t *testing.T) {
 			total_weeks INTEGER NOT NULL DEFAULT 20,
 			week_start_day TEXT DEFAULT 'monday',
 			status TEXT DEFAULT 'active',
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+			updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(academic_year, semester)
 		);
 		CREATE TABLE IF NOT EXISTS academic_calendar_events (
@@ -50,7 +50,7 @@ func TestEnrichBriefingWithRealData(t *testing.T) {
 			week_no INTEGER,
 			affects_classes INTEGER DEFAULT 0,
 			description TEXT,
-			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
 		);
 		CREATE TABLE IF NOT EXISTS course_schedules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +65,7 @@ func TestEnrichBriefingWithRealData(t *testing.T) {
 			location TEXT,
 			teacher TEXT,
 			color TEXT DEFAULT '#1565C0',
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(user_id, course_id, weekday, start_period, semester_code)
 		);
 		CREATE TABLE IF NOT EXISTS study_plans (
@@ -81,8 +81,8 @@ func TestEnrichBriefingWithRealData(t *testing.T) {
 			ai_generated INTEGER DEFAULT 0,
 			status TEXT DEFAULT 'active',
 			linked_plan_id INTEGER,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+			updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
 		);
 		CREATE TABLE IF NOT EXISTS study_plan_tasks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,7 +98,7 @@ func TestEnrichBriefingWithRealData(t *testing.T) {
 			evidence TEXT,
 			reflection TEXT,
 			sort_order INTEGER DEFAULT 0,
-			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			FOREIGN KEY (plan_id) REFERENCES study_plans(id) ON DELETE CASCADE
 		);
 	`)

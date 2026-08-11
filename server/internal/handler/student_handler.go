@@ -1630,7 +1630,7 @@ func (h *StudentHandler) UploadAvatar(c *gin.Context) {
 
 	encoded := base64.StdEncoding.EncodeToString(bytes)
 	if _, err := h.db.Exec(
-		"UPDATE users SET avatar_base64 = ?, avatar_mime = ?, updated_at = datetime('now') WHERE id = ?",
+		"UPDATE users SET avatar_base64 = ?, avatar_mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
 		encoded, mime, userCtx.UserID,
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存头像失败"})

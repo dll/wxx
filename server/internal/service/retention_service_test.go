@@ -71,7 +71,7 @@ func TestRetentionServiceKeepsRecentData(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
 	_, err := db.Exec(`INSERT INTO audit_logs (username, action, resource, detail, trace_id, ip, duration_ms, result_code, created_at)
-		VALUES ('recent_user', 'GET', '/test', '/test', 'trace', '127.0.0.1', 1, 200, datetime('now'))`)
+		VALUES ('recent_user', 'GET', '/test', '/test', 'trace', '127.0.0.1', 1, 200, CURRENT_TIMESTAMP)`)
 	require.NoError(t, err)
 	retention := service.NewRetentionService(db)
 	_, err = retention.RunOnce(context.Background(), 180, 365, 365, 180)

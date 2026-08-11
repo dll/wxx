@@ -170,7 +170,7 @@ func (r *FeedbackRepo) GetByFeedbackID(feedbackID string) (*model.Feedback, erro
 // Update 更新反馈状态和回复
 func (r *FeedbackRepo) Update(fb *model.Feedback) error {
 	_, err := r.db.Exec(
-		`UPDATE feedback SET status=?, resolved_by=?, resolved_at=?, reply=?, updated_at=datetime('now')
+		`UPDATE feedback SET status=?, resolved_by=?, resolved_at=?, reply=?, updated_at=CURRENT_TIMESTAMP
 		 WHERE feedback_id=?`,
 		fb.Status, fb.ResolvedBy, fb.ResolvedAt, fb.Reply, fb.FeedbackID,
 	)
@@ -180,7 +180,7 @@ func (r *FeedbackRepo) Update(fb *model.Feedback) error {
 // UpdateRating 更新满意度评分
 func (r *FeedbackRepo) UpdateRating(feedbackID string, rating int, comment string) error {
 	_, err := r.db.Exec(
-		`UPDATE feedback SET rating=?, rating_comment=?, rated_at=datetime('now'), updated_at=datetime('now')
+		`UPDATE feedback SET rating=?, rating_comment=?, rated_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
 		 WHERE feedback_id=?`,
 		rating, comment, feedbackID,
 	)
@@ -190,7 +190,7 @@ func (r *FeedbackRepo) UpdateRating(feedbackID string, rating int, comment strin
 // LinkResource 关联知识库资源
 func (r *FeedbackRepo) LinkResource(feedbackID, resourceID, note, linkedBy string) error {
 	_, err := r.db.Exec(
-		`UPDATE feedback SET resource_id=?, linked_resource_note=?, linked_by=?, linked_at=datetime('now'), updated_at=datetime('now')
+		`UPDATE feedback SET resource_id=?, linked_resource_note=?, linked_by=?, linked_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
 		 WHERE feedback_id=?`,
 		resourceID, note, linkedBy, feedbackID,
 	)

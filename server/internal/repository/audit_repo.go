@@ -357,7 +357,7 @@ func (r *AuditRepo) ListSnapshots(limit int) ([]*model.AuditSnapshot, error) {
 // MarkSnapshotRestored 标记快照已恢复
 func (r *AuditRepo) MarkSnapshotRestored(snapshotID int64, by string) error {
 	_, err := r.db.Exec(
-		"UPDATE audit_snapshots SET restored = 1, restored_at = datetime('now'), restored_by = ? WHERE id = ?",
+		"UPDATE audit_snapshots SET restored = 1, restored_at = CURRENT_TIMESTAMP, restored_by = ? WHERE id = ?",
 		by, snapshotID)
 	return err
 }

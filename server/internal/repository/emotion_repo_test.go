@@ -32,7 +32,7 @@ func setupEmotionTestDB(t *testing.T) *EmotionRepo {
 		acknowledged_at TEXT    DEFAULT NULL,
 		alert_id        TEXT    NOT NULL DEFAULT '',
 		username        TEXT    NOT NULL DEFAULT '',
-		created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+		created_at      TEXT    NOT NULL DEFAULT (CURRENT_TIMESTAMP)
 	)`)
 
 	// 创建测试用户（ListAlerts 和 GetStats 需要 JOIN users）。

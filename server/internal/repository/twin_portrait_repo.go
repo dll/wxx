@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -63,7 +64,7 @@ func (r *TwinPortraitRepo) ListByUser(userID int64) ([]*model.TwinPortrait, erro
 
 // Upsert 插入或覆盖画像（同用户+同类型幂等）
 func (r *TwinPortraitRepo) Upsert(p *model.TwinPortrait) (int64, error) {
-	res, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO twin_portraits (user_id, prototype_type, prompt_version, image_base64, image_mime, source_photo_base64)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, prototype_type) DO UPDATE SET
@@ -71,7 +72,8 @@ func (r *TwinPortraitRepo) Upsert(p *model.TwinPortrait) (int64, error) {
 			image_base64 = excluded.image_base64,
 			image_mime = excluded.image_mime,
 			source_photo_base64 = excluded.source_photo_base64,
-			created_at = datetime('now')`,
+			created_at = CURRENT_TIMESTAMP`
+	res, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		p.UserID, p.PrototypeType, p.PromptVersion, p.ImageBase64, p.ImageMIME, p.SourcePhotoBase64)
 	if err != nil {
 		return 0, err

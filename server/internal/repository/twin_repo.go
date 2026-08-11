@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+
+	dbutil "github.com/dll/wxx/server/internal/db"
 )
 
 // TwinRepo 个人数字孪生数据访问层
@@ -197,12 +199,12 @@ func (r *TwinRepo) GetSnapshot(userID int64) (*TwinSnapshot, error) {
 
 // UpsertSnapshot 写入/更新快照（按 user_id 唯一）
 func (r *TwinRepo) UpsertSnapshot(s *TwinSnapshot) error {
-	_, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO student_profile_snapshot (
 			user_id, owner_scope, owner_id, college, major, class_name,
 			academic_score, ability_score, ideological_score, emotional_score, social_score,
 			ai_interpretation, gap_analysis, stage_advice, computed_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT(user_id) DO UPDATE SET
 			owner_scope=excluded.owner_scope, owner_id=excluded.owner_id,
 			college=excluded.college, major=excluded.major, class_name=excluded.class_name,
@@ -210,7 +212,8 @@ func (r *TwinRepo) UpsertSnapshot(s *TwinSnapshot) error {
 			ideological_score=excluded.ideological_score, emotional_score=excluded.emotional_score,
 			social_score=excluded.social_score, ai_interpretation=excluded.ai_interpretation,
 			gap_analysis=excluded.gap_analysis, stage_advice=excluded.stage_advice,
-			computed_at=excluded.computed_at, updated_at=datetime('now')`,
+			computed_at=excluded.computed_at, updated_at=CURRENT_TIMESTAMP`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		s.UserID, s.OwnerScope, s.OwnerID, s.College, s.Major, s.ClassName,
 		s.AcademicScore, s.AbilityScore, s.IdeologicalScore, s.EmotionalScore, s.SocialScore,
 		s.AIInterpretation, s.GapAnalysis, s.StageAdvice)

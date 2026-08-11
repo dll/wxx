@@ -5,18 +5,33 @@ import (
 	"fmt"
 	"strings"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/util"
 )
 
-// KBRepo 知识库数据访问（含 FTS5/BM25 全文检索）
+// KBRepo 知识库数据访问（含 FTS5/BM25 全文检索；MySQL 下退化为结构化检索）
 type KBRepo struct {
-	db *sql.DB
+	db    *sql.DB
+	mysql bool // MySQL 方言标志：FTS5/json_each 等 SQLite 特性不可用
 }
 
 // NewKBRepo 创建知识库 repo
 func NewKBRepo(db *sql.DB) *KBRepo {
-	return &KBRepo{db: db}
+	return &KBRepo{db: db, mysql: dbutil.IsMySQL(db)}
+}
+
+// roleScopeCond 生成角色可见性过滤 SQL 片段（按方言）
+// 参数 ? 为用户角色。SQLite 用 JSON1 扩展函数，MySQL 用 JSON_* 函数。
+func (r *KBRepo) roleScopeCond(alias string) string {
+	col := "role_scope"
+	if alias != "" {
+		col = alias + ".role_scope"
+	}
+	if r.mysql {
+		return fmt.Sprintf(`(? IN ('sys_admin','school_admin') OR %s = '' OR (JSON_VALID(%s) AND (JSON_LENGTH(%s) = 0 OR JSON_CONTAINS(%s, JSON_QUOTE(?)))))`, col, col, col, col)
+	}
+	return fmt.Sprintf(`(? IN ('sys_admin','school_admin') OR %s = '' OR (json_valid(%s) AND (json_array_length(%s) = 0 OR EXISTS (SELECT 1 FROM json_each(%s) WHERE value = ?))))`, col, col, col, col)
 }
 
 // KBStats 知识资源统计
@@ -50,6 +65,11 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil
+	}
+
+	// MySQL 无 FTS5 虚拟表：退化为结构化检索（title/tags/category LIKE 匹配）
+	if r.mysql {
+		return r.SearchStructured(query, ownerScope, ownerID, role, limit)
 	}
 
 	// 阶段一：短语精确匹配优先（最高优先级）
@@ -110,8 +130,7 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 
 	likePattern := "%" + query + "%"
 
-	rows, err := r.db.Query(
-		`SELECT
+	sql := `SELECT
 				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
 				kb.role_scope, kb.version, kb.status, kb.title, kb.summary,
 				kb.content, kb.source_link, kb.source_version,
@@ -131,12 +150,11 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 			    OR kb.tags LIKE ?
 			    OR kb.resource_type LIKE ?)
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (? IN ('sys_admin','school_admin')
-			    OR kb.role_scope = ''
-			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND ` + r.roleScopeCond("kb") + `
 			 ORDER BY priority ASC
-			 LIMIT ?`,
-		query, likePattern, likePattern, likePattern,
+			 LIMIT ?`
+
+	rows, err := r.db.Query(sql,
 		query, likePattern, likePattern, likePattern,
 		ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
 	)
@@ -185,9 +203,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (? IN ('sys_admin','school_admin')
-			    OR kb.role_scope = ''
-			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND ` + r.roleScopeCond("kb") + `
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
@@ -465,9 +481,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 			   AND kb.status = 'published'
 			   AND kb.resource_type = 'FAQ'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND (? IN ('sys_admin','school_admin')
-			    OR kb.role_scope = ''
-			    OR (json_valid(kb.role_scope) AND (json_array_length(kb.role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(kb.role_scope) WHERE value = ?))))
+			   AND ` + r.roleScopeCond("kb") + `
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
@@ -499,7 +513,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 // SetStatus 修改资源状态（用于把过时 FAQ 标为 retired）
 func (r *KBRepo) SetStatus(resourceID string, status string) error {
 	_, err := r.db.Exec(
-		`UPDATE kb_resources SET status = ?, updated_at = datetime('now') WHERE resource_id = ?`,
+		`UPDATE kb_resources SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE resource_id = ?`,
 		status, resourceID,
 	)
 	return err
@@ -910,7 +924,7 @@ func (r *KBRepo) Update(kb *model.KBResource) error {
 				resource_type = ?, owner_scope = ?, owner_id = ?, role_scope = ?,
 				version = ?, status = ?, title = ?, summary = ?, content = ?,
 				source_link = ?, source_version = ?, effective_at = ?, expired_at = ?,
-				tags = ?, remark = ?, updated_by = ?, updated_at = datetime('now')
+				tags = ?, remark = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
 			 WHERE resource_id = ?`,
 		kb.ResourceType, kb.OwnerScope, kb.OwnerID, kb.RoleScope,
 		kb.Version, kb.Status, kb.Title, kb.Summary, kb.Content,
@@ -1055,9 +1069,7 @@ func (r *KBRepo) DeleteProcessFull(resourceID string) error {
 func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType string, limit, offset int) (map[string][]*model.KnowledgeCard, int, error) {
 	whereClause := ` WHERE status = 'published'
 		   AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?)) OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
-		   AND (? IN ('sys_admin','school_admin')
-		    OR role_scope = ''
-		    OR (json_valid(role_scope) AND (json_array_length(role_scope) = 0 OR EXISTS (SELECT 1 FROM json_each(role_scope) WHERE value = ?))))`
+		   AND ` + r.roleScopeCond("")
 	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
 	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
 
@@ -1299,7 +1311,7 @@ func (r *KBRepo) BatchUpdateStatus(resourceIDs []string, status string, operator
 		args = append(args, id)
 	}
 	query := fmt.Sprintf(
-		"UPDATE kb_resources SET status = ?, updated_by = ?, updated_at = datetime('now') WHERE resource_id IN (%s)",
+		"UPDATE kb_resources SET status = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE resource_id IN (%s)",
 		strings.Join(placeholders, ","),
 	)
 	result, err := r.db.Exec(query, args...)

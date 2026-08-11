@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
@@ -111,8 +112,7 @@ func (h *EducationHandler) UpsertHealthBasicInfo(c *gin.Context) {
 		weight = *req.WeightKg
 	}
 
-	_, err := h.db.Exec(
-		`INSERT INTO health_basic_info
+	stmt := `INSERT INTO health_basic_info
 		   (user_id, height_cm, weight_kg, blood_type, vision_left, vision_right,
 		    allergies, past_illness, family_history, emergency_contact, emergency_phone, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
@@ -122,7 +122,8 @@ func (h *EducationHandler) UpsertHealthBasicInfo(c *gin.Context) {
 		   vision_right = excluded.vision_right, allergies = excluded.allergies,
 		   past_illness = excluded.past_illness, family_history = excluded.family_history,
 		   emergency_contact = excluded.emergency_contact, emergency_phone = excluded.emergency_phone,
-		   updated_at = datetime('now','localtime')`,
+		   updated_at = datetime('now','localtime')`
+	_, err := h.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(h.db)),
 		userID, height, weight, req.BloodType, req.VisionLeft, req.VisionRight,
 		req.Allergies, req.PastIllness, req.FamilyHistory, req.EmergencyContact, req.EmergencyPhone,
 	)
@@ -547,15 +548,15 @@ func (h *EducationHandler) UpsertHealthDaily(c *gin.Context) {
 		heartRate = *req.HeartRate
 	}
 
-	_, err := h.db.Exec(
-		`INSERT INTO health_daily_records
+	stmt := `INSERT INTO health_daily_records
 		   (user_id, record_date, height_cm, weight_kg, systolic, diastolic, heart_rate, note, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
 		 ON CONFLICT(user_id, record_date) DO UPDATE SET
 		   height_cm = excluded.height_cm, weight_kg = excluded.weight_kg,
 		   systolic = excluded.systolic, diastolic = excluded.diastolic,
 		   heart_rate = excluded.heart_rate, note = excluded.note,
-		   updated_at = datetime('now','localtime')`,
+		   updated_at = datetime('now','localtime')`
+	_, err := h.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(h.db)),
 		userID, req.RecordDate, height, weight, systolic, diastolic, heartRate, req.Note,
 	)
 	if err != nil {
@@ -755,7 +756,7 @@ func (h *EducationHandler) ToggleActivityFavorite(c *gin.Context) {
 
 	if req.Favorite {
 		_, err := h.db.Exec(
-			`INSERT OR IGNORE INTO health_activity_favorites (user_id, activity_id) VALUES (?, ?)`,
+			dbutil.InsertIgnore(dbutil.DriverOf(h.db))+` health_activity_favorites (user_id, activity_id) VALUES (?, ?)`,
 			userID, activityID,
 		)
 		if err != nil {
@@ -795,7 +796,7 @@ func (h *EducationHandler) ToggleActivitySignup(c *gin.Context) {
 
 	if req.Signup {
 		_, err := h.db.Exec(
-			`INSERT OR IGNORE INTO health_activity_signups (user_id, activity_id, status) VALUES (?, ?, 'registered')`,
+			dbutil.InsertIgnore(dbutil.DriverOf(h.db))+` health_activity_signups (user_id, activity_id, status) VALUES (?, ?, 'registered')`,
 			userID, activityID,
 		)
 		if err != nil {

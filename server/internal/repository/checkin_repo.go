@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	dbutil "github.com/dll/wxx/server/internal/db"
 )
 
 // CheckinRepo 学生打卡数据访问层
@@ -29,7 +31,7 @@ type CheckinRecord struct {
 // DoCheckin 执行打卡（幂等，当日重复打卡返回已有记录）
 func (r *CheckinRepo) DoCheckin(userID int64, date, mood, note string) (*CheckinRecord, error) {
 	_, err := r.db.Exec(`
-		INSERT OR IGNORE INTO student_checkins (user_id, check_date, mood, note)
+		`+dbutil.InsertIgnore(dbutil.DriverOf(r.db))+` student_checkins (user_id, check_date, mood, note)
 		VALUES (?, ?, ?, ?)`, userID, date, mood, note)
 	if err != nil {
 		return nil, fmt.Errorf("打卡写入失败: %w", err)

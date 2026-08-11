@@ -205,7 +205,7 @@ func (r *GraduationRepo) UpdateTopic(id int64, fields map[string]interface{}) er
 		return nil
 	}
 	args = append(args, id)
-	query := fmt.Sprintf("UPDATE thesis_topics SET %s, updated_at = datetime('now') WHERE id = ?", strings.Join(setParts, ", "))
+	query := fmt.Sprintf("UPDATE thesis_topics SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ?", strings.Join(setParts, ", "))
 	_, err := r.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("更新选题失败: %w", err)
@@ -331,7 +331,7 @@ func (r *GraduationRepo) CreateSelection(s *model.StudentTopicSelection) (int64,
 // UpdateSelectionStatus 更新选题状态
 func (r *GraduationRepo) UpdateSelectionStatus(id int64, status string) error {
 	now := time.Now().Format(time.RFC3339)
-	_, err := r.db.Exec("UPDATE student_topic_selections SET status = ?, confirmed_at = ?, updated_at = datetime('now') WHERE id = ?", status, now, id)
+	_, err := r.db.Exec("UPDATE student_topic_selections SET status = ?, confirmed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", status, now, id)
 	if err != nil {
 		return fmt.Errorf("更新选题状态失败: %w", err)
 	}

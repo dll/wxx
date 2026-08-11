@@ -73,7 +73,7 @@ func (r *AgentRepo) Update(agentID string, updates map[string]interface{}) error
 		return fmt.Errorf("无更新字段")
 	}
 
-	query := "UPDATE agents SET " + sets + ", updated_at = datetime('now') WHERE agent_id = ?"
+	query := "UPDATE agents SET " + sets + ", updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?"
 	args = append(args, agentID)
 
 	_, err := r.db.Exec(query, args...)

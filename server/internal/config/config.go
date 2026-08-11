@@ -26,6 +26,22 @@ type Config struct {
 	// SQLite
 	SQLitePath string // 数据库文件路径，优先从环境变量 DB_PATH 读取，其次 SQLITE_PATH
 
+	// 数据库方言：sqlite（默认）| mysql | turso（自动识别）
+	// DB_DRIVER=mysql 时使用 MySQL（配合 DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME）
+	DBDriver string
+
+	// MySQL（DB_DRIVER=mysql 时生效）
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+
+	// Redis 缓存（可选；REDIS_ADDR 非空时启用）
+	RedisAddr string // e.g. "localhost:6379"
+	RedisPass string
+	RedisDB   int
+
 	// Turso 云数据库（用于 sync-db 和数据同步）
 	TursoDBUrl   string // libsql://host 格式
 	TursoDBToken string // 认证令牌
@@ -128,6 +144,17 @@ func Load() *Config {
 
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
+		DBDriver: envOr("DB_DRIVER", ""),
+		DBHost:   envOr("DB_HOST", "localhost"),
+		DBPort:   envOr("DB_PORT", "3306"),
+		DBUser:   envOr("DB_USER", "root"),
+		DBPassword: envOr("DB_PASSWORD", ""),
+		DBName:   envOr("DB_NAME", "wxx"),
+
+		RedisAddr: envOr("REDIS_ADDR", ""),
+		RedisPass: envOr("REDIS_PASS", ""),
+		RedisDB:   envIntOr("REDIS_DB", 0),
+
 		FrontendStaticDir:   envOr("FRONTEND_STATIC_DIR", "/opt/wxx/frontend/web"),
 		EnableGuestRegister: envBoolOr("ENABLE_GUEST_REGISTER", false),
 
@@ -226,6 +253,12 @@ func (c *Config) TursoDSN() string {
 	return c.TursoDBUrl + "?authToken=" + c.TursoDBToken
 }
 
+// MySQLDSN 构建 MySQL 连接字符串（go-sql-driver/mysql）
+func (c *Config) MySQLDSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName)
+}
+
 // Validate 集中做配置校验，返回第一个遇到的错误（A-09 增强版）
 func (c *Config) Validate() error {
 	// ── JWT 安全 ──
@@ -251,8 +284,19 @@ func (c *Config) Validate() error {
 	}
 
 	// ── SQLite 路径 ──
-	if c.SQLitePath == "" {
+	// MySQL 方言（DB_DRIVER=mysql）不要求 SQLite 路径
+	if c.DBDriver != "mysql" && c.SQLitePath == "" {
 		return fmt.Errorf("DB_PATH / SQLITE_PATH 不能为空")
+	}
+
+	// ── MySQL 配置（DB_DRIVER=mysql 时必填）──
+	if c.DBDriver == "mysql" {
+		if c.DBHost == "" {
+			return fmt.Errorf("DB_HOST 不能为空（DB_DRIVER=mysql 时需要）")
+		}
+		if c.DBName == "" {
+			return fmt.Errorf("DB_NAME 不能为空（DB_DRIVER=mysql 时需要）")
+		}
 	}
 
 	// ── AppMode 枚举 ──

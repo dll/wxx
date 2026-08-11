@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -40,10 +41,10 @@ func (r *FeedbackRepairRepo) Create(j *model.FeedbackRepairJob) (int64, error) {
 
 // AppendLog 追加一行日志
 func (r *FeedbackRepairRepo) AppendLog(jobID int64, line string) error {
-	_, err := r.db.Exec(
-		`UPDATE feedback_repair_jobs
+	stmt := `UPDATE feedback_repair_jobs
 		 SET log_text = log_text || ?, updated_at = datetime('now','localtime')
-		 WHERE id = ?`,
+		 WHERE id = ?`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		line+"\n", jobID,
 	)
 	return err
@@ -51,10 +52,10 @@ func (r *FeedbackRepairRepo) AppendLog(jobID int64, line string) error {
 
 // UpdateStage 更新阶段
 func (r *FeedbackRepairRepo) UpdateStage(jobID int64, stage string) error {
-	_, err := r.db.Exec(
-		`UPDATE feedback_repair_jobs
+	stmt := `UPDATE feedback_repair_jobs
 		 SET stage = ?, updated_at = datetime('now','localtime')
-		 WHERE id = ?`,
+		 WHERE id = ?`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		stage, jobID,
 	)
 	return err
@@ -62,10 +63,10 @@ func (r *FeedbackRepairRepo) UpdateStage(jobID int64, stage string) error {
 
 // Finalize 结束工单（status + detail）
 func (r *FeedbackRepairRepo) Finalize(jobID int64, status, detail string) error {
-	_, err := r.db.Exec(
-		`UPDATE feedback_repair_jobs
+	stmt := `UPDATE feedback_repair_jobs
 		 SET status = ?, detail = ?, updated_at = datetime('now','localtime')
-		 WHERE id = ?`,
+		 WHERE id = ?`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		status, detail, jobID,
 	)
 	return err
@@ -73,10 +74,10 @@ func (r *FeedbackRepairRepo) Finalize(jobID int64, status, detail string) error 
 
 // SetEditedFiles 记录被修改文件（JSON 数组）
 func (r *FeedbackRepairRepo) SetEditedFiles(jobID int64, filesJSON string) error {
-	_, err := r.db.Exec(
-		`UPDATE feedback_repair_jobs
+	stmt := `UPDATE feedback_repair_jobs
 		 SET edited_files = ?, updated_at = datetime('now','localtime')
-		 WHERE id = ?`,
+		 WHERE id = ?`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		filesJSON, jobID,
 	)
 	return err

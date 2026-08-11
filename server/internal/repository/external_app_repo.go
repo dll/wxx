@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -79,14 +80,15 @@ func (r *ExternalAppRepo) Get(id string) (*model.ExternalApp, error) {
 
 // Create 注册应用（manifest + created_by），返回是否新建成功（已存在则更新）
 func (r *ExternalAppRepo) Create(id, manifest string, enabled int, createdBy int64, now int64) (bool, error) {
-	res, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO external_apps (id, manifest, enabled, created_by, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			manifest = excluded.manifest,
 			enabled = excluded.enabled,
-			updated_at = excluded.updated_at
-	`, id, manifest, enabled, createdBy, now, now)
+			updated_at = excluded.updated_at`
+	res, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
+		id, manifest, enabled, createdBy, now, now)
 	if err != nil {
 		return false, err
 	}

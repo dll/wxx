@@ -3,6 +3,8 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+
+	dbutil "github.com/dll/wxx/server/internal/db"
 )
 
 // PersonalityRepo 学生性格洞察数据访问层
@@ -68,14 +70,14 @@ func (r *PersonalityRepo) GetByUserID(userID int64) (*PersonalityProfile, error)
 
 // Upsert 写入/更新性格画像（按 user_id 唯一）
 func (r *PersonalityRepo) Upsert(p *PersonalityProfile) error {
-	_, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO student_personality (
 			user_id, visual_score, auditory_score, reading_score, kinesthetic_score,
 			openness, conscientiousness, extraversion, agreeableness, neuroticism,
 			personality_type, type_label, description, learning_style,
 			strengths, weaknesses, career_suggestions,
 			raw_answers, data_source, computed_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT(user_id) DO UPDATE SET
 			visual_score=excluded.visual_score, auditory_score=excluded.auditory_score,
 			reading_score=excluded.reading_score, kinesthetic_score=excluded.kinesthetic_score,
@@ -87,7 +89,8 @@ func (r *PersonalityRepo) Upsert(p *PersonalityProfile) error {
 			strengths=excluded.strengths, weaknesses=excluded.weaknesses,
 			career_suggestions=excluded.career_suggestions,
 			raw_answers=excluded.raw_answers, data_source=excluded.data_source,
-			computed_at=excluded.computed_at, updated_at=datetime('now')`,
+			computed_at=excluded.computed_at, updated_at=CURRENT_TIMESTAMP`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		p.UserID, p.VisualScore, p.AuditoryScore, p.ReadingScore, p.KinestheticScore,
 		p.Openness, p.Conscientiousness, p.Extraversion, p.Agreeableness, p.Neuroticism,
 		p.PersonalityType, p.TypeLabel, p.Description, p.LearningStyle,

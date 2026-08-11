@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -77,12 +78,11 @@ func (r *ModelConfigRepo) Upsert(cfg *model.UserModelConfig) error {
 		return err
 	}
 
-	_, err = r.db.Exec(
-		`INSERT INTO user_model_configs (user_id, deepseek_key, deepseek_model, deepseek_temp, deepseek_max_tokens,
+	stmt := `INSERT INTO user_model_configs (user_id, deepseek_key, deepseek_model, deepseek_temp, deepseek_max_tokens,
 		 zhipu_key, zhipu_model, zhipu_temp, zhipu_max_tokens,
 		 xunfei_app_id, xunfei_key, xunfei_secret, xunfei_model, xunfei_temp, xunfei_max_tokens,
 		 default_provider, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		 ON CONFLICT(user_id) DO UPDATE SET
 		 deepseek_key=excluded.deepseek_key,
 		 deepseek_model=excluded.deepseek_model,
@@ -99,7 +99,8 @@ func (r *ModelConfigRepo) Upsert(cfg *model.UserModelConfig) error {
 		 xunfei_temp=excluded.xunfei_temp,
 		 xunfei_max_tokens=excluded.xunfei_max_tokens,
 		 default_provider=excluded.default_provider,
-		 updated_at=datetime('now')`,
+		 updated_at=CURRENT_TIMESTAMP`
+	_, err = r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		cfg.UserID,
 		dk, cfg.DeepseekModel, cfg.DeepseekTemp, cfg.DeepseekMaxTok,
 		zk, cfg.ZhipuModel, cfg.ZhipuTemp, cfg.ZhipuMaxTok,

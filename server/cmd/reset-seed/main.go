@@ -56,7 +56,7 @@ func main() {
 	if allStudents {
 		// 重置全部 student 角色账号（导入的学生学号账号）
 		res, err := tx.Exec(
-			"UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE role = 'student'",
+			"UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE role = 'student'",
 			string(newHash),
 		)
 		if err != nil {
@@ -76,7 +76,7 @@ func main() {
 		}
 		for _, u := range seedUsers {
 			res, err := tx.Exec(
-				"UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE username = ?",
+				"UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
 				string(newHash), u,
 			)
 			if err != nil {
@@ -111,7 +111,7 @@ func main() {
 		n := 0
 		for _, u := range studentUsers {
 			res, err := by.Exec(
-				"UPDATE users SET enrollment_year = ?, updated_at = datetime('now') WHERE username = ?",
+				"UPDATE users SET enrollment_year = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
 				year, u,
 			)
 			if err != nil {

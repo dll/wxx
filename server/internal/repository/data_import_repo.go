@@ -3,6 +3,8 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+
+	dbutil "github.com/dll/wxx/server/internal/db"
 )
 
 // DataImportRepo 阶段三数据导入访问层（成绩 / 课表 / 考试）
@@ -43,13 +45,14 @@ func (r *DataImportRepo) UpsertGrade(g *GradeRow) (bool, error) {
 		return false, fmt.Errorf("成绩存在性检查失败: %w", err)
 	}
 
-	_, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO student_grades (user_id, course_id, course_name, semester, grade_type, score, gpa, grade_level, passed, credits_earned)
 		VALUES (?, ?, ?, ?, 'final', ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, course_id, semester, grade_type) DO UPDATE SET
 			course_name=excluded.course_name, score=excluded.score, gpa=excluded.gpa,
 			grade_level=excluded.grade_level, passed=excluded.passed, credits_earned=excluded.credits_earned,
-			updated_at=datetime('now')`,
+			updated_at=CURRENT_TIMESTAMP`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		g.UserID, g.CourseID, g.CourseName, g.Semester, g.Score, g.GPA, gradeLevel, passed, g.Credits)
 	if err != nil {
 		return false, fmt.Errorf("成绩写入失败: %w", err)
@@ -87,13 +90,14 @@ type ScheduleRow struct {
 
 // UpsertSchedule 幂等写入课表（按 user+course+weekday+period 去重）
 func (r *DataImportRepo) UpsertSchedule(s *ScheduleRow) error {
-	_, err := r.db.Exec(`
+	stmt := `
 		INSERT INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, weeks_pattern, location, teacher)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, course_id, weekday, start_period, semester_code) DO UPDATE SET
 			course_name=excluded.course_name, semester_code=excluded.semester_code,
 			end_period=excluded.end_period, weeks_pattern=excluded.weeks_pattern,
-			location=excluded.location, teacher=excluded.teacher`,
+			location=excluded.location, teacher=excluded.teacher`
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		s.UserID, s.CourseID, s.CourseName, s.SemesterCode, s.Weekday, s.StartPeriod, s.EndPeriod, s.WeeksPattern, s.Location, s.Teacher)
 	if err != nil {
 		return fmt.Errorf("课表写入失败: %w", err)

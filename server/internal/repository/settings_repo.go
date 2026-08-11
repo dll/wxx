@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -19,8 +20,8 @@ func NewSettingsRepo(db *sql.DB) *SettingsRepo {
 // GetAll 获取所有配置项
 func (r *SettingsRepo) GetAll() ([]*model.SystemSetting, error) {
 	rows, err := r.db.Query(
-		`SELECT id, key, value, description, updated_by, created_at, updated_at
-		 FROM system_settings ORDER BY id ASC`,
+		"SELECT id, `key`, `value`, description, updated_by, created_at, updated_at " +
+			"FROM system_settings ORDER BY id ASC",
 	)
 	if err != nil {
 		return nil, err
@@ -41,10 +42,10 @@ func (r *SettingsRepo) GetAll() ([]*model.SystemSetting, error) {
 
 // Upsert 插入或更新配置项
 func (r *SettingsRepo) Upsert(key, value, updatedBy string) error {
-	_, err := r.db.Exec(
-		`INSERT INTO system_settings (key, value, updated_by, updated_at)
-		 VALUES (?, ?, ?, datetime('now'))
-		 ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=datetime('now')`,
+	stmt := "INSERT INTO system_settings (`key`, `value`, updated_by, updated_at) " +
+		"VALUES (?, ?, ?, CURRENT_TIMESTAMP) " +
+		"ON CONFLICT(`key`) DO UPDATE SET `value`=excluded.`value`, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP"
+	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		key, value, updatedBy,
 	)
 	return err
@@ -52,7 +53,7 @@ func (r *SettingsRepo) Upsert(key, value, updatedBy string) error {
 
 // GetByPrefix 获取指定前缀的配置项（如 feature.）
 func (r *SettingsRepo) GetByPrefix(prefix string) (map[string]string, error) {
-	rows, err := r.db.Query(`SELECT key, value FROM system_settings WHERE key LIKE ?`, prefix+"%")
+	rows, err := r.db.Query("SELECT `key`, `value` FROM system_settings WHERE `key` LIKE ?", prefix+"%")
 	if err != nil {
 		return nil, err
 	}

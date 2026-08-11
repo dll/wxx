@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -39,14 +40,15 @@ func (r *PortalCredentialRepo) Upsert(userID int64, portalURL, account, password
 	if err != nil {
 		return err
 	}
-	_, err = r.db.Exec(`
+	stmt := `
 		INSERT INTO user_portal_credentials (user_id, portal_url, portal_account, portal_password_enc)
 		VALUES (?, ?, ?, ?)
 		ON CONFLICT(user_id) DO UPDATE SET
 			portal_url = excluded.portal_url,
 			portal_account = excluded.portal_account,
 			portal_password_enc = excluded.portal_password_enc,
-			updated_at = datetime('now')`,
+			updated_at = CURRENT_TIMESTAMP`
+	_, err = r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		userID, portalURL, account, enc)
 	return err
 }

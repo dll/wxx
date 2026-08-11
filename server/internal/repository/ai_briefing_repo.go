@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"strings"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -140,7 +141,7 @@ func (r *AIBriefingRepo) IsFavorite(userId, briefingId int64) (bool, error) {
 // Favorite 收藏（幂等）
 func (r *AIBriefingRepo) Favorite(userId, briefingId int64) error {
 	_, err := r.db.Exec(
-		"INSERT OR IGNORE INTO ai_briefing_favorites (user_id, briefing_id) VALUES (?, ?)",
+		dbutil.InsertIgnore(dbutil.DriverOf(r.db))+" ai_briefing_favorites (user_id, briefing_id) VALUES (?, ?)",
 		userId, briefingId)
 	return err
 }
@@ -258,7 +259,7 @@ func (r *AIBriefingRepo) CreateMany(items []*model.AIBriefing) (int, error) {
 func (r *AIBriefingRepo) Update(b *model.AIBriefing) error {
 	_, err := r.db.Exec(`
 		UPDATE ai_briefings SET source=?, category=?, topic=?, summary=?, content=?, link=?, keyword=?,
-			heat=?, reason=?, published_at=?, status=?, updated_at=datetime('now') WHERE id=?`,
+			heat=?, reason=?, published_at=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		b.Source, b.Category, b.Topic, b.Summary, b.Content, b.Link, b.Keyword,
 		b.Heat, b.Reason, b.PublishedAt, b.Status, b.ID)
 	return err
@@ -266,7 +267,7 @@ func (r *AIBriefingRepo) Update(b *model.AIBriefing) error {
 
 // UpdateStatus 上下架
 func (r *AIBriefingRepo) UpdateStatus(id int64, status int) error {
-	_, err := r.db.Exec("UPDATE ai_briefings SET status=?, updated_at=datetime('now') WHERE id=?", status, id)
+	_, err := r.db.Exec("UPDATE ai_briefings SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", status, id)
 	return err
 }
 
@@ -410,7 +411,7 @@ func (r *AIBriefingRepo) CreateSource(s *model.AIBriefingSource) (int64, error) 
 func (r *AIBriefingRepo) UpdateSource(s *model.AIBriefingSource) error {
 	_, err := r.db.Exec(`
 		UPDATE ai_briefing_sources SET name=?, url=?, category=?, enabled=?, fetch_enabled=?, fetch_time=?,
-			updated_at=datetime('now') WHERE id=?`,
+			updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		s.Name, s.URL, s.Category, s.Enabled, s.FetchEnabled, s.FetchTime, s.ID)
 	return err
 }

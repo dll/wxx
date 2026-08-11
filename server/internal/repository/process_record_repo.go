@@ -77,7 +77,7 @@ func (r *ProcessRecordRepo) Update(rec *model.ProcessRecord) error {
 	_, err := r.db.Exec(
 		`UPDATE process_records
 		 SET current_step = ?, completed_steps = ?, total_steps = ?,
-		     status = ?, notes = ?, flow_label = ?, updated_at = datetime('now')
+		     status = ?, notes = ?, flow_label = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE record_id = ?`,
 		rec.CurrentStep, rec.CompletedSteps, rec.TotalSteps,
 		rec.Status, rec.Notes, rec.FlowLabel, rec.RecordID,

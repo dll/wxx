@@ -139,11 +139,11 @@ func (r *ForecastRepo) ListForecasts(collegeID string, category string, riskLeve
 
 // UpdateForecastStatus 更新问题预案状态
 func (r *ForecastRepo) UpdateForecastStatus(forecastID string, status string, resolvedBy int64) error {
-	query := `UPDATE issue_forecasts SET status = ?, updated_at = datetime('now')`
+	query := `UPDATE issue_forecasts SET status = ?, updated_at = CURRENT_TIMESTAMP`
 	args := []interface{}{status}
 
 	if status == "resolved" {
-		query += `, resolved_at = datetime('now'), resolved_by = ?`
+		query += `, resolved_at = CURRENT_TIMESTAMP, resolved_by = ?`
 		args = append(args, resolvedBy)
 	}
 

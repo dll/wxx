@@ -98,7 +98,7 @@ func (r *StudentFeaturesRepo) AdminUpdateCompetition(id int64, fields map[string
 		return nil
 	}
 	args = append(args, id)
-	_, err := r.db.Exec(`UPDATE competitions SET `+strings.Join(setParts, ", ")+`, updated_at = datetime('now') WHERE id = ?`, args...)
+	_, err := r.db.Exec(`UPDATE competitions SET `+strings.Join(setParts, ", ")+`, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, args...)
 	return err
 }
 
@@ -237,7 +237,7 @@ func (r *StudentFeaturesRepo) GetMyCompetitionRegistrations(userID int64) ([]map
 
 // SubmitWork 提交作品
 func (r *StudentFeaturesRepo) SubmitWork(regID int64, workTitle, workDesc, workFileURL string) error {
-	_, err := r.db.Exec("UPDATE competition_registrations SET work_title = ?, work_description = ?, work_file_url = ?, status = 'submitted', updated_at = datetime('now') WHERE id = ?", workTitle, workDesc, workFileURL, regID)
+	_, err := r.db.Exec("UPDATE competition_registrations SET work_title = ?, work_description = ?, work_file_url = ?, status = 'submitted', updated_at = CURRENT_TIMESTAMP WHERE id = ?", workTitle, workDesc, workFileURL, regID)
 	return err
 }
 
@@ -360,13 +360,13 @@ func (r *StudentFeaturesRepo) CreatePlan(userID int64, templateID int, title, ca
 
 // UpdatePlanStatus 更新规划状态
 func (r *StudentFeaturesRepo) UpdatePlanStatus(planID int64, status, comment string) error {
-	_, err := r.db.Exec("UPDATE student_plans SET status = ?, reviewer_comment = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", status, comment, planID)
+	_, err := r.db.Exec("UPDATE student_plans SET status = ?, reviewer_comment = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?", status, comment, planID)
 	return err
 }
 
 // UpdatePlanProgress 更新规划进度
 func (r *StudentFeaturesRepo) UpdatePlanProgress(planID int64, progress float64) error {
-	_, err := r.db.Exec("UPDATE student_plans SET progress = ?, updated_at = datetime('now') WHERE id = ?", progress, planID)
+	_, err := r.db.Exec("UPDATE student_plans SET progress = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", progress, planID)
 	return err
 }
 
@@ -432,7 +432,7 @@ func (r *StudentFeaturesRepo) UpdatePartyProgress(userID int64, stage, notes str
 			userID, stage, stage, notes)
 		return err
 	}
-	_, err := r.db.Exec("UPDATE party_progress SET current_stage = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE user_id = ?", stage, stage, notes, userID)
+	_, err := r.db.Exec("UPDATE party_progress SET current_stage = ?, status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", stage, stage, notes, userID)
 	return err
 }
 

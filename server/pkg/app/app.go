@@ -18,13 +18,16 @@ import (
 	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/config"
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/handler"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
+	_ "github.com/go-sql-driver/mysql" // MySQL 驱动（DB_DRIVER=mysql）
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso 云数据库驱动（libsql:// 协议）
 	_ "modernc.org/sqlite"                               // 纯 Go SQLite 驱动（本地文件 + FTS5）
 )
@@ -33,6 +36,9 @@ var (
 	instance http.Handler
 	initOnce sync.Once
 	initErr  error
+
+	// appRedis 进程内 Redis 客户端（REDIS_ADDR 配置时启用；用于缓存等）
+	appRedis *redis.Client
 )
 
 // New 返回完全初始化的 http.Handler，首次调用执行初始化，后续调用返回缓存实例。
@@ -65,10 +71,15 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	// ── 2. 初始化数据库 ──
-	// initDB 自动识别协议：libsql:// → Turso 云数据库，其他 → 本地 SQLite
+	// 方言优先级：DB_DRIVER=mysql → MySQL；DB_PATH 以 libsql:// 开头 → Turso；其他 → 本地 SQLite
+	driver := dbutil.DriverSQLite
 	dbPath := cfg.SQLitePath
+	if cfg.DBDriver == "mysql" {
+		driver = dbutil.DriverMySQL
+	}
 	isTurso := strings.HasPrefix(dbPath, "libsql://")
 	if isTurso {
+		driver = dbutil.DriverTurso
 		// 必须显式失败：TursoDSN 缺令牌时返回空串，若继续走下去会退化成
 		// 本地 SQLite 文件，在无服务器环境表现为「数据静默丢失」。
 		dsn := cfg.TursoDSN()
@@ -82,13 +93,13 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		log.Printf("Vercel 环境：使用配置的数据库路径 %s", dbPath)
 	}
 
-	db, err := initDB(dbPath)
+	db, err := initDB(cfg, dbPath, driver)
 	if err != nil {
 		return nil, err
 	}
 
 	// ── 3. 自动迁移 ──
-	if err := runMigrations(db, isTurso); err != nil {
+	if err := runMigrations(db, driver); err != nil {
 		return nil, err
 	}
 
@@ -97,6 +108,24 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 若缺失或哈希损坏，重置为 wxx123456；已存在的有效哈希保持不变。
 	if err := fixPasswordHashes(db); err != nil {
 		return nil, fmt.Errorf("修复种子账号密码失败: %w", err)
+	}
+
+	// ── 3.6 Redis 缓存（可选）──
+	// REDIS_ADDR 配置时启用；连接失败不阻断启动，仅记录警告（缓存降级为直查 DB）
+	if cfg.RedisAddr != "" {
+		appRedis = redis.NewClient(&redis.Options{
+			Addr:     cfg.RedisAddr,
+			Password: cfg.RedisPass,
+			DB:       cfg.RedisDB,
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		if err := appRedis.Ping(ctx).Err(); err != nil {
+			log.Printf("警告: Redis 连接失败（缓存降级）: %v", err)
+			appRedis = nil
+		} else {
+			log.Printf("Redis 已连接: %s", cfg.RedisAddr)
+		}
+		cancel()
 	}
 
 	// ── 4. 初始化各层依赖 ──
@@ -412,17 +441,22 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 // initDB 初始化数据库连接
 // 自动识别 DSN 协议选择驱动：
-//   - libsql:// 开头 → Turso 云数据库（libsql 驱动，适合 Vercel 等无服务器环境）
-//   - 其他 → 本地 SQLite 文件（modernc.org/sqlite 驱动，适合本地开发/自托管）
-func initDB(dbPath string) (*sql.DB, error) {
+//   - DB_DRIVER=mysql → MySQL（go-sql-driver/mysql）
+//   - libsql:// 开头 → Turso 云数据库（libsql 驱动）
+//   - 其他 → 本地 SQLite 文件（modernc.org/sqlite 驱动）
+func initDB(cfg *config.Config, dbPath string, driver dbutil.Driver) (*sql.DB, error) {
 	var driverName, dsn string
-	isTurso := strings.HasPrefix(dbPath, "libsql://")
 
-	if isTurso {
-		// Turso 云数据库：DSN 直接使用，无需 pragma 参数
+	switch driver {
+	case dbutil.DriverMySQL:
+		driverName = "mysql"
+		dsn = cfg.MySQLDSN()
+		log.Printf("使用 MySQL 数据库: %s@%s:%s/%s", cfg.DBUser, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	case dbutil.DriverTurso:
 		driverName = "libsql"
 		dsn = dbPath
-	} else {
+		log.Printf("使用 Turso 云数据库: %s", dbPath)
+	default:
 		// 本地 SQLite 文件：确保目录存在，附加 pragma 参数
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 			return nil, err
@@ -436,12 +470,13 @@ func initDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// 连接池配置：Turso 支持并发连接，本地 SQLite 限制单连接
-	if isTurso {
-		db.SetMaxOpenConns(5)
+	// 连接池配置：Turso/MySQL 支持并发连接，本地 SQLite 限制单连接
+	switch driver {
+	case dbutil.DriverTurso, dbutil.DriverMySQL:
+		db.SetMaxOpenConns(10)
 		db.SetMaxIdleConns(10)
 		db.SetConnMaxLifetime(time.Minute * 5)
-	} else {
+	default:
 		db.SetMaxOpenConns(1)
 		db.SetMaxIdleConns(2)
 		db.SetConnMaxLifetime(0)
@@ -451,23 +486,37 @@ func initDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	if isTurso {
+	switch driver {
+	case dbutil.DriverMySQL:
+		log.Printf("MySQL 数据库已连接: %s@%s:%s/%s", cfg.DBUser, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	case dbutil.DriverTurso:
 		log.Printf("Turso 云数据库已连接: %s", dbPath)
-	} else {
+	default:
 		log.Printf("SQLite 数据库已连接: %s", dbPath)
 	}
 	return db, nil
 }
 
 // runMigrations 从嵌入的迁移文件执行数据库迁移
-// isTurso=true 时跳过 FTS5 等 Turso 不支持的 SQL 特性
-func runMigrations(db *sql.DB, isTurso bool) error {
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		filename TEXT NOT NULL UNIQUE,
-		executed_at TEXT NOT NULL DEFAULT (datetime('now'))
-	)`); err != nil {
-		return err
+// MySQL 模式：对迁移 SQL 做 SQLite→MySQL 方言转换；FTS5 语句被跳过
+func runMigrations(db *sql.DB, driver dbutil.Driver) error {
+	if driver == dbutil.DriverMySQL {
+		// MySQL 方言的迁移记录表
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
+			id BIGINT PRIMARY KEY AUTO_INCREMENT,
+			filename VARCHAR(255) NOT NULL UNIQUE,
+			executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`); err != nil {
+			return err
+		}
+	} else {
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			filename TEXT NOT NULL UNIQUE,
+			executed_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+		)`); err != nil {
+			return err
+		}
 	}
 
 	entries, err := server.Migrations.ReadDir("migrations")
@@ -499,7 +548,7 @@ func runMigrations(db *sql.DB, isTurso bool) error {
 			return err
 		}
 
-		if err := execSQL(db, string(content), entry.Name(), isTurso); err != nil {
+		if err := execSQL(db, string(content), entry.Name(), driver); err != nil {
 			return err
 		}
 
@@ -520,8 +569,8 @@ func runMigrations(db *sql.DB, isTurso bool) error {
 }
 
 // execSQL 解析并执行 SQL 内容（按分号分割，处理触发器复合语句）
-// isTurso=true 时跳过 FTS5 语句（Turso 不支持虚拟表）
-func execSQL(db *sql.DB, content, filename string, isTurso bool) error {
+// MySQL 模式：逐条做 SQLite→MySQL 方言转换，跳过 FTS5 语句（MySQL 无 FTS5 虚拟表）
+func execSQL(db *sql.DB, content, filename string, driver dbutil.Driver) error {
 	statements := splitSQL(content)
 	for i, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
@@ -529,16 +578,30 @@ func execSQL(db *sql.DB, content, filename string, isTurso bool) error {
 			continue
 		}
 
-		// Turso 不支持 FTS5 虚拟表及其触发器
-		if isTurso && (strings.Contains(strings.ToUpper(stmt), "FTS5") || strings.Contains(strings.ToUpper(stmt), "KB_FTS")) {
-			log.Printf("迁移 %s 第 %d 条语句跳过（Turso 不支持 FTS5）: %.60s...", filename, i+1, stmt)
+		// MySQL/Turso 不支持 FTS5 虚拟表及其触发器，跳过
+		if driver != dbutil.DriverSQLite && (strings.Contains(strings.ToUpper(stmt), "FTS5") || strings.Contains(strings.ToUpper(stmt), "KB_FTS")) {
+			log.Printf("迁移 %s 第 %d 条语句跳过（%s 不支持 FTS5）: %.60s...", filename, i+1, driver, stmt)
 			continue
+		}
+
+		// SQLite → MySQL 方言转换
+		if driver == dbutil.DriverMySQL {
+			stmt = dbutil.ToMySQL(stmt)
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
 		}
 
 		if _, err := db.Exec(stmt); err != nil {
 			// ALTER TABLE ADD COLUMN 重复列名视为非致命错误（列已存在 = 目标状态）
 			if isDuplicateColumnError(err) && strings.Contains(strings.ToUpper(stmt), "ALTER TABLE") {
 				log.Printf("迁移 %s 第 %d 条语句跳过（列已存在）: %v", filename, i+1, err)
+				continue
+			}
+			// 重复索引（MySQL 1061 Duplicate key name / SQLite already exists）
+			if isDuplicateIndexError(err) && strings.Contains(strings.ToUpper(stmt), "CREATE INDEX") {
+				log.Printf("迁移 %s 第 %d 条语句跳过（索引已存在）: %v", filename, i+1, err)
 				continue
 			}
 			log.Printf("迁移 %s 第 %d 条语句失败: %v", filename, i+1, err)
@@ -548,17 +611,27 @@ func execSQL(db *sql.DB, content, filename string, isTurso bool) error {
 	return nil
 }
 
-// isDuplicateColumnError 检测 SQLite "duplicate column name" 错误
+// isDuplicateColumnError 检测 "duplicate column name" 错误（SQLite 小写 / MySQL 大写）
 func isDuplicateColumnError(err error) bool {
 	if err == nil {
 		return false
 	}
-	msg := err.Error()
+	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "duplicate column name") ||
 		strings.Contains(msg, "duplicate column")
 }
 
-// splitSQL 按分号分割 SQL 语句，正确处理触发器复合语句
+// isDuplicateIndexError 检测重复索引错误（MySQL 1061 Duplicate key name / SQLite）
+func isDuplicateIndexError(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "duplicate key name") ||
+		strings.Contains(lower, "already exists")
+}
+
+// splitSQL 按分号分割 SQL 语句，正确处理触发器复合语句与行尾注释（`; -- 注释`）
 func splitSQL(content string) []string {
 	var statements []string
 	var current strings.Builder
@@ -575,6 +648,16 @@ func splitSQL(content string) []string {
 			inTrigger = true
 		}
 
+		// 语句结束判定基于"去掉行尾注释后的内容"：
+		// 例如 `ALTER TABLE ... DEFAULT '[]';  -- JSON 数组` 应以 `;` 结束语句。
+		base := trimmed
+		if idx := strings.LastIndex(base, ";"); idx >= 0 {
+			after := strings.TrimSpace(base[idx+1:])
+			if after == "" || strings.HasPrefix(after, "--") {
+				base = base[:idx+1]
+			}
+		}
+
 		current.WriteString(line)
 		current.WriteString("\n")
 
@@ -585,7 +668,7 @@ func splitSQL(content string) []string {
 			continue
 		}
 
-		if !inTrigger && strings.HasSuffix(trimmed, ";") {
+		if !inTrigger && strings.HasSuffix(base, ";") {
 			statements = append(statements, current.String())
 			current.Reset()
 		}
@@ -1446,17 +1529,33 @@ func healthHandler(db *sql.DB) gin.HandlerFunc {
 			dbLatency = time.Since(t0).String()
 		}
 
-		// FTS5 可用性
+		// FTS5 可用性（MySQL 无 FTS5 虚拟表，报 unavailable）
 		ftsStatus := "ok"
-		var ftsCheck int
-		if err := db.QueryRow("SELECT 1 FROM kb_fts LIMIT 1").Scan(&ftsCheck); err != nil {
-			ftsStatus = "unavailable"
+		if !dbutil.IsMySQL(db) {
+			var ftsCheck int
+			if err := db.QueryRow("SELECT 1 FROM kb_fts LIMIT 1").Scan(&ftsCheck); err != nil {
+				ftsStatus = "unavailable"
+			}
+		} else {
+			ftsStatus = "unavailable (mysql)"
 		}
 
 		// LLM API 配置（仅检查 key 是否配置，不实际调用）
 		llmStatus := "configured"
 		if os.Getenv("ZHIPU_API_KEY") == "" && os.Getenv("DEEPSEEK_API_KEY") == "" && os.Getenv("SPARK_API_KEY") == "" {
 			llmStatus = "no_api_key"
+		}
+
+		// Redis 状态（可选组件）
+		redisStatus := "disabled"
+		if appRedis != nil {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+			defer cancel()
+			if err := appRedis.Ping(ctx).Err(); err != nil {
+				redisStatus = "error: " + err.Error()
+			} else {
+				redisStatus = "ok"
+			}
 		}
 
 		// 总体状态
@@ -1471,9 +1570,10 @@ func healthHandler(db *sql.DB) gin.HandlerFunc {
 			"version": "0.0.1",
 			"uptime":  time.Since(startTime).String(),
 			"dependencies": gin.H{
-				"sqlite":  gin.H{"status": dbStatus, "latency": dbLatency},
-				"fts5":    gin.H{"status": ftsStatus},
-				"llm_api": gin.H{"status": llmStatus},
+				"database": gin.H{"status": dbStatus, "latency": dbLatency, "driver": string(dbutil.DriverOf(db))},
+				"redis":    gin.H{"status": redisStatus},
+				"fts5":     gin.H{"status": ftsStatus},
+				"llm_api":  gin.H{"status": llmStatus},
 			},
 			"time": time.Now().Format(time.RFC3339),
 		})

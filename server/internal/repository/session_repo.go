@@ -85,7 +85,7 @@ func (r *SessionRepo) Delete(sessionID string) error {
 // Touch 更新会话的 updated_at 时间戳
 func (r *SessionRepo) Touch(sessionID string) error {
 	_, err := r.db.Exec(
-		`UPDATE sessions SET updated_at = datetime('now') WHERE session_id = ?`, sessionID,
+		`UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`, sessionID,
 	)
 	return err
 }
@@ -93,7 +93,7 @@ func (r *SessionRepo) Touch(sessionID string) error {
 // UpdateTitle 修改会话标题（用户重命名 / 首条问题自动设置）
 func (r *SessionRepo) UpdateTitle(sessionID, title string) error {
 	_, err := r.db.Exec(
-		`UPDATE sessions SET title = ?, updated_at = datetime('now') WHERE session_id = ?`,
+		`UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`,
 		title, sessionID,
 	)
 	return err
