@@ -1,0 +1,72 @@
+# 一次性修复工作流：用 HTTPS tarball 部署后端（绕开 scp 挂起 + git 凭据问题）
+# 服务器直接从 GitHub 下载 main 分支源码 tarball（公开仓库无需凭据），
+# 确保 WXX_ENCRYPTION_KEY 存在（P0-04 fail-fast 需要），重新编译 + 重启。
+name: Redeploy Server Tar
+
+on:
+  workflow_dispatch:
+
+jobs:
+  redeploy-tar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: SSH 下载源码并部署后端
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== 部署开始 $(date) ==="
+
+            # 0. 确保 WXX_ENCRYPTION_KEY 存在（P0-04 fail-fast 前置条件）
+            echo "--- 检查加密密钥 ---"
+            if ! grep -q 'WXX_ENCRYPTION_KEY' /etc/wxx/env 2>/dev/null; then
+              echo "未配置 WXX_ENCRYPTION_KEY，生成随机密钥..."
+              NEW_KEY=$(openssl rand -hex 32)
+              echo "WXX_ENCRYPTION_KEY=${NEW_KEY}" | sudo tee -a /etc/wxx/env >/dev/null
+              echo "已追加 WXX_ENCRYPTION_KEY"
+            else
+              echo "WXX_ENCRYPTION_KEY 已存在"
+            fi
+
+            # 1. 备份当前二进制
+            cp /opt/wxx/wxx-server /opt/wxx/wxx-server.bak.$(date +%s) 2>/dev/null || true
+
+            # 2. 下载 main 分支源码 tarball（公开仓库无需凭据）
+            cd /tmp
+            rm -rf wxx-main wxx-main.tar.gz
+            echo "--- 下载源码 tarball ---"
+            curl -sL -o wxx-main.tar.gz \
+              https://codeload.github.com/dll/wxx/tar.gz/refs/heads/main
+            ls -la wxx-main.tar.gz
+            tar xzf wxx-main.tar.gz
+            echo "--- 源码目录 ---"
+            ls -d wxx-main/ && ls wxx-main/server/cmd/server/main.go
+
+            # 3. 编译（带 FTS5 tag）
+            export GOPROXY=https://goproxy.cn,direct
+            cd /tmp/wxx-main/server
+            echo "--- 编译 wxx-server ---"
+            go build -tags fts5 -o /tmp/wxx-server-new ./cmd/server
+            echo "编译完成: $(ls -la /tmp/wxx-server-new)"
+
+            # 4. 替换并重启
+            chmod +x /tmp/wxx-server-new
+            sudo systemctl stop wxx 2>/dev/null || true
+            sleep 1
+            sudo cp /tmp/wxx-server-new /opt/wxx/wxx-server
+            sudo chmod +x /opt/wxx/wxx-server
+            sudo systemctl start wxx
+            sleep 3
+
+            # 5. 校验
+            echo "--- 服务状态 ---"
+            systemctl is-active wxx
+            echo "--- health ---"
+            curl -s -m 5 localhost:8080/health && echo "" || echo "health failed"
+            echo "--- 新进程启动时间 ---"
+            ps -o pid,lstart,cmd -p $(pgrep -f '/opt/wxx/wxx-server' | head -1)
+            echo "=== 部署完成 ==="
