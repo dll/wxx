@@ -17,6 +17,7 @@ const (
 	SelfDiaryRead       Capability = "self.diary.read"       // 学习日记
 	SelfCheckinWrite    Capability = "self.checkin.write"    // 每日打卡
 	SelfTwinRead        Capability = "self.twin.read"        // 个人数字孪生
+	SelfTwinWrite       Capability = "self.twin.write"       // 数字孪生画像生成（文生图/图生图）
 	SelfPersonalityRead Capability = "self.personality.read" // 性格洞察
 	SelfFeedbackSubmit  Capability = "self.feedback.submit"  // 提交问题反馈
 	SelfProfileWrite    Capability = "self.profile.write"    // 编辑个人资料
@@ -196,7 +197,7 @@ var roles = map[string]*roleNode{
 		capabilities: []Capability{
 			// 学生即"个人用户"基线，所有 self.* 能力的源头
 			SelfBriefingRead, SelfDiaryRead, SelfCheckinWrite,
-			SelfTwinRead, SelfPersonalityRead, SelfFeedbackSubmit,
+			SelfTwinRead, SelfTwinWrite, SelfPersonalityRead, SelfFeedbackSubmit,
 			SelfProfileWrite, SelfChat, SelfKnowledgeRead, SelfVoice,
 			SelfSessionRead, SelfSessionDelete, SelfRecommendRead,
 			SelfExportSelf, SelfAchievements, SelfCourseMapRead,

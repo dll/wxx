@@ -427,6 +427,16 @@ class ApiConfig {
   static const String versionCheck = '$apiPrefix/version/check';
   static const String versionLatest = '$apiPrefix/version/latest';
 
+  // ── 数字孪生画像 ──
+  static const String twinPortraits = '$apiPrefix/twin-portraits';
+  static String twinPortrait(String type) => '$apiPrefix/twin-portraits/$type';
+  static const String twinPortraitGenerate = '$apiPrefix/twin-portraits/generate';
+
+  // ── 个人详细信息 ──
+  static const String profileDetail = '$apiPrefix/user/profile/detail';
+  // 学校门户凭证（加密存储，密码不回显）
+  static const String portalCredential = '$apiPrefix/user/portal-credential';
+
   // ── 第三方应用中心 ──
   static const String externalApps = '$apiPrefix/apps';
 

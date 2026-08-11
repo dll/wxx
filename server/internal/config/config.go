@@ -39,6 +39,11 @@ type Config struct {
 	Zhipu4VAPIKEY string
 	Zhipu4VModel  string
 
+	// 智谱 CogView（文生图/图生图，数字孪生画像）
+	ZhipuCogViewAPIKey  string
+	ZhipuCogViewBaseURL string
+	ZhipuCogViewModel   string
+
 	// DeepSeek
 	DeepSeekAPIKey  string
 	DeepSeekBaseURL string
@@ -135,6 +140,10 @@ func Load() *Config {
 
 		Zhipu4VAPIKEY: envOr("ZHIPU_4V_API_KEY", ""),
 		Zhipu4VModel:  envOr("ZHIPU_4V_MODEL", "glm-4v"),
+
+		ZhipuCogViewAPIKey:  envOr("ZHIPU_COGVIEW_API_KEY", ""),
+		ZhipuCogViewBaseURL: envOr("ZHIPU_COGVIEW_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/images/generations"),
+		ZhipuCogViewModel:   envOr("ZHIPU_COGVIEW_MODEL", "cogview-3-flash"),
 
 		DeepSeekAPIKey:  envOr("DEEPSEEK_API_KEY", ""),
 		DeepSeekBaseURL: envOr("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"),

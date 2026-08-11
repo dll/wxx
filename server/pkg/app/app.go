@@ -296,6 +296,16 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	twinSvc := service.NewTwinService(twinRepo, userRepo, llmClient)
 	studentHandler.SetTwinService(twinSvc)
 
+	// 数字孪生画像（CogView 文生图/图生图；未配置 key 时服务返回提示）
+	twinPortraitRepo := repository.NewTwinPortraitRepo(db)
+	twinPortraitSvc := service.NewTwinPortraitService(twinPortraitRepo, llm.NewZhipuCogViewClient(cfg))
+	twinPortraitHandler := handler.NewTwinPortraitHandler(twinPortraitSvc)
+
+	// 学校门户凭证（AES-GCM 加密存储）
+	portalCredRepo := repository.NewPortalCredentialRepo(db)
+	portalCredSvc := service.NewPortalCredentialService(portalCredRepo)
+	portalCredHandler := handler.NewPortalCredentialHandler(portalCredSvc)
+
 	// 打卡服务（S1 学生核心功能）
 	checkinRepo := repository.NewCheckinRepo(db)
 	checkinSvc := service.NewCheckinService(checkinRepo)
@@ -372,7 +382,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
 		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
-		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler)
+		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler, twinPortraitHandler, portalCredHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
 	retentionSvc := service.NewRetentionService(db)
@@ -626,6 +636,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	dataImportH *handler.DataImportHandler,
 	externalAppH *handler.ExternalAppHandler,
 	aiBriefingH *handler.AIBriefingHandler,
+	twinPortraitH *handler.TwinPortraitHandler,
+	portalCredH *handler.PortalCredentialHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -915,6 +927,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			}
 
 			secured.GET("/user/profile", authH.Profile)
+			secured.GET("/user/profile/detail", authH.ProfileDetail)
+			// 学校门户凭证（加密存储，密码不回显）
+			secured.GET("/user/portal-credential", portalCredH.Get)
+			secured.PUT("/user/portal-credential", portalCredH.Save)
+			secured.DELETE("/user/portal-credential", portalCredH.Delete)
 			secured.POST("/auth/qr-confirm", handler.ConfirmQRSession)
 			secured.POST("/user/consent", authH.Consent)
 			secured.PUT("/user/password", authH.ChangePassword)
@@ -987,6 +1004,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.DELETE("/ai-briefings/sources/:id", auth.RequireCapability(auth.SystemAIBriefing), aiBriefingH.DeleteSource)
 				// AI 简讯（登录用户可见）
 				secured.GET("/ai-briefings", aiBriefingH.ListUser)
+
+				// 数字孪生画像（登录用户可见，文生图/图生图）
+				secured.GET("/twin-portraits", auth.RequireCapability(auth.SelfTwinRead), twinPortraitH.List)
+				secured.GET("/twin-portraits/:type", auth.RequireCapability(auth.SelfTwinRead), twinPortraitH.Get)
+				secured.POST("/twin-portraits/generate", auth.RequireCapability(auth.SelfTwinWrite), twinPortraitH.Generate)
 
 				// 游客管理（college_admin+）
 				admin.GET("/guests/pending", auth.RequireCapability(auth.CollegeUserRead), adminH.ListPendingGuests)

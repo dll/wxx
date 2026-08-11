@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
+import '../../providers/twin_portrait_provider.dart';
 import '../../utils/storage.dart';
+import '../../utils/portrait_photo_picker.dart';
 import '../../widgets/avatar_card.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/md_text.dart';
@@ -68,6 +72,11 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
           const SizedBox(height: 16),
         ],
 
+        // 数字孪生画像（AI 文生图/图生图，蔚小芯风格）
+        _buildPortraitSection(theme),
+
+        const SizedBox(height: 16),
+
         // 信息概览：综合分 + 姓名 + 专业
         _buildOverviewCard(theme, t, provider),
 
@@ -90,6 +99,235 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
       ),
       child: const Center(child: CircularProgressIndicator()),
     );
+  }
+
+  // ── 数字孪生画像（AI 生成）──
+
+  Widget _buildPortraitSection(ThemeData theme) {
+    final p = context.watch<TwinPortraitProvider>();
+    // 首次进入拉取已生成画像
+    if (!p.loading && p.current == null && p.error.isEmpty) {
+      Future.microtask(() {
+        if (mounted) context.read<TwinPortraitProvider>().fetchPortraits();
+      });
+    }
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('AI 数字孪生画像',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '以照片或校园原型生成蔚小芯风格画像：写实人像标准 + 柔和卡通风，保留真实五官与皮肤肌理。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            if (p.generating)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (p.current != null)
+              _buildPortraitImage(theme, p)
+            else
+              _buildPortraitEmpty(theme, p),
+            if (p.error.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(p.error,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.error)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitImage(ThemeData theme, TwinPortraitProvider p) {
+    final portrait = p.current!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            base64Decode(portrait.imageBase64),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: 320,
+            errorBuilder: (_, __, ___) => const SizedBox(
+              height: 120,
+              child: Center(child: Text('画像数据异常')),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Chip(
+              label: Text(portrait.prototypeType == 'photo' ? '照片版' : '校园原型版'),
+              visualDensity: VisualDensity.compact,
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _showGenerateDialog(p),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('重新生成'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPortraitEmpty(ThemeData theme, TwinPortraitProvider p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => _showGenerateDialog(p),
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: const Text('上传照片生成'),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: () => _generateChaoXing(p),
+          icon: const Icon(Icons.person_outline),
+          label: const Text('以校园原型生成（无需照片）'),
+        ),
+      ],
+    );
+  }
+
+  /// 生成弹窗：选择照片模式（可拍照/相册/粘贴）或直接生成
+  void _showGenerateDialog(TwinPortraitProvider p) {
+    final controller = TextEditingController();
+    var highlights = '';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('生成 AI 数字孪生画像'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('照片模式：以上传照片为原型（图生图）'),
+              const SizedBox(height: 8),
+              _buildPhotoUploadRow(p, controller),
+              const SizedBox(height: 12),
+              const Text('校园原型模式：以标准校园学生形象生成'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: '个性化亮点（可选，如：学业优秀、运动健将）',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              highlights = controller.text.trim();
+              Navigator.pop(ctx);
+              final ok = await p.generate(
+                prototypeType: 'chao_xing',
+                highlights: highlights,
+              );
+              if (!ok && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
+              }
+            },
+            child: const Text('以校园原型生成'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoUploadRow(TwinPortraitProvider p, TextEditingController highlightsCtrl) {
+    return FutureBuilder<void>(
+      future: null,
+      builder: (context, _) {
+        // 平台上传由各端实现；Web 用 file picker，移动端用 image_picker。
+        // 此处提供 Web 文件选择 + 移动端引导。
+        return _buildPhotoPickerButton(p);
+      },
+    );
+  }
+
+  Widget _buildPhotoPickerButton(TwinPortraitProvider p) {
+    return OutlinedButton.icon(
+      onPressed: () => _pickAndGenerate(p),
+      icon: const Icon(Icons.upload),
+      label: const Text('选择照片'),
+    );
+  }
+
+  Future<void> _pickAndGenerate(TwinPortraitProvider p) async {
+    // 平台条件编译：Web 用 FilePicker 转 base64，移动端用 image_picker。
+    // 当前统一走 Web 文件选择；移动端可通过 image_picker 扩展。
+    try {
+      final result = await _pickImageBytes();
+      if (result == null) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('照片已选择，正在生成画像…')));
+      }
+      final ok = await p.generate(
+        prototypeType: 'photo',
+        photoBase64: base64Encode(result.bytes),
+        photoMime: result.mime,
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('选择照片失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _generateChaoXing(TwinPortraitProvider p) async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('正在以校园原型生成画像…')));
+    }
+    final ok = await p.generate(prototypeType: 'chao_xing');
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
+    }
+  }
+
+  Future<({Uint8List bytes, String mime})?> _pickImageBytes() async {
+    return pickPortraitPhoto();
   }
 
   /// 综合概览卡片

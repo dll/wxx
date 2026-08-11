@@ -68,6 +68,10 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"065_external_apps.sql",
 		"066_ai_briefings.sql",
 		"067_ai_briefings_seed.sql",
+		"068_twin_portraits.sql",
+		"069_user_contact_fields.sql",
+		"070_ai_briefings_home_highlight.sql",
+		"071_user_portal_credentials.sql",
 	} {
 		p := resolveMigrationPath(t, m)
 		c, err := os.ReadFile(p)
