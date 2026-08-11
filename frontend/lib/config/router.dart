@@ -125,6 +125,7 @@ import '../pages/student/mental/article_detail_page.dart';
 import '../pages/student/health/health_page.dart';
 import '../pages/student/mental/mood_diary_page.dart';
 import '../pages/apps/app_center_page.dart';
+import '../pages/services/service_center_page.dart';
 import '../pages/ai_briefings/ai_briefings_page.dart';
 import '../pages/ai_briefings/ai_briefing_admin_page.dart';
 import '../utils/screenshot_capture.dart';
@@ -154,7 +155,14 @@ final GoRouter appRouter = GoRouter(
     if (!firstLaunchDone && !isConsentPage) return '/consent';
     // 未登录 → 允许访问首页（游客模式），但其他页面需登录
     if (!loggedIn) {
-      final publicPaths = ['/home', '/login', '/consent', '/campus', '/browse'];
+      final publicPaths = [
+        '/home',
+        '/login',
+        '/consent',
+        '/campus',
+        '/browse',
+        '/services',
+      ];
       final isPublic =
           publicPaths.any((p) => state.matchedLocation.startsWith(p));
       if (!isPublic) return '/home';
@@ -229,6 +237,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/apps',
           builder: (context, state) => const AppCenterPage(),
+        ),
+        GoRoute(
+          path: '/services',
+          builder: (context, state) => const ServiceCenterPage(),
         ),
         GoRoute(
           path: '/ai-briefings',
@@ -606,14 +618,27 @@ class _NavItem {
   const _NavItem(this.label, this.icon, this.selectedIcon, this.route);
 }
 
-const _navItems = [
-  _NavItem('首页', Icons.home_outlined, Icons.home, '/home'),
-  _NavItem('对话', Icons.chat_bubble_outline, Icons.chat_bubble, '/chat'),
-  _NavItem('知识', Icons.menu_book_outlined, Icons.menu_book, '/browse'),
-  _NavItem('办事', Icons.assignment_outlined, Icons.assignment, '/enrollment'),
-  _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
-  _NavItem('帮助', Icons.help_outline, Icons.help, '/help'),
-];
+List<_NavItem> _navItemsForRole(String? role) => [
+      _NavItem(
+        role == 'teacher' ? '教学' : '首页',
+        role == 'teacher'
+            ? Icons.cast_for_education_outlined
+            : Icons.home_outlined,
+        role == 'teacher' ? Icons.cast_for_education : Icons.home,
+        '/home',
+      ),
+      const _NavItem(
+          '问小芯', Icons.chat_bubble_outline, Icons.chat_bubble, '/chat'),
+      _NavItem(
+        role == 'teacher' ? '事务' : '办事',
+        Icons.assignment_outlined,
+        Icons.assignment,
+        '/enrollment',
+      ),
+      const _NavItem(
+          '服务', Icons.grid_view_outlined, Icons.grid_view, '/services'),
+      const _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
+    ];
 
 /// 主页面外壳 — 响应式布局 + 磨砂玻璃导航
 class MainShell extends StatelessWidget {
@@ -633,20 +658,40 @@ class MainShell extends StatelessWidget {
 
   /// 桌面布局：左侧 NavigationRail + 右侧内容区（限制最大宽度）
   Widget _buildDesktopLayout(BuildContext context) {
-    final index = _currentIndex(context);
+    final width = MediaQuery.of(context).size.width;
+    final items = _navItemsForRole(Storage.role);
+    final index = _currentIndex(context, items);
+    final extended = width >= 1280;
+    final maxWidth = _contentMaxWidth(context);
     return Scaffold(
       body: Row(
         children: [
           NavigationRail(
             selectedIndex: index,
-            onDestinationSelected: (i) => _onTap(context, i),
-            labelType: NavigationRailLabelType.all,
+            onDestinationSelected: (i) => _onTap(context, items, i),
+            extended: extended,
+            minExtendedWidth: 216,
+            labelType: extended
+                ? NavigationRailLabelType.none
+                : NavigationRailLabelType.all,
             leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Icon(Icons.school,
-                  size: 32, color: Theme.of(context).colorScheme.primary),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: extended
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.school,
+                            size: 30,
+                            color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 10),
+                        Text('蔚小芯',
+                            style: Theme.of(context).textTheme.titleLarge),
+                      ],
+                    )
+                  : Icon(Icons.school,
+                      size: 32, color: Theme.of(context).colorScheme.primary),
             ),
-            destinations: _navItems
+            destinations: items
                 .map((item) => NavigationRailDestination(
                       icon: Icon(item.icon),
                       selectedIcon: Icon(item.selectedIcon),
@@ -656,9 +701,11 @@ class MainShell extends StatelessWidget {
           ),
           const VerticalDivider(width: 1),
           Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: RepaintBoundary(key: screenshotKey, child: child),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: RepaintBoundary(key: screenshotKey, child: child),
+              ),
             ),
           ),
         ],
@@ -670,7 +717,8 @@ class MainShell extends StatelessWidget {
   /// 移动端布局：磨砂玻璃底部导航
   Widget _buildMobileLayout(BuildContext context) {
     final theme = Theme.of(context);
-    final index = _currentIndex(context);
+    final items = _navItemsForRole(Storage.role);
+    final index = _currentIndex(context, items);
     return Scaffold(
       body: RepaintBoundary(key: screenshotKey, child: child),
       bottomNavigationBar: ClipRRect(
@@ -687,8 +735,8 @@ class MainShell extends StatelessWidget {
             ),
             child: NavigationBar(
               selectedIndex: index,
-              onDestinationSelected: (i) => _onTap(context, i),
-              destinations: _navItems
+              onDestinationSelected: (i) => _onTap(context, items, i),
+              destinations: items
                   .map((item) => NavigationDestination(
                         icon: Icon(item.icon),
                         selectedIcon: Icon(item.selectedIcon),
@@ -703,15 +751,40 @@ class MainShell extends StatelessWidget {
     );
   }
 
-  int _currentIndex(BuildContext context) {
+  int _currentIndex(BuildContext context, List<_NavItem> items) {
     final location = GoRouterState.of(context).matchedLocation;
-    for (int i = 0; i < _navItems.length; i++) {
-      if (location.startsWith(_navItems[i].route)) return i;
+    for (int i = 0; i < items.length; i++) {
+      if (location.startsWith(items[i].route)) return i;
+    }
+    if (location.startsWith('/browse') ||
+        location.startsWith('/apps') ||
+        location.startsWith('/culture') ||
+        location.startsWith('/campus') ||
+        location.startsWith('/student') ||
+        location.startsWith('/assistant') ||
+        location.startsWith('/union') ||
+        (location.startsWith('/teacher') &&
+            !location.startsWith('/teacher/daily-overview')) ||
+        (location.startsWith('/counselor') &&
+            !location.startsWith('/counselor/daily-focus'))) {
+      return 3;
     }
     return 0;
   }
 
-  void _onTap(BuildContext context, int index) {
-    context.go(_navItems[index].route);
+  double _contentMaxWidth(BuildContext context) {
+    final location = GoRouterState.of(context).matchedLocation;
+    if (location.startsWith('/teacher') ||
+        location.startsWith('/counselor') ||
+        location.startsWith('/admin') ||
+        location.startsWith('/college')) {
+      return 1440;
+    }
+    if (location.startsWith('/chat')) return 1280;
+    return 1120;
+  }
+
+  void _onTap(BuildContext context, List<_NavItem> items, int index) {
+    context.go(items[index].route);
   }
 }

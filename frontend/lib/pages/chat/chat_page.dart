@@ -515,54 +515,85 @@ class _ChatPageState extends State<ChatPage> {
     // 找到此回答对应的用户提问
     final question = _findQuestionFor(msgIndex);
 
-    // 操作栏：朗读 + 复制 + PDF + 收藏 + 保存到知识库
+    // 高频操作直接展示，低频操作收纳到更多菜单，避免移动端拥挤。
     Widget actionBar = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Consumer<BookmarkProvider>(
         builder: (_, bm, __) {
           final isMarked = bm.isBookmarked(msg.content);
-          return Row(
-            mainAxisSize: MainAxisSize.min,
+          return Wrap(
+            spacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _ActionChip(
-                icon: isPlayingThis ? Icons.stop_circle_outlined : Icons.volume_up,
-                label: isPlayingThis ? '停止' : '朗读',
-                onTap: () => chat.playTTS(msgIndex),
+              IconButton(
+                onPressed: () => _copyAnswer(msg),
+                icon: const Icon(Icons.content_copy_outlined),
+                tooltip: '复制回答',
+                visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: Icons.content_copy,
-                label: '复制',
-                onTap: () => _copyAnswer(msg),
-              ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: Icons.download,
-                label: '导出',
-                onTap: () => _showExportDialog(question, msg),
-              ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: Icons.feedback_outlined,
-                label: '纠错',
-                onTap: () => _showFeedbackDialog(msg),
-              ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: isMarked ? Icons.star : Icons.star_outline,
-                label: isMarked ? '已收藏' : '收藏',
-                onTap: () => bm.toggle(
+              IconButton(
+                onPressed: () => bm.toggle(
                   question: question,
                   conclusion: msg.content,
-                  sources: msg.answerCard?.sources.map((s) => s.title).toList() ?? [],
+                  sources:
+                      msg.answerCard?.sources.map((s) => s.title).toList() ??
+                          [],
                   followUps: msg.answerCard?.followUps ?? [],
                 ),
+                icon: Icon(isMarked ? Icons.star : Icons.star_outline),
+                tooltip: isMarked ? '取消收藏' : '收藏回答',
+                visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: Icons.save_outlined,
-                label: '保存',
-                onTap: () => _saveToKnowledgeBase(question, msg),
+              IconButton(
+                onPressed: () => _showFeedbackDialog(msg),
+                icon: const Icon(Icons.feedback_outlined),
+                tooltip: '反馈纠错',
+                visualDensity: VisualDensity.compact,
+              ),
+              PopupMenuButton<String>(
+                tooltip: '更多操作',
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'speak':
+                      chat.playTTS(msgIndex);
+                      break;
+                    case 'export':
+                      _showExportDialog(question, msg);
+                      break;
+                    case 'save':
+                      _saveToKnowledgeBase(question, msg);
+                      break;
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'speak',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(isPlayingThis
+                          ? Icons.stop_circle_outlined
+                          : Icons.volume_up_outlined),
+                      title: Text(isPlayingThis ? '停止朗读' : '朗读回答'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.download_outlined),
+                      title: Text('导出回答'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'save',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.save_outlined),
+                      title: Text('保存到知识库'),
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -638,7 +669,8 @@ class _ChatPageState extends State<ChatPage> {
                 blockquoteDecoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer.withOpacity(0.4),
                   border: Border(
-                    left: BorderSide(color: theme.colorScheme.primary, width: 3),
+                    left:
+                        BorderSide(color: theme.colorScheme.primary, width: 3),
                   ),
                 ),
                 tableBorder: TableBorder.all(
@@ -655,19 +687,35 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.only(left: 16),
             child: actionBar,
           ),
-          // 无知识库引用时提示用户前往知识大厅
+          // 无知识库引用时使用显著状态块说明可信边界。
           if (msg.answerCard == null || msg.answerCard!.sources.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 20, top: 2),
-              child: GestureDetector(
-                onTap: () => context.go('/browse'),
-                child: Text(
-                  '💡 该回答未引用知识库，仅供参考。前往知识大厅浏览已收录内容 →',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontSize: 11,
-                  ),
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.tertiaryContainer.withOpacity(0.45),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.tertiary.withOpacity(0.35),
                 ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 20, color: theme.colorScheme.tertiary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '此回答未引用已审核资料，不应作为政策或流程依据。',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/browse'),
+                    child: const Text('查资料'),
+                  ),
+                ],
               ),
             ),
         ],
@@ -866,9 +914,8 @@ $printScript
   Future<void> _saveToKnowledgeBase(String question, Message msg) async {
     if (!mounted) return;
     final kb = context.read<KnowledgeProvider>();
-    final title = question.length > 50
-        ? '${question.substring(0, 50)}...'
-        : question;
+    final title =
+        question.length > 50 ? '${question.substring(0, 50)}...' : question;
     final content = '问：$question\n\n答：${msg.content}';
 
     final ok = await kb.createResource({
@@ -1329,43 +1376,6 @@ class _SlideInItemState extends State<_SlideInItem>
     return SlideTransition(
       position: _slide,
       child: FadeTransition(opacity: _fade, child: widget.child),
-    );
-  }
-}
-
-/// 消息操作芯片 — 用于朗读、复制、PDF、收藏等操作
-class _ActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionChip(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: theme.colorScheme.outline),
-              const SizedBox(width: 2),
-              Text(
-                label,
-                style:
-                    TextStyle(fontSize: 11, color: theme.colorScheme.outline),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

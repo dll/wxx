@@ -146,8 +146,7 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
                   runSpacing: 8,
                   children: widget.card.followUps.map((q) {
                     return ActionChip(
-                      avatar:
-                          const Icon(Icons.chat_bubble_outline, size: 16),
+                      avatar: const Icon(Icons.chat_bubble_outline, size: 16),
                       label: Text(q, style: const TextStyle(fontSize: 12)),
                       onPressed: () => widget.onFollowUp?.call(q),
                     );
@@ -322,15 +321,11 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
                 });
               },
               icon: Icon(
-                _sourcesExpanded
-                    ? Icons.expand_less
-                    : Icons.expand_more,
+                _sourcesExpanded ? Icons.expand_less : Icons.expand_more,
                 size: 18,
               ),
               label: Text(
-                _sourcesExpanded
-                    ? '收起来源'
-                    : '展开全部 ${sources.length} 个来源',
+                _sourcesExpanded ? '收起来源' : '展开全部 ${sources.length} 个来源',
                 style: const TextStyle(fontSize: 13),
               ),
             ),
@@ -340,7 +335,8 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
     );
   }
 
-  Widget _buildSection(BuildContext context, {
+  Widget _buildSection(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required Widget child,
@@ -390,9 +386,11 @@ class _SourceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final typeColor = source.typeColor;
     final hasSnippet = source.snippet.isNotEmpty || source.summary.isNotEmpty;
-    final hasMeta = source.version.isNotEmpty || source.effectiveDate.isNotEmpty;
+    final hasMeta =
+        source.version.isNotEmpty || source.effectiveDate.isNotEmpty;
     final hasRelevance = source.relevanceScore > 0;
-    final displayText = source.snippet.isNotEmpty ? source.snippet : source.summary;
+    final displayText =
+        source.snippet.isNotEmpty ? source.snippet : source.summary;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -474,8 +472,7 @@ class _SourceCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              if (hasRelevance)
-                                _buildRelevanceStars(),
+                              if (hasRelevance) _buildRelevanceLabel(theme),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -496,9 +493,7 @@ class _SourceCard extends StatelessWidget {
                     ),
                     // 展开箭头
                     Icon(
-                      isExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
                       size: 20,
                       color: theme.colorScheme.outline,
                     ),
@@ -586,9 +581,9 @@ class _SourceCard extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: source.relevanceScore.clamp(0.0, 1.0),
                             minHeight: 4,
-                            backgroundColor:
-                                theme.colorScheme.outlineVariant,
-                            valueColor: AlwaysStoppedAnimation<Color>(typeColor),
+                            backgroundColor: theme.colorScheme.outlineVariant,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(typeColor),
                           ),
                         ),
                       ),
@@ -611,8 +606,7 @@ class _SourceCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton.icon(
-                        onPressed: () =>
-                            onViewDetail?.call(source.resourceId),
+                        onPressed: () => onViewDetail?.call(source.resourceId),
                         icon: const Icon(Icons.open_in_new, size: 14),
                         label: const Text('在知识大厅查看',
                             style: TextStyle(fontSize: 12)),
@@ -620,8 +614,7 @@ class _SourceCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           minimumSize: Size.zero,
-                          tapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
                     ],
@@ -635,17 +628,18 @@ class _SourceCard extends StatelessWidget {
     );
   }
 
-  /// 构建相关度星级
-  Widget _buildRelevanceStars() {
-    final stars = source.relevanceStars;
-    return Row(
-      children: List.generate(5, (i) {
-        return Icon(
-          i < stars ? Icons.star : Icons.star_border,
-          size: 12,
-          color: i < stars ? Colors.amber : Colors.grey.shade300,
-        );
-      }),
+  /// 相关度使用文本语义，避免与用户评分混淆。
+  Widget _buildRelevanceLabel(ThemeData theme) {
+    final label = source.relevanceScore >= 0.75
+        ? '高度相关'
+        : source.relevanceScore >= 0.45
+            ? '相关依据'
+            : '补充依据';
+    return Text(
+      label,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }

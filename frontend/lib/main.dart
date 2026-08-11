@@ -37,6 +37,7 @@ import 'providers/personal_detail_provider.dart';
 import 'utils/download_redirect.dart';
 import 'utils/storage.dart';
 import 'services/voice/deep_link.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,8 +124,8 @@ class ThemeNotifier extends ChangeNotifier {
     return g.clamp(1, 4);
   }
 
-  /// 当前生效的年级主题 seed 色（开关关闭或年级未知时用统一滁院蓝）
-  Color get seedColor {
+  /// 年级色仅用于局部身份表达，不改变全局操作色语义。
+  Color get gradeAccent {
     if (!_gradeThemeEnabled) return _GradeThemes.schoolBlue;
     final g = grade;
     if (g == 0) return _GradeThemes.schoolBlue;
@@ -252,51 +253,13 @@ class _WxxAppState extends State<WxxApp> {
       ],
       child: Consumer<ThemeNotifier>(
         builder: (_, themeNotifier, __) {
-          final seed = themeNotifier.seedColor;
+          final gradeAccent = themeNotifier.gradeAccent;
           return MaterialApp.router(
             title: '蔚小芯',
             debugShowCheckedModeBanner: false,
             themeMode: themeNotifier.mode,
-            theme: ThemeData(
-              colorSchemeSeed: seed, // 年级主题 seed（滁院蓝/迎新青绿/奋斗橙/创业紫）
-              useMaterial3: true,
-              brightness: Brightness.light,
-              // 使用本地打包的 Roboto（见 pubspec fonts 段），避免 Web 引擎
-              // 运行时从 fonts.gstatic.com 拉取字体导致空白/延迟
-              fontFamily: 'Roboto',
-              appBarTheme: const AppBarTheme(
-                centerTitle: true,
-                elevation: 0,
-              ),
-              pageTransitionsTheme: const PageTransitionsTheme(
-                builders: {
-                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-                },
-              ),
-            ),
-            darkTheme: ThemeData(
-              colorSchemeSeed: seed,
-              useMaterial3: true,
-              brightness: Brightness.dark,
-              fontFamily: 'Roboto',
-              appBarTheme: const AppBarTheme(
-                centerTitle: true,
-                elevation: 0,
-              ),
-              pageTransitionsTheme: const PageTransitionsTheme(
-                builders: {
-                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-                  TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-                  TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-                },
-              ),
-            ),
+            theme: AppTheme.light(gradeAccent: gradeAccent),
+            darkTheme: AppTheme.dark(gradeAccent: gradeAccent),
             routerConfig: appRouter,
           );
         },

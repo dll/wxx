@@ -21,6 +21,7 @@ import '../../widgets/consent_dialog.dart';
 import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
+import '../teacher/daily_overview_page.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -32,7 +33,8 @@ class _FeatureCard {
 }
 
 const _studentFeatures = [
-  _FeatureCard(Icons.school_outlined, '新生指南', Color(0xFF00695C), '/student/freshmen-guide'),
+  _FeatureCard(Icons.school_outlined, '新生指南', Color(0xFF00695C),
+      '/student/freshmen-guide'),
   _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation'),
   _FeatureCard(
       Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
@@ -43,10 +45,14 @@ const _studentFeatures = [
 ];
 
 const _educationFeatures = [
-  _FeatureCard(Icons.work_outline, '就业服务', Color(0xFFE65100), '/student/career'),
-  _FeatureCard(Icons.menu_book_outlined, '学业服务', Color(0xFF1565C0), '/student/study'),
-  _FeatureCard(Icons.checklist_rtl, '学习计划', Color(0xFF00695C), '/student/study-plan'),
-  _FeatureCard(Icons.favorite_outline, '心理健康', Color(0xFFC62828), '/student/mental'),
+  _FeatureCard(
+      Icons.work_outline, '就业服务', Color(0xFFE65100), '/student/career'),
+  _FeatureCard(
+      Icons.menu_book_outlined, '学业服务', Color(0xFF1565C0), '/student/study'),
+  _FeatureCard(
+      Icons.checklist_rtl, '学习计划', Color(0xFF00695C), '/student/study-plan'),
+  _FeatureCard(
+      Icons.favorite_outline, '心理健康', Color(0xFFC62828), '/student/mental'),
 ];
 
 /// 首页仪表盘 — 按角色自适应布局
@@ -109,9 +115,9 @@ class _HomePageState extends State<HomePage> {
     // 学生角色加载个性化首页数据 + 数字人形象
     if (role == 'student' || role == 'student_union') {
       _loadStudentHome();
-      context
-          .read<StudentFeatureProvider>()
-          .fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
+      context.read<StudentFeatureProvider>().fetchAvatar(
+          displayName: Storage.displayName ?? '同学',
+          role: Storage.role ?? 'student');
     }
   }
 
@@ -178,6 +184,9 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final role = Storage.role;
     final loggedIn = Storage.isLoggedIn;
+    if (loggedIn && role == 'teacher') {
+      return const DailyOverviewPage(homeMode: true);
+    }
     final theme = Theme.of(context);
     final isStudent = role == 'student' || role == 'student_union';
     final notificationProvider = context.watch<NotificationProvider>();
@@ -202,12 +211,14 @@ class _HomePageState extends State<HomePage> {
                     right: 8,
                     top: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
                       child: Text(
                         unreadCount > 99 ? '99+' : '$unreadCount',
                         style: const TextStyle(
@@ -233,56 +244,55 @@ class _HomePageState extends State<HomePage> {
             else
               _buildGuestBanner(theme),
             const SizedBox(height: 12),
-            // 安卓 APK 下载（紧凑卡片，无需滚动即可看到）
-            GestureDetector(
-              onTap: () => _showApkDownloadDialog(context, theme),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF2E7D32).withOpacity(0.08),
-                      const Color(0xFF2E7D32).withOpacity(0.04),
+            // APK 下载只对 Web 游客展示，登录用户首页优先呈现任务。
+            if (!loggedIn) ...[
+              GestureDetector(
+                onTap: () => _showApkDownloadDialog(context, theme),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF2E7D32).withOpacity(0.08),
+                        const Color(0xFF2E7D32).withOpacity(0.04),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF2E7D32).withOpacity(0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.android,
+                          color: Color(0xFF2E7D32), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('安卓应用下载',
+                                style: theme.textTheme.labelLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text('扫码下载 APK • v${ReleaseConfig.version}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                )),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 16, color: theme.colorScheme.primary),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF2E7D32).withOpacity(0.25),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.android, color: Color(0xFF2E7D32), size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('安卓应用下载',
-                              style: theme.textTheme.labelLarge
-                                  ?.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('扫码下载 APK • v${ReleaseConfig.version}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              )),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios,
-                        size: 16, color: theme.colorScheme.primary),
-                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+            ],
             // 学生个性化首页
             if (isStudent && loggedIn) ...[
-              // 数字人形象卡片（可被系统设置隐藏）
-              if (Storage.showAvatar) ...[
-                _buildAvatarBanner(theme),
-                const SizedBox(height: 20),
-              ],
               _buildStudentHomeContent(theme),
               const SizedBox(height: 20),
             ],
@@ -314,6 +324,11 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
               _buildEducationFeatures(theme),
               const SizedBox(height: 20),
+              // 数字画像降为次级入口，不再占据学生首屏。
+              if (Storage.showAvatar) ...[
+                _buildAvatarBanner(theme),
+                const SizedBox(height: 20),
+              ],
             ],
             // 管理专区（college_admin+）
             if (role == 'college_admin' ||
@@ -562,7 +577,8 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        color:
+                            theme.colorScheme.outlineVariant.withOpacity(0.3),
                       ),
                     ),
                     child: ClipRRect(
@@ -721,51 +737,63 @@ class _HomePageState extends State<HomePage> {
                     : '晚上好';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity(0.7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$greeting，$displayName',
-            style: TextStyle(
-              color: theme.colorScheme.onPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$greeting，$displayName',
+                        style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 2),
+                    Text(
+                      '先看今日安排，也可以直接问小芯',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.school_outlined,
+                  color: theme.colorScheme.primary, size: 28),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            '我是蔚小芯，你的学工智能助手',
-            style: TextStyle(
-              color: theme.colorScheme.onPrimary.withOpacity(0.85),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 快捷提问
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => context.go('/chat'),
-              icon: const Icon(Icons.chat, size: 18),
-              label: const Text('开始对话'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.onPrimary,
-                foregroundColor: theme.colorScheme.primary,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+          const SizedBox(height: 14),
+          Material(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: () => context.go('/chat'),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome,
+                        size: 20, color: theme.colorScheme.secondary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '问小芯：政策、流程、学习与校园生活',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.mic_none,
+                        size: 20, color: theme.colorScheme.primary),
+                  ],
                 ),
               ),
             ),
@@ -1396,7 +1424,8 @@ class _HomePageState extends State<HomePage> {
                   semesterName,
                   style: TextStyle(
                     fontSize: 12,
-                    color: theme.colorScheme.onSecondaryContainer.withOpacity(0.8),
+                    color:
+                        theme.colorScheme.onSecondaryContainer.withOpacity(0.8),
                   ),
                 ),
               ],
@@ -1532,8 +1561,9 @@ class _HomePageState extends State<HomePage> {
 
   /// 今日课表
   Widget _buildTodayCourses(ThemeData theme) {
-    final courses =
-        (_studentHomeData?['today_courses'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final courses = (_studentHomeData?['today_courses'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1582,8 +1612,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCourseItem(ThemeData theme, Map<String, dynamic> course) {
     final color = Color(int.parse(
-            (course['color'] as String? ?? '#1565C0')
-                .replaceAll('#', '0xFF')));
+        (course['color'] as String? ?? '#1565C0').replaceAll('#', '0xFF')));
     final courseName = course['course_name'] ?? '未知课程';
     final time = course['time'] ?? '';
     final location = course['location'] ?? '';
@@ -1662,8 +1691,9 @@ class _HomePageState extends State<HomePage> {
 
   /// 今日任务
   Widget _buildTodayTasks(ThemeData theme) {
-    final tasks =
-        (_studentHomeData?['today_tasks'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final tasks = (_studentHomeData?['today_tasks'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1780,15 +1810,24 @@ class _HomePageState extends State<HomePage> {
 
   /// 功能入口
   Widget _buildQuickEntries(ThemeData theme) {
-    final quickEntries =
-        (_studentHomeData?['quick_entries'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final quickEntries = (_studentHomeData?['quick_entries'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     // 使用默认入口（如果后端没有返回）
     final entries = quickEntries.isEmpty
         ? [
             {'icon': 'chat', 'title': 'AI问答', 'route': '/chat'},
-            {'icon': 'study_plan', 'title': '学习计划', 'route': '/student/study-plan'},
-            {'icon': 'timetable', 'title': '我的课表', 'route': '/student/study-plan'},
+            {
+              'icon': 'study_plan',
+              'title': '学习计划',
+              'route': '/student/study-plan'
+            },
+            {
+              'icon': 'timetable',
+              'title': '我的课表',
+              'route': '/student/study-plan'
+            },
             {'icon': 'career', 'title': '就业服务', 'route': '/student/career'},
             {'icon': 'study', 'title': '学业服务', 'route': '/student/study'},
             {'icon': 'mental', 'title': '心理健康', 'route': '/student/mental'},
@@ -1893,8 +1932,9 @@ class _HomePageState extends State<HomePage> {
 
   /// 近期提醒
   Widget _buildUpcomingEvents(ThemeData theme) {
-    final events =
-        (_studentHomeData?['upcoming_events'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final events = (_studentHomeData?['upcoming_events'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2071,7 +2111,8 @@ class _StudentHomeSkeleton extends StatelessWidget {
                 child: Container(
                   height: 88,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -2089,7 +2130,8 @@ class _StudentHomeSkeleton extends StatelessWidget {
               width: 80,
               height: 16,
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color:
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -2112,7 +2154,8 @@ class _StudentHomeSkeleton extends StatelessWidget {
               width: 80,
               height: 16,
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color:
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
