@@ -4,17 +4,19 @@ import (
 	"database/sql"
 	"time"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
 // FeedbackRepo 用户反馈数据访问
 type FeedbackRepo struct {
-	db *sql.DB
+	db    *sql.DB
+	mysql bool
 }
 
 // NewFeedbackRepo 创建反馈 repo
 func NewFeedbackRepo(db *sql.DB) *FeedbackRepo {
-	return &FeedbackRepo{db: db}
+	return &FeedbackRepo{db: db, mysql: dbutil.IsMySQL(db)}
 }
 
 // listFeedbackCols 统一 SELECT 列名
@@ -302,12 +304,22 @@ func (r *FeedbackRepo) TopIssues(limit int) ([]model.TopIssueItem, error) {
 // AvgResolveHours 平均解决时长（小时）
 func (r *FeedbackRepo) AvgResolveHours() (float64, error) {
 	var avg sql.NullFloat64
-	err := r.db.QueryRow(`
-		SELECT AVG(
-			(julianday(resolved_at) - julianday(created_at)) * 24
-		) FROM feedback 
-		WHERE status = 'resolved' AND resolved_at IS NOT NULL
-	`).Scan(&avg)
+	var err error
+	if r.mysql {
+		// MySQL 无 julianday()，用 TIMESTAMPDIFF 计算小时差
+		err = r.db.QueryRow(`
+			SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, resolved_at))
+			FROM feedback
+			WHERE status = 'resolved' AND resolved_at IS NOT NULL
+		`).Scan(&avg)
+	} else {
+		err = r.db.QueryRow(`
+			SELECT AVG(
+				(julianday(resolved_at) - julianday(created_at)) * 24
+			) FROM feedback
+			WHERE status = 'resolved' AND resolved_at IS NOT NULL
+		`).Scan(&avg)
+	}
 	if err != nil {
 		return 0, err
 	}
