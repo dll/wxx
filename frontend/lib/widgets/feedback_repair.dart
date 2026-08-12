@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/feedback_provider.dart';
+import '../utils/feedback_report.dart';
 
 /// 功能模块 → 项目代码文件映射（AI 不可用时本地兜底）
 const _moduleFileMap = <String, List<String>>{
@@ -357,6 +358,48 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                 foregroundColor: theme.colorScheme.onPrimary,
               ),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _copyJson,
+              icon: const Icon(Icons.data_object),
+              label: const Text('复制结构化 JSON'),
+            ),
+            const SizedBox(height: 8),
+            // 闭环引导：复制 → 修复 → 验证 → 标记已解决
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color:
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('修复闭环',
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  const SelectableText(
+                    '1. 复制上方报告/JSON → 粘贴给 AI 工具（Claude/GLM 等）\n'
+                    '2. 在 AI 工具中按报告定位并修复代码或知识库\n'
+                    '3. 本地验证通过（flutter analyze / go test / 页面复现）\n'
+                    '4. 回到本面板点击下方「验证通过并标记已解决」\n'
+                    '5. 发版后通知提交用户',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _markResolved,
+                      icon: const Icon(Icons.verified_outlined),
+                      label: const Text('验证通过并标记已解决'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 4),
             Text('将反馈信息与 AI 诊断完整复制，粘贴到 Claude / GLM 等 AI 工具进行修复',
                 style: theme.textTheme.bodySmall
@@ -368,89 +411,87 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
     );
   }
 
-  /// 组装完整 Markdown 报告并复制到剪贴板（提交 AI 工具修复）
+  /// 组装 AI 诊断附加信息（统一报告函数用）
+  FeedbackReportExtra _extra() {
+    return FeedbackReportExtra(
+      module: _localModule,
+      summary: _ai?.summary ?? '',
+      ocrText: _ai?.ocrText ?? '',
+      rootCause: _ai?.rootCause ?? '',
+      repairHint: _repairHint(),
+      codeFiles: _ai?.codeFiles ?? const [],
+      matchedFiles: _ai?.matchedFiles ?? const [],
+    );
+  }
+
+  /// 复制完整 Markdown 报告（提交 AI 工具修复）
   Future<void> _copyFullReport() async {
     final fb = widget.fb;
-    final files = _codeFiles();
-    final sb = StringBuffer()
-      ..writeln('# 反馈问题诊断报告')
-      ..writeln()
-      ..writeln('## 反馈信息')
-      ..writeln('- ID: ${fb.feedbackId}')
-      ..writeln('- 用户: ${fb.username}（${fb.createdAt}）')
-      ..writeln(
-          '- 类型: ${fb.categoryLabel} | 模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
-      ..writeln('- 状态: ${fb.statusLabel}')
-      ..writeln('- 关联资源: ${fb.resourceId.isEmpty ? '无' : fb.resourceId}')
-      ..writeln()
-      ..writeln('## 反馈内容')
-      ..writeln()
-      ..writeln(fb.content);
-    if (_ai?.ocrText.trim().isNotEmpty == true) {
-      sb
-        ..writeln()
-        ..writeln('## 截图解析（OCR）')
-        ..writeln()
-        ..writeln(_ai!.ocrText);
-    }
-    if (_ai?.summary.isNotEmpty == true) {
-      sb
-        ..writeln()
-        ..writeln('## 问题摘要')
-        ..writeln()
-        ..writeln(_ai!.summary);
-    }
-    if (_ai?.rootCause.isNotEmpty == true) {
-      sb
-        ..writeln()
-        ..writeln('## 根因分析')
-        ..writeln()
-        ..writeln(_ai!.rootCause);
-    }
-    if (_localModule.isNotEmpty || fb.module.isNotEmpty) {
-      sb
-        ..writeln()
-        ..writeln('## 相关模块')
-        ..writeln()
-        ..writeln('- 反馈模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
-        ..writeln(
-            '- AI 匹配: ${_localModule.isNotEmpty ? _localModule : '（未匹配）'}');
-    }
-    if (files.isNotEmpty) {
-      sb
-        ..writeln()
-        ..writeln('## 相关代码文件')
-        ..writeln();
-      for (final f in files) {
-        sb.writeln('- `$f`');
-      }
-    }
-    if (_ai?.matchedFiles.isNotEmpty == true) {
-      sb
-        ..writeln()
-        ..writeln('## AI 匹配代码文件')
-        ..writeln();
-      for (final f in _ai!.matchedFiles) {
-        sb.writeln('- `$f`');
-      }
-    }
-    sb
-      ..writeln()
-      ..writeln('## 修复建议')
-      ..writeln()
-      ..writeln(_repairHint())
-      ..writeln()
-      ..writeln('## 本机复现指引')
-      ..writeln()
-      ..writeln('1. 前端: cd frontend && flutter run -d chrome')
-      ..writeln('2. 后端: cd server && go run .   (本地 SQLite)')
-      ..writeln('3. 修复后: flutter analyze 零错误 → make deploy-release 发版');
-
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    final logs = context.read<FeedbackProvider>().logs;
+    await Clipboard.setData(ClipboardData(
+        text: FeedbackReport.buildMarkdown(fb, logs: logs, extra: _extra())));
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('已复制完整报告，可粘贴到 AI 工具修复')));
     }
+  }
+
+  /// 复制完整 JSON 结构化数据（供 AI 工具精确解析）
+  Future<void> _copyJson() async {
+    final fb = widget.fb;
+    final logs = context.read<FeedbackProvider>().logs;
+    await Clipboard.setData(ClipboardData(
+        text: FeedbackReport.buildJson(fb, logs: logs, extra: _extra())));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制结构化 JSON 数据')));
+    }
+  }
+
+  /// 修复完成引导：返回详情页并弹出标记已解决对话框
+  void _markResolved() {
+    final fb = widget.fb;
+    final replyCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('标记为已解决'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('确认修复已完成且验证通过？将记录处理人并通知提交用户。'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: replyCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: '给用户的回复（可选）...',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await context.read<FeedbackProvider>().resolveFeedback(
+                  fb.feedbackId, 'resolved',
+                  reply: replyCtrl.text.trim());
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(ok ? '已标记为已解决' : '操作失败')));
+                if (ok) Navigator.pop(context); // 关闭修复面板
+              }
+            },
+            child: const Text('确认解决'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 待展示的代码文件（AI 判定优先，其次本地兜底）

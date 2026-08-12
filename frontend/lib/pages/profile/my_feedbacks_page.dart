@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/feedback_provider.dart';
+import '../../utils/feedback_report.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/feedback_screenshot.dart';
 
@@ -153,8 +155,8 @@ class _MyFeedbackCard extends StatelessWidget {
                   if (feedback.module.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.secondaryContainer,
                         borderRadius: BorderRadius.circular(12),
@@ -171,6 +173,14 @@ class _MyFeedbackCard extends StatelessWidget {
                   ],
                   const Spacer(),
                   Text(feedback.createdAt, style: theme.textTheme.labelSmall),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: '复制反馈数据',
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    onPressed: () => _copyFeedback(context),
+                    icon: const Icon(Icons.copy_outlined),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -265,9 +275,16 @@ class _MyFeedbackCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (ctx) =>
-            MyFeedbackDetailPage(feedbackId: feedback.feedbackId),
+        builder: (ctx) => MyFeedbackDetailPage(feedbackId: feedback.feedbackId),
       ),
+    );
+  }
+
+  /// 复制反馈结构化数据（JSON + Markdown），供粘贴给 AI 工具修复
+  void _copyFeedback(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: FeedbackReport.buildJson(feedback)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已复制反馈数据，可粘贴到 AI 工具')),
     );
   }
 
@@ -319,17 +336,17 @@ class _MyFeedbackCard extends StatelessWidget {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await context
-                  .read<FeedbackProvider>()
-                  .rateFeedback(
-                      feedback.feedbackId, ratingNotifier.value,
-                      comment: commentCtrl.text);
+              final ok = await context.read<FeedbackProvider>().rateFeedback(
+                  feedback.feedbackId, ratingNotifier.value,
+                  comment: commentCtrl.text);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(ok ? '评价成功' : '评价失败')),
                 );
                 if (ok) {
-                  context.read<FeedbackProvider>().fetchMyFeedbacks(refresh: true);
+                  context
+                      .read<FeedbackProvider>()
+                      .fetchMyFeedbacks(refresh: true);
                 }
               }
             },
@@ -363,7 +380,28 @@ class _MyFeedbackDetailPageState extends State<MyFeedbackDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('反馈详情')),
+      appBar: AppBar(
+        title: const Text('反馈详情'),
+        actions: [
+          Consumer<FeedbackProvider>(
+            builder: (_, provider, __) {
+              final fb = provider.currentFeedback;
+              if (fb == null) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: '复制反馈数据',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(
+                      text: FeedbackReport.buildJson(fb, logs: provider.logs)));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('已复制反馈数据，可粘贴到 AI 工具')),
+                  );
+                },
+                icon: const Icon(Icons.copy_all_outlined),
+              );
+            },
+          ),
+        ],
+      ),
       body: Consumer<FeedbackProvider>(
         builder: (_, provider, __) {
           if (provider.detailLoading) {
@@ -446,8 +484,8 @@ class _MyFeedbackDetailPageState extends State<MyFeedbackDetailPage> {
                   ),
                   child: Text(
                     fb.categoryLabel,
-                    style:
-                        TextStyle(color: theme.colorScheme.onSecondaryContainer),
+                    style: TextStyle(
+                        color: theme.colorScheme.onSecondaryContainer),
                   ),
                 ),
                 const Spacer(),
@@ -620,8 +658,7 @@ class _MyFeedbackDetailPageState extends State<MyFeedbackDetailPage> {
             ),
             if (fb.ratingComment.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text('评价：${fb.ratingComment}',
-                  style: theme.textTheme.bodyMedium),
+              Text('评价：${fb.ratingComment}', style: theme.textTheme.bodyMedium),
             ],
             if (fb.ratedAt != null) ...[
               const SizedBox(height: 4),
@@ -737,11 +774,9 @@ class _MyFeedbackDetailPageState extends State<MyFeedbackDetailPage> {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await context
-                  .read<FeedbackProvider>()
-                  .rateFeedback(
-                      fb.feedbackId, ratingNotifier.value,
-                      comment: commentCtrl.text);
+              final ok = await context.read<FeedbackProvider>().rateFeedback(
+                  fb.feedbackId, ratingNotifier.value,
+                  comment: commentCtrl.text);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(ok ? '评价成功' : '评价失败')),
@@ -808,8 +843,8 @@ class _TimelineItem extends StatelessWidget {
                   if (log.operator.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text('操作人：${log.operator}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
                   ],
                   if (log.detail.isNotEmpty) ...[
                     const SizedBox(height: 4),

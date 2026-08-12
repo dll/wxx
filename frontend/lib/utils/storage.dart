@@ -18,6 +18,11 @@ class Storage {
   static const String _keyGradeThemeEnabled = 'grade_theme_enabled';
   static const String _keyEnrollmentYear = 'enrollment_year';
 
+  // ── 反馈草稿 ──
+  static const String _keyFeedbackDraft = 'feedback_draft';
+  static const String _keyFeedbackDraftCategory = 'feedback_draft_category';
+  static const String _keyFeedbackDraftModule = 'feedback_draft_module';
+
   static late SharedPreferences _prefs;
 
   /// 初始化（在 main 中调用）
@@ -77,8 +82,8 @@ class Storage {
 
   /// 管理员全局功能开关（key=feature.*，缓存自后端 /public/feature-switches）
   static Map<String, String> get globalFeatureSwitches =>
-      (_prefs.getStringList(_keyGlobalFeatureSwitches) ?? const [])
-          .fold({}, (map, kv) {
+      (_prefs.getStringList(_keyGlobalFeatureSwitches) ?? const []).fold({},
+          (map, kv) {
         final idx = kv.indexOf('=');
         if (idx > 0) {
           map[kv.substring(0, idx)] = kv.substring(idx + 1);
@@ -121,4 +126,23 @@ class Storage {
   static int? get enrollmentYear => _prefs.getInt(_keyEnrollmentYear);
   static Future<void> setEnrollmentYear(int v) =>
       _prefs.setInt(_keyEnrollmentYear, v);
+
+  // ── 反馈草稿（提交失败/关闭时保存，下次打开恢复）──
+  static String get feedbackDraft => _prefs.getString(_keyFeedbackDraft) ?? '';
+  static String get feedbackDraftCategory =>
+      _prefs.getString(_keyFeedbackDraftCategory) ?? 'answer_error';
+  static String get feedbackDraftModule =>
+      _prefs.getString(_keyFeedbackDraftModule) ?? '';
+  static Future<void> saveFeedbackDraft(
+          {String content = '', String category = '', String module = ''}) =>
+      Future.wait([
+        _prefs.setString(_keyFeedbackDraft, content),
+        _prefs.setString(_keyFeedbackDraftCategory, category),
+        _prefs.setString(_keyFeedbackDraftModule, module),
+      ]);
+  static Future<void> clearFeedbackDraft() => Future.wait([
+        _prefs.remove(_keyFeedbackDraft),
+        _prefs.remove(_keyFeedbackDraftCategory),
+        _prefs.remove(_keyFeedbackDraftModule),
+      ]);
 }

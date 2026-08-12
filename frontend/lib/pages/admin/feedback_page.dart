@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/feedback_provider.dart';
 import '../../models/models.dart';
+import '../../utils/feedback_report.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/feedback_screenshot.dart';
 import '../../widgets/feedback_repair.dart';
@@ -1247,41 +1248,8 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
     final fb = context.read<FeedbackProvider>().currentFeedback;
     if (fb == null) return;
     final logs = context.read<FeedbackProvider>().logs;
-    final sb = StringBuffer()
-      ..writeln('反馈详情')
-      ..writeln('ID: ${fb.feedbackId}')
-      ..writeln('提交用户: ${fb.username}（${fb.createdAt}）')
-      ..writeln(
-          '类型: ${fb.categoryLabel} | 模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
-      ..writeln(
-          '状态: ${fb.statusLabel}${fb.resolvedBy.isNotEmpty ? ' | 处理人: ${fb.resolvedBy}' : ''}')
-      ..writeln('消息ID: ${fb.messageId}')
-      ..writeln('关联资源: ${fb.resourceId.isEmpty ? '无' : fb.resourceId}')
-      ..writeln('--')
-      ..writeln('反馈内容:')
-      ..writeln(fb.content);
-    if (fb.reply.isNotEmpty) {
-      sb
-        ..writeln('--')
-        ..writeln('处理回复:')
-        ..writeln(fb.reply);
-    }
-    if (fb.rating > 0) {
-      sb
-        ..writeln('--')
-        ..writeln(
-            '满意度: ${fb.rating} 星${fb.ratingComment.isNotEmpty ? ' | ${fb.ratingComment}' : ''}');
-    }
-    if (logs.isNotEmpty) {
-      sb
-        ..writeln('--')
-        ..writeln('处理记录:');
-      for (final log in logs) {
-        sb.writeln(
-            '- [${log.createdAt}] ${log.actionLabel}${log.operator.isNotEmpty ? ' by ${log.operator}' : ''}${log.detail.isNotEmpty ? '（${log.detail}）' : ''}');
-      }
-    }
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    await Clipboard.setData(
+        ClipboardData(text: FeedbackReport.buildMarkdown(fb, logs: logs)));
     if (context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('已复制完整反馈')));

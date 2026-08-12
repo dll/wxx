@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/feedback_provider.dart';
 import '../models/models.dart';
 import '../utils/screenshot_capture.dart';
+import '../utils/storage.dart';
 
 /// 反馈提交对话框 — 自动截屏 + 分类选择 + 内容描述
 ///
@@ -45,12 +46,31 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     super.initState();
     _screenshotBytes = widget.initialBytes;
     _screenshotError = widget.initialError;
+    // 恢复本地草稿（上次提交失败或未完成的输入）
+    final draft = Storage.feedbackDraft;
+    if (draft.isNotEmpty) {
+      _contentCtrl.text = draft;
+      final cat = Storage.feedbackDraftCategory;
+      final mod = Storage.feedbackDraftModule;
+      if (cat.isNotEmpty) _category = cat;
+      if (mod.isNotEmpty) _module = mod;
+    }
   }
 
   @override
   void dispose() {
+    // 关闭对话框时保存草稿（未提交的输入不丢失）
+    _saveDraft();
     _contentCtrl.dispose();
     super.dispose();
+  }
+
+  void _saveDraft() {
+    Storage.saveFeedbackDraft(
+      content: _contentCtrl.text,
+      category: _category,
+      module: _module,
+    );
   }
 
   Future<void> _submit() async {
@@ -88,6 +108,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
       if (!mounted) return;
 
       if (ok) {
+        // 提交成功，清除草稿
+        Storage.clearFeedbackDraft();
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -97,6 +119,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
           ),
         );
       } else {
+        // 提交失败：保留输入（草稿已在 dispose 保存），提示重试
+        _saveDraft();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(provider.error.isNotEmpty ? provider.error : '提交失败'),
@@ -117,12 +141,14 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
       title: Row(
         children: [
           Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF6750A4).withOpacity( 0.12),
+              color: const Color(0xFF6750A4).withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.feedback_outlined, color: Color(0xFF6750A4)),
+            child:
+                const Icon(Icons.feedback_outlined, color: Color(0xFF6750A4)),
           ),
           const SizedBox(width: 12),
           const Text('提交反馈'),
@@ -140,7 +166,9 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
               const SizedBox(height: 16),
 
               // ── 反馈类型 ──
-              Text('反馈类型', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+              Text('反馈类型',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: const [
@@ -155,7 +183,9 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
               const SizedBox(height: 16),
 
               // ── 所属模块 ──
-              Text('所属模块（便于快速修复）', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+              Text('所属模块（便于快速修复）',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _module.isEmpty ? null : _module,
@@ -165,7 +195,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   border: const OutlineInputBorder(),
                   isDense: true,
                   filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                  fillColor: theme.colorScheme.surfaceContainerHighest
+                      .withOpacity(0.4),
                 ),
                 items: [
                   const DropdownMenuItem<String>(
@@ -188,7 +219,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   border: const OutlineInputBorder(),
                   isDense: true,
                   filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.4),
+                  fillColor: theme.colorScheme.surfaceContainerHighest
+                      .withOpacity(0.4),
                 ),
                 textInputAction: TextInputAction.newline,
               ),
@@ -205,8 +237,10 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
           onPressed: _submitting ? null : _submit,
           icon: _submitting
               ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.send, size: 18),
           label: Text(_submitting ? '提交中...' : '提交反馈'),
@@ -219,8 +253,9 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity( 0.4)),
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity( 0.3),
+        border: Border.all(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.4)),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
       ),
       child: AspectRatio(
         aspectRatio: 16 / 9,
@@ -237,11 +272,13 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                     ),
                     // 截屏成功标记
                     Positioned(
-                      top: 8, right: 8,
+                      top: 8,
+                      right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity( 0.85),
+                          color: Colors.green.withOpacity(0.85),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Row(
@@ -249,7 +286,9 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                           children: [
                             Icon(Icons.check, color: Colors.white, size: 14),
                             SizedBox(width: 4),
-                            Text('已截屏', style: TextStyle(color: Colors.white, fontSize: 11)),
+                            Text('已截屏',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -269,12 +308,14 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.screenshot_outlined, size: 28, color: theme.colorScheme.onSurfaceVariant),
+            Icon(Icons.screenshot_outlined,
+                size: 28, color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(height: 4),
             Text(
               _screenshotError ?? '截图不可用',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: _screenshotError != null ? theme.colorScheme.error : null,
+                color:
+                    _screenshotError != null ? theme.colorScheme.error : null,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
