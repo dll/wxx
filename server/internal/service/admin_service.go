@@ -375,14 +375,23 @@ func (s *AdminService) UpdateSettings(settings map[string]string, updatedBy stri
 
 // ImportStudentRow 导入学生行数据
 type ImportStudentRow struct {
-	Username       string // 学号
-	DisplayName    string // 姓名
-	College        string // 院系
-	Major          string // 专业
-	ClassName      string // 班级
+	Username      string // 学号
+	DisplayName   string // 姓名
+	College       string // 院系
+	Major         string // 专业
+	ClassName     string // 班级
 	EnrollmentDate string // 入学时间
 	EnrollmentYear string // 入学年份
-	Role           string // Excel 中的角色，仅允许学生
+	Role          string // Excel 中的角色，仅允许学生
+	Gender        string // 性别
+	Campus        string // 校区
+	EducationLevel string // 学历层次
+	StudyDuration string // 学制
+	ExpectedGrad  string // 预期毕业时间
+	StudyMode     string // 学习形式
+	Ethnicity     string // 民族
+	PoliticalStatus string // 政治面貌
+	BirthDate     string // 出生年月
 }
 
 // ImportStudentsResult 导入结果
@@ -485,6 +494,15 @@ func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword,
 			ClassName:      className,
 			EnrollmentDate: strings.TrimSpace(source.EnrollmentDate),
 			EnrollmentYear: strings.TrimSpace(source.EnrollmentYear),
+			Gender:         strings.TrimSpace(source.Gender),
+			Campus:         defaultCampus(strings.TrimSpace(source.Campus)),
+			EducationLevel: strings.TrimSpace(source.EducationLevel),
+			StudyDuration:  strings.TrimSpace(source.StudyDuration),
+			ExpectedGrad:   strings.TrimSpace(source.ExpectedGrad),
+			StudyMode:      strings.TrimSpace(source.StudyMode),
+			Ethnicity:      strings.TrimSpace(source.Ethnicity),
+			PoliticalStatus: strings.TrimSpace(source.PoliticalStatus),
+			BirthDate:      strings.TrimSpace(source.BirthDate),
 			Status:         "active",
 			PasswordHash:   passwordHash,
 		}
@@ -556,22 +574,41 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 	colMap := make(map[string]string)
 	for col, name := range header {
 		v := strings.TrimSpace(strings.TrimPrefix(name, "\ufeff"))
-		if v == "学号" || strings.HasPrefix(v, "学号") {
+		switch {
+		case v == "学号" || strings.HasPrefix(v, "学号"):
 			colMap["username"] = col
-		} else if v == "姓名" || strings.HasPrefix(v, "姓名") {
+		case v == "姓名" || strings.HasPrefix(v, "姓名"):
 			colMap["display_name"] = col
-		} else if v == "院系" || strings.HasPrefix(v, "院系") {
+		case v == "院系" || strings.HasPrefix(v, "院系") || v == "专业院系" || strings.HasPrefix(v, "专业院系"):
 			colMap["college"] = col
-		} else if v == "专业" || strings.HasPrefix(v, "专业") {
+		case v == "专业" || strings.HasPrefix(v, "专业"):
 			colMap["major"] = col
-		} else if v == "班级" || strings.HasPrefix(v, "班级") {
+		case v == "班级" || strings.HasPrefix(v, "班级"):
 			colMap["class_name"] = col
-		} else if v == "入学时间" || v == "入学日期" || strings.HasPrefix(v, "入学时间") || strings.HasPrefix(v, "入学日期") {
+		case v == "入学时间" || v == "入学日期" || v == "入校时间" || strings.HasPrefix(v, "入学时间") || strings.HasPrefix(v, "入学日期") || strings.HasPrefix(v, "入校时间"):
 			colMap["enrollment_date"] = col
-		} else if v == "入学年份" || strings.HasPrefix(v, "入学年份") {
+		case v == "入学年份" || strings.HasPrefix(v, "入学年份"):
 			colMap["enrollment_year"] = col
-		} else if v == "角色" || strings.HasPrefix(v, "角色") {
+		case v == "角色" || strings.HasPrefix(v, "角色"):
 			colMap["role"] = col
+		case v == "性别" || strings.HasPrefix(v, "性别"):
+			colMap["gender"] = col
+		case v == "校区" || strings.HasPrefix(v, "校区"):
+			colMap["campus"] = col
+		case v == "学历层次" || strings.HasPrefix(v, "学历层次"):
+			colMap["education_level"] = col
+		case v == "学制" || strings.HasPrefix(v, "学制"):
+			colMap["study_duration"] = col
+		case v == "预期毕业时间" || strings.HasPrefix(v, "预期毕业时间"):
+			colMap["expected_graduation"] = col
+		case v == "学习形式" || strings.HasPrefix(v, "学习形式"):
+			colMap["study_mode"] = col
+		case v == "民族" || strings.HasPrefix(v, "民族"):
+			colMap["ethnicity"] = col
+		case v == "政治面貌" || strings.HasPrefix(v, "政治面貌"):
+			colMap["political_status"] = col
+		case v == "出生年月" || strings.HasPrefix(v, "出生年月"):
+			colMap["birth_date"] = col
 		}
 	}
 
@@ -590,12 +627,21 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 		r := &ImportStudentRow{
 			Username:       username,
 			DisplayName:    displayName,
-			College:        strings.TrimSpace(row[colMap["college"]]),
-			Major:          strings.TrimSpace(row[colMap["major"]]),
-			ClassName:      strings.TrimSpace(row[colMap["class_name"]]),
-			EnrollmentDate: strings.TrimSpace(row[colMap["enrollment_date"]]),
-			EnrollmentYear: strings.TrimSpace(row[colMap["enrollment_year"]]),
-			Role:           strings.TrimSpace(row[colMap["role"]]),
+			College:        cell(row, colMap, "college"),
+			Major:          cell(row, colMap, "major"),
+			ClassName:      cell(row, colMap, "class_name"),
+			EnrollmentDate: cell(row, colMap, "enrollment_date"),
+			EnrollmentYear: cell(row, colMap, "enrollment_year"),
+			Role:           cell(row, colMap, "role"),
+			Gender:         cell(row, colMap, "gender"),
+			Campus:         cell(row, colMap, "campus"),
+			EducationLevel: cell(row, colMap, "education_level"),
+			StudyDuration:  cell(row, colMap, "study_duration"),
+			ExpectedGrad:   cell(row, colMap, "expected_graduation"),
+			StudyMode:      cell(row, colMap, "study_mode"),
+			Ethnicity:      cell(row, colMap, "ethnicity"),
+			PoliticalStatus: cell(row, colMap, "political_status"),
+			BirthDate:      cell(row, colMap, "birth_date"),
 		}
 		result = append(result, r)
 	}
@@ -604,4 +650,22 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 	}
 
 	return result, nil
+}
+
+// cell 安全读取 Excel 行单元格：列不存在时返回空串
+// colMap 值即为表头名（XLSXRow 以表头名为键）
+func cell(row util.XLSXRow, colMap map[string]string, key string) string {
+	header, ok := colMap[key]
+	if !ok || header == "" {
+		return ""
+	}
+	return strings.TrimSpace(row[header])
+}
+
+// defaultCampus 校区为空时默认会峰校区
+func defaultCampus(c string) string {
+	if c == "" {
+		return "会峰校区"
+	}
+	return c
 }

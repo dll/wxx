@@ -83,6 +83,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       body: canRead
           ? Column(
               children: [
+                _buildRoleTabs(),
                 _buildSearchBar(),
                 if (_showAdvancedFilter) _buildAdvancedFilter(),
                 _buildStatsBar(),
@@ -91,6 +92,54 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               ],
             )
           : _buildImportOnly(context, canImport),
+    );
+  }
+
+  /// 角色分类 Tab：全部/学生/辅导员/教师/管理员，点击快速过滤
+  Widget _buildRoleTabs() {
+    return Consumer<AdminProvider>(
+      builder: (_, provider, __) {
+        final current = provider.userRoleFilter;
+        Widget tab(String label, String value) {
+          final selected = current == value;
+          final theme = Theme.of(context);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: ChoiceChip(
+              label: Text(label, style: const TextStyle(fontSize: 12)),
+              selected: selected,
+              visualDensity: VisualDensity.compact,
+              onSelected: (_) =>
+                  provider.setUserFilter(role: selected ? '' : value),
+              selectedColor: theme.colorScheme.primaryContainer,
+              labelStyle: TextStyle(
+                color: selected
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                tab('全部', ''),
+                tab('学生', 'student'),
+                tab('辅导员', 'counselor'),
+                tab('教师', 'teacher'),
+                tab('学生会', 'student_union'),
+                tab('管理员', 'college_admin'),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -148,7 +197,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         color: Theme.of(context).colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+            color:
+                Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
           ),
         ),
       ),
@@ -213,8 +263,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         return Container(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
           decoration: BoxDecoration(
-            color:
-                Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withOpacity(0.3),
             border: Border(
               bottom: BorderSide(
                 color: Theme.of(context)
@@ -242,8 +294,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   DropdownMenuItem(value: 'assistant', child: Text('教辅')),
                   DropdownMenuItem(
                       value: 'college_admin', child: Text('学院管理员')),
-                  DropdownMenuItem(
-                      value: 'school_admin', child: Text('学校管理员')),
+                  DropdownMenuItem(value: 'school_admin', child: Text('学校管理员')),
                   DropdownMenuItem(value: 'sys_admin', child: Text('系统管理员')),
                   DropdownMenuItem(value: 'guest', child: Text('游客')),
                 ],
@@ -251,8 +302,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               ),
               _buildFilterDropdown(
                 label: '状态',
-                value:
-                    provider.statusFilter.isEmpty ? null : provider.statusFilter,
+                value: provider.statusFilter.isEmpty
+                    ? null
+                    : provider.statusFilter,
                 items: const [
                   DropdownMenuItem(value: '', child: Text('全部状态')),
                   DropdownMenuItem(value: 'active', child: Text('正常')),
@@ -263,15 +315,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               ),
               _buildFilterDropdown(
                 label: '学院',
-                value:
-                    provider.collegeFilter.isEmpty ? null : provider.collegeFilter,
+                value: provider.collegeFilter.isEmpty
+                    ? null
+                    : provider.collegeFilter,
                 items: [
                   const DropdownMenuItem(value: '', child: Text('全部学院')),
                   ...provider.collegeList
                       .map((e) => DropdownMenuItem(value: e, child: Text(e))),
                 ],
                 onChanged: (v) {
-                  provider.setUserFilter(college: v ?? '', major: '', className: '');
+                  provider.setUserFilter(
+                      college: v ?? '', major: '', className: '');
                 },
               ),
               _buildFilterDropdown(
@@ -423,7 +477,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+            color:
+                Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
             border: Border(
               bottom: BorderSide(
                 color: Theme.of(context)
@@ -468,7 +523,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   color: Colors.orange,
                   onPressed: () => _confirmBatchAction(
                     title: '批量禁用',
-                    content: '确定禁用选中的 ${provider.selectedCount} 位用户吗？\n禁用后用户将无法登录。',
+                    content:
+                        '确定禁用选中的 ${provider.selectedCount} 位用户吗？\n禁用后用户将无法登录。',
                     onConfirm: () => provider.batchUpdateStatus('disabled'),
                     successMsg: '批量禁用成功',
                   ),
@@ -612,9 +668,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
     if (confirmed != true) return;
 
-    final ok = await context
-        .read<AdminProvider>()
-        .batchResetPassword(controller.text);
+    final ok =
+        await context.read<AdminProvider>().batchResetPassword(controller.text);
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -650,9 +705,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
         final canManage = CapabilityUtils.has(Capability.schoolUserUpdate) ||
             CapabilityUtils.has(Capability.systemPasswordReset);
-        final showCheckbox =
-            CapabilityUtils.has(Capability.schoolUserUpdate) ||
-                CapabilityUtils.has(Capability.systemPasswordReset);
+        final showCheckbox = CapabilityUtils.has(Capability.schoolUserUpdate) ||
+            CapabilityUtils.has(Capability.systemPasswordReset);
 
         return RefreshIndicator(
           onRefresh: () => provider.searchUsers(refresh: true),
@@ -674,9 +728,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 user: user,
                 selected: selected,
                 showCheckbox: showCheckbox,
-                onSelectChanged: canManage
-                    ? (v) => provider.toggleSelect(user.id)
-                    : null,
+                onSelectChanged:
+                    canManage ? (v) => provider.toggleSelect(user.id) : null,
                 onTap: canManage ? () => _showEditDialog(user) : null,
               );
             },
@@ -928,10 +981,8 @@ class _UserEditDialogState extends State<_UserEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final canUpdate =
-        CapabilityUtils.has(Capability.schoolUserUpdate);
-    final canResetPwd =
-        CapabilityUtils.has(Capability.systemPasswordReset);
+    final canUpdate = CapabilityUtils.has(Capability.schoolUserUpdate);
+    final canResetPwd = CapabilityUtils.has(Capability.systemPasswordReset);
     final theme = Theme.of(context);
 
     return AlertDialog(
@@ -939,7 +990,8 @@ class _UserEditDialogState extends State<_UserEditDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
       ),
       title: Row(
         children: [
@@ -1004,8 +1056,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
                   DropdownMenuItem(value: 'assistant', child: Text('教辅')),
                   DropdownMenuItem(
                       value: 'college_admin', child: Text('学院管理员')),
-                  DropdownMenuItem(
-                      value: 'school_admin', child: Text('学校管理员')),
+                  DropdownMenuItem(value: 'school_admin', child: Text('学校管理员')),
                 ],
                 onChanged: canUpdate
                     ? (v) => setState(() => _role = v ?? 'student')
@@ -1154,15 +1205,15 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   Future<void> _handleSave() async {
     setState(() => _saving = true);
     final ok = await context.read<AdminProvider>().updateUser(
-          widget.user.id,
-          {
-            'display_name': _displayNameController.text.trim(),
-            'role': _role,
-            'owner_scope': _scope,
-            'owner_id': _ownerIdController.text.trim(),
-            'status': _status,
-          },
-        );
+      widget.user.id,
+      {
+        'display_name': _displayNameController.text.trim(),
+        'role': _role,
+        'owner_scope': _scope,
+        'owner_id': _ownerIdController.text.trim(),
+        'status': _status,
+      },
+    );
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) {
@@ -1227,8 +1278,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
     if (confirmed != true) return;
 
     setState(() => _deleting = true);
-    final ok =
-        await context.read<AdminProvider>().deleteUser(widget.user.id);
+    final ok = await context.read<AdminProvider>().deleteUser(widget.user.id);
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context);

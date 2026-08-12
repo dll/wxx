@@ -628,6 +628,14 @@ class UserProfile {
   final String ownerScope;
   final String ownerId;
   final String status;
+  final String gender;
+  final String campus;
+  final String educationLevel;
+  final String studyDuration;
+  final String expectedGrad;
+  final String studyMode;
+  final String ethnicity;
+  final String politicalStatus;
 
   UserProfile({
     required this.id,
@@ -642,6 +650,14 @@ class UserProfile {
     this.ownerScope = '',
     this.ownerId = '',
     this.status = 'active',
+    this.gender = '',
+    this.campus = '',
+    this.educationLevel = '',
+    this.studyDuration = '',
+    this.expectedGrad = '',
+    this.studyMode = '',
+    this.ethnicity = '',
+    this.politicalStatus = '',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -660,6 +676,14 @@ class UserProfile {
       ownerScope: data['owner_scope'] ?? '',
       ownerId: data['owner_id'] ?? '',
       status: data['status'] ?? 'active',
+      gender: data['gender'] ?? '',
+      campus: data['campus'] ?? '',
+      educationLevel: data['education_level'] ?? '',
+      studyDuration: data['study_duration'] ?? '',
+      expectedGrad: data['expected_graduation_date'] ?? '',
+      studyMode: data['study_mode'] ?? '',
+      ethnicity: data['ethnicity'] ?? '',
+      politicalStatus: data['political_status'] ?? '',
     );
   }
 

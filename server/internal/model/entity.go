@@ -13,6 +13,15 @@ type User struct {
 	ClassName      string `json:"class_name" db:"class_name"`           // 班级
 	EnrollmentDate string `json:"enrollment_date" db:"enrollment_date"` // 入学日期
 	EnrollmentYear string `json:"enrollment_year" db:"enrollment_year"` // 入学年份
+	Gender         string `json:"gender" db:"gender"`                   // 性别：男/女
+	Campus         string `json:"campus" db:"campus"`                   // 校区（默认会峰校区）
+	EducationLevel string `json:"education_level" db:"education_level"` // 学历层次：本科等
+	StudyDuration  string `json:"study_duration" db:"study_duration"`   // 学制：4 等
+	ExpectedGrad   string `json:"expected_graduation_date" db:"expected_graduation_date"` // 预期毕业时间
+	StudyMode      string `json:"study_mode" db:"study_mode"`           // 学习形式：普通全日制等
+	Ethnicity      string `json:"ethnicity" db:"ethnicity"`             // 民族：汉族等
+	PoliticalStatus string `json:"political_status" db:"political_status"` // 政治面貌
+	BirthDate      string `json:"birth_date" db:"birth_date"`           // 出生年月（隐私字段）
 	Phone          string `json:"phone" db:"phone"`                     // 手机号
 	Wechat         string `json:"wechat" db:"wechat"`                   // 微信号
 	QQ             string `json:"qq" db:"qq"`                           // QQ
@@ -24,6 +33,34 @@ type User struct {
 	Consented      int    `json:"consented" db:"consented"`             // 是否已同意隐私政策与用户协议：0=否 1=是
 	CreatedAt      string `json:"created_at" db:"created_at"`
 	UpdatedAt      string `json:"updated_at" db:"updated_at"`
+}
+
+// CanViewPrivate 判断角色是否能查看其他用户的私密信息。
+// 私密信息（联系方式/出生年月等）仅本人、辅导员与管理员及以上可见。
+func CanViewPrivate(role string) bool {
+	switch role {
+	case "counselor", "teacher", "assistant", "college_admin", "school_admin", "sys_admin":
+		return true
+	default:
+		return false
+	}
+}
+
+// SanitizePrivate 按调用者角色脱敏私密字段（非授权角色清空联系方式与出生年月）。
+// 返回是否发生了脱敏；copy 语义安全，不影响底层数据。
+func (u *User) SanitizePrivate(role string) bool {
+	if u == nil {
+		return false
+	}
+	if CanViewPrivate(role) {
+		return false
+	}
+	u.BirthDate = ""
+	u.Phone = ""
+	u.Wechat = ""
+	u.QQ = ""
+	u.Email = ""
+	return true
 }
 
 // ContactPerson 组织关系联系人（辅导员/领导等）

@@ -21,6 +21,8 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 // userCols 统一 SELECT 列名
 const userCols = `id, username, display_name, role, owner_scope, owner_id,
 	college, major, class_name, enrollment_date, enrollment_year,
+	gender, campus, education_level, study_duration, expected_graduation_date,
+	study_mode, ethnicity, political_status, birth_date,
 	phone, wechat, qq, email,
 	password_hash, voice_enabled, status, token_version, consented, created_at, updated_at`
 
@@ -32,6 +34,8 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.Gender, &user.Campus, &user.EducationLevel, &user.StudyDuration, &user.ExpectedGrad,
+		&user.StudyMode, &user.Ethnicity, &user.PoliticalStatus, &user.BirthDate,
 		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
@@ -53,6 +57,8 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 	).Scan(&user.ID, &user.Username, &user.DisplayName, &user.Role,
 		&user.OwnerScope, &user.OwnerID, &user.College, &user.Major,
 		&user.ClassName, &user.EnrollmentDate, &user.EnrollmentYear,
+		&user.Gender, &user.Campus, &user.EducationLevel, &user.StudyDuration, &user.ExpectedGrad,
+		&user.StudyMode, &user.Ethnicity, &user.PoliticalStatus, &user.BirthDate,
 		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
 		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
@@ -95,12 +101,8 @@ func (r *UserRepo) List(role, ownerScope, ownerID string, offset, limit int) ([]
 
 	var users []*model.User
 	for rows.Next() {
-		u := &model.User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
-			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
-			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
-			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := scanUser(rows)
+		if err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -197,12 +199,8 @@ func (r *UserRepo) ListAdvanced(q *model.UserQuery) ([]*model.User, int, error) 
 
 	var users []*model.User
 	for rows.Next() {
-		u := &model.User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
-			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
-			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
-			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := scanUser(rows)
+		if err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -457,10 +455,14 @@ func (r *UserRepo) Create(user *model.User) (int64, error) {
 		`INSERT INTO users (
 			username, display_name, role, owner_scope, owner_id,
 			college, major, class_name, enrollment_date, enrollment_year,
+			gender, campus, education_level, study_duration, expected_graduation_date,
+			study_mode, ethnicity, political_status, birth_date,
 			password_hash, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		user.Username, user.DisplayName, user.Role, user.OwnerScope, user.OwnerID,
 		user.College, user.Major, user.ClassName, user.EnrollmentDate, user.EnrollmentYear,
+		user.Gender, user.Campus, user.EducationLevel, user.StudyDuration, user.ExpectedGrad,
+		user.StudyMode, user.Ethnicity, user.PoliticalStatus, user.BirthDate,
 		user.PasswordHash, status,
 	)
 	if err != nil {
@@ -481,12 +483,8 @@ func (r *UserRepo) ListPendingGuests() ([]*model.User, error) {
 
 	var users []*model.User
 	for rows.Next() {
-		u := &model.User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
-			&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
-			&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
-			&u.PasswordHash, &u.VoiceEnabled,
-			&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := scanUser(rows)
+		if err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -698,8 +696,10 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateRes
 		`INSERT INTO users (
 			username, display_name, role, owner_scope, owner_id,
 			college, major, class_name, enrollment_date, enrollment_year,
+			gender, campus, education_level, study_duration, expected_graduation_date,
+			study_mode, ethnicity, political_status, birth_date,
 			password_hash, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return nil, fmt.Errorf("预编译语句失败: %w", err)
 	}
@@ -747,6 +747,8 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateRes
 		_, err = stmt.Exec(
 			u.Username, u.DisplayName, role, scope, ownerID,
 			u.College, u.Major, u.ClassName, u.EnrollmentDate, u.EnrollmentYear,
+			u.Gender, u.Campus, u.EducationLevel, u.StudyDuration, u.ExpectedGrad,
+			u.StudyMode, u.Ethnicity, u.PoliticalStatus, u.BirthDate,
 			u.PasswordHash, u.Status,
 		)
 		if err != nil {
@@ -829,4 +831,18 @@ func (r *UserRepo) CountAllActive() int {
 	var n int
 	_ = r.db.QueryRow("SELECT COUNT(*) FROM users WHERE status = 'active'").Scan(&n)
 	return n
+}
+
+// scanUser 扫描一行用户数据（对齐 userCols 全列）
+func scanUser(rows *sql.Rows) (*model.User, error) {
+	u := &model.User{}
+	err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role,
+		&u.OwnerScope, &u.OwnerID, &u.College, &u.Major,
+		&u.ClassName, &u.EnrollmentDate, &u.EnrollmentYear,
+		&u.Gender, &u.Campus, &u.EducationLevel, &u.StudyDuration, &u.ExpectedGrad,
+		&u.StudyMode, &u.Ethnicity, &u.PoliticalStatus, &u.BirthDate,
+		&u.Phone, &u.Wechat, &u.QQ, &u.Email,
+		&u.PasswordHash, &u.VoiceEnabled,
+		&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt)
+	return u, err
 }

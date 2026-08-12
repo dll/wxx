@@ -91,6 +91,11 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
+	// 隐私脱敏：非辅导员/管理员角色不返回联系方式与出生年月
+	for _, u := range users {
+		u.SanitizePrivate(userCtx.Role)
+	}
+
 	c.JSON(http.StatusOK, model.UserListResponse{
 		Code:     0,
 		Message:  "success",
@@ -246,6 +251,11 @@ func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
 			Message: "查询用户列表失败",
 		})
 		return
+	}
+
+	// 隐私脱敏：非辅导员/管理员角色不返回联系方式与出生年月
+	for _, u := range users {
+		u.SanitizePrivate(userCtx.Role)
 	}
 
 	c.JSON(http.StatusOK, model.UserListResponse{

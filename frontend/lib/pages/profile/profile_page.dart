@@ -146,6 +146,26 @@ class _ProfilePageState extends State<ProfilePage> {
                 context, Icons.account_balance_outlined, '学院', profile.college),
           if (profile.major.isNotEmpty)
             _buildInfoTile(context, Icons.book_outlined, '专业', profile.major),
+          if (profile.className.isNotEmpty)
+            _buildInfoTile(
+                context, Icons.groups_outlined, '班级', profile.className),
+          if (profile.enrollmentYear.isNotEmpty)
+            _buildInfoTile(context, Icons.calendar_month_outlined, '入学年份',
+                profile.enrollmentYear),
+          if (profile.gender.isNotEmpty)
+            _buildInfoTile(context, Icons.wc_outlined, '性别', profile.gender),
+          if (profile.campus.isNotEmpty)
+            _buildInfoTile(
+                context, Icons.location_city_outlined, '校区', profile.campus),
+          if (profile.educationLevel.isNotEmpty)
+            _buildInfoTile(
+                context, Icons.school_outlined, '学历层次', profile.educationLevel),
+          if (profile.ethnicity.isNotEmpty)
+            _buildInfoTile(
+                context, Icons.people_outline, '民族', profile.ethnicity),
+          if (profile.politicalStatus.isNotEmpty)
+            _buildInfoTile(context, Icons.how_to_reg_outlined, '政治面貌',
+                profile.politicalStatus),
         ],
 
         const SizedBox(height: 24),
@@ -330,8 +350,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '活动报名与个性推送', '/culture/events'),
           _buildMenuCard(context, Icons.volunteer_activism, '志愿服务', '志愿时长与项目推荐',
               '/culture/volunteer'),
-          _buildMenuCard(context, Icons.apps_outlined, '应用中心', '第三方应用与链接',
-              '/apps'),
+          _buildMenuCard(
+              context, Icons.apps_outlined, '应用中心', '第三方应用与链接', '/apps'),
           _buildMenuCard(context, Icons.newspaper, 'AI 简讯', 'AI 教学/工具/版本/行业热点',
               '/ai-briefings'),
 
@@ -590,12 +610,12 @@ class _ProfilePageState extends State<ProfilePage> {
               '学习打卡与连续记录', '/student/checkin'),
           _ProfileFeature('digital_twin', '学生服务', Icons.person_pin, '数字孪生',
               '我的数字画像', '/student/digital-twin'),
-          _ProfileFeature('student_profile', '学生服务', Icons.account_box,
-              '个人档案', '完整学生信息聚合', '/student/profile'),
+          _ProfileFeature('student_profile', '学生服务', Icons.account_box, '个人档案',
+              '完整学生信息聚合', '/student/profile'),
           _ProfileFeature('personality', '学生服务', Icons.psychology_outlined,
               '性格洞察', 'AI 性格分析', '/student/personality'),
-          _ProfileFeature('health', '学生服务', Icons.favorite_outline,
-              '身体健康', '身体信息·体检·病历', '/student/health'),
+          _ProfileFeature('health', '学生服务', Icons.favorite_outline, '身体健康',
+              '身体信息·体检·病历', '/student/health'),
           _ProfileFeature('achievements', '学生服务', Icons.emoji_events_outlined,
               '积分成就', '学习积分与成就', '/student/achievements'),
           _ProfileFeature('course_map', '学生服务', Icons.map_outlined, '课程地图',
@@ -732,8 +752,8 @@ class _ProfilePageState extends State<ProfilePage> {
           _ProfileFeature('settings', '管理服务', Icons.settings_outlined, '系统配置',
               '管理系统运行参数', '/admin/settings'),
         if (role == 'sys_admin')
-          _ProfileFeature('ai_briefing_admin', '管理服务', Icons.newspaper, 'AI 简讯管理',
-              '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
+          _ProfileFeature('ai_briefing_admin', '管理服务', Icons.newspaper,
+              'AI 简讯管理', '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
       ];
 
   Widget _buildFeatureTabs(BuildContext context, String? role) {
@@ -741,14 +761,12 @@ class _ProfilePageState extends State<ProfilePage> {
     // 修复"功能开关无法关闭"：_listedFeatures/_enabledFeatures 是历史遗留的
     // 本机过滤缓存，不再强制 addAll 回填（否则用户关闭的项会被立即恢复）。
     // 功能可见性统一由后端 feature.<key> 全局开关决定（见 _buildFeatureSwitches）。
-    final visible = all
-        .where((f) {
-          // 管理员全局功能开关：feature.<key>=false 时对普通用户隐藏该模块
-          final g = Storage.globalFeatureSwitches['feature.${f.key}'];
-          if (g == null) return true; // 未配置默认开放
-          return g == 'true';
-        })
-        .toList();
+    final visible = all.where((f) {
+      // 管理员全局功能开关：feature.<key>=false 时对普通用户隐藏该模块
+      final g = Storage.globalFeatureSwitches['feature.${f.key}'];
+      if (g == null) return true; // 未配置默认开放
+      return g == 'true';
+    }).toList();
     final categories = [
       '常用',
       '学生服务',
