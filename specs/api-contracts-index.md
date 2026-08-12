@@ -163,6 +163,30 @@
 | `GET` | `/club/activities` | JWT | 全部 | 活动列表 |
 | `POST` | `/club/activity/register` | JWT | student | 报名活动 |
 
+### AI 简讯 (AI Briefings)
+
+| 方法 | 路径 | 认证 | 角色要求 | 说明 |
+|------|------|------|----------|------|
+| `GET` | `/ai-briefings` | JWT | 全部 | 资讯列表 `?category=&q=&limit=`，返回含热度/推荐理由/当前用户收藏态 |
+| `GET` | `/ai-briefings/hot` | JWT | 全部 | 热度榜 Top 50（heat DESC, published_at DESC） |
+| `GET` | `/ai-briefings/favorites` | JWT | 全部 | 我的收藏列表 |
+| `POST` | `/ai-briefings/:id/favorite` | JWT | 全部 | 收藏（幂等） |
+| `DELETE` | `/ai-briefings/:id/favorite` | JWT | 全部 | 取消收藏（幂等） |
+| `GET` | `/admin/ai-briefings` | JWT | sys_admin | 管理端分页列表 `?status=&category=&q=&page=&page_size=` |
+| `POST` | `/admin/ai-briefings` | JWT | sys_admin | 新建资讯（含 heat/reason） |
+| `PUT` | `/admin/ai-briefings/:id` | JWT | sys_admin | 更新资讯（含 heat/reason） |
+| `PUT` | `/admin/ai-briefings/:id/status` | JWT | sys_admin | 上下架 |
+| `DELETE` | `/admin/ai-briefings/:id` | JWT | sys_admin | 删除 |
+| `POST` | `/admin/ai-briefings/batch-delete` | JWT | sys_admin | 批量删除 |
+| `DELETE` | `/admin/ai-briefings/clear` | JWT | sys_admin | 清空历史 |
+| `GET` | `/admin/ai-briefings/stats` | JWT | sys_admin | 汇总统计 |
+| `POST` | `/admin/ai-briefings/export` | JWT | sys_admin | 导出 md/pdf（GET query 也可） |
+| `POST` | `/admin/ai-briefings/fetch` | JWT | sys_admin | 立即抓取 |
+| `GET` | `/admin/ai-briefings/sources` | JWT | sys_admin | 来源列表 |
+| `POST` | `/admin/ai-briefings/sources` | JWT | sys_admin | 新增来源 |
+| `PUT` | `/admin/ai-briefings/sources/:id` | JWT | sys_admin | 更新来源 |
+| `DELETE` | `/admin/ai-briefings/sources/:id` | JWT | sys_admin | 删除来源 |
+
 ---
 
 ## 通用约定
@@ -179,6 +203,7 @@
 
 | 日期 | 变更摘要 | 兼容策略 |
 |------|----------|----------|
+| 2026-08-11 | AI 简讯重构：新增 `/ai-briefings/hot`、`/ai-briefings/favorites`、`POST/DELETE /ai-briefings/:id/favorite`；列表返回热度/推荐理由/收藏态；管理端资讯含 heat/reason（迁移 073） | 向前兼容 |
 | 2026-08-02 | 新增 `POST /kb/batch/refine` 批量 AI 精修存量资源（≤20 条/批，逐条写库） | 向前兼容 |
 | 2026-08-02 | 新增 `POST /documents/refine` LLM 元数据精修；`kb_fts` 索引纳入 tags（049 迁移） | 向前兼容 |
 | 2026-06-19 | 新增毕设选题、学科竞赛、大学规划、入党教育、社团生活 5 大模块（35 端点） | 向前兼容 |
