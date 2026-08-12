@@ -433,7 +433,8 @@ func parseTime(s string) time.Time {
 
 // fixPasswordHashes 修复数据库中的密码哈希：
 //   - 空哈希 → 替换为 "wxx123456" 的 bcrypt 哈希
-//   - $2b$ 前缀 → 重新哈希（兼容 bcryptjs）
+//   - 非 bcrypt 前缀（$2a$/$2b$/$2y$ 之外）→ 重新哈希
+// 注意：$2b$ 前缀已是标准 bcrypt，视为有效，避免对全量用户逐一 bcrypt 验证拖慢启动。
 func fixPasswordHashes(db *sql.DB) error {
 	rows, err := db.Query("SELECT id, password_hash FROM users")
 	if err != nil {
@@ -456,19 +457,13 @@ func fixPasswordHashes(db *sql.DB) error {
 		}
 		hash = strings.TrimSpace(hash)
 
-		needsFix := hash == "" || strings.HasPrefix(hash, "$2b$")
-		if !needsFix {
+		// 已是标准 bcrypt 哈希（$2a$/$2b$/$2y$）→ 视为有效，跳过，避免启动时全量重算
+		if hash == "" {
+			fixes = append(fixes, fix{id, hash})
 			continue
 		}
-
-		// 尝试验证已知密码（旧 "admin123" 哈希与新 "wxx123456" 哈希都应保留）
-		if hash != "" {
-			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin123")); err == nil {
-				continue // 旧种子密码有效，无需修复
-			}
-			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(seedPassword)); err == nil {
-				continue // 新种子密码有效，无需修复
-			}
+		if strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$") || strings.HasPrefix(hash, "$2y$") {
+			continue
 		}
 
 		fixes = append(fixes, fix{id, hash})
