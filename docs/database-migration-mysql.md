@@ -201,3 +201,14 @@ DB_DRIVER=mysql DB_HOST=localhost DB_PORT=3306 DB_USER=eqs DB_NAME=wxx \
 **现象**：`GET /api/v1/ai-briefings` 返回 500。根因：`ListUserVisible`/`ListFavorites` 的 JOIN 查询 SELECT 列清单中 `created_at` 等无 `b.` 前缀，与 `ai_briefing_favorites` 同名列歧义——MySQL 报 `ambiguous column`，SQLite 不报。
 
 **修复**：`ai_briefing_repo.go` 新增带前缀常量 `aiBriefingColsB`，JOIN 查询改用 `b.` 前缀列；重新部署后接口恢复 200，09:40 后日志无 500。
+
+### 12.4 知识库问答无法命中（"社团招新有书法协会吗"答不上）
+
+**现象**：知识大厅能浏览到社团招新知识（`activity-club-recruitment-2026`，content 含"书法协会"），但自然语言提问"社团招新有书法协会吗"无法回答。
+
+**根因**：MySQL 无 FTS5 虚拟表，`kbRepo.Search` 退化为 `SearchStructured`。旧实现把**整个问题**当作整句 LIKE（`%社团招新有书法协会吗%`）匹配 title/tags/resource_type——中文自然语言不分词，整句必然匹配不上，且 LIKE 条件不含 summary/content，返回空结果。`SearchFAQ` 同样仍走 `kb_fts` 虚拟表（MySQL 不存在，报错）。
+
+**修复**（`kb_repo.go`）：
+- `SearchStructured` 改为**中文二元词组召回**：`extractChineseBigrams` 拆词后对 title/tags/summary/content 做 OR LIKE，`structuredScore` 按命中词组加权（title 权重最高），解决整句 LIKE 不分词问题
+- 新增内部 `searchStructured(..., typeFilter)` 供 `SearchFAQ` 复用；`SearchFAQ` 增加 MySQL 分支（限定 `resource_type='FAQ'`），不再依赖 `kb_fts`
+- 部署后 SQL 级验证：词组召回可命中 id=19（社团招新通知），10:18 后日志无检索错误

@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	dbutil "github.com/dll/wxx/server/internal/db"
@@ -117,9 +118,14 @@ func (r *KBRepo) Search(query string, ownerScope string, ownerID string, role st
 
 // SearchStructured 结构化优先检索：按 title/category/tags 匹配
 // 不依赖 FTS5 索引，直接对 kb_resources 的结构化字段做精确/模糊匹配。
-// 匹配优先级：title 精确 > title 模糊 > tags 匹配 > category 匹配
-// 返回结果带有 IsStructured=true 标记，Score 设为 -100（最高优先级）。
+// MySQL 下不能把整个问题当整句 LIKE（中文自然语言不分词必然空结果），
+// 因此拆成中文二元词组对 title/tags/summary/content 做 OR 召回，再按命中词组加权排序。
 func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID string, role string, limit int) ([]*SearchResult, error) {
+	return r.searchStructured(query, ownerScope, ownerID, role, limit, "")
+}
+
+// searchStructured 结构化检索实现；typeFilter 非空时限定资源类型（如 FAQ）
+func (r *KBRepo) searchStructured(query string, ownerScope string, ownerID string, role string, limit int, typeFilter string) ([]*SearchResult, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil
@@ -128,7 +134,28 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 		limit = 5
 	}
 
-	likePattern := "%" + query + "%"
+	// 中文分词：提取二元词组作为检索词（MySQL 无 FTS5 分词器，手工 bigram 召回）
+	words := extractChineseBigrams(query)
+	if len(words) == 0 {
+		words = []string{query}
+	}
+	// 限制词数，避免 SQL 过长（取前 8 个高频词组即可覆盖常见查询）
+	if len(words) > 8 {
+		words = words[:8]
+	}
+
+	// WHERE：整句精确 + 每个词对 title/tags/summary/content 的 LIKE OR 组合
+	orParts := []string{"kb.title = ?"}
+	args := []any{query}
+	for _, w := range words {
+		like := "%" + w + "%"
+		orParts = append(orParts, "(kb.title LIKE ? OR kb.tags LIKE ? OR kb.summary LIKE ? OR kb.content LIKE ?)")
+		args = append(args, like, like, like, like)
+	}
+	whereLike := strings.Join(orParts, " OR ")
+
+	// 追加 owner_scope / role_scope / limit 参数（与 SQL 占位符顺序一致）
+	args = append(args, ownerScope, ownerID, ownerScope, ownerID, role, role, limit)
 
 	sql := `SELECT
 				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
@@ -136,28 +163,18 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 				kb.content, kb.source_link, kb.source_version,
 				kb.effective_at, kb.expired_at, kb.tags, kb.remark,
 				kb.updated_by, kb.created_at, kb.updated_at,
-				CASE
-					WHEN kb.title = ? THEN 1.0
-					WHEN kb.title LIKE ? THEN 2.0
-					WHEN kb.tags LIKE ? THEN 3.0
-					WHEN kb.resource_type LIKE ? THEN 4.0
-					ELSE 5.0
-				END AS priority
+				0 AS priority
 			 FROM kb_resources kb
 			 WHERE kb.status = 'published'
-			   AND (kb.title = ?
-			    OR kb.title LIKE ?
-			    OR kb.tags LIKE ?
-			    OR kb.resource_type LIKE ?)
-			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
+			   AND (` + whereLike + `)`
+	if typeFilter != "" {
+		sql += ` AND kb.resource_type = '` + typeFilter + `'`
+	}
+	sql += ` AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
 			   AND ` + r.roleScopeCond("kb") + `
-			 ORDER BY priority ASC
 			 LIMIT ?`
 
-	rows, err := r.db.Query(sql,
-		query, likePattern, likePattern, likePattern,
-		ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
-	)
+	rows, err := r.db.Query(sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,11 +195,41 @@ func (r *KBRepo) SearchStructured(query string, ownerScope string, ownerID strin
 		); err != nil {
 			continue
 		}
-		// 结构化结果优先级远高于 FTS（-100 确保排序在最前）
-		sr.Score = -100.0 + priority
+		// 按命中词组加权打分（title 权重最高，其次 tags/summary/content），
+		// 负分确保结构化结果在 FTS 结果之前（原逻辑 -100 基准）
+		sr.Score = -100.0 - structuredScore(kb, words)
 		results = append(results, sr)
 	}
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// 按得分升序（越小越相关，与 FTS 排序方向一致），取 limit
+	sort.SliceStable(results, func(i, j int) bool { return results[i].Score < results[j].Score })
+	if len(results) > limit {
+		results = results[:limit]
+	}
+	return results, nil
+}
+
+// structuredScore 计算资源与检索词组的命中得分：title 命中权重最高
+func structuredScore(kb *model.KBResource, words []string) float64 {
+	score := 0.0
+	for _, w := range words {
+		if strings.Contains(kb.Title, w) {
+			score += 4
+		}
+		if strings.Contains(kb.Tags, w) {
+			score += 3
+		}
+		if strings.Contains(kb.Summary, w) {
+			score += 2
+		}
+		if strings.Contains(kb.Content, w) {
+			score += 2
+		}
+	}
+	return score
 }
 
 // searchWithQuery 使用指定 FTS 查询语句执行搜索
@@ -428,6 +475,11 @@ func (r *KBRepo) SearchFAQ(query string, ownerScope string, ownerID string, role
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil
+	}
+
+	// MySQL 无 FTS5 虚拟表：退化为结构化检索，仅限 FAQ 类型
+	if r.mysql {
+		return r.searchStructured(query, ownerScope, ownerID, role, limit, "FAQ")
 	}
 
 	// 阶段一：短语精确匹配
