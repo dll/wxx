@@ -14,7 +14,6 @@ import '../../providers/knowledge_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
-import '../../utils/page_reload.dart';
 import '../../utils/screenshot_capture.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
@@ -850,10 +849,11 @@ $printScript
   ///
   /// 流程：弹确认框 → 调 deleteSession 删除后端记录。
   ///
-  /// Web 端：删除成功后自动整页刷新（reloadPage），从根上规避
-  /// CanvasKit 渲染冻结导致的空白页（旧方案仅应用内重建无法保证恢复）。
-  /// 移动端：乐观调 newChat 清空当前对话 + 重建页面（_rebuildKey++），
+  /// 删除成功后统一乐观调 newChat 清空当前对话 + 重建页面（_rebuildKey++），
   /// 彻底清除 ListView/动画等子组件残留状态。
+  /// 不再使用 Web 整页刷新（reloadPage）：Cloudflare Pages 缓存下 CanvasKit
+  /// 资源曾出现 0 字节导致 Flutter 根视图未挂载，刷新后反而空白页
+  /// （见 docs/蔚小芯智能体UI/UX设计与实现.md 的 P0 空白风险记录）。
   Future<void> _confirmDeleteSession(ChatProvider chat) async {
     // 在弹框前快照 sessionId，避免弹框期间 provider 状态被其他逻辑修改
     final sessionId = chat.sessionId;
@@ -877,11 +877,9 @@ $printScript
     if (confirm != true) return;
     if (!mounted) return;
 
-    // 移动端先乐观清空界面，避免等待期间仍显示旧会话；
-    // Web 端不做本地清理（防止重建触发渲染冻结），依赖整页刷新兜底。
-    if (!kIsWeb) {
-      chat.newChat();
-    }
+    // 先乐观清空界面，避免等待期间仍显示旧会话；
+    // 同时重置 _sending（若 AI 正在回复，删除后 _sending 卡 true 会导致渲染卡死）
+    chat.newChat();
 
     final bool ok;
     try {
@@ -895,15 +893,7 @@ $printScript
     }
     if (!mounted) return;
 
-    if (kIsWeb) {
-      // Web 端：无论 API 成功与否，都做整页刷新回到全新对话。
-      // 如果 API 已成功（ok=true），服务端会话已删除，刷新后新 session。
-      // 如果 API 失败（ok=false），本地乐观清理也会造成 UI 不一致，刷新恢复。
-      reloadPage();
-      return;
-    }
-
-    // 移动端：重建页面清除 ListView/动画等子组件残留状态
+    // 重建页面清除 ListView/动画等子组件残留状态
     setState(() => _rebuildKey++);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? '对话已删除' : '删除失败，请稍后重试')),
