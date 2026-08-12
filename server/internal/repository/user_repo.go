@@ -24,7 +24,7 @@ const userCols = `id, username, display_name, role, owner_scope, owner_id,
 	gender, campus, education_level, study_duration, expected_graduation_date,
 	study_mode, ethnicity, political_status, birth_date,
 	phone, wechat, qq, email,
-	password_hash, voice_enabled, status, token_version, consented, created_at, updated_at`
+	password_hash, voice_enabled, status, token_version, consented, must_change_password, ai_api_key_enc, ai_key_provider, created_at, updated_at`
 
 // GetByUsername 根据用户名查询用户
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
@@ -38,7 +38,7 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 		&user.StudyMode, &user.Ethnicity, &user.PoliticalStatus, &user.BirthDate,
 		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
-		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.TokenVersion, &user.Consented, &user.MustChangePwd, &user.AIAPIKeyEnc, &user.AIKeyProvider, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -61,7 +61,7 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 		&user.StudyMode, &user.Ethnicity, &user.PoliticalStatus, &user.BirthDate,
 		&user.Phone, &user.Wechat, &user.QQ, &user.Email,
 		&user.PasswordHash, &user.VoiceEnabled,
-		&user.Status, &user.TokenVersion, &user.Consented, &user.CreatedAt, &user.UpdatedAt)
+		&user.Status, &user.TokenVersion, &user.Consented, &user.MustChangePwd, &user.AIAPIKeyEnc, &user.AIKeyProvider, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -660,7 +660,7 @@ func (r *UserRepo) Delete(userID int64) error {
 // 安全修复 S-01：改密递增 token_version，登出该用户所有旧会话（含被盗令牌）。
 func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET password_hash = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		`UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		hash, userID,
 	)
 	return err
@@ -698,8 +698,8 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateRes
 			college, major, class_name, enrollment_date, enrollment_year,
 			gender, campus, education_level, study_duration, expected_graduation_date,
 			study_mode, ethnicity, political_status, birth_date,
-			password_hash, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+			password_hash, status, must_change_password
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return nil, fmt.Errorf("预编译语句失败: %w", err)
 	}
@@ -749,7 +749,7 @@ func (r *UserRepo) BatchCreateStudents(students []*model.User) ([]BatchCreateRes
 			u.College, u.Major, u.ClassName, u.EnrollmentDate, u.EnrollmentYear,
 			u.Gender, u.Campus, u.EducationLevel, u.StudyDuration, u.ExpectedGrad,
 			u.StudyMode, u.Ethnicity, u.PoliticalStatus, u.BirthDate,
-			u.PasswordHash, u.Status,
+			u.PasswordHash, u.Status, 1, // 导入学生首次登录必须改密
 		)
 		if err != nil {
 			results = append(results, BatchCreateResult{
@@ -843,6 +843,24 @@ func scanUser(rows *sql.Rows) (*model.User, error) {
 		&u.StudyMode, &u.Ethnicity, &u.PoliticalStatus, &u.BirthDate,
 		&u.Phone, &u.Wechat, &u.QQ, &u.Email,
 		&u.PasswordHash, &u.VoiceEnabled,
-		&u.Status, &u.TokenVersion, &u.Consented, &u.CreatedAt, &u.UpdatedAt)
+		&u.Status, &u.TokenVersion, &u.Consented, &u.MustChangePwd, &u.AIAPIKeyEnc, &u.AIKeyProvider, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
+}
+
+// SaveAIKey 保存用户自备 AI API Key（加密存储）
+func (r *UserRepo) SaveAIKey(userID int64, encKey, provider string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET ai_api_key_enc = ?, ai_key_provider = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		encKey, provider, userID,
+	)
+	return err
+}
+
+// ClearAIKey 清除用户自备 AI API Key
+func (r *UserRepo) ClearAIKey(userID int64) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET ai_api_key_enc = '', ai_key_provider = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		userID,
+	)
+	return err
 }

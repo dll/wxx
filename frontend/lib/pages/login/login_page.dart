@@ -123,8 +123,7 @@ class _LoginPageState extends State<LoginPage>
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelColor: theme.colorScheme.onPrimary,
-                      unselectedLabelColor:
-                          theme.colorScheme.onSurfaceVariant,
+                      unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 15),
                       dividerColor: Colors.transparent,
@@ -173,8 +172,10 @@ class _LoginPageState extends State<LoginPage>
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF3DDC84), width: 2),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        side: const BorderSide(
+                            color: Color(0xFF3DDC84), width: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -186,8 +187,8 @@ class _LoginPageState extends State<LoginPage>
                     child: Text(
                       'v${ReleaseConfig.version}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withOpacity(0.5),
+                        color:
+                            theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
                       ),
                     ),
                   ),
@@ -252,8 +253,7 @@ class _LoginPageState extends State<LoginPage>
                   ClipboardData(text: ReleaseConfig.apkDownloadUrl));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                    content: Text('下载链接已复制'),
-                    duration: Duration(seconds: 2)),
+                    content: Text('下载链接已复制'), duration: Duration(seconds: 2)),
               );
             },
             child: const Text('复制链接'),
@@ -403,12 +403,139 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
         await _confirmQrSession(qrId);
         if (!mounted) return;
       }
+      // 首次登录需强制修改密码（初始密码为学号，安全要求）
+      if (auth.mustChangePassword) {
+        final changed =
+            await _forceChangePasswordDialog(context, auth, username);
+        if (!mounted) return;
+        if (changed != true) {
+          // 未完成改密则退出登录，避免以初始密码进入
+          await auth.logout();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('为保障账号安全，请先修改初始密码')),
+          );
+          return;
+        }
+      }
       context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.error ?? '登录失败')),
       );
     }
+  }
+
+  /// 强制修改初始密码对话框（不可关闭，改密成功或取消登录后才能退出）
+  Future<bool?> _forceChangePasswordDialog(
+      BuildContext context, AuthProvider auth, String username) {
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final submitting = ValueNotifier<bool>(false);
+
+    Future<void> submitChange(BuildContext dialogCtx) async {
+      final oldPwd = oldCtrl.text.trim();
+      final newPwd = newCtrl.text.trim();
+      final confirm = confirmCtrl.text.trim();
+      if (newPwd.length < 6) {
+        ScaffoldMessenger.of(dialogCtx)
+            .showSnackBar(const SnackBar(content: Text('新密码长度不能少于 6 位')));
+        return;
+      }
+      if (newPwd != confirm) {
+        ScaffoldMessenger.of(dialogCtx)
+            .showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
+        return;
+      }
+      submitting.value = true;
+      final okChange = await auth.changePassword(oldPwd, newPwd);
+      submitting.value = false;
+      if (!dialogCtx.mounted) return;
+      if (okChange) {
+        ScaffoldMessenger.of(dialogCtx)
+            .showSnackBar(const SnackBar(content: Text('密码修改成功')));
+        Navigator.pop(dialogCtx, true);
+      } else {
+        ScaffoldMessenger.of(dialogCtx)
+            .showSnackBar(SnackBar(content: Text(auth.error ?? '修改密码失败，请重试')));
+      }
+    }
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ValueListenableBuilder<bool>(
+        valueListenable: submitting,
+        builder: (ctx, busy, _) {
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('首次登录 · 请修改初始密码'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '你的初始密码为学号。为保障账号安全，请先设置一个新密码（至少 6 位）。',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: oldCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '当前密码（学号）',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '新密码（至少 6 位）',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '确认新密码',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) {
+                      if (!busy) submitChange(ctx);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        // 拒绝改密 → 退出登录
+                        Navigator.pop(ctx, false);
+                      },
+                child: const Text('退出登录'),
+              ),
+              FilledButton(
+                onPressed: busy ? null : () => submitChange(ctx),
+                child: Text(busy ? '提交中...' : '确认修改'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   /// 确认扫码登录会话（手机端登录成功后调用）
@@ -437,8 +564,8 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
             prefixIcon: const Icon(Icons.person_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
-            fillColor: theme.colorScheme.surfaceContainerHighest
-                .withOpacity(0.4),
+            fillColor:
+                theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
           ),
           textInputAction: TextInputAction.next,
           keyboardType: TextInputType.text,
@@ -452,8 +579,8 @@ class _PasswordLoginFormState extends State<_PasswordLoginForm> {
             prefixIcon: const Icon(Icons.lock_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
-            fillColor: theme.colorScheme.surfaceContainerHighest
-                .withOpacity(0.4),
+            fillColor:
+                theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
             suffixIcon: IconButton(
               icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _obscure = !_obscure),
@@ -552,9 +679,8 @@ class _RegisterTabContentState extends State<_RegisterTabContent> {
       _startCountdown();
     } catch (e) {
       setState(() => _sendingCode = false);
-      final msg = e is DioException
-          ? (e.response?.data?['message'] ?? '发送失败')
-          : '发送失败';
+      final msg =
+          e is DioException ? (e.response?.data?['message'] ?? '发送失败') : '发送失败';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),
@@ -632,9 +758,8 @@ class _RegisterTabContentState extends State<_RegisterTabContent> {
         }
       }
     } catch (e) {
-      final msg = e is DioException
-          ? (e.response?.data?['message'] ?? '网络错误')
-          : '网络错误';
+      final msg =
+          e is DioException ? (e.response?.data?['message'] ?? '网络错误') : '网络错误';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),
@@ -715,11 +840,11 @@ class _RegisterTabContentState extends State<_RegisterTabContent> {
               labelText: '您的称呼',
               hintText: '如：王同学、李老师',
               prefixIcon: const Icon(Icons.person_outline),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest
-                  .withOpacity(0.4),
+              fillColor:
+                  theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
             ),
           ),
           const SizedBox(height: 14),
@@ -731,11 +856,11 @@ class _RegisterTabContentState extends State<_RegisterTabContent> {
               labelText: '手机号',
               hintText: '11 位手机号',
               prefixIcon: const Icon(Icons.phone_outlined),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest
-                  .withOpacity(0.4),
+              fillColor:
+                  theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
             ),
             keyboardType: TextInputType.phone,
             maxLength: 11,
@@ -898,8 +1023,7 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
 
   /// 显示备用二维码
   void _showFallbackQR(String message) {
-    final encodedUrl =
-        Uri.encodeComponent('${Uri.base.origin}/#/login');
+    final encodedUrl = Uri.encodeComponent('${Uri.base.origin}/#/login');
     setState(() {
       _qrImageUrl =
           'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';

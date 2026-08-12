@@ -69,6 +69,7 @@ class ApiConfig {
 
   // ── 密码管理 ──
   static const String changePassword = '$apiPrefix/user/password';
+  static const String aiKey = '$apiPrefix/user/ai-key';
   static String resetPassword(int id) => '$apiPrefix/admin/users/$id/password';
 
   // ── 词元统计 ──

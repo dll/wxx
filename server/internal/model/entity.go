@@ -31,6 +31,9 @@ type User struct {
 	Status         string `json:"status" db:"status"`                   // active/pending/rejected/disabled
 	TokenVersion   int    `json:"-" db:"token_version"`                 // JWT 令牌版本，+1 即吊销该用户所有旧令牌
 	Consented      int    `json:"consented" db:"consented"`             // 是否已同意隐私政策与用户协议：0=否 1=是
+	MustChangePwd  int    `json:"must_change_password" db:"must_change_password"` // 首次登录是否需强制改密：1=是
+	AIAPIKeyEnc    string `json:"-" db:"ai_api_key_enc"`                // 用户自备 API Key（AES 加密，永不输出）
+	AIKeyProvider  string `json:"ai_key_provider" db:"ai_key_provider"` // zhipu / deepseek
 	CreatedAt      string `json:"created_at" db:"created_at"`
 	UpdatedAt      string `json:"updated_at" db:"updated_at"`
 }

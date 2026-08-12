@@ -225,7 +225,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackSvc.SetDB(db)
 	feedbackSvc.SetRepairRepo(repository.NewFeedbackRepairRepo(db))
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
-	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser)
+	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser, cfg.MonthlyTokenQuotaPerUser)
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
 	processSvc := service.NewProcessService(kbRepo, kbSvc, db)
 	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)
@@ -1017,6 +1017,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 
 			secured.GET("/user/profile", authH.Profile)
 			secured.GET("/user/profile/detail", authH.ProfileDetail)
+			secured.GET("/user/ai-key", authH.GetAIKey)
+			secured.PUT("/user/ai-key", authH.SaveAIKey)
+			secured.DELETE("/user/ai-key", authH.ClearAIKey)
 			// 我的操作日志（普通用户查看自己的日志）
 			secured.GET("/user/logs", adminH.MyLogs)
 			secured.DELETE("/user/logs/:id", adminH.DeleteMyLog)

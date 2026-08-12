@@ -171,10 +171,11 @@ func (s *AuthService) GuestRegisterEnabled() bool {
 
 // LoginResult 登录结果
 type LoginResult struct {
-	Token       string `json:"token"`
-	ExpiresIn   int    `json:"expires_in"` // 过期时间（秒）
-	DisplayName string `json:"display_name"`
-	Role        string `json:"role"`
+	Token              string `json:"token"`
+	ExpiresIn          int    `json:"expires_in"` // 过期时间（秒）
+	DisplayName        string `json:"display_name"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"must_change_password"` // 首次登录需强制改密
 }
 
 // SendCode 发送短信验证码（开发环境：仅日志，后续对接短信通道）
@@ -567,10 +568,11 @@ func (s *AuthService) LoginByUsername(username string, _ string, password string
 	}
 
 	return &LoginResult{
-		Token:       token,
-		ExpiresIn:   s.cfg.JWTExpireHours * 3600,
-		DisplayName: user.DisplayName,
-		Role:        user.Role,
+		Token:              token,
+		ExpiresIn:          s.cfg.JWTExpireHours * 3600,
+		DisplayName:        user.DisplayName,
+		Role:               user.Role,
+		MustChangePassword: user.MustChangePwd == 1,
 	}, nil
 }
 
@@ -661,4 +663,42 @@ func (s *AuthService) UpdateVoiceConfig(userID int64, enabled int) error {
 	}
 	log.Printf("用户语音配置已更新: userID=%d voice_enabled=%d", userID, enabled)
 	return nil
+}
+
+// AIKeyInfo 用户自备 AI Key 信息（不输出明文 Key）
+type AIKeyInfo struct {
+	Bound    bool   `json:"bound"`    // 是否已绑定
+	Provider string `json:"provider"` // zhipu / deepseek
+}
+
+// GetAIKeyInfo 获取当前用户 AI Key 绑定状态
+func (s *AuthService) GetAIKeyInfo(userID int64) (*AIKeyInfo, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("用户不存在")
+	}
+	return &AIKeyInfo{Bound: user.AIAPIKeyEnc != "", Provider: user.AIKeyProvider}, nil
+}
+
+// SaveAIKey 保存用户自备 AI Key（加密后入库）
+func (s *AuthService) SaveAIKey(userID int64, provider, apiKey string) error {
+	if apiKey == "" {
+		return fmt.Errorf("API Key 不能为空")
+	}
+	if provider != "zhipu" && provider != "deepseek" {
+		return fmt.Errorf("仅支持 zhipu / deepseek 提供商")
+	}
+	enc, err := repository.EncryptField(strings.TrimSpace(apiKey))
+	if err != nil {
+		return fmt.Errorf("加密失败: %w", err)
+	}
+	return s.userRepo.SaveAIKey(userID, enc, provider)
+}
+
+// ClearAIKey 清除用户自备 AI Key
+func (s *AuthService) ClearAIKey(userID int64) error {
+	return s.userRepo.ClearAIKey(userID)
 }

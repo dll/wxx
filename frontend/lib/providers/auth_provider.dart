@@ -18,12 +18,74 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
   UserProfile? _profile;
   int? _voiceEnabled;
+  bool _mustChangePassword = false;
 
   bool get loading => _loading;
   String? get error => _error;
   UserProfile? get profile => _profile;
   bool get isLoggedIn => Storage.isLoggedIn;
   int? get voiceEnabled => _voiceEnabled;
+
+  /// 首次登录是否需强制改密
+  bool get mustChangePassword => _mustChangePassword;
+
+  /// 完成改密后清除标记
+  void clearMustChangePassword() {
+    _mustChangePassword = false;
+    notifyListeners();
+  }
+
+  // ── 用户自备 AI Key（额度耗尽解锁）──
+  bool _aiKeyBound = false;
+  String _aiKeyProvider = '';
+  bool get aiKeyBound => _aiKeyBound;
+  String get aiKeyProvider => _aiKeyProvider;
+
+  /// 获取 AI Key 绑定状态
+  Future<void> fetchAIKeyInfo() async {
+    try {
+      final resp = await _api.get(ApiConfig.aiKey);
+      final data = resp.data?['data'];
+      _aiKeyBound = data?['bound'] == true;
+      _aiKeyProvider = data?['provider'] ?? '';
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// 保存 AI Key
+  Future<bool> saveAIKey(String provider, String apiKey) async {
+    try {
+      final resp = await _api.put(ApiConfig.aiKey,
+          data: {'provider': provider, 'api_key': apiKey});
+      if (resp.data?['code'] == 0) {
+        _aiKeyBound = true;
+        _aiKeyProvider = provider;
+        notifyListeners();
+        return true;
+      }
+      _error = resp.data?['message'] ?? '保存失败';
+      return false;
+    } catch (e) {
+      _error = '网络错误';
+      return false;
+    }
+  }
+
+  /// 清除 AI Key
+  Future<bool> clearAIKey() async {
+    try {
+      final resp = await _api.delete(ApiConfig.aiKey);
+      if (resp.data?['code'] == 0) {
+        _aiKeyBound = false;
+        _aiKeyProvider = '';
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   AuthProvider([this._themeNotifier]) {
     // 设置 401 回调
@@ -53,6 +115,9 @@ class AuthProvider extends ChangeNotifier {
       // 存储 Token
       final token = data['data']?['token'] ?? '';
       await Storage.setToken(token);
+
+      // 首次登录需强制改密标记
+      _mustChangePassword = data['data']?['must_change_password'] == true;
 
       // 获取用户信息
       await fetchProfile();
@@ -135,6 +200,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await Storage.clearAll();
     _profile = null;
+    _mustChangePassword = false;
     _error = null;
     notifyListeners();
   }
@@ -146,7 +212,10 @@ class AuthProvider extends ChangeNotifier {
         'old_password': oldPassword,
         'new_password': newPassword,
       });
-      if (resp.data['code'] == 0) return true;
+      if (resp.data['code'] == 0) {
+        _mustChangePassword = false;
+        return true;
+      }
       _error = resp.data['message'] ?? '修改密码失败';
       notifyListeners();
       return false;

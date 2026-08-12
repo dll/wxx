@@ -65,7 +65,7 @@ class AppTheme {
     final colors = base.copyWith(
       primary: isDark ? const Color(0xFF9CCBFF) : AppColors.brandPrimary,
       secondary: isDark ? const Color(0xFF70DBCD) : AppColors.aiAccent,
-      tertiary: isDark ? const Color(0xFFFFCA7A) : AppColors.attention,
+      tertiary: gradeAccent, // 年级主题色：驱动 Chip/标签/部分强调元素可见变化
       error: isDark ? const Color(0xFFFFB3B8) : AppColors.danger,
       surface: isDark ? const Color(0xFF111418) : const Color(0xFFFAFBFC),
     );

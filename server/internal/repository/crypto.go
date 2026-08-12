@@ -40,6 +40,16 @@ func ValidateEncryptionKey() error {
 	return nil
 }
 
+// EncryptField 加密敏感字段（AES-GCM，十六进制输出）。空串原样返回。
+func EncryptField(plaintext string) (string, error) {
+	return encrypt(plaintext)
+}
+
+// DecryptField 解密敏感字段（AES-GCM）。空串原样返回。
+func DecryptField(cipherHex string) (string, error) {
+	return decrypt(cipherHex)
+}
+
 func encrypt(plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil

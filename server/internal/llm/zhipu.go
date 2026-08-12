@@ -66,7 +66,11 @@ func (c *ZhipuClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey := c.apiKey
+	if req.APIKey != "" {
+		apiKey = req.APIKey
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// 传播 TraceID
 	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {

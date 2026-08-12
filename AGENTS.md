@@ -21,9 +21,9 @@
 
 ## 技术栈速查
 
-- 前端：Flutter / Dio / Provider / Hive  
-- 后端：Go / Gin / JWT / RBAC / SQLite（含 FTS）  
-- 编排：Eino；可选 Temporal  
+- 前端：Flutter / Dio / Provider / Hive
+- 后端：Go / Gin / JWT / RBAC / SQLite（含 FTS）
+- 编排：Eino；可选 Temporal
 - 模型 API：智谱、DeepSeek、讯飞（语音）
 
 ## 文档地图
@@ -40,6 +40,7 @@
 | AnswerCard / 导出审计 | `docs/ui-answer-card.md` |
 | **反馈管理与 AI 在线修复** | `docs/ui-feedback.md`（模块定位 + GLM-4.6V 截图解析 + AI 诊断接口） |
 | **反馈闭环完整文档** | `docs/蔚小芯问题反馈与在线修复.md`（提交→入库→结构化复制→AI修复→验证→解决） |
+| **学生操作手册** | `docs/蔚小芯智能体学生操作手册.md`（系统简介 + 新生操作流程 + AI额度/API Key 说明） |
 | 办事流程管理与提醒 | `docs/办事流程管理.md`（动态流程、CRUD、审核、导出与提醒） |
 | 校外系统对接注意 | `docs/integrations.md` |
 | 总纲全文（产品与技术） | `docs/蔚小芯智能体.md`（含 PDF 与 ASCII 示意图排版说明） |

@@ -3,17 +3,19 @@ package repository
 import (
 	"database/sql"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 )
 
 // TokenUsageRepo 词元使用记录数据访问
 type TokenUsageRepo struct {
-	db *sql.DB
+	db    *sql.DB
+	mysql bool
 }
 
 // NewTokenUsageRepo 创建词元使用记录 repo
 func NewTokenUsageRepo(db *sql.DB) *TokenUsageRepo {
-	return &TokenUsageRepo{db: db}
+	return &TokenUsageRepo{db: db, mysql: dbutil.IsMySQL(db)}
 }
 
 // Create 保存一条词元使用记录
@@ -24,6 +26,22 @@ func (r *TokenUsageRepo) Create(u *model.TokenUsage) error {
 		u.UserID, u.SessionID, u.PromptTokens, u.OutputTokens, u.ModelProvider,
 	)
 	return err
+}
+
+// MonthlyUsage 当前用户本月累计消耗的 token 总数（prompt+output）
+func (r *TokenUsageRepo) MonthlyUsage(userID int64) (int, error) {
+	var n int
+	cond := "YEAR(created_at) = YEAR(CURRENT_DATE) AND MONTH(created_at) = MONTH(CURRENT_DATE)"
+	if !r.mysql {
+		cond = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')"
+	}
+	err := r.db.QueryRow(
+		"SELECT COALESCE(SUM(prompt_tokens + output_tokens), 0) FROM token_usage WHERE user_id = ? AND "+cond,
+		userID).Scan(&n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // GetStatsByUserID 获取指定用户在指定天数内的词元统计

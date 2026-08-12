@@ -408,3 +408,54 @@ func (h *AuthHandler) GetCapabilities(c *gin.Context) {
 		},
 	})
 }
+
+// GetAIKey 获取当前用户 AI Key 绑定状态 GET /api/v1/user/ai-key
+func (h *AuthHandler) GetAIKey(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+	info, err := h.authSvc.GetAIKeyInfo(userCtx.UserID)
+	if err != nil {
+		util.FailInternalError(c, "查询 AI Key 失败")
+		return
+	}
+	util.Success(c, info)
+}
+
+// SaveAIKey 保存用户自备 AI Key PUT /api/v1/user/ai-key
+func (h *AuthHandler) SaveAIKey(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+	var req struct {
+		Provider string `json:"provider"`
+		ApiKey   string `json:"api_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.FailBadRequest(c, "参数错误")
+		return
+	}
+	if err := h.authSvc.SaveAIKey(userCtx.UserID, req.Provider, req.ApiKey); err != nil {
+		util.FailBadRequest(c, err.Error())
+		return
+	}
+	util.Success(c, gin.H{"bound": true})
+}
+
+// ClearAIKey 清除用户自备 AI Key DELETE /api/v1/user/ai-key
+func (h *AuthHandler) ClearAIKey(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+	if err := h.authSvc.ClearAIKey(userCtx.UserID); err != nil {
+		util.FailInternalError(c, "清除 AI Key 失败")
+		return
+	}
+	util.Success(c, gin.H{"bound": false})
+}

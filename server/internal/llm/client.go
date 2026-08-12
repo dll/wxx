@@ -13,6 +13,7 @@ type ChatRequest struct {
 	Messages    []ChatMessage `json:"messages"`
 	Temperature float64       `json:"temperature,omitempty"` // 温度参数，0-2
 	MaxTokens   int           `json:"max_tokens,omitempty"`  // 最大生成 token 数
+	APIKey      string        `json:"-"`                     // 可选：用户自备 Key 覆盖（额度耗尽场景）
 }
 
 // ChatResponse LLM 响应

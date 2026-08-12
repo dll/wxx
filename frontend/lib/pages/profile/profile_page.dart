@@ -137,6 +137,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
         const SizedBox(height: 16),
 
+        // 年级主题横幅（让年级色彩直观可见）
+        _buildGradeThemeBanner(context),
+
+        const SizedBox(height: 8),
+
         // 信息列表
         if (profile != null) ...[
           _buildInfoTile(
@@ -183,6 +188,24 @@ class _ProfilePageState extends State<ProfilePage> {
             subtitle: const Text('查看自己的操作记录'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/my-logs'),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // AI 额度（用量展示 + 绑定个人 API Key 解锁）
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: ListTile(
+            leading: Icon(Icons.speed_outlined, color: const Color(0xFF008F83)),
+            title: const Text('AI 额度'),
+            subtitle: const Text('查看用量，额度用完后绑定自己的 API Key'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showAIQuotaDialog(context),
           ),
         ),
 
@@ -986,6 +1009,184 @@ class _ProfilePageState extends State<ProfilePage> {
                 textStyle:
                     WidgetStateProperty.all(const TextStyle(fontSize: 12)),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// AI 额度对话框：展示月度 Token 用量 + 绑定/清除个人 API Key
+  Future<void> _showAIQuotaDialog(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    await auth.fetchAIKeyInfo();
+    if (!context.mounted) return;
+
+    final providerCtrl = TextEditingController(text: auth.aiKeyProvider);
+    final keyCtrl = TextEditingController();
+    var provider = auth.aiKeyProvider.isEmpty ? 'deepseek' : auth.aiKeyProvider;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('AI 额度'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .primaryContainer
+                          .withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('每月 AI 对话额度：10,000 tokens',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        SizedBox(height: 4),
+                        Text('额度用完后，可绑定你自己的 API Key 继续使用，不消耗校内额度。'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('绑定个人 API Key',
+                      style: Theme.of(ctx).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: provider,
+                    decoration: const InputDecoration(
+                      labelText: '提供商',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'deepseek', child: Text('DeepSeek')),
+                      DropdownMenuItem(value: 'zhipu', child: Text('智谱清言')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setDialogState(() => provider = v);
+                        providerCtrl.text = v;
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: keyCtrl,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: auth.aiKeyBound ? '已绑定（重新输入以更新）' : 'API Key',
+                      hintText: 'sk-...',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (auth.aiKeyBound)
+                    Text('当前已绑定：${auth.aiKeyProvider}',
+                        style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(ctx).colorScheme.primary)),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            if (auth.aiKeyBound)
+              TextButton(
+                onPressed: () async {
+                  final ok = await context.read<AuthProvider>().clearAIKey();
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text(ok ? '已解除绑定' : '操作失败')));
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('解除绑定'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('关闭'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final key = keyCtrl.text.trim();
+                if (key.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('请输入 API Key')));
+                  return;
+                }
+                final ok =
+                    await context.read<AuthProvider>().saveAIKey(provider, key);
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text(ok ? '绑定成功' : '绑定失败')));
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 年级主题横幅：展示当前年级主题色与名称（登录后随入学年份切换）
+  Widget _buildGradeThemeBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final enabled = themeNotifier.gradeThemeEnabled;
+    final accent = themeNotifier.gradeAccent;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: accent.withOpacity(0.4)),
+      ),
+      color: accent.withOpacity(0.10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 12,
+              height: 40,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    enabled ? '${themeNotifier.gradeThemeName}主题' : '滁院蓝主题',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    enabled ? '系统按你的入学年份自动匹配年级专属配色' : '年级主题已关闭，使用统一配色',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

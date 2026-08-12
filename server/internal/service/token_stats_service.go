@@ -22,17 +22,21 @@ type TokenStatsService struct {
 	monthlyCounts map[int64]map[string]int // userID -> YYYY-MM -> count
 	dailyQuota    int                      // 每日上限，0 表示不限
 	monthlyQuota  int                      // 每月上限，0 表示不限
+
+	// Token 额度（每月累计消耗，0 表示不限；默认 10000）
+	monthlyTokenQuota int
 }
 
 // NewTokenStatsService 创建词元统计服务
-func NewTokenStatsService(tokenRepo *repository.TokenUsageRepo, userRepo *repository.UserRepo, dailyQuota, monthlyQuota int) *TokenStatsService {
+func NewTokenStatsService(tokenRepo *repository.TokenUsageRepo, userRepo *repository.UserRepo, dailyQuota, monthlyQuota, monthlyTokenQuota int) *TokenStatsService {
 	return &TokenStatsService{
-		tokenRepo:     tokenRepo,
-		userRepo:      userRepo,
-		dailyCounts:   make(map[int64]map[string]int),
-		monthlyCounts: make(map[int64]map[string]int),
-		dailyQuota:    dailyQuota,
-		monthlyQuota:  monthlyQuota,
+		tokenRepo:          tokenRepo,
+		userRepo:           userRepo,
+		dailyCounts:        make(map[int64]map[string]int),
+		monthlyCounts:      make(map[int64]map[string]int),
+		dailyQuota:         dailyQuota,
+		monthlyQuota:       monthlyQuota,
+		monthlyTokenQuota:  monthlyTokenQuota,
 	}
 }
 
@@ -120,7 +124,13 @@ func (s *TokenStatsService) CheckAndIncrementQuota(userID int64) (bool, string) 
 	if s == nil {
 		return true, ""
 	}
-	if s.dailyQuota == 0 && s.monthlyQuota == 0 {
+
+	// 用户自备 AI Key：额度耗尽时可解锁继续使用（不计系统额度）
+	if s.userHasOwnKey(userID) {
+		return true, ""
+	}
+
+	if s.dailyQuota == 0 && s.monthlyQuota == 0 && s.monthlyTokenQuota == 0 {
 		return true, ""
 	}
 
@@ -129,6 +139,16 @@ func (s *TokenStatsService) CheckAndIncrementQuota(userID int64) (bool, string) 
 
 	s.quotaMu.Lock()
 	defer s.quotaMu.Unlock()
+
+	// Token 月度额度检查（查 token_usage 表累计，MySQL/SQLite 双方言）
+	if s.monthlyTokenQuota > 0 {
+		used, err := s.tokenRepo.MonthlyUsage(userID)
+		if err != nil {
+			log.Printf("[TokenStats] 查询月度 token 用量失败: user_id=%d err=%v", userID, err)
+		} else if used >= s.monthlyTokenQuota {
+			return false, fmt.Sprintf("本月 AI 对话额度已用完（%d/%d tokens）。请到「我的」→「AI 额度」绑定你自己的 API Key 继续使用。", used, s.monthlyTokenQuota)
+		}
+	}
 
 	// 日配额检查
 	if s.dailyQuota > 0 {
@@ -216,4 +236,16 @@ func (s *TokenStatsService) CleanupQuotaCache() {
 			delete(s.monthlyCounts, userID)
 		}
 	}
+}
+
+// userHasOwnKey 用户是否已绑定自备 AI Key（额度耗尽时可解锁继续使用）
+func (s *TokenStatsService) userHasOwnKey(userID int64) bool {
+	if s.userRepo == nil {
+		return false
+	}
+	u, err := s.userRepo.GetByID(userID)
+	if err != nil || u == nil {
+		return false
+	}
+	return u.AIAPIKeyEnc != ""
 }
