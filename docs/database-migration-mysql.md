@@ -179,3 +179,25 @@ DB_DRIVER=mysql DB_HOST=localhost DB_PORT=3306 DB_USER=eqs DB_NAME=wxx \
 | `server/cmd/migrate/main.go` | 迁移工具 MySQL 支持 |
 | `server/internal/repository/kb_repo.go` | FTS 降级、角色过滤方言化 |
 | 各 repository/handler | ON CONFLICT / INSERT OR IGNORE / 保留字列适配 |
+
+## 12. 上线后修复记录（2026-08-12）
+
+迁移上线后发现三类问题，均已修复：
+
+### 12.1 生产数据未同步（地图节点/业务数据不对）
+
+**现象**：`campus_checkin_steps`（报到节点）坐标仍是 048/050 迁移文件的 OSM 种子值，而非生产 SQLite 中管理员 2026-08-02 拖拽校正后的真实坐标；`users`、`sessions`、`feedback`、`messages`、`audit_logs` 等业务表数据也大量缺失（迁移只执行迁移文件种子，不搬运生产数据）。
+
+**修复**：从生产 SQLite（`/opt/wxx/data/wxx.db`）按表导出 `.mode insert` 数据，清空 MySQL 对应表后导入；涉及 16+ 张差异表（users 145、sessions 59、audit_logs 13745、campus_checkin_steps 12 等），最终全表行数对比无差异。
+
+### 12.2 长文本列溢出（Data too long）
+
+**现象**：`emotion_logs.analysis_json`、`feedback.screenshot_url`（base64 可达 181KB）、`student_profile_snapshot.gap_analysis / stage_advice` 被方言转换器转成 `VARCHAR(128)`，导入时 `ERROR 1406`。
+
+**修复**：`dialect.go` 新增 `longLongTextColumns`（→ `LONGTEXT`），`longTextColumns` 补充 `analysis_json`/`gap_analysis`；已上线表执行 `ALTER TABLE ... MODIFY ... LONGTEXT` 后重导。
+
+### 12.3 AI 简讯接口 500（前端显示"网络请求超时"）
+
+**现象**：`GET /api/v1/ai-briefings` 返回 500。根因：`ListUserVisible`/`ListFavorites` 的 JOIN 查询 SELECT 列清单中 `created_at` 等无 `b.` 前缀，与 `ai_briefing_favorites` 同名列歧义——MySQL 报 `ambiguous column`，SQLite 不报。
+
+**修复**：`ai_briefing_repo.go` 新增带前缀常量 `aiBriefingColsB`，JOIN 查询改用 `b.` 前缀列；重新部署后接口恢复 200，09:40 后日志无 500。

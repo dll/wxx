@@ -21,6 +21,10 @@ func NewAIBriefingRepo(db *sql.DB) *AIBriefingRepo {
 const aiBriefingCols = `id, source, category, topic, summary, content, link, keyword,
 	heat, reason, published_at, fetched_at, status, created_by, created_at, updated_at`
 
+// aiBriefingColsB 带 b. 前缀的列清单，用于 JOIN 查询（MySQL 对无前缀列歧义报错，SQLite 不报）
+const aiBriefingColsB = `b.id, b.source, b.category, b.topic, b.summary, b.content, b.link, b.keyword,
+	b.heat, b.reason, b.published_at, b.fetched_at, b.status, b.created_by, b.created_at, b.updated_at`
+
 // List 按条件分页查询资讯。statusFilter: "" 全部；category: "" 全部；q 关键词（topic/summary/keyword）
 func (r *AIBriefingRepo) List(statusFilter, category, q string, page, pageSize int) ([]*model.AIBriefing, int64, error) {
 	if page < 1 {
@@ -94,7 +98,7 @@ func (r *AIBriefingRepo) ListUserVisible(category, q string, limit int, userId i
 	if userId > 0 {
 		favCol = "CASE WHEN f.id IS NULL THEN 0 ELSE 1 END AS favorited"
 	}
-	query := "SELECT b." + aiBriefingCols + ", " + favCol + " FROM ai_briefings b"
+	query := "SELECT " + aiBriefingColsB + ", " + favCol + " FROM ai_briefings b"
 	if userId > 0 {
 		query += " LEFT JOIN ai_briefing_favorites f ON f.briefing_id = b.id AND f.user_id = ?"
 		args = append(args, userId)
@@ -116,7 +120,7 @@ func (r *AIBriefingRepo) ListFavorites(userId int64, limit int) ([]*model.AIBrie
 		limit = 100
 	}
 	rows, err := r.db.Query(
-		"SELECT b."+aiBriefingCols+", 1 AS favorited FROM ai_briefing_favorites f "+
+		"SELECT "+aiBriefingColsB+", 1 AS favorited FROM ai_briefing_favorites f "+
 			"JOIN ai_briefings b ON b.id = f.briefing_id WHERE f.user_id = ? AND b.status = 1 "+
 			"ORDER BY f.created_at DESC, b.published_at DESC LIMIT ?", userId, limit)
 	if err != nil {

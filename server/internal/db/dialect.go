@@ -58,6 +58,14 @@ var longTextColumns = map[string]bool{
 	"code": true, "analysis": true, "snapshot": true, "metadata": true,
 	"trace": true, "title": true, "query": true,
 	"question": true, "context": true, "message_text": true,
+	// 实际数据超过 MySQL TEXT(64KB) 上限的列 → LONGTEXT（见 longLongTextColumns）
+	"analysis_json": true, "gap_analysis": true,
+}
+
+// longLongTextColumns 已知超长文本列：MySQL TEXT 上限 64KB，这些列必须用 LONGTEXT
+// （如 feedback.screenshot_url 实际存储 base64 内联数据，可达数百 KB）
+var longLongTextColumns = map[string]bool{
+	"screenshot_url": true,
 }
 
 // keyTextColumns 虽然语义上可能是文本，但参与 UNIQUE/键约束、需保留默认值的列，
@@ -173,6 +181,10 @@ func ToMySQL(stmt string) string {
 		col := strings.ToLower(sub[1])
 		notNull := sub[2]
 		def := sub[3]
+		if longLongTextColumns[col] {
+			// 超长文本：保留 LONGTEXT，去掉默认值（MySQL TEXT/BLOB 不允许 DEFAULT）
+			return fmt.Sprintf("%s LONGTEXT%s", sub[1], notNull)
+		}
 		if longTextColumns[col] {
 			// 长文本：保留 TEXT，去掉默认值（MySQL TEXT 不允许 DEFAULT）
 			return fmt.Sprintf("%s TEXT%s", sub[1], notNull)
@@ -190,6 +202,9 @@ func ToMySQL(stmt string) string {
 			return m
 		}
 		col := strings.ToLower(sub[1])
+		if longLongTextColumns[col] {
+			return fmt.Sprintf("%s LONGTEXT", sub[1])
+		}
 		// 参与键约束的列（code 等）即使语义上是文本也不能保留 TEXT
 		if longTextColumns[col] && !keyTextColumns[col] {
 			return fmt.Sprintf("%s TEXT", sub[1])
