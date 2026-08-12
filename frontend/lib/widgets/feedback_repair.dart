@@ -3,6 +3,7 @@
 //  - 调用后端 AI 修复接口（GLM-4V 解析截图 + 文本模型定位代码文件与修复建议）
 //  - LLM/视觉不可用时自动降级为本地关键词模块匹配
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/feedback_provider.dart';
@@ -101,8 +102,7 @@ List<String> _matchModuleNames(FeedbackEntry fb) {
     '心理 / 情感': ['心理', '情感', '心情', '咨询', '焦虑', 'emotion', 'mental'],
     '管理端 / 数据': ['管理', '统计', '看板', '用户管理', '导入', 'admin', '仪表'],
   };
-  final text = '${fb.content} ${fb.category} ${fb.resourceId}'
-      .toLowerCase();
+  final text = '${fb.content} ${fb.category} ${fb.resourceId}'.toLowerCase();
   final scored = <String, int>{};
   for (final entry in map.entries) {
     var score = 0;
@@ -157,9 +157,8 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
 
   Future<void> _runAIRepair() async {
     setState(() => _loading = true);
-    final result = await context
-        .read<FeedbackProvider>()
-        .aiRepair(widget.fb.feedbackId);
+    final result =
+        await context.read<FeedbackProvider>().aiRepair(widget.fb.feedbackId);
     if (!mounted) return;
     setState(() {
       _ai = result;
@@ -203,8 +202,8 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
           Card(
             elevation: 0,
             color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -218,14 +217,13 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                           style: theme.textTheme.labelMedium),
                       if (fb.module.isNotEmpty)
                         _chip(theme, fb.module, theme.colorScheme.primary),
-                      if (_localModule.isNotEmpty &&
-                          _localModule != fb.module)
+                      if (_localModule.isNotEmpty && _localModule != fb.module)
                         _chip(theme, 'AI匹配:$_localModule',
                             theme.colorScheme.tertiary),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  SelectableText(
                     _ai?.summary.isNotEmpty == true ? _ai!.summary : fb.content,
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -244,8 +242,7 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                   children: [
                     const CircularProgressIndicator(),
                     const SizedBox(height: 8),
-                    Text('AI 正在解析截图与定位代码...',
-                        style: theme.textTheme.bodySmall),
+                    Text('AI 正在解析截图与定位代码...', style: theme.textTheme.bodySmall),
                   ],
                 ),
               ),
@@ -256,14 +253,14 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
               _sectionTitle(theme, '截图解析（OCR）'),
               Card(
                 elevation: 0,
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                color:
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: SelectableText(_ai!.ocrText,
-                      maxLines: 6,
-                      style: theme.textTheme.bodySmall),
+                      maxLines: 6, style: theme.textTheme.bodySmall),
                 ),
               ),
               const SizedBox(height: 16),
@@ -277,7 +274,8 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                     borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(_ai!.rootCause, style: theme.textTheme.bodyMedium),
+                  child: SelectableText(_ai!.rootCause,
+                      style: theme.textTheme.bodyMedium),
                 ),
               ),
               const SizedBox(height: 16),
@@ -307,7 +305,8 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                   borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_repairHint(), style: theme.textTheme.bodyMedium),
+                child: SelectableText(_repairHint(),
+                    style: theme.textTheme.bodyMedium),
               ),
             ),
             const SizedBox(height: 16),
@@ -321,20 +320,21 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text('AI 诊断暂不可用，已展示本地关键词定位结果',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error)),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.error)),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
             ],
 
-            // 本地复现指引
+// 本地复现指引
             _sectionTitle(theme, '本机复现与提交'),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                color:
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const SelectableText(
@@ -345,11 +345,112 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                 style: TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // 复制完整报告：提交 AI 工具修复
+            FilledButton.icon(
+              onPressed: _copyFullReport,
+              icon: const Icon(Icons.copy_all_outlined),
+              label: const Text('复制完整报告（提交 AI 修复）'),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('将反馈信息与 AI 诊断完整复制，粘贴到 Claude / GLM 等 AI 工具进行修复',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 8),
           ],
         ],
       ),
     );
+  }
+
+  /// 组装完整 Markdown 报告并复制到剪贴板（提交 AI 工具修复）
+  Future<void> _copyFullReport() async {
+    final fb = widget.fb;
+    final files = _codeFiles();
+    final sb = StringBuffer()
+      ..writeln('# 反馈问题诊断报告')
+      ..writeln()
+      ..writeln('## 反馈信息')
+      ..writeln('- ID: ${fb.feedbackId}')
+      ..writeln('- 用户: ${fb.username}（${fb.createdAt}）')
+      ..writeln(
+          '- 类型: ${fb.categoryLabel} | 模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
+      ..writeln('- 状态: ${fb.statusLabel}')
+      ..writeln('- 关联资源: ${fb.resourceId.isEmpty ? '无' : fb.resourceId}')
+      ..writeln()
+      ..writeln('## 反馈内容')
+      ..writeln()
+      ..writeln(fb.content);
+    if (_ai?.ocrText.trim().isNotEmpty == true) {
+      sb
+        ..writeln()
+        ..writeln('## 截图解析（OCR）')
+        ..writeln()
+        ..writeln(_ai!.ocrText);
+    }
+    if (_ai?.summary.isNotEmpty == true) {
+      sb
+        ..writeln()
+        ..writeln('## 问题摘要')
+        ..writeln()
+        ..writeln(_ai!.summary);
+    }
+    if (_ai?.rootCause.isNotEmpty == true) {
+      sb
+        ..writeln()
+        ..writeln('## 根因分析')
+        ..writeln()
+        ..writeln(_ai!.rootCause);
+    }
+    if (_localModule.isNotEmpty || fb.module.isNotEmpty) {
+      sb
+        ..writeln()
+        ..writeln('## 相关模块')
+        ..writeln()
+        ..writeln('- 反馈模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
+        ..writeln(
+            '- AI 匹配: ${_localModule.isNotEmpty ? _localModule : '（未匹配）'}');
+    }
+    if (files.isNotEmpty) {
+      sb
+        ..writeln()
+        ..writeln('## 相关代码文件')
+        ..writeln();
+      for (final f in files) {
+        sb.writeln('- `$f`');
+      }
+    }
+    if (_ai?.matchedFiles.isNotEmpty == true) {
+      sb
+        ..writeln()
+        ..writeln('## AI 匹配代码文件')
+        ..writeln();
+      for (final f in _ai!.matchedFiles) {
+        sb.writeln('- `$f`');
+      }
+    }
+    sb
+      ..writeln()
+      ..writeln('## 修复建议')
+      ..writeln()
+      ..writeln(_repairHint())
+      ..writeln()
+      ..writeln('## 本机复现指引')
+      ..writeln()
+      ..writeln('1. 前端: cd frontend && flutter run -d chrome')
+      ..writeln('2. 后端: cd server && go run .   (本地 SQLite)')
+      ..writeln('3. 修复后: flutter analyze 零错误 → make deploy-release 发版');
+
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制完整报告，可粘贴到 AI 工具修复')));
+    }
   }
 
   /// 待展示的代码文件（AI 判定优先，其次本地兜底）
@@ -383,8 +484,8 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(text,
-          style: theme.textTheme.labelSmall?.copyWith(
-              color: color, fontWeight: FontWeight.w600)),
+          style: theme.textTheme.labelSmall
+              ?.copyWith(color: color, fontWeight: FontWeight.w600)),
     );
   }
 

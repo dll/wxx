@@ -12,6 +12,15 @@
 - 列表/详情/处理：状态流转、回复、满意度、关联知识资源、处理记录。
 - 模块字段在列表卡片与详情页展示，便于定位。
 
+## 复制文本与提交 AI 修复
+
+- **部分复制**：列表卡片内容、详情页反馈内容/回复/满意度评论、AI 诊断（OCR/根因/修复建议）均为 `SelectableText`，可长按选区复制。
+- **一键复制（全部）**：
+  - 详情页右上角「复制完整反馈」：拼装 ID/用户/分类/模块/状态/消息ID/关联资源/内容/回复/满意度/处理记录 → 剪贴板。
+  - 列表卡片行内复制图标：复制该条反馈内容。
+- **提交 AI 工具修复**：在线修复面板底部「复制完整报告（提交 AI 修复）」按钮，将「反馈信息 + 反馈内容 + OCR + 摘要 + 根因 + 模块 + 代码文件 + 修复建议 + 本机复现指引」拼装为 Markdown 复制到剪贴板，可直接粘贴给 Claude / GLM 等 AI 工具进行修复。
+- 实现：`frontend/lib/pages/admin/feedback_page.dart`、`frontend/lib/widgets/feedback_repair.dart`（`Clipboard.setData`，无新增依赖）。
+
 ## AI 在线修复（核心）
 
 反馈详情点击「在线修复」→ `POST /api/v1/feedback/:id/ai-repair`（能力 `admin.feedback.write`）。

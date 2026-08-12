@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/feedback_provider.dart';
 import '../../models/models.dart';
@@ -225,8 +226,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value:
-                              maxCount == 0 ? 0 : issue.count / maxCount,
+                          value: maxCount == 0 ? 0 : issue.count / maxCount,
                           minHeight: 8,
                           backgroundColor: theme.colorScheme.surfaceVariant,
                         ),
@@ -303,7 +303,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
             children: [
               Expanded(
                 child: SegmentedButton<String>(
-                  selected: {provider.statusFilter.isEmpty ? '' : provider.statusFilter},
+                  selected: {
+                    provider.statusFilter.isEmpty ? '' : provider.statusFilter
+                  },
                   onSelectionChanged: (v) {
                     provider.setStatusFilter(v.first == '' ? '' : v.first);
                   },
@@ -513,13 +515,19 @@ class _FeedbackCard extends StatelessWidget {
                   ],
                   const Spacer(),
                   Text(feedback.createdAt, style: theme.textTheme.labelSmall),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: '复制反馈内容',
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    onPressed: () => _copyText(context, feedback.content),
+                    icon: const Icon(Icons.copy_outlined),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
-              Text(feedback.content,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium),
+              SelectableText(feedback.content,
+                  maxLines: 2, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 4),
               Text('— ${feedback.username}',
                   style: theme.textTheme.bodySmall
@@ -612,6 +620,12 @@ class _FeedbackCard extends StatelessWidget {
     );
   }
 
+  void _copyText(BuildContext context, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已复制反馈内容')));
+  }
+
   void _showReplyDialog(BuildContext context) {
     final replyCtrl = TextEditingController();
     showDialog(
@@ -635,10 +649,9 @@ class _FeedbackCard extends StatelessWidget {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await context
-                  .read<FeedbackProvider>()
-                  .resolveFeedback(feedback.feedbackId, 'resolved',
-                      reply: replyCtrl.text);
+              final ok = await context.read<FeedbackProvider>().resolveFeedback(
+                  feedback.feedbackId, 'resolved',
+                  reply: replyCtrl.text);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(ok ? '操作成功' : '操作失败')),
@@ -686,7 +699,16 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('反馈详情')),
+      appBar: AppBar(
+        title: const Text('反馈详情'),
+        actions: [
+          IconButton(
+            tooltip: '复制完整反馈',
+            onPressed: () => _copyFullFeedback(context),
+            icon: const Icon(Icons.copy_all_outlined),
+          ),
+        ],
+      ),
       body: Consumer<FeedbackProvider>(
         builder: (_, provider, __) {
           if (provider.detailLoading) {
@@ -821,8 +843,8 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     Text('提交于 ${fb.createdAt}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ],
@@ -852,7 +874,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
           children: [
             Text('反馈内容', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            Text(fb.content, style: theme.textTheme.bodyLarge),
+            SelectableText(fb.content, style: theme.textTheme.bodyLarge),
             if (fb.screenshotUrl.isNotEmpty) ...[
               const SizedBox(height: 12),
               GestureDetector(
@@ -958,7 +980,8 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                   color: theme.colorScheme.primaryContainer.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(fb.reply, style: theme.textTheme.bodyMedium),
+                child:
+                    SelectableText(fb.reply, style: theme.textTheme.bodyMedium),
               ),
           ],
         ),
@@ -995,14 +1018,14 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                   ),
                   if (fb.ratingComment.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('评价：${fb.ratingComment}',
+                    SelectableText('评价：${fb.ratingComment}',
                         style: theme.textTheme.bodyMedium),
                   ],
                   if (fb.ratedAt != null) ...[
                     const SizedBox(height: 4),
                     Text('评价时间：${fb.ratedAt}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
                   ],
                 ],
               ),
@@ -1152,10 +1175,9 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await context
-                  .read<FeedbackProvider>()
-                  .linkResource(widget.feedbackId, resourceIdCtrl.text,
-                      note: noteCtrl.text);
+              final ok = await context.read<FeedbackProvider>().linkResource(
+                  widget.feedbackId, resourceIdCtrl.text,
+                  note: noteCtrl.text);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(ok ? '关联成功' : '关联失败')),
@@ -1192,10 +1214,9 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await context
-                  .read<FeedbackProvider>()
-                  .resolveFeedback(fb.feedbackId, 'resolved',
-                      reply: replyCtrl.text);
+              final ok = await context.read<FeedbackProvider>().resolveFeedback(
+                  fb.feedbackId, 'resolved',
+                  reply: replyCtrl.text);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(ok ? '操作成功' : '操作失败')),
@@ -1218,6 +1239,52 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ok ? '操作成功' : '操作失败')),
       );
+    }
+  }
+
+  /// 复制完整反馈（含最新处理记录）到剪贴板
+  Future<void> _copyFullFeedback(BuildContext context) async {
+    final fb = context.read<FeedbackProvider>().currentFeedback;
+    if (fb == null) return;
+    final logs = context.read<FeedbackProvider>().logs;
+    final sb = StringBuffer()
+      ..writeln('反馈详情')
+      ..writeln('ID: ${fb.feedbackId}')
+      ..writeln('提交用户: ${fb.username}（${fb.createdAt}）')
+      ..writeln(
+          '类型: ${fb.categoryLabel} | 模块: ${fb.module.isNotEmpty ? fb.module : '未指定'}')
+      ..writeln(
+          '状态: ${fb.statusLabel}${fb.resolvedBy.isNotEmpty ? ' | 处理人: ${fb.resolvedBy}' : ''}')
+      ..writeln('消息ID: ${fb.messageId}')
+      ..writeln('关联资源: ${fb.resourceId.isEmpty ? '无' : fb.resourceId}')
+      ..writeln('--')
+      ..writeln('反馈内容:')
+      ..writeln(fb.content);
+    if (fb.reply.isNotEmpty) {
+      sb
+        ..writeln('--')
+        ..writeln('处理回复:')
+        ..writeln(fb.reply);
+    }
+    if (fb.rating > 0) {
+      sb
+        ..writeln('--')
+        ..writeln(
+            '满意度: ${fb.rating} 星${fb.ratingComment.isNotEmpty ? ' | ${fb.ratingComment}' : ''}');
+    }
+    if (logs.isNotEmpty) {
+      sb
+        ..writeln('--')
+        ..writeln('处理记录:');
+      for (final log in logs) {
+        sb.writeln(
+            '- [${log.createdAt}] ${log.actionLabel}${log.operator.isNotEmpty ? ' by ${log.operator}' : ''}${log.detail.isNotEmpty ? '（${log.detail}）' : ''}');
+      }
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制完整反馈')));
     }
   }
 }
@@ -1273,8 +1340,8 @@ class _TimelineItem extends StatelessWidget {
                   if (log.operator.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text('操作人：${log.operator}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
                   ],
                   if (log.detail.isNotEmpty) ...[
                     const SizedBox(height: 4),
