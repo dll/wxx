@@ -464,6 +464,14 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
     if (_ai != null && _ai!.repairHint.isNotEmpty) return _ai!.repairHint;
     switch (widget.fb.category) {
       case 'answer_error':
+        if (widget.fb.resourceId.isNotEmpty) {
+          // 关联了知识资源：直接给出修正资源的操作步骤（AI 工具可据此执行）
+          return '反馈关联知识资源「${widget.fb.resourceId}」。请执行：\n'
+              '1. 用资源 ID 在 kb_resources 中定位错误内容（可用服务器 MySQL 查询）；\n'
+              '2. 依据反馈内容核对并修正该资源 content 中的错误表述；\n'
+              '3. 同步修正迁移源 server/migrations/*.sql 中对应 seed 数据（防止新环境复现）；\n'
+              '4. 完成后再在管理端将该反馈标记为「已解决」。';
+        }
         return '回答有误类反馈：优先检查知识库资源内容（kb_resources）与检索结果，'
             '确认 Context Engine 的 FTS 分词与 role_scope 权限过滤是否排除正确内容；'
             '同时核对资源 content 是否准确、最新。';
