@@ -11,6 +11,7 @@ class CheckinPage extends StatefulWidget {
 
 class _CheckinPageState extends State<CheckinPage> {
   bool _checking = false;
+  bool _makingUp = false;
 
   @override
   void initState() {
@@ -27,6 +28,31 @@ class _CheckinPageState extends State<CheckinPage> {
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('打卡成功！')));
     }
+  }
+
+  /// 选择本月错过的日期并补签
+  Future<void> _doMakeup() async {
+    final now = DateTime.now();
+    final firstOfMonth = DateTime(now.year, now.month, 1);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.subtract(const Duration(days: 1)),
+      firstDate: firstOfMonth,
+      lastDate: now.subtract(const Duration(days: 1)),
+      helpText: '选择要补签的日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (picked == null || !mounted) return;
+
+    final dateStr = '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+    setState(() => _makingUp = true);
+    final msg = await context.read<StudentFeatureProvider>().doMakeupCheckin(dateStr);
+    if (!mounted) return;
+    setState(() => _makingUp = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -77,6 +103,20 @@ class _CheckinPageState extends State<CheckinPage> {
             _statCard(theme, '累计打卡', '${c.totalDays} 天', Icons.calendar_month, Colors.blue),
             _statCard(theme, '最长连续', '${c.longestStreak} 天', Icons.emoji_events, Colors.amber),
           ]),
+          const SizedBox(height: 16),
+          // 补签（断签保护：每月 2 次）
+          OutlinedButton.icon(
+            onPressed: (c.makeupLeft <= 0 || _makingUp) ? null : _doMakeup,
+            icon: _makingUp
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.history_edu, size: 18),
+            label: Text(c.makeupLeft > 0
+                ? '补签（本月剩余 ${c.makeupLeft} 次）'
+                : '本月补签次数已用完'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.makeupLeft > 0 ? theme.colorScheme.primary : theme.disabledColor,
+            ),
+          ),
           if (c.recentDates.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text('近期打卡记录', style: theme.textTheme.titleMedium),

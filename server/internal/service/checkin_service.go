@@ -25,8 +25,12 @@ type CheckinResult struct {
 	TotalDays     int      `json:"total_days"`     // 累计打卡天数
 	LongestStreak int      `json:"longest_streak"` // 历史最长连续
 	TodayChecked  bool     `json:"today_checked"`  // 今日是否已打卡
+	MakeupLeft    int      `json:"makeup_left"`    // 当月剩余补签次数（上限 2 次）
 	Milestones    []string `json:"milestones"`     // 达成的里程碑
 }
+
+// makeupMonthlyLimit 每月补签上限（断签保护，docs/蔚小芯角色功能.md P1）
+const makeupMonthlyLimit = 2
 
 // DoCheckin 执行每日打卡
 func (s *CheckinService) DoCheckin(userID int64, mood, note string) *CheckinResult {
@@ -56,6 +60,7 @@ func (s *CheckinService) DoCheckin(userID int64, mood, note string) *CheckinResu
 		TotalDays:     total,
 		LongestStreak: longest,
 		TodayChecked:  true,
+		MakeupLeft:    s.MakeupLeft(userID),
 		Milestones:    milestones,
 	}
 }
@@ -75,6 +80,67 @@ func (s *CheckinService) GetHistory(userID int64) *CheckinResult {
 		TotalDays:     total,
 		LongestStreak: longest,
 		TodayChecked:  todayChecked,
+		MakeupLeft:    s.MakeupLeft(userID),
+		Milestones:    checkMilestones(streak, total),
+	}
+}
+
+// MakeupLeft 当月剩余补签次数
+func (s *CheckinService) MakeupLeft(userID int64) int {
+	month := time.Now().Format("2006-01")
+	used := s.repo.CountMakeupInMonth(userID, month)
+	left := makeupMonthlyLimit - used
+	if left < 0 {
+		left = 0
+	}
+	return left
+}
+
+// MakeupCheckin 补签：为当月已错过的日期补一次打卡
+// 规则：仅限当月且为过去日期；当日已打卡/未来日期拒绝；每月最多 2 次。
+func (s *CheckinService) MakeupCheckin(userID int64, date, mood, note string) *CheckinResult {
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	month := now.Format("2006-01")
+
+	target, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return &CheckinResult{Success: false, Message: "日期格式不正确", Date: today}
+	}
+	// 仅限当月且为过去日期（不允许补未来，也不允许跨月补）
+	if target.Format("2006-01") != month || date >= today {
+		return &CheckinResult{Success: false, Message: "仅可补签本月已错过的日期", Date: today}
+	}
+	// 当日不可补签（当日走正常打卡）
+	if date == today {
+		return &CheckinResult{Success: false, Message: "今天请直接打卡", Date: today}
+	}
+	// 已打卡日期无需补签
+	if s.repo.HasChecked(userID, date) {
+		return &CheckinResult{Success: false, Message: "该日期已打卡，无需补签", Date: today}
+	}
+	// 月度次数校验
+	if s.MakeupLeft(userID) <= 0 {
+		return &CheckinResult{Success: false, Message: "本月补签次数已用完（每月限 2 次）", Date: today}
+	}
+
+	if _, err := s.repo.MakeupCheckin(userID, date, month, mood, note); err != nil {
+		return &CheckinResult{Success: false, Message: "补签失败，请稍后重试", Date: today}
+	}
+
+	streak := s.repo.CalcStreak(userID)
+	total := s.repo.CountTotal(userID)
+	longest := s.repo.CalcLongestStreak(userID)
+
+	return &CheckinResult{
+		Success:       true,
+		Message:       "补签成功！继续保持好习惯 🌱",
+		Date:          today,
+		Streak:        streak,
+		TotalDays:     total,
+		LongestStreak: longest,
+		TodayChecked:  s.repo.IsCheckedToday(userID),
+		MakeupLeft:    s.MakeupLeft(userID),
 		Milestones:    checkMilestones(streak, total),
 	}
 }

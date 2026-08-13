@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../providers/knowledge_provider.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/md_text.dart';
+import '../../widgets/recommendation_section.dart';
 
 /// 知识大厅页面 — 卡片式分类浏览
 class BrowsePage extends StatefulWidget {
@@ -102,9 +103,15 @@ class _BrowsePageState extends State<BrowsePage> {
       onRefresh: () => provider.load(type: provider.selectedType.isEmpty ? null : provider.selectedType),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: categories.length,
+        itemCount: categories.length + 1,
         itemBuilder: (context, index) {
-          final entry = categories[index];
+          if (index == 0) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: RecommendationSection(),
+            );
+          }
+          final entry = categories[index - 1];
           return _buildSection(context, entry.key, entry.value, theme);
         },
       ),

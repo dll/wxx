@@ -63,6 +63,9 @@ class ApiConfig {
   static const String export = '$apiPrefix/export';
   static const String exportAnswer = '$apiPrefix/export/answer';
 
+  // ── 个性化推荐 ──
+  static const String recommendations = '$apiPrefix/recommendations';
+
   // ── 智能体管理 ──
   static const String agents = '$apiPrefix/agents';
   static const String agentsActive = '$apiPrefix/agents/active';
@@ -186,6 +189,7 @@ class ApiConfig {
   static const String learningDiary = '$apiPrefix/student/learning-diary';
   static const String checkin = '$apiPrefix/student/checkin';
   static const String checkinHistory = '$apiPrefix/student/checkin/history';
+  static const String checkinMakeup = '$apiPrefix/student/checkin/makeup';
   static const String digitalTwin = '$apiPrefix/student/digital-twin';
   static const String personalityInsight = '$apiPrefix/student/personality';
   static const String growthPath = '$apiPrefix/student/growth-path';

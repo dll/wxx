@@ -279,6 +279,38 @@ func (h *StudentHandler) CheckinHistory(c *gin.Context) {
 	})
 }
 
+// CheckinMakeup 补签（断签保护，每月 2 次）
+// POST /student/checkin/makeup  body: {date: "YYYY-MM-DD", mood, note}
+func (h *StudentHandler) CheckinMakeup(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+
+	var req struct {
+		Date string `json:"date"`
+		Mood string `json:"mood"`
+		Note string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Date == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请选择要补签的日期"})
+		return
+	}
+
+	if h.checkinSvc == nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "补签成功"})
+		return
+	}
+
+	result := h.checkinSvc.MakeupCheckin(userCtx.UserID, req.Date, req.Mood, req.Note)
+	if !result.Success {
+		c.JSON(http.StatusOK, gin.H{"code": 1, "message": result.Message, "data": result})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": result.Message, "data": result})
+}
+
 // DigitalTwin 数字孪生
 // GrowthPath 成长路径（S1 功能7）：优先真实五维快照分阶段路线图，失败回落通用 AI 文案
 func (h *StudentHandler) GrowthPath(c *gin.Context) {

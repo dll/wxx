@@ -794,6 +794,10 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       ),
                       const SizedBox(height: 4),
                     ],
+                    if (detail.mediaUrls.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      _buildMediaUrls(theme, detail.mediaUrls),
+                    ],
                     if (detail.faq.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       ...detail.faq.map((f) => Padding(
@@ -874,6 +878,121 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       } catch (_) {}
     }
     return raw;
+  }
+
+  /// 办理指引多媒体（图片/视频）：以可点击卡片横向排布展示
+  Widget _buildMediaUrls(ThemeData theme, List<String> urls) {
+    final valid = urls.where((u) => u.isNotEmpty).toList();
+    if (valid.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.perm_media_outlined,
+                size: 14, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text('办理指引',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                )),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: valid.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final u = valid[i];
+              return GestureDetector(
+                onTap: () => _openMediaUrl(context, u),
+                child: Container(
+                  width: 128,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isVideoUrl(u)
+                            ? Icons.play_circle_outline
+                            : Icons.image_outlined,
+                        color: theme.colorScheme.primary,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _isVideoUrl(u) ? '视频指引' : '指引图 ${i + 1}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isVideoUrl(String u) =>
+      u.toLowerCase().contains('.mp4') ||
+      u.toLowerCase().contains('.mov') ||
+      u.toLowerCase().contains('video');
+
+  void _openMediaUrl(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.perm_media_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('办理指引',
+                        style: Theme.of(dialogContext)
+                            .textTheme
+                            .titleSmall),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(url,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(dialogContext)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Theme.of(dialogContext).colorScheme.primary)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

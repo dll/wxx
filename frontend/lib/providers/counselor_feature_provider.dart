@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import '../utils/api_error.dart';
 
 /// 辅导员 AI 功能状态管理
 class CounselorFeatureProvider extends ChangeNotifier {
@@ -70,7 +71,7 @@ class CounselorFeatureProvider extends ChangeNotifier {
         _twinBoard = List<Map<String, dynamic>>.from(list);
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -233,7 +234,7 @@ class CounselorFeatureProvider extends ChangeNotifier {
         _studentList = List<Map<String, dynamic>>.from(list);
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();

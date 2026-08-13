@@ -1773,6 +1773,7 @@ class CheckinRecord {
   final int totalDays;
   final int longestStreak;
   final bool todayChecked;
+  final int makeupLeft;
   final List<String> recentDates;
 
   CheckinRecord(
@@ -1781,6 +1782,7 @@ class CheckinRecord {
       this.totalDays = 0,
       this.longestStreak = 0,
       this.todayChecked = false,
+      this.makeupLeft = 2,
       this.recentDates = const []});
 
   factory CheckinRecord.fromJson(Map<String, dynamic> json) {
@@ -1790,6 +1792,7 @@ class CheckinRecord {
       totalDays: json['total_days'] ?? 0,
       longestStreak: json['longest_streak'] ?? 0,
       todayChecked: json['today_checked'] ?? false,
+      makeupLeft: json['makeup_left'] ?? 2,
       recentDates: List<String>.from(json['recent_dates'] ?? []),
     );
   }

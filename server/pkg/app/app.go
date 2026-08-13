@@ -1221,6 +1221,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.GET("/learning-diary", auth.RequireCapability(auth.SelfDiaryRead), studentH.LearningDiary)
 				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
 				student.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+				student.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
 				student.GET("/digital-twin", auth.RequireCapability(auth.SelfTwinRead), studentH.DigitalTwin)
 				student.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
 				student.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)
@@ -1273,8 +1274,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				me.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
 				me.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)
 				me.GET("/weekly-report", auth.RequireCapability(auth.SelfWeeklyReport), studentH.WeeklyReport)
-				me.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
-				me.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+me.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
+					me.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+					me.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
 			}
 
 			// ── 辅导员 AI 功能 ──

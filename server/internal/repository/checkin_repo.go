@@ -58,6 +58,55 @@ func (r *CheckinRepo) IsCheckedToday(userID int64) bool {
 	return count > 0
 }
 
+// HasChecked 查询指定日期是否已打卡
+func (r *CheckinRepo) HasChecked(userID int64, date string) bool {
+	var count int
+	_ = r.db.QueryRow(`SELECT COUNT(*) FROM student_checkins WHERE user_id = ? AND check_date = ?`,
+		userID, date).Scan(&count)
+	return count > 0
+}
+
+// CountMakeupInMonth 统计用户当月已使用的补签次数
+func (r *CheckinRepo) CountMakeupInMonth(userID int64, month string) int {
+	var count int
+	_ = r.db.QueryRow(`SELECT COUNT(*) FROM checkin_makeups WHERE user_id = ? AND month = ?`,
+		userID, month).Scan(&count)
+	return count
+}
+
+// MakeupCheckin 补签：写入打卡记录并登记补签消耗（事务保证一致性）
+func (r *CheckinRepo) MakeupCheckin(userID int64, date, month, mood, note string) (*CheckinRecord, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("开启补签事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		INSERT INTO student_checkins (user_id, check_date, mood, note)
+		VALUES (?, ?, ?, ?)`, userID, date, mood, note); err != nil {
+		return nil, fmt.Errorf("补签写入失败: %w", err)
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO checkin_makeups (user_id, month, check_date)
+		VALUES (?, ?, ?)`, userID, month, date); err != nil {
+		return nil, fmt.Errorf("登记补签消耗失败: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("补签事务提交失败: %w", err)
+	}
+
+	rec := &CheckinRecord{}
+	err = r.db.QueryRow(`
+		SELECT id, user_id, check_date, mood, note, created_at
+		FROM student_checkins WHERE user_id = ? AND check_date = ?`,
+		userID, date).Scan(&rec.ID, &rec.UserID, &rec.CheckDate, &rec.Mood, &rec.Note, &rec.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("读取补签记录失败: %w", err)
+	}
+	return rec, nil
+}
+
 // GetRecentDates 获取最近 N 天的打卡日期列表（倒序）
 func (r *CheckinRepo) GetRecentDates(userID int64, limit int) ([]string, error) {
 	rows, err := r.db.Query(`

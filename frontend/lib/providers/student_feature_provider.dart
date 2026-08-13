@@ -87,6 +87,21 @@ class StudentFeatureProvider extends ChangeNotifier {
     return false;
   }
 
+  /// 补签：为当月错过的日期补一次打卡（每月 2 次）
+  Future<String> doMakeupCheckin(String date) async {
+    try {
+      final res = await _api.post(ApiConfig.checkinMakeup, data: {'date': date});
+      if (res.statusCode == 200) {
+        final message = (res.data is Map ? res.data['message'] : null) ?? '补签成功';
+        await fetchCheckin();
+        return message;
+      }
+    } catch (e) {
+      return friendlyApiError(e);
+    }
+    return '补签失败，请稍后重试';
+  }
+
   // ── 数字孪生 ──
   DigitalTwinData? _twin;
   DigitalTwinData? get twin => _twin;
