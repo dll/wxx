@@ -1,0 +1,58 @@
+name: Fix DB Credentials
+on: workflow_dispatch
+jobs:
+  fix-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 自动修复 MySQL 凭据并重启后端
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "=== 自动修复 MySQL 凭据 ==="
+
+            # 1. 生成强密码（仅字母数字，避免 DSN 特殊字符问题）
+            NEW_PWD="Wxx$(openssl rand -hex 10)"
+
+            # 2. 确保数据库存在
+            sudo mysql -e "CREATE DATABASE IF NOT EXISTS wxx DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+            # 3. 创建应用账号并授权（TCP localhost 与 127.0.0.1 都覆盖）
+            sudo mysql -e "CREATE USER IF NOT EXISTS 'wxx'@'localhost' IDENTIFIED BY '${NEW_PWD}';"
+            sudo mysql -e "CREATE USER IF NOT EXISTS 'wxx'@'127.0.0.1' IDENTIFIED BY '${NEW_PWD}';"
+            sudo mysql -e "GRANT ALL PRIVILEGES ON wxx.* TO 'wxx'@'localhost';"
+            sudo mysql -e "GRANT ALL PRIVILEGES ON wxx.* TO 'wxx'@'127.0.0.1';"
+            sudo mysql -e "FLUSH PRIVILEGES;"
+            echo "MySQL 用户 wxx 已就绪"
+
+            # 4. 更新 /etc/wxx/env 的 DB_DRIVER / DB_USER / DB_PASSWORD
+            sudo sed -i '/^DB_DRIVER=/c\DB_DRIVER=mysql' /etc/wxx/env 2>/dev/null || true
+            sudo sed -i '/^DB_USER=/c\DB_USER=wxx' /etc/wxx/env 2>/dev/null || true
+            sudo sed -i "/^DB_PASSWORD=/c\DB_PASSWORD=${NEW_PWD}" /etc/wxx/env 2>/dev/null || true
+            grep -q '^DB_DRIVER=' /etc/wxx/env || echo 'DB_DRIVER=mysql' | sudo tee -a /etc/wxx/env
+            grep -q '^DB_USER=' /etc/wxx/env || echo 'DB_USER=wxx' | sudo tee -a /etc/wxx/env
+            grep -q '^DB_PASSWORD=' /etc/wxx/env || echo "DB_PASSWORD=${NEW_PWD}" | sudo tee -a /etc/wxx/env
+            echo "env 已更新"
+
+            # 5. 校验 TCP 连接
+            echo "--- 用新凭据测试 TCP 连接 ---"
+            sudo mysql -h localhost -P 3306 -u wxx -p"${NEW_PWD}" -e "SELECT 1" 2>&1 | head -3
+
+            # 6. 重启服务
+            echo "--- 重启 wxx ---"
+            sudo systemctl restart wxx
+            sleep 4
+            systemctl is-active wxx || echo "service inactive"
+
+            # 7. 健康检查
+            echo "--- health ---"
+            curl -s -m 8 localhost:8080/health && echo "" || echo "health failed"
+
+            # 8. 输出新密码（供用户保存）
+            echo "NEW_DB_PASSWORD=${NEW_PWD}"
+            echo "=== 修复完成 ==="
