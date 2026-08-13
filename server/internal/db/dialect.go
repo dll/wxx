@@ -65,7 +65,10 @@ var longTextColumns = map[string]bool{
 // longLongTextColumns 已知超长文本列：MySQL TEXT 上限 64KB，这些列必须用 LONGTEXT
 // （如 feedback.screenshot_url 实际存储 base64 内联数据，可达数百 KB）
 var longLongTextColumns = map[string]bool{
-	"screenshot_url": true,
+	"screenshot_url":      true, // 反馈截图 base64
+	"image_base64":        true, // 数字孪生画像 base64（256x256 PNG 约 100KB+）
+	"source_photo_base64": true, // 原型照片 base64（更大）
+	"avatar_base64":       true, // 用户头像 base64
 }
 
 // keyTextColumns 虽然语义上可能是文本，但参与 UNIQUE/键约束、需保留默认值的列，

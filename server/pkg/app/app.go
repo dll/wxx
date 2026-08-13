@@ -593,6 +593,12 @@ func execSQL(db *sql.DB, content, filename string, driver dbutil.Driver) error {
 			continue
 		}
 
+		// LONGTEXT 仅 MySQL 需要（SQLite TEXT 无长度限制），非 MySQL 驱动跳过
+		if driver != dbutil.DriverMySQL && strings.Contains(strings.ToUpper(stmt), "LONGTEXT") {
+			log.Printf("迁移 %s 第 %d 条语句跳过（%s 无需 LONGTEXT）: %.60s...", filename, i+1, driver, stmt)
+			continue
+		}
+
 		// SQLite → MySQL 方言转换
 		if driver == dbutil.DriverMySQL {
 			stmt = dbutil.ToMySQL(stmt)
