@@ -150,14 +150,21 @@ func BuildPortraitPrompt(prototypeType string, extra PortraitPersonalization) st
 	sb.WriteString("- 皮肤、毛发、服饰受统一环境光，光影协调、明暗过渡自然。\n")
 	sb.WriteString("- 保留适度相机原生噪点、真实镜头景深与轻微实拍曝光偏移；禁全局过度锐化、虚假光滑肌理。\n\n")
 
-	// 上层：蔚小芯特色卡通动漫（融合超星数字人 IP 参考）
+	// 上层：蔚小芯特色卡通动漫 + AI 特效（融合超星数字人 IP 参考）
 	sb.WriteString("在此基础上，以清新柔和的卡通动漫插画风格呈现（蔚小芯特色，参考超星数字人形象气质）：\n")
 	sb.WriteString("- 整体氛围明亮温暖、简洁干净、友好可爱，传达快乐与亲和力。\n")
 	sb.WriteString("- 头部圆润，眼睛大而有神、目光明亮友善；表情微笑，乐观向上。\n")
 	sb.WriteString("- 融入标志性学士帽元素（黑色学士帽或校徽蓝装饰），凸显「有学识的校园智能体」气质。\n")
 	sb.WriteString("- 色彩基调以明快暖色为主：阳光黄、校徽蓝（#1565C0）点缀，线条流畅干净。\n")
 	sb.WriteString("- 背景简洁留白，可点缀书本、小星星等校园元素，突出前景人物。\n")
-	sb.WriteString("- 卡通化仅在光影与线条层面，五官比例与皮肤质感仍遵循上述写实标准，避免过度幼态化。\n")
+	sb.WriteString("- 卡通化仅在光影与线条层面，五官比例与皮肤质感仍遵循上述写实标准，避免过度幼态化。\n\n")
+
+	// AI 特效层：科技感光效，让画像呈现「AI 数字孪生」气质
+	sb.WriteString("叠加 AI 数字特效（科技感、梦幻感）：\n")
+	sb.WriteString("- 人物边缘与发梢点缀柔和的数字光晕与微光粒子（科技蓝 #00BFFF 与校徽蓝 #1565C0）。\n")
+	sb.WriteString("- 背景加入半透明的几何科技元素：漂浮的电路线条、粒子星点、全息投影质感。\n")
+	sb.WriteString("- 整体带有轻度的赛博学院风，但不喧宾夺主，保证人物辨识度清晰。\n")
+	sb.WriteString("- 光效柔和自然，无过曝、无噪点堆叠，观感精致如高品质数字插画。\n")
 
 	return sb.String()
 }

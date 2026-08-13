@@ -156,7 +156,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '以照片或校园原型生成蔚小芯风格画像：写实人像标准 + 柔和卡通风，保留真实五官与皮肤肌理。',
+              '以照片或校园原型生成卡通 AI 数字孪生画像：柔和卡通 + 科技光效，保留真实五官辨识度。',
               style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant),
             ),
