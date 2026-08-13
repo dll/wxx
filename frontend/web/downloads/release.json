@@ -1,8 +1,8 @@
 {
-  "apk_url": "https://github.com/dll/wxx/releases/latest/download/weixiaoxin.apk",
-  "apk_file": "蔚小芯-v0.0.26.apk",
-  "version": "0.0.26",
-  "release_date": "2026-08-09",
+  "build_number": 27,
   "app": "蔚小芯",
-  "build_number": 26
+  "apk_url": "https://github.com/dll/wxx/releases/latest/download/weixiaoxin.apk",
+  "version": "0.0.27",
+  "release_date": "2026-08-13",
+  "apk_file": "蔚小芯-v0.0.27.apk"
 }
