@@ -1,4 +1,4 @@
-import 'dart:convert' show HtmlEscape;
+import 'dart:convert' show HtmlEscape, base64Encode;
 import '../../utils/web_export.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -14,9 +14,11 @@ import '../../providers/knowledge_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
+import '../../utils/feedback_report.dart';
 import '../../utils/screenshot_capture.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
+import '../../widgets/feedback_screenshot.dart';
 
 const _htmlEscaper = HtmlEscape();
 
@@ -366,13 +368,19 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 智能体类型小图标
+  /// 智能体类型小图标（对齐 5 个专用智能体）
   Widget _agentTypeIcon(String type) {
     switch (type) {
       case 'qa':
         return const Icon(Icons.chat, size: 14, color: Color(0xFF1565C0));
       case 'policy':
         return const Icon(Icons.gavel, size: 14, color: Color(0xFFE65100));
+      case 'process':
+        return const Icon(Icons.assignment_outlined,
+            size: 14, color: Color(0xFF6A1B9A));
+      case 'major':
+        return const Icon(Icons.menu_book_outlined,
+            size: 14, color: Color(0xFF6A1B9A));
       case 'emotion':
         return const Icon(Icons.favorite_border,
             size: 14, color: Color(0xFFC62828));
@@ -383,47 +391,128 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildEmptyState(ThemeData theme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.school,
-              size: 64, color: theme.colorScheme.primary.withOpacity(0.3)),
-          const SizedBox(height: 16),
-          Text(
-            '你好！我是蔚小芯',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '有任何学工相关问题，都可以问我',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 24),
-          // 快捷问题示例
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              '国家奖学金怎么申请？',
-              '请假需要什么流程？',
-              '助学贷款的条件是什么？',
-            ]
-                .map((q) => ActionChip(
-                      label: Text(q, style: const TextStyle(fontSize: 13)),
-                      onPressed: () {
-                        _inputCtrl.text = q;
-                        _send();
-                      },
-                    ))
-                .toList(),
+              Icon(Icons.school,
+                  size: 64, color: theme.colorScheme.primary.withOpacity(0.3)),
+              const SizedBox(height: 16),
+              Text(
+                '你好！我是蔚小芯',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '内置 5 个专用智能体，有任何学工问题都可以问我',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // 5 个智能体：各配典型提问示例
+              for (final group in _agentExampleGroups) ...[
+                _buildAgentExampleGroup(theme, group),
+                const SizedBox(height: 12),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  /// 典型提问示例分组（对齐 5 个专用智能体）
+  static const _agentExampleGroups = <_AgentExampleGroup>[
+    _AgentExampleGroup(
+      icon: Icons.gavel,
+      color: Color(0xFFE65100),
+      name: '政策解读',
+      questions: [
+        '国家奖学金的申请条件是什么？',
+        '转专业需要满足哪些要求？',
+        '助学贷款额度多少？',
+      ],
+    ),
+    _AgentExampleGroup(
+      icon: Icons.assignment_outlined,
+      color: Color(0xFF6A1B9A),
+      name: '流程指引',
+      questions: [
+        '请假怎么办理？需要什么材料？',
+        '入党流程是什么？',
+        '毕业离校要办哪些手续？',
+      ],
+    ),
+    _AgentExampleGroup(
+      icon: Icons.favorite_border,
+      color: Color(0xFFC62828),
+      name: '心理疏导',
+      questions: [
+        '最近压力大睡不着怎么办？',
+        '考试焦虑怎么缓解？',
+        '和室友关系不好，很郁闷',
+      ],
+    ),
+    _AgentExampleGroup(
+      icon: Icons.menu_book_outlined,
+      color: Color(0xFF6A1B9A),
+      name: '学科专业',
+      questions: [
+        '网络空间安全专业学什么？',
+        '人工智能方向有哪些课程？',
+        '计算机专业就业前景如何？',
+      ],
+    ),
+    _AgentExampleGroup(
+      icon: Icons.chat,
+      color: Color(0xFF1565C0),
+      name: '通用问答',
+      questions: [
+        '图书馆几点开门？',
+        '校医院电话是多少？',
+        '怎么加入社团？',
+      ],
+    ),
+  ];
+
+  Widget _buildAgentExampleGroup(ThemeData theme, _AgentExampleGroup group) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(group.icon, size: 16, color: group.color),
+            const SizedBox(width: 6),
+            Text(
+              group.name,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: group.color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: group.questions
+              .map((q) => ActionChip(
+                    label: Text(q, style: const TextStyle(fontSize: 12)),
+                    onPressed: () {
+                      _inputCtrl.text = q;
+                      _send();
+                    },
+                  ))
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -937,6 +1026,13 @@ $printScript
     String category = 'answer_error';
     String module = '';
     Uint8List? screenshotBytes = shot.bytes;
+    bool screenshotValid = false;
+    if (screenshotBytes != null && screenshotBytes.isNotEmpty) {
+      screenshotValid = await isDecodableImage(screenshotBytes);
+      if (!screenshotValid) screenshotBytes = null;
+    }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -950,8 +1046,8 @@ $printScript
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 截屏预览
-                  if (screenshotBytes != null)
+                  // 截屏预览（仅真实有效的截图才显示"已截屏"标记）
+                  if (screenshotBytes != null && screenshotValid)
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
@@ -968,7 +1064,27 @@ $printScript
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.memory(screenshotBytes, fit: BoxFit.cover),
+                              Image.memory(
+                                screenshotBytes,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withOpacity(0.3),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '截图加载失败',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .error),
+                                  ),
+                                ),
+                              ),
                               Positioned(
                                 top: 8,
                                 right: 8,
@@ -1014,17 +1130,19 @@ $printScript
                               size: 20,
                               color: Theme.of(context).colorScheme.error),
                           const SizedBox(width: 8),
-                          Text(shot.error ?? '截图不可用',
+                          Text(shot.error ?? '未截屏（截图可选）',
                               style: Theme.of(context)
                                   .textTheme
                                   .labelSmall
                                   ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.error)),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .error)),
                         ],
                       ),
                     ),
-                  if (screenshotBytes != null) const SizedBox(height: 16),
+                  if (screenshotBytes != null && screenshotValid)
+                    const SizedBox(height: 16),
 
                   const Text('反馈类型',
                       style: TextStyle(fontWeight: FontWeight.w500)),
@@ -1070,6 +1188,45 @@ $printScript
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  // ── 复制反馈数据（手工提交 AI 工具修复）──
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _copyDraftJson(
+                              contentCtrl, category, module, screenshotBytes,
+                              screenshotValid, msg),
+                          icon: const Icon(Icons.data_object, size: 16),
+                          label: const Text('复制 JSON'),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _copyDraftMarkdown(
+                              contentCtrl, category, module, screenshotBytes,
+                              screenshotValid, msg),
+                          icon: const Icon(Icons.copy_all_outlined, size: 16),
+                          label: const Text('复制报告(提交AI修复)'),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '截图佐证可选；复制 JSON/报告可将本反馈全部数据手工提交给 AI 工具修复',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -1089,10 +1246,12 @@ $printScript
                 contentCtrl.dispose();
                 Navigator.of(ctx).pop();
 
-                // 上传截图
+                // 上传截图（仅真实有效截图）
                 String screenshotUrl = '';
                 bool uploadFailed = false;
-                if (screenshotBytes != null && screenshotBytes.isNotEmpty) {
+                if (screenshotBytes != null &&
+                    screenshotBytes.isNotEmpty &&
+                    screenshotValid) {
                   final url = await context
                       .read<FeedbackProvider>()
                       .uploadScreenshotBytes(
@@ -1149,6 +1308,52 @@ $printScript
         ),
       ),
     );
+  }
+
+  /// 复制纠错反馈草稿（JSON）到剪贴板，供手工提交 AI 工具修复
+  void _copyDraftJson(TextEditingController contentCtrl, String category,
+      String module, Uint8List? screenshotBytes, bool screenshotValid,
+      Message msg) {
+    final dataUrl = (screenshotBytes != null && screenshotValid)
+        ? 'data:image/png;base64,${base64Encode(screenshotBytes)}'
+        : '';
+    Clipboard.setData(ClipboardData(
+      text: FeedbackReport.buildDraftJson(
+        category: category,
+        module: module,
+        content: contentCtrl.text,
+        screenshotDataUrl: dataUrl,
+        messageId: msg.id,
+      ),
+    ));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已复制 JSON 数据，可粘贴到 AI 工具修复')),
+      );
+    }
+  }
+
+  /// 复制纠错反馈草稿（Markdown 报告）
+  void _copyDraftMarkdown(TextEditingController contentCtrl, String category,
+      String module, Uint8List? screenshotBytes, bool screenshotValid,
+      Message msg) {
+    final dataUrl = (screenshotBytes != null && screenshotValid)
+        ? 'data:image/png;base64,${base64Encode(screenshotBytes)}'
+        : '';
+    Clipboard.setData(ClipboardData(
+      text: FeedbackReport.buildDraftMarkdown(
+        category: category,
+        module: module,
+        content: contentCtrl.text,
+        screenshotDataUrl: dataUrl,
+        messageId: msg.id,
+      ),
+    ));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已复制报告，可粘贴到 AI 工具修复')),
+      );
+    }
   }
 
   Widget _buildLoadingBubble(ThemeData theme) {
@@ -1411,4 +1616,19 @@ class _PulseIconState extends State<_PulseIcon>
       child: Icon(widget.icon, color: widget.color, size: 20),
     );
   }
+}
+
+/// 智能体典型提问示例分组
+class _AgentExampleGroup {
+  final IconData icon;
+  final Color color;
+  final String name;
+  final List<String> questions;
+
+  const _AgentExampleGroup({
+    required this.icon,
+    required this.color,
+    required this.name,
+    required this.questions,
+  });
 }

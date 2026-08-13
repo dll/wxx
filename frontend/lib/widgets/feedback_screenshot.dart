@@ -1,7 +1,25 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+/// 校验图片字节是否为可解码的有效图片（用于反馈截图防伪：避免"已截屏"但无图）。
+/// 传入的 bytes 可以是 PNG/JPEG 等 Flutter 支持的格式。
+Future<bool> isDecodableImage(List<int> bytes) async {
+  if (bytes.isEmpty) return false;
+  try {
+    final codec = await ui.instantiateImageCodec(
+      Uint8List.fromList(bytes),
+      targetWidth: 10,
+      targetHeight: 10,
+    );
+    codec.dispose();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 /// 反馈截图渲染：兼容 data:image base64 URL（多实例持久方案）和 http URL（旧记录）。
 ///

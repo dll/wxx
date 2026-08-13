@@ -5,6 +5,8 @@
 - 入口：对话纠错（chat_page）与全局反馈对话框（feedback_dialog）。
 - 字段：类型（回答有误/功能建议/其他）、**所属模块**（下拉，前端 `feedbackModules` 维护）、内容、截图（自动截屏）。
 - 提交接口：`POST /api/v1/feedback`（能力 `self.feedback.submit`）。
+- **截图佐证（可选）**：仅当截图像素真实可解码时才显示「已截屏」标记（`isDecodableImage` 校验，见 `widgets/feedback_screenshot.dart`），避免"显示已截屏但实际无图"；支持「重新截屏」重试，截图为可选佐证。
+- **一键复制反馈数据（用户端）**：两个提交对话框均内置「复制 JSON / 复制报告(提交AI修复)」按钮，将 类型/模块/内容/截图 base64/消息ID 拼装为结构化数据复制到剪贴板，可直接粘贴给 Claude / GLM 等 AI 工具进行修复。实现复用 `utils/feedback_report.dart#buildDraftJson/buildDraftMarkdown`。
 
 ## 反馈管理（管理端）
 

@@ -995,6 +995,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				agents.DELETE("/:id", auth.RequireCapability(auth.SchoolAgentWrite), agentH.Delete)
 			}
 
+			// 已启用智能体列表（对话页选择器用，普通登录用户即可访问）
+			secured.GET("/agents/active", agentH.ListActive)
+
 			// ── 语音 ASR/TTS（self.voice）──
 			if voiceH != nil {
 				secured.POST("/voice/asr", auth.RequireCapability(auth.SelfVoice), voiceH.ASR)

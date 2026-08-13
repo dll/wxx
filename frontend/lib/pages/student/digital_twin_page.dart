@@ -368,15 +368,20 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
   Widget _buildOverviewCard(
       ThemeData theme, dynamic t, StudentFeatureProvider provider) {
     // 综合分：五维加权（后端顺序：学业/能力/思想/情感/社交，权重 0.30/0.25/0.15/0.15/0.15）
+    // 仅对 data_available 的维度加权，并对缺失维度权重重新归一化，避免无数据维度拉低总分
     const weights = [0.30, 0.25, 0.15, 0.15, 0.15];
     final dims = (t.dimensions as List);
     double overall = 0;
+    double weightSum = 0;
     for (int i = 0; i < dims.length && i < weights.length; i++) {
       final d = dims[i];
+      final available = d.dataAvailable ?? true;
+      if (!available) continue;
       final s = (d.score as num).toDouble();
       overall += (s > 1 ? s / 100.0 : s) * weights[i];
+      weightSum += weights[i];
     }
-    overall *= 100;
+    if (weightSum > 0) overall = overall / weightSum * 100;
     final label = overall >= 80
         ? '优秀'
         : overall >= 60
@@ -491,6 +496,24 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                         const SizedBox(height: 16),
                         // 各维度详情
                         ...t.dimensions.map((d) {
+                          if (!d.dataAvailable) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(d.name),
+                                  Text(
+                                    '数据积累中',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                           final normalized =
                               d.score > 1 ? d.score / 100.0 : d.score;
                           return Padding(

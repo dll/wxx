@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/api_error.dart';
 
 /// 个人详细信息 Provider — 基本信息/联系方式/组织关系 + 学校门户凭证
 class PersonalDetailProvider extends ChangeNotifier {
@@ -39,7 +40,7 @@ class PersonalDetailProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e, fallback: '加载个人信息失败，请稍后重试');
     } finally {
       _loading = false;
       notifyListeners();
@@ -64,7 +65,7 @@ class PersonalDetailProvider extends ChangeNotifier {
       }
       _error = (res.data as Map?)?['message']?.toString() ?? '保存失败';
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e, fallback: '保存失败，请稍后重试');
     }
     notifyListeners();
     return false;

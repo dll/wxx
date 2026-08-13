@@ -993,7 +993,9 @@ class Agent {
     const map = {
       'qa': '通用问答',
       'policy': '政策解读',
-      'emotion': '情感分析',
+      'process': '流程指引',
+      'emotion': '心理疏导',
+      'major': '学科专业',
       'custom': '自定义',
     };
     return map[agentType] ?? agentType;
@@ -1745,14 +1747,21 @@ class TwinDimension {
   final String name;
   final double score;
   final String label;
+  final bool dataAvailable;
 
-  TwinDimension({this.name = '', this.score = 0, this.label = ''});
+  TwinDimension(
+      {this.name = '',
+      this.score = 0,
+      this.label = '',
+      this.dataAvailable = true});
 
   factory TwinDimension.fromJson(Map<String, dynamic> json) {
     return TwinDimension(
       name: json['name'] ?? '',
       score: (json['score'] ?? 0).toDouble(),
       label: json['label'] ?? json['level'] ?? '',
+      // 后端 v1 无 data_available 字段时默认 true，兼容旧接口/兜底 mock
+      dataAvailable: json['data_available'] ?? true,
     );
   }
 }

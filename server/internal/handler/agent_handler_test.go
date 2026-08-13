@@ -24,6 +24,19 @@ func (m *mockAgentService) List() ([]*model.Agent, error) {
 	return m.agents, m.err
 }
 
+func (m *mockAgentService) ListActive() ([]*model.Agent, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	active := make([]*model.Agent, 0)
+	for _, a := range m.agents {
+		if a.Status == "active" {
+			active = append(active, a)
+		}
+	}
+	return active, nil
+}
+
 func (m *mockAgentService) Create(req *model.AgentCreateRequest) (*model.Agent, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -106,6 +119,7 @@ func setupAgentTestRouter(mockSvc agentService) (*gin.Engine, *config.Config) {
 	protected.Use(middleware.JWTAuth(cfg))
 	protected.GET("/agents", agentH.List)
 	protected.POST("/agents", agentH.Create)
+	protected.GET("/agents/active", agentH.ListActive)
 	protected.GET("/agents/:id", agentH.Get)
 	protected.PUT("/agents/:id", agentH.Update)
 	protected.DELETE("/agents/:id", agentH.Delete)
@@ -135,14 +149,53 @@ func TestAgentHandler_List_Success(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("期望 200，得到 %d: %s", resp.Code, resp.Body.String())
 	}
+	var body model.AgentListResponse
+	json.Unmarshal(resp.Body.Bytes(), &body)
+
+	if body.Code != 0 {
+		t.Errorf("期望 code=0，得到 %d", body.Code)
+	}
+	if body.Total != 2 {
+		t.Errorf("期望 total=2，得到 %d", body.Total)
+	}
+}
+
+func TestAgentHandler_ListActive_OnlyActive(t *testing.T) {
+	mock := &mockAgentService{
+		agents: []*model.Agent{
+			{ID: 1, AgentID: "qa-default", Name: "通用问答助手", AgentType: "qa", Status: "active"},
+			{ID: 2, AgentID: "policy-expert", Name: "政策解读专家", AgentType: "policy", Status: "active"},
+			{ID: 3, AgentID: "process-guide", Name: "流程指引助手", AgentType: "process", Status: "active"},
+			{ID: 4, AgentID: "emotion-counselor", Name: "心理关怀助手", AgentType: "emotion", Status: "inactive"},
+			{ID: 5, AgentID: "major-guide", Name: "学科专业助手", AgentType: "major", Status: "active"},
+		},
+	}
+	r, cfg := setupAgentTestRouter(mock)
+
+	user := &model.User{ID: 1, Username: "student1", Role: "student"}
+	token, _ := middleware.GenerateToken(cfg, user)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/agents/active", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp := httptest.NewRecorder()
+	r.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d: %s", resp.Code, resp.Body.String())
+	}
 
 	var body model.AgentListResponse
 	json.Unmarshal(resp.Body.Bytes(), &body)
 	if body.Code != 0 {
 		t.Errorf("期望 code=0，得到 %d", body.Code)
 	}
-	if body.Total != 2 {
-		t.Errorf("期望 total=2，得到 %d", body.Total)
+	if body.Total != 4 {
+		t.Errorf("期望仅返回 active 智能体 total=4，得到 %d", body.Total)
+	}
+	for _, a := range body.Data {
+		if a.Status != "active" {
+			t.Errorf("智能体 %s 不应出现在 active 列表", a.AgentID)
+		}
 	}
 }
 

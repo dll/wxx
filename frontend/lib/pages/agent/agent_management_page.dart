@@ -226,6 +226,20 @@ class _AgentCard extends StatelessWidget {
           backgroundColor: Color(0xFFFCE4EC),
           child: Icon(Icons.favorite_border, size: 18, color: Color(0xFFC62828)),
         );
+      case 'process':
+        return const CircleAvatar(
+          radius: 18,
+          backgroundColor: Color(0xFFF3E5F5),
+          child: Icon(Icons.assignment_outlined,
+              size: 18, color: Color(0xFF6A1B9A)),
+        );
+      case 'major':
+        return const CircleAvatar(
+          radius: 18,
+          backgroundColor: Color(0xFFF3E5F5),
+          child: Icon(Icons.menu_book_outlined,
+              size: 18, color: Color(0xFF6A1B9A)),
+        );
       default:
         return const CircleAvatar(
           radius: 18,
@@ -396,7 +410,9 @@ class _AgentEditDialogState extends State<_AgentEditDialog> {
                   items: const [
                     DropdownMenuItem(value: 'qa', child: Text('通用问答')),
                     DropdownMenuItem(value: 'policy', child: Text('政策解读')),
-                    DropdownMenuItem(value: 'emotion', child: Text('情感分析')),
+                    DropdownMenuItem(value: 'process', child: Text('流程指引')),
+                    DropdownMenuItem(value: 'major', child: Text('学科专业')),
+                    DropdownMenuItem(value: 'emotion', child: Text('心理疏导')),
                     DropdownMenuItem(value: 'custom', child: Text('自定义')),
                   ],
                   onChanged: (v) {

@@ -1,10 +1,13 @@
-import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/feedback_provider.dart';
 import '../models/models.dart';
+import '../utils/feedback_report.dart';
 import '../utils/screenshot_capture.dart';
 import '../utils/storage.dart';
+import 'feedback_screenshot.dart';
 
 /// 反馈提交对话框 — 自动截屏 + 分类选择 + 内容描述
 ///
@@ -40,12 +43,17 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
   Uint8List? _screenshotBytes;
   bool _submitting = false;
   String? _screenshotError;
+  bool _imageDecoded = false;
+  bool _retryingCapture = false;
 
   @override
   void initState() {
     super.initState();
     _screenshotBytes = widget.initialBytes;
     _screenshotError = widget.initialError;
+    if (_screenshotBytes != null && _screenshotBytes!.isNotEmpty) {
+      _validateScreenshot();
+    }
     // 恢复本地草稿（上次提交失败或未完成的输入）
     final draft = Storage.feedbackDraft;
     if (draft.isNotEmpty) {
@@ -55,6 +63,36 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
       if (cat.isNotEmpty) _category = cat;
       if (mod.isNotEmpty) _module = mod;
     }
+  }
+
+  /// 校验截图像素是否真实可解码，避免"已截屏"但实际无图
+  Future<void> _validateScreenshot() async {
+    final bytes = _screenshotBytes;
+    if (bytes == null || bytes.isEmpty) {
+      setState(() => _imageDecoded = false);
+      return;
+    }
+    final ok = await isDecodableImage(bytes);
+    if (!mounted) return;
+    setState(() {
+      _imageDecoded = ok;
+      if (!ok) _screenshotError = '截图无效，已忽略（截图可选）';
+    });
+  }
+
+  /// 重新截屏（用户可手动补充佐证）
+  Future<void> _retryCapture() async {
+    if (_retryingCapture) return;
+    setState(() => _retryingCapture = true);
+    final shot = await captureScreenshot();
+    if (!mounted) return;
+    setState(() {
+      _retryingCapture = false;
+      _screenshotBytes = shot.bytes;
+      _screenshotError = shot.success ? null : (shot.error ?? '截图不可用');
+      _imageDecoded = false;
+    });
+    if (shot.success) _validateScreenshot();
   }
 
   @override
@@ -73,6 +111,45 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     );
   }
 
+  /// 有效截图转 data URL（供复制报告内嵌，确保在线修复有佐证）
+  String get _screenshotDataUrl {
+    final bytes = _screenshotBytes;
+    if (bytes == null || bytes.isEmpty || !_imageDecoded) return '';
+    return 'data:image/png;base64,${base64Encode(bytes)}';
+  }
+
+  /// 复制全部反馈数据（JSON）到剪贴板，供手工提交 AI 工具修复
+  Future<void> _copyJson() async {
+    final text = FeedbackReport.buildDraftJson(
+      category: _category,
+      module: _module,
+      content: _contentCtrl.text,
+      screenshotDataUrl: _screenshotDataUrl,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已复制 JSON 数据，可粘贴到 AI 工具修复')),
+      );
+    }
+  }
+
+  /// 复制完整 Markdown 报告（反馈信息 + 内容 + 截图 base64）
+  Future<void> _copyMarkdown() async {
+    final text = FeedbackReport.buildDraftMarkdown(
+      category: _category,
+      module: _module,
+      content: _contentCtrl.text,
+      screenshotDataUrl: _screenshotDataUrl,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已复制报告，可粘贴到 AI 工具修复')),
+      );
+    }
+  }
+
   Future<void> _submit() async {
     if (_contentCtrl.text.trim().isEmpty && _category.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,9 +162,11 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     try {
       final provider = context.read<FeedbackProvider>();
 
-      // 上传截图
+      // 上传截图（仅真实有效的截图才上传）
       String screenshotUrl = '';
-      if (_screenshotBytes != null && _screenshotBytes!.isNotEmpty) {
+      if (_screenshotBytes != null &&
+          _screenshotBytes!.isNotEmpty &&
+          _imageDecoded) {
         final url = await provider.uploadScreenshotBytes(
           _screenshotBytes!,
           'feedback_${DateTime.now().millisecondsSinceEpoch}.png',
@@ -164,7 +243,6 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
               // ── 截屏预览 ──
               _buildScreenshotPreview(theme),
               const SizedBox(height: 16),
-
               // ── 反馈类型 ──
               Text('反馈类型',
                   style: theme.textTheme.labelLarge
@@ -224,6 +302,40 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                 ),
                 textInputAction: TextInputAction.newline,
               ),
+              const SizedBox(height: 12),
+              // ── 复制反馈数据（手工提交 AI 工具修复）──
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _copyJson,
+                      icon: const Icon(Icons.data_object, size: 16),
+                      label: const Text('复制 JSON'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _copyMarkdown,
+                      icon: const Icon(Icons.copy_all_outlined, size: 16),
+                      label: const Text('复制报告(提交AI修复)'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '截图佐证可选；复制 JSON/报告可将本反馈全部数据手工提交给 AI 工具修复',
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -250,6 +362,9 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
   }
 
   Widget _buildScreenshotPreview(ThemeData theme) {
+    final showImage = _screenshotBytes != null &&
+        _screenshotBytes!.isNotEmpty &&
+        _imageDecoded;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -261,7 +376,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
         aspectRatio: 16 / 9,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(11),
-          child: _screenshotBytes != null
+          child: showImage
               ? Stack(
                   fit: StackFit.expand,
                   children: [
@@ -270,7 +385,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _buildNoScreenshot(theme),
                     ),
-                    // 截屏成功标记
+                    // 截屏成功标记（仅当真实可解码时才显示）
                     Positioned(
                       top: 8,
                       right: 8,
@@ -293,9 +408,51 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                         ),
                       ),
                     ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: _retryButton(theme),
+                    ),
                   ],
                 )
-              : _buildNoScreenshot(theme),
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildNoScreenshot(theme),
+                    Positioned(bottom: 8, right: 8, child: _retryButton(theme)),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// 重新截屏按钮（截图可选佐证，允许用户重试）
+  Widget _retryButton(ThemeData theme) {
+    return Material(
+      color: Colors.black.withOpacity(0.55),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _retryingCapture ? null : _retryCapture,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _retryingCapture
+                  ? const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.refresh, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
+              Text(_retryingCapture ? '截屏中...' : '重新截屏',
+                  style: const TextStyle(color: Colors.white, fontSize: 11)),
+            ],
+          ),
         ),
       ),
     );
@@ -312,7 +469,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                 size: 28, color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(height: 4),
             Text(
-              _screenshotError ?? '截图不可用',
+              _screenshotError ?? '未截屏（截图可选）',
               style: theme.textTheme.labelSmall?.copyWith(
                 color:
                     _screenshotError != null ? theme.colorScheme.error : null,

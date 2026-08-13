@@ -28,11 +28,12 @@ func NewTwinService(repo *repository.TwinRepo, userRepo *repository.UserRepo, ll
 
 // TwinDimension 单维度结果
 type TwinDimension struct {
-	Key   string  `json:"key"`   // academic/ability/ideological/emotional/social
-	Name  string  `json:"name"`  // 中文维度名
-	Score float64 `json:"score"` // 0-100
-	Level string  `json:"level"` // 优秀/良好/待提升
-	Desc  string  `json:"desc"`  // 该维度简述
+	Key          string  `json:"key"`           // academic/ability/ideological/emotional/social
+	Name         string  `json:"name"`          // 中文维度名
+	Score        float64 `json:"score"`         // 0-100（无数据时为 0）
+	Level        string  `json:"level"`         // 优秀/良好/待提升/数据积累中
+	Desc         string  `json:"desc"`          // 该维度简述
+	DataAvailable bool   `json:"data_available"` // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
 }
 
 // TwinResult 数字孪生完整结果（返回给前端）
@@ -102,25 +103,34 @@ func computeDimensions(m *repository.TwinRawMetrics) []TwinDimension {
 	ideological := float64(m.PartyStageRank)*16 + math.Min(float64(m.PartyStudyCount)*4, 20)
 	ideological = clamp(ideological)
 
-	// 情感：无日志默认 75（中性）；有日志时 score 越高越负面，故反向；高风险扣分
-	emotional := 75.0
-	if m.EmotionLogCount > 0 {
-		emotional = clamp(100 - m.AvgEmotionScore*10 - float64(m.HighRiskCount)*8)
+	// 情感：score 越高越负面（[-1,1]），反向线性映射到 0-100 全区间：
+	// avg=0（中性）→ 50，avg=-1（正向）→ 100，avg=1（负面）→ 0；每次高风险额外扣 8 分。
+	// 无情感日志时不硬编码默认分，DataAvailable=false 由前端显示「数据积累中」。
+	emotionalDataAvailable := m.EmotionLogCount > 0
+	emotional := 0.0
+	if emotionalDataAvailable {
+		emotional = clamp(50*(1-m.AvgEmotionScore) - float64(m.HighRiskCount)*8)
 	}
 
 	// 社交：社团(每个 20 分,上限 60) + 活动(每次 8 分,上限 40)
 	social := clamp(math.Min(float64(m.ClubCount)*20, 60) + math.Min(float64(m.ActivityRegCount)*8, 40))
 
 	mk := func(key, name string, score float64, desc string) TwinDimension {
-		return TwinDimension{Key: key, Name: name, Score: score, Level: scoreLevel(score), Desc: desc}
+		return TwinDimension{Key: key, Name: name, Score: score, Level: scoreLevel(score), Desc: desc, DataAvailable: true}
 	}
-	return []TwinDimension{
+	dims := []TwinDimension{
 		mk("academic", "学业", academic, fmt.Sprintf("平均绩点 %.2f，修得学分 %.1f", m.AvgGPA, m.CreditsEarned)),
 		mk("ability", "能力", ability, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount)),
 		mk("ideological", "思想", ideological, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount)),
 		mk("emotional", "情感", emotional, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount)),
 		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount)),
 	}
+	if !emotionalDataAvailable {
+		dims[3].Level = "数据积累中"
+		dims[3].Desc = "暂无情感记录，完成每日心情打卡或与蔚小芯聊天后可生成"
+		dims[3].DataAvailable = false
+	}
+	return dims
 }
 
 // GetDigitalTwin 计算并返回某学生的数字孪生画像，同时刷新快照。
@@ -132,11 +142,19 @@ func (s *TwinService) GetDigitalTwin(ctx context.Context, userID int64) (*TwinRe
 	}
 
 	dims := computeDimensions(metrics)
+	// 综合分：仅对 data_available 的维度加权，并对缺失维度权重重新归一化，避免无数据维度拉低总分
 	var overall float64
+	var weightSum float64
 	for _, d := range dims {
+		if !d.DataAvailable {
+			continue
+		}
 		overall += d.Score * dimWeights[d.Key]
+		weightSum += dimWeights[d.Key]
 	}
-	overall = clamp(overall)
+	if weightSum > 0 {
+		overall = clamp(overall / weightSum)
+	}
 
 	gaps := analyzeGaps(dims)
 
@@ -180,10 +198,13 @@ func (s *TwinService) GetDigitalTwin(ctx context.Context, userID int64) (*TwinRe
 	return result, nil
 }
 
-// analyzeGaps 找出低于 60 分的维度作为差距点
+// analyzeGaps 找出低于 60 分且数据可用的维度作为差距点（无数据维度不判弱项）
 func analyzeGaps(dims []TwinDimension) []string {
 	var gaps []string
 	for _, d := range dims {
+		if !d.DataAvailable {
+			continue
+		}
 		if d.Score < 60 {
 			gaps = append(gaps, fmt.Sprintf("%s维度偏弱（%.1f 分）：%s", d.Name, d.Score, d.Desc))
 		}
@@ -203,6 +224,10 @@ func (s *TwinService) interpret(ctx context.Context, name string, dims []TwinDim
 	var sb string
 	sb = "你是高校学工助手，请依据学生五维画像给出简短中肯的状态解读（80字内）与三条可执行的阶段建议。仅返回 JSON：{\"interpretation\":\"...\",\"advice\":[\"...\",\"...\",\"...\"]}。\n学生画像：\n"
 	for _, d := range dims {
+		if !d.DataAvailable {
+			sb += fmt.Sprintf("- %s：数据积累中（暂无记录）\n", d.Name)
+			continue
+		}
 		sb += fmt.Sprintf("- %s：%.1f 分（%s）%s\n", d.Name, d.Score, d.Level, d.Desc)
 	}
 
@@ -235,12 +260,20 @@ func (s *TwinService) ruleInterpret(dims []TwinDimension, gaps []string) (string
 	var best, worst TwinDimension
 	best.Score, worst.Score = -1, 101
 	for _, d := range dims {
+		if !d.DataAvailable {
+			continue
+		}
 		if d.Score > best.Score {
 			best = d
 		}
 		if d.Score < worst.Score {
 			worst = d
 		}
+	}
+	if best.Score < 0 {
+		return "五维数据仍在积累中，完成更多学习、活动与心情记录后即可生成画像。",
+			[]string{"持续记录成长数据，保持画像新鲜度", "结合辅导员建议制定下一阶段成长目标"},
+			true
 	}
 	interp := fmt.Sprintf("你的优势维度是%s（%.1f 分），相对薄弱的是%s（%.1f 分）。建议在保持优势的同时补齐短板。",
 		best.Name, best.Score, worst.Name, worst.Score)

@@ -196,6 +196,26 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             else ...[
               // 五维进度条
               ...twin.dimensions.map((d) {
+                if (!d.dataAvailable) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                            width: 44,
+                            child: Text(d.name,
+                                style: theme.textTheme.bodySmall)),
+                        Expanded(
+                          child: Text(
+                            '数据积累中',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 final normalized = d.score > 1 ? d.score / 100.0 : d.score;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),

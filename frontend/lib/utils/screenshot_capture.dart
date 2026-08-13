@@ -65,7 +65,10 @@ Future<ScreenshotResult> _captureNative({double pixelRatio = 1.0}) async {
           await Future<void>.delayed(const Duration(milliseconds: 100));
           continue;
         }
-        return ScreenshotResult(bytes: byteData.buffer.asUint8List());
+        // 只取实际有效区段，避免 buffer 尾部填充字节导致 PNG 解码失败
+        return ScreenshotResult(
+            bytes: byteData.buffer.asUint8List(
+                byteData.offsetInBytes, byteData.lengthInBytes));
       } finally {
         image.dispose();
       }

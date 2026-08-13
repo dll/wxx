@@ -4,6 +4,7 @@ import '../models/avatar_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import '../utils/api_error.dart';
 
 /// 学生 AI 功能状态管理
 class StudentFeatureProvider extends ChangeNotifier {
@@ -29,7 +30,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _briefing = DailyBriefing.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -50,7 +51,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _diary = LearningDiary.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -68,7 +69,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _checkin = CheckinRecord.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     }
     notifyListeners();
   }
@@ -81,7 +82,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     }
     return false;
   }
@@ -89,18 +90,30 @@ class StudentFeatureProvider extends ChangeNotifier {
   // ── 数字孪生 ──
   DigitalTwinData? _twin;
   DigitalTwinData? get twin => _twin;
+  Map<String, dynamic>? _twinRawJson;
+  Future<void>? _twinInFlight;
 
-  Future<void> fetchDigitalTwin() async {
+  Future<void> fetchDigitalTwin() {
+    // 共享 in-flight：页面并发调用（fetchDigitalTwin + fetchAvatar）时只发一次请求，避免 429
+    return _twinInFlight ??= _doFetchDigitalTwin()
+        .whenComplete(() => _twinInFlight = null);
+  }
+
+  Future<void> _doFetchDigitalTwin() async {
     _loading = true;
     _error = '';
     notifyListeners();
     try {
       final res = await _api.get(ApiConfig.digitalTwin);
       if (res.statusCode == 200 && res.data != null) {
-        _twin = DigitalTwinData.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
+        final raw = res.data is Map ? (res.data['data'] ?? res.data) : null;
+        if (raw is Map) {
+          _twinRawJson = Map<String, dynamic>.from(raw);
+          _twin = DigitalTwinData.fromJson(_twinRawJson!);
+        }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -121,7 +134,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _achievements = AchievementData.fromJson(res.data is Map ? res.data : res.data['data'] ?? {});
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -155,7 +168,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -189,7 +202,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -210,7 +223,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _personality = res.data is Map<String, dynamic> ? res.data : (res.data['data'] as Map<String, dynamic>?) ?? {};
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -221,30 +234,30 @@ class StudentFeatureProvider extends ChangeNotifier {
   AvatarConfig? _avatar;
   AvatarConfig? get avatar => _avatar;
 
-  /// 并发拉取五维孪生 + 性格，聚合出数字人形象配置
+  /// 生成数字人形象：复用已缓存的孪生数据（fetchDigitalTwin 已加载则不重复请求），仅并发补拉性格
   Future<void> fetchAvatar(
       {String displayName = '同学', String major = '', String role = 'student'}) async {
     try {
-      final results = await Future.wait([
-        _api.get(ApiConfig.digitalTwin),
-        _api.get(ApiConfig.personalityInsight),
-      ]);
-      Map<String, dynamic>? twinJson;
+      // 复用已缓存的孪生数据；若未加载则共享 in-flight 请求（与 fetchDigitalTwin 并发调用只发一次）
+      final Future<void> twinReady = _twinRawJson != null
+          ? Future.value()
+          : fetchDigitalTwin().then((_) {
+              if (_twinRawJson == null) {
+                throw StateError('twin data unavailable');
+              }
+            });
+      final Future<dynamic> personalityFut = _api.get(ApiConfig.personalityInsight);
+      await twinReady;
+      final personalityRes = await personalityFut;
       Map<String, dynamic>? personalityJson;
-      for (final res in results) {
-        if (res.statusCode != 200 || res.data == null) continue;
-        final data = res.data is Map ? (res.data['data'] ?? res.data) : null;
-        if (data is Map<String, dynamic>) {
-          // 区分孪生（含 dimensions）与人格（含 big_five / type）
-          if (data.containsKey('dimensions')) {
-            twinJson = data;
-          } else {
-            personalityJson = data;
-          }
-        }
+      if (personalityRes.statusCode == 200 && personalityRes.data != null) {
+        final data = personalityRes.data is Map
+            ? (personalityRes.data['data'] ?? personalityRes.data)
+            : null;
+        if (data is Map) personalityJson = Map<String, dynamic>.from(data);
       }
       _avatar = AvatarConfig.fromData(
-        twinJson: twinJson,
+        twinJson: _twinRawJson,
         personalityJson: personalityJson,
         displayName: displayName,
         major: major,
@@ -252,7 +265,7 @@ class StudentFeatureProvider extends ChangeNotifier {
       );
       notifyListeners();
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
       notifyListeners();
     }
   }
@@ -276,7 +289,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _profileLoading = false;
       notifyListeners();
@@ -297,7 +310,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _weeklyReport = res.data is Map<String, dynamic> ? res.data : (res.data['data'] as Map<String, dynamic>?) ?? {};
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -320,7 +333,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _aiResponse = res.data is String ? res.data : (res.data['response'] ?? res.data['content'] ?? '');
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _aiLoading = false;
       notifyListeners();
@@ -343,7 +356,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _qaQuestions = (data['hot_questions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -360,7 +373,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     }
     return false;
   }
@@ -380,7 +393,7 @@ class StudentFeatureProvider extends ChangeNotifier {
         _hotTopics = (data['topics'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -403,7 +416,7 @@ class StudentFeatureProvider extends ChangeNotifier {
             : (res.data['data'] as Map<String, dynamic>?) ?? {};
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();
@@ -426,7 +439,7 @@ class StudentFeatureProvider extends ChangeNotifier {
             : (res.data['data'] as Map<String, dynamic>?) ?? {};
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e);
     } finally {
       _loading = false;
       notifyListeners();

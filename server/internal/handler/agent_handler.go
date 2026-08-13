@@ -12,6 +12,7 @@ import (
 // agentService 智能体管理服务接口（用于测试 mock）
 type agentService interface {
 	List() ([]*model.Agent, error)
+	ListActive() ([]*model.Agent, error)
 	Create(req *model.AgentCreateRequest) (*model.Agent, error)
 	Get(agentID string) (*model.Agent, error)
 	Update(agentID string, req *model.AgentUpdateRequest) (*model.Agent, error)
@@ -32,6 +33,30 @@ func NewAgentHandler(agentSvc *service.AgentService) *AgentHandler {
 // GET /api/v1/agents
 func (h *AgentHandler) List(c *gin.Context) {
 	agents, err := h.agentSvc.List()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询智能体列表失败，请稍后重试",
+			TraceID: middleware.GetTraceID(c),
+		})
+		return
+	}
+	if agents == nil {
+		agents = []*model.Agent{}
+	}
+
+	c.JSON(http.StatusOK, model.AgentListResponse{
+		Code:    0,
+		Message: "success",
+		Data:    agents,
+		Total:   len(agents),
+	})
+}
+
+// ListActive 列出所有已启用的智能体（供对话页选择器，普通用户可访问）
+// GET /api/v1/agents/active
+func (h *AgentHandler) ListActive(c *gin.Context) {
+	agents, err := h.agentSvc.ListActive()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,

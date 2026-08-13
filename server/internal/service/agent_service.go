@@ -163,3 +163,8 @@ func (s *AgentService) GetActiveAgents() ([]*model.Agent, error) {
 	}
 	return active, nil
 }
+
+// ListActive 列出所有启用的智能体（供对话页选择器，普通用户可访问）
+func (s *AgentService) ListActive() ([]*model.Agent, error) {
+	return s.GetActiveAgents()
+}

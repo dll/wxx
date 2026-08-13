@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/api_error.dart';
 
 /// 数字孪生画像 Provider — 拉取/生成蔚小芯风格画像
 class TwinPortraitProvider extends ChangeNotifier {
@@ -48,7 +49,7 @@ class TwinPortraitProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e, fallback: '加载画像失败，请稍后重试');
     } finally {
       _loading = false;
       notifyListeners();
@@ -91,7 +92,7 @@ class TwinPortraitProvider extends ChangeNotifier {
       final msg = (res.data as Map?)?['message'];
       if (msg != null) _error = msg.toString();
     } catch (e) {
-      _error = e.toString();
+      _error = friendlyApiError(e, fallback: '生成画像失败，请稍后重试');
     } finally {
       _generating = false;
       notifyListeners();

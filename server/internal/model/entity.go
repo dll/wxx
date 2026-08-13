@@ -435,7 +435,7 @@ type Agent struct {
 	AgentID       string  `json:"agent_id" db:"agent_id"`
 	Name          string  `json:"name" db:"name"`
 	Description   string  `json:"description" db:"description"`
-	AgentType     string  `json:"agent_type" db:"agent_type"` // qa / policy / emotion / custom
+	AgentType     string  `json:"agent_type" db:"agent_type"` // qa / policy / process / major / emotion / custom
 	SystemPrompt  string  `json:"system_prompt" db:"system_prompt"`
 	ModelProvider string  `json:"model_provider" db:"model_provider"` // deepseek / zhipu
 	ModelName     string  `json:"model_name" db:"model_name"`

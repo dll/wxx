@@ -65,6 +65,7 @@ class ApiConfig {
 
   // ── 智能体管理 ──
   static const String agents = '$apiPrefix/agents';
+  static const String agentsActive = '$apiPrefix/agents/active';
   static String agentDetail(String id) => '$apiPrefix/agents/$id';
 
   // ── 密码管理 ──

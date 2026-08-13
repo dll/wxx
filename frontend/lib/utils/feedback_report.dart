@@ -58,8 +58,7 @@ class FeedbackReport {
 
   /// 生成 Markdown 报告（含日志与诊断）
   static String buildMarkdown(FeedbackEntry fb,
-      {List<FeedbackLog> logs = const [], FeedbackReportExtra? extra}) {
-    final sb = StringBuffer()
+      {List<FeedbackLog> logs = const [], FeedbackReportExtra? extra}) {    final sb = StringBuffer()
       ..writeln('# 反馈问题诊断报告')
       ..writeln()
       ..writeln('## 反馈信息')
@@ -155,6 +154,73 @@ class FeedbackReport {
       }
     }
     return sb.toString();
+  }
+
+  /// 生成提交前的反馈草稿 JSON（用户端对话框「复制反馈数据」用）
+  /// 字段与 [buildJson] 对齐，便于用户手工粘贴给 AI 工具做在线修复。
+  static String buildDraftJson({
+    required String category,
+    required String module,
+    required String content,
+    String screenshotDataUrl = '',
+    String messageId = '',
+    String resourceId = '',
+  }) {
+    final map = <String, dynamic>{
+      'category': category,
+      'category_label': _draftCategoryLabel(category),
+      'module': module,
+      'content': content,
+      'screenshot': screenshotDataUrl.isEmpty ? '无截图' : screenshotDataUrl,
+      'message_id': messageId,
+      'resource_id': resourceId,
+      'created_at': DateTime.now().toIso8601String(),
+      'source': 'app_user_draft',
+    };
+    return const JsonEncoder.withIndent('  ').convert(map);
+  }
+
+  /// 生成提交前的反馈草稿 Markdown 报告
+  static String buildDraftMarkdown({
+    required String category,
+    required String module,
+    required String content,
+    String screenshotDataUrl = '',
+    String messageId = '',
+    String resourceId = '',
+  }) {
+    final sb = StringBuffer()
+      ..writeln('# 反馈问题（提交 AI 修复）')
+      ..writeln()
+      ..writeln('## 反馈信息')
+      ..writeln('- 类型: ${_draftCategoryLabel(category)}')
+      ..writeln('- 模块: ${module.isEmpty ? '未指定' : module}')
+      ..writeln('- 消息ID: ${messageId.isEmpty ? '无' : messageId}')
+      ..writeln('- 关联资源: ${resourceId.isEmpty ? '无' : resourceId}')
+      ..writeln(
+          '- 截图: ${screenshotDataUrl.isEmpty ? '无（截图可选）' : '已附（见文末 base64）'}')
+      ..writeln('- 提交时间: ${DateTime.now().toIso8601String()}')
+      ..writeln()
+      ..writeln('## 反馈内容')
+      ..writeln()
+      ..writeln(content);
+    if (screenshotDataUrl.isNotEmpty) {
+      sb
+        ..writeln()
+        ..writeln('## 截图（base64 data URL）')
+        ..writeln()
+        ..writeln(screenshotDataUrl);
+    }
+    return sb.toString();
+  }
+
+  static String _draftCategoryLabel(String category) {
+    const map = {
+      'answer_error': '回答有误',
+      'suggestion': '功能建议',
+      'other': '其他',
+    };
+    return map[category] ?? category;
   }
 }
 
