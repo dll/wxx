@@ -34,6 +34,11 @@ func (c *FailoverClient) Name() string {
 	return "failover(" + c.primary.Name() + "→" + c.backupName() + ")"
 }
 
+// Model 返回主模型名（失败切换时实际可能用备选，Name 已含 failover 标注）
+func (c *FailoverClient) Model() string {
+	return c.primary.Model()
+}
+
 func (c *FailoverClient) backupName() string {
 	if c.backup == nil {
 		return "none"

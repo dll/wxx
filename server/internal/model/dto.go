@@ -9,6 +9,7 @@ type AnswerCard struct {
 	FollowUps  []string `json:"follow_ups"` // 追问建议
 	Actions    []Action `json:"actions"`    // 可执行动作
 	TraceID    string   `json:"trace_id"`   // 追踪 ID
+	Model      string   `json:"model"`      // 回答所用大模型名（如 deepseek-v4-flash）
 	Confidence float64  `json:"confidence"` // 置信度 0-1
 	Fallback   bool     `json:"fallback"`   // 是否为兜底回答
 }

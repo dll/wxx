@@ -225,7 +225,16 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	feedbackSvc.SetDB(db)
 	feedbackSvc.SetRepairRepo(repository.NewFeedbackRepairRepo(db))
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
+	// 用户模型配置（default_provider + Key + 模型名）参与对话：覆盖服务器默认
+	chatSvc.SetModelConfigService(modelConfigSvc)
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser, cfg.MonthlyTokenQuotaPerUser)
+	// 绑定自备 Key 的用户豁免系统 token 额度
+	tokenStatsSvc.SetModelConfigService(modelConfigSvc)
+	// 管理员可在 /admin/settings 配置 monthly_token_quota（运行时生效，覆盖默认 10 万）
+	tokenStatsSvc.SetQuotaSettingsFunc(func(key string) string {
+		v, _ := settingsRepo.Get(key)
+		return v
+	})
 	processRecordSvc := service.NewProcessRecordService(processRecordRepo, kbRepo)
 	processSvc := service.NewProcessService(kbRepo, kbSvc, db)
 	notificationSvc := service.NewNotificationService(db, cfg.QQWebhookURL, cfg.WechatWebhookURL)

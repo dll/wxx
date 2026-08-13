@@ -11,6 +11,7 @@ class AnswerCard {
   final List<String> followUps;
   final List<CardAction> actions;
   final String traceId;
+  final String model; // 回答所用大模型名（如 deepseek-v4-flash）
   final double confidence;
   final bool fallback;
 
@@ -23,6 +24,7 @@ class AnswerCard {
     this.followUps = const [],
     this.actions = const [],
     this.traceId = '',
+    this.model = '',
     this.confidence = 0,
     this.fallback = false,
   });
@@ -45,6 +47,7 @@ class AnswerCard {
               .toList() ??
           [],
       traceId: json['trace_id'] ?? '',
+      model: json['model'] ?? '',
       confidence: (json['confidence'] ?? 0).toDouble(),
       fallback: json['fallback'] ?? false,
     );

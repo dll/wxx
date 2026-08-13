@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/model_config_provider.dart';
+import '../../providers/token_stats_provider.dart';
 
 /// AI 模型配置页面 — 配置 DeepSeek / 智谱清言 / 讯飞星火 三大模型参数
+/// 兼作 AI 使用入口：顶部展示本月 token 用量，绑定个人 Key 后对话不消耗校内额度
 class ModelConfigPage extends StatefulWidget {
   const ModelConfigPage({super.key});
 
@@ -38,6 +40,16 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
   bool _initialised = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 拉取本月 token 用量展示（用量数据来自 /token-stats/my）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final p = context.read<TokenStatsProvider>();
+      if (p.myStats == null) p.fetchMyStats();
+    });
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     _dsKeyCtrl.dispose();
@@ -66,6 +78,7 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
           }
           return Column(
             children: [
+              _buildUsageBanner(context),
               _buildTabBar(),
               Expanded(
                 child: PageView(
@@ -124,6 +137,72 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
     _xfMaxTokens = config.xunfeiMaxTokens;
 
     _defaultProvider = config.defaultProvider;
+  }
+
+  /// 本月 AI token 用量横幅（额度由管理员配置）
+  Widget _buildUsageBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Consumer<TokenStatsProvider>(
+      builder: (context, provider, _) {
+        final summary = provider.myStats?.summary;
+        if (summary == null) {
+          return const SizedBox.shrink();
+        }
+        final used = summary.totalTokens;
+        final progress = (used / 100000).clamp(0.0, 1.0);
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: theme.colorScheme.primary.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.speed_outlined,
+                  size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('本月 AI 对话用量：${_fmt(used)} tokens',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        )),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '额度由系统管理员统一设置；绑定下方自己的 API Key 后对话不再消耗校内额度',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _fmt(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+    return '$n';
   }
 
   Widget _buildTabBar() {

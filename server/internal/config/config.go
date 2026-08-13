@@ -103,7 +103,7 @@ type Config struct {
 	// LLM 配额
 	DailyChatQuotaPerUser   int // 每个用户每日对话次数上限，0 表示不限
 	MonthlyChatQuotaPerUser int // 每个用户每月对话次数上限，0 表示不限
-	// 每月 Token 额度（默认 10000），0 表示不限
+	// 每月 Token 额度（默认 100000），0 表示不限；管理员可在系统配置里覆盖
 	MonthlyTokenQuotaPerUser int
 
 	// CORS
@@ -211,8 +211,8 @@ func Load() *Config {
 		// LLM 配额（默认对齐文档 9.4：学生日 20 次）
 		DailyChatQuotaPerUser:   envIntOr("DAILY_CHAT_QUOTA_PER_USER", 20),
 		MonthlyChatQuotaPerUser: envIntOr("MONTHLY_CHAT_QUOTA_PER_USER", 300),
-		// 每月 Token 额度（默认 10000），0 表示不限
-		MonthlyTokenQuotaPerUser: envIntOr("MONTHLY_TOKEN_QUOTA_PER_USER", 10000),
+	// 每月 Token 额度（默认 100000），0 表示不限；管理员可在系统配置里覆盖
+	MonthlyTokenQuotaPerUser: envIntOr("MONTHLY_TOKEN_QUOTA_PER_USER", 100000),
 
 		// CORS
 		CORSAllowedOrigins: envOr("CORS_ALLOWED_ORIGINS", "*"),

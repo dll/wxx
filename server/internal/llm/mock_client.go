@@ -35,6 +35,11 @@ func (m *MockClient) Name() string {
 	return "mock"
 }
 
+// Model 返回模拟客户端使用的模型名（mock 无真实模型）
+func (m *MockClient) Model() string {
+	return m.name
+}
+
 // Stream 模拟流式：一次性返回全部内容
 func (m *MockClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
 	ch := make(chan StreamChunk, 2)

@@ -41,11 +41,26 @@ func (c *DeepSeekClient) Name() string {
 	return "deepseek"
 }
 
+// Model 返回当前使用的模型名（如 deepseek-v4-flash）
+func (c *DeepSeekClient) Model() string {
+	return c.model
+}
+
 // Chat 发起对话请求
 func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	// 用户自配模型/Key 覆盖（默认用客户端构造时的服务器配置）
+	model := c.model
+	if req.Model != "" {
+		model = req.Model
+	}
+	apiKey := c.apiKey
+	if req.APIKey != "" {
+		apiKey = req.APIKey
+	}
+
 	// 构造 OpenAI 兼容的请求体
 	body := openAIRequest{
-		Model:       c.model,
+		Model:       model,
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
@@ -71,7 +86,7 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// 传播 TraceID
 	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
@@ -116,8 +131,18 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 
 // Stream 发起流式对话请求（OpenAI 兼容 SSE）
 func (c *DeepSeekClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
+	// 用户自配模型/Key 覆盖（默认用客户端构造时的服务器配置）
+	model := c.model
+	if req.Model != "" {
+		model = req.Model
+	}
+	apiKey := c.apiKey
+	if req.APIKey != "" {
+		apiKey = req.APIKey
+	}
+
 	body := openAIRequest{
-		Model:       c.model,
+		Model:       model,
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
@@ -140,7 +165,7 @@ func (c *DeepSeekClient) Stream(ctx context.Context, req *ChatRequest) (<-chan S
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
 		httpReq.Header.Set("X-Trace-ID", tid)
 	}

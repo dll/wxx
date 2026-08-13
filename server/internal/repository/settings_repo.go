@@ -68,3 +68,16 @@ func (r *SettingsRepo) GetByPrefix(prefix string) (map[string]string, error) {
 	}
 	return result, rows.Err()
 }
+
+// Get 获取单个配置项值（不存在返回空串）
+func (r *SettingsRepo) Get(key string) (string, error) {
+	var v string
+	err := r.db.QueryRow("SELECT `value` FROM system_settings WHERE `key` = ?", key).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return v, nil
+}

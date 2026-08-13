@@ -628,7 +628,7 @@ List<_NavItem> _navItemsForRole(String? role) => [
         '/home',
       ),
       const _NavItem(
-          '问小芯', Icons.chat_bubble_outline, Icons.chat_bubble, '/chat'),
+          '问芯', Icons.chat_bubble_outline, Icons.chat_bubble, '/chat'),
       _NavItem(
         role == 'teacher' ? '事务' : '办事',
         Icons.assignment_outlined,

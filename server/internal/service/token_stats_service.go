@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,8 +14,9 @@ import (
 // TokenStatsService 词元统计业务服务
 // 同时负责 LLM 调用配额管理，防止滥用产生高额费用
 type TokenStatsService struct {
-	tokenRepo *repository.TokenUsageRepo
-	userRepo  *repository.UserRepo
+	tokenRepo      *repository.TokenUsageRepo
+	userRepo       *repository.UserRepo
+	modelConfigSvc *ModelConfigService // 可选：用户模型配置（绑定 Key 时豁免系统额度）
 
 	// 配额管理（内存计数）
 	quotaMu       sync.RWMutex
@@ -25,6 +27,19 @@ type TokenStatsService struct {
 
 	// Token 额度（每月累计消耗，0 表示不限；默认 10000）
 	monthlyTokenQuota int
+	// 管理员可调限额：从 system_settings 读取 monthly_token_quota（优先级最高），
+	// 未配置时回落构造函数传入的默认值。
+	quotaSettingsFunc func(key string) string
+}
+
+// SetQuotaSettingsFunc 注入系统配置读取函数（从 system_settings 动态读取管理员设置的限额）
+func (s *TokenStatsService) SetQuotaSettingsFunc(fn func(key string) string) {
+	s.quotaSettingsFunc = fn
+}
+
+// SetModelConfigService 注入用户模型配置服务（绑定自备 Key 的用户豁免系统额度）
+func (s *TokenStatsService) SetModelConfigService(svc *ModelConfigService) {
+	s.modelConfigSvc = svc
 }
 
 // NewTokenStatsService 创建词元统计服务
@@ -130,7 +145,7 @@ func (s *TokenStatsService) CheckAndIncrementQuota(userID int64) (bool, string) 
 		return true, ""
 	}
 
-	if s.dailyQuota == 0 && s.monthlyQuota == 0 && s.monthlyTokenQuota == 0 {
+	if s.dailyQuota == 0 && s.monthlyQuota == 0 && s.monthlyTokenQuota == 0 && s.effectiveTokenQuota() == 0 {
 		return true, ""
 	}
 
@@ -141,12 +156,13 @@ func (s *TokenStatsService) CheckAndIncrementQuota(userID int64) (bool, string) 
 	defer s.quotaMu.Unlock()
 
 	// Token 月度额度检查（查 token_usage 表累计，MySQL/SQLite 双方言）
-	if s.monthlyTokenQuota > 0 {
+	// 管理员可在 /admin/settings 里配置 monthly_token_quota 覆盖默认值，运行时生效
+	if quota := s.effectiveTokenQuota(); quota > 0 {
 		used, err := s.tokenRepo.MonthlyUsage(userID)
 		if err != nil {
 			log.Printf("[TokenStats] 查询月度 token 用量失败: user_id=%d err=%v", userID, err)
-		} else if used >= s.monthlyTokenQuota {
-			return false, fmt.Sprintf("本月 AI 对话额度已用完（%d/%d tokens）。请到「我的」→「AI 额度」绑定你自己的 API Key 继续使用。", used, s.monthlyTokenQuota)
+		} else if used >= quota {
+			return false, fmt.Sprintf("本月 AI 对话额度已用完（%d/%d tokens）。请到「我的」→「AI 模型配置」绑定你自己的 API Key 继续使用。", used, quota)
 		}
 	}
 
@@ -239,6 +255,7 @@ func (s *TokenStatsService) CleanupQuotaCache() {
 }
 
 // userHasOwnKey 用户是否已绑定自备 AI Key（额度耗尽时可解锁继续使用）
+// 兼容两处绑定：AI 模型配置页（user_model_configs）与历史 AI 额度（users.ai_api_key_enc）
 func (s *TokenStatsService) userHasOwnKey(userID int64) bool {
 	if s.userRepo == nil {
 		return false
@@ -247,5 +264,29 @@ func (s *TokenStatsService) userHasOwnKey(userID int64) bool {
 	if err != nil || u == nil {
 		return false
 	}
-	return u.AIAPIKeyEnc != ""
+	if u.AIAPIKeyEnc != "" {
+		return true
+	}
+	// 用户在 AI 模型配置页绑定了任一 provider 的 Key 也视为自备 Key
+	if s.modelConfigSvc != nil {
+		if cfg, err := s.modelConfigSvc.Get(userID); err == nil && cfg != nil {
+			if cfg.DeepseekKeySet || cfg.ZhipuKeySet {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// effectiveTokenQuota 返回当前生效的月度 token 限额。
+// 优先读取管理员在 system_settings 中配置的 monthly_token_quota，未配置回落默认值。
+func (s *TokenStatsService) effectiveTokenQuota() int {
+	if s.quotaSettingsFunc != nil {
+		if v := s.quotaSettingsFunc("monthly_token_quota"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				return n
+			}
+		}
+	}
+	return s.monthlyTokenQuota
 }

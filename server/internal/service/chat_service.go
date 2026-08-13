@@ -65,6 +65,7 @@ type ChatService struct {
 	temporalClient *temporal.Client        // 可选：Temporal 工作流客户端
 	orchestrator   ports.AgentOrchestrator // 多智能体编排器（agentID 为空时启用，可选注入）
 	tokenStatsSvc  *TokenStatsService      // 可选：词元统计服务
+	modelConfigSvc *ModelConfigService     // 可选：用户 AI 模型配置（默认 provider/Key/模型名覆盖）
 }
 
 // NewChatService 创建问答服务（依赖通过 Outbound Port 接口注入）
@@ -82,6 +83,35 @@ func NewChatService(
 		agentRepo:   agentRepo,
 		llmClient:   llmClient,
 	}
+}
+
+// SetModelConfigService 注入用户 AI 模型配置服务（可选）
+func (s *ChatService) SetModelConfigService(svc *ModelConfigService) {
+	s.modelConfigSvc = svc
+}
+
+// resolveUserLLMOverrides 解析用户自定义模型配置（default_provider + Key + 模型名 + 参数）。
+// 返回 nil 表示使用服务器默认配置。用户配置的模型/Key 会覆盖服务器默认。
+func (s *ChatService) resolveUserLLMOverrides(userID int64) *llm.ChatRequest {
+	if s.modelConfigSvc == nil {
+		return nil
+	}
+	cfg, err := s.modelConfigSvc.Get(userID)
+	if err != nil || cfg == nil {
+		return nil
+	}
+	// 仅当用户绑定了对应 provider 的 Key 时才生效（否则退回服务器额度与默认模型）
+	switch cfg.DefaultProvider {
+	case "deepseek":
+		if cfg.DeepseekKey != "" {
+			return &llm.ChatRequest{APIKey: cfg.DeepseekKey, Model: cfg.DeepseekModel}
+		}
+	case "zhipu":
+		if cfg.ZhipuKey != "" {
+			return &llm.ChatRequest{APIKey: cfg.ZhipuKey, Model: cfg.ZhipuModel}
+		}
+	}
+	return nil
 }
 
 // SetOrchestrator 注入多智能体编排器（可选，nil = 不启用多 Agent 协同）
@@ -224,11 +254,17 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	}
 
 	// ── 5. 调 LLM ──
-	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+	// 用户自定义模型配置（default_provider + Key + 模型名）优先覆盖服务器默认
+	req := &llm.ChatRequest{
 		Messages:    messages,
 		Temperature: 0.3, // 问答场景用低温度，减少编造
 		MaxTokens:   2048,
-	})
+	}
+	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
+		req.APIKey = override.APIKey
+		req.Model = override.Model
+	}
+	llmResp, err := s.llmClient.Chat(ctx, req)
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
 		// 返回兜底回答，但保留搜索到的 sources
@@ -365,9 +401,14 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 	}
 
 	// ── 流式调用 LLM ──
-	chunks, err := s.llmClient.Stream(ctx, &llm.ChatRequest{
+	req := &llm.ChatRequest{
 		Messages: messages, Temperature: 0.3, MaxTokens: 2048,
-	})
+	}
+	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
+		req.APIKey = override.APIKey
+		req.Model = override.Model
+	}
+	chunks, err := s.llmClient.Stream(ctx, req)
 	if err != nil {
 		log.Printf("LLM 流式启动失败 [trace=%s]: %v", traceID, err)
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
@@ -534,6 +575,10 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		TraceID:    traceID,
 		Confidence: 0.8, // 默认置信度
 		Fallback:   false,
+	}
+	// 标注回答所用大模型（如 deepseek-v4-flash），供前端展示来源可信度
+	if s.llmClient != nil {
+		card.Model = s.llmClient.Model()
 	}
 
 	// 附加来源引用（含多智能体来源）
@@ -948,11 +993,16 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	}
 
 	// ── 4. 调 LLM ──
-	llmResp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
+	req := &llm.ChatRequest{
 		Messages:    messages,
 		Temperature: 0.3,
 		MaxTokens:   2048,
-	})
+	}
+	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
+		req.APIKey = override.APIKey
+		req.Model = override.Model
+	}
+	llmResp, err := s.llmClient.Chat(ctx, req)
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil

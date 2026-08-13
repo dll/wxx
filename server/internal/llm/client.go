@@ -13,7 +13,8 @@ type ChatRequest struct {
 	Messages    []ChatMessage `json:"messages"`
 	Temperature float64       `json:"temperature,omitempty"` // 温度参数，0-2
 	MaxTokens   int           `json:"max_tokens,omitempty"`  // 最大生成 token 数
-	APIKey      string        `json:"-"`                     // 可选：用户自备 Key 覆盖（额度耗尽场景）
+	APIKey      string        `json:"-"`                     // 可选：用户自备 Key 覆盖（额度耗尽/自配场景）
+	Model       string        `json:"-"`                     // 可选：用户配置的模型名覆盖（如 deepseek-v4-flash）
 }
 
 // ChatResponse LLM 响应
@@ -35,6 +36,9 @@ type ChatClient interface {
 
 	// Name 返回客户端名称（用于日志和审计）
 	Name() string
+
+	// Model 返回当前使用的模型名（如 deepseek-v4-flash / glm-4），用于回答标注
+	Model() string
 }
 
 // StreamChunk 流式响应增量

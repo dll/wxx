@@ -726,8 +726,9 @@ class _ChatPageState extends State<ChatPage> {
     return _buildAssistantMessage(msg, index);
   }
 
-  /// 助手消息头部：圆形头像 + 当前智能体名称
-  Widget _buildAssistantHeader(ThemeData theme, ChatProvider chat) {
+  /// 助手消息头部：圆形头像 + 当前智能体名称 + 所用大模型标签
+  Widget _buildAssistantHeader(ThemeData theme, ChatProvider chat,
+      {String model = ''}) {
     final agent = chat.selectedAgent;
     final color = agent != null
         ? _agentColor(agent.agentType)
@@ -754,6 +755,23 @@ class _ChatPageState extends State<ChatPage> {
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (model.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                model,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 10,
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -959,7 +977,8 @@ class _ChatPageState extends State<ChatPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildAssistantHeader(theme, chat),
+              _buildAssistantHeader(theme, chat,
+                  model: msg.answerCard?.model ?? ''),
               const SizedBox(height: 6),
               AnswerCardWidget(
                 card: msg.answerCard!,
@@ -982,7 +1001,8 @@ class _ChatPageState extends State<ChatPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildAssistantHeader(theme, chat),
+          _buildAssistantHeader(theme, chat,
+              model: msg.answerCard?.model ?? ''),
           const SizedBox(height: 6),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

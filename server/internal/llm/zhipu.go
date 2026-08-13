@@ -39,10 +39,19 @@ func (c *ZhipuClient) Name() string {
 	return "zhipu"
 }
 
+// Model 返回当前使用的模型名（如 glm-4）
+func (c *ZhipuClient) Model() string {
+	return c.model
+}
+
 // Chat 发起对话请求
 func (c *ZhipuClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+	model := c.model
+	if req.Model != "" {
+		model = req.Model
+	}
 	body := openAIRequest{
-		Model:       c.model,
+		Model:       model,
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
@@ -111,8 +120,12 @@ func (c *ZhipuClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse
 
 // Stream 发起流式对话请求（OpenAI 兼容 SSE）
 func (c *ZhipuClient) Stream(ctx context.Context, req *ChatRequest) (<-chan StreamChunk, error) {
+	model := c.model
+	if req.Model != "" {
+		model = req.Model
+	}
 	body := openAIRequest{
-		Model:       c.model,
+		Model:       model,
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
@@ -135,7 +148,11 @@ func (c *ZhipuClient) Stream(ctx context.Context, req *ChatRequest) (<-chan Stre
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey := c.apiKey
+	if req.APIKey != "" {
+		apiKey = req.APIKey
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	if tid := middleware.GetTraceIDFromContext(ctx); tid != "" {
 		httpReq.Header.Set("X-Trace-ID", tid)
 	}
