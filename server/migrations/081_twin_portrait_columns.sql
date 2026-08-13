@@ -8,8 +8,9 @@
 -- 处理：
 --   MySQL：ALTER TABLE ... MODIFY COLUMN ... LONGTEXT（迁移执行器自动跳过
 --   SQLite，因 SQLite TEXT 无长度限制）。
+--   注意：MySQL 的 LONGTEXT 列不允许 DEFAULT 子句（Error 1101），故省略。
 --   已在 dialect.go longLongTextColumns 登记，新库建表直接 LONGTEXT。
 
 ALTER TABLE twin_portraits MODIFY COLUMN image_base64 LONGTEXT NOT NULL;
-ALTER TABLE twin_portraits MODIFY COLUMN source_photo_base64 LONGTEXT DEFAULT '';
-ALTER TABLE users MODIFY COLUMN avatar_base64 LONGTEXT DEFAULT '';
+ALTER TABLE twin_portraits MODIFY COLUMN source_photo_base64 LONGTEXT;
+ALTER TABLE users MODIFY COLUMN avatar_base64 LONGTEXT;
