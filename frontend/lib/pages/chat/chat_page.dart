@@ -515,6 +515,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
+    final accent = Theme.of(context).colorScheme.tertiary;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -523,19 +524,48 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.school,
-                  size: 64, color: theme.colorScheme.primary.withOpacity(0.3)),
-              const SizedBox(height: 16),
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary,
+                      Color.alphaBlend(theme.colorScheme.primary, accent.withOpacity(0.4)),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.auto_awesome,
+                    size: 40, color: Colors.white),
+              ),
+              const SizedBox(height: 18),
               Text(
                 '你好！我是蔚小芯',
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '内置 5 个专用智能体，有任何学工问题都可以问我',
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '内置 5 个专用智能体，有任何学工问题都可以问我',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                '选择上方智能体，或直接点击下方问题开始',
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),
               ),

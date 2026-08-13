@@ -94,46 +94,8 @@ class _ProfilePageState extends State<ProfilePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 用户信息卡片
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Text(
-                    (profile?.displayName ?? Storage.displayName ?? '?')
-                        .characters
-                        .first,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  profile?.displayName ?? Storage.displayName ?? '未登录',
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  profile?.roleLabel ?? '',
-                  style: TextStyle(color: theme.colorScheme.primary),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // 用户信息卡片（年级主题渐变）
+        _buildUserHeaderCard(context, profile),
 
         const SizedBox(height: 16),
 
@@ -1143,6 +1105,90 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   /// 年级主题横幅：展示当前年级主题色与名称（登录后随入学年份切换）
+  /// 用户信息头卡：年级主题渐变 + 头像 + 身份信息
+  Widget _buildUserHeaderCard(BuildContext context, UserProfile? profile) {
+    final theme = Theme.of(context);
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final accent = themeNotifier.gradeAccent;
+    final name = profile?.displayName ?? Storage.displayName ?? '未登录';
+    final initial = name.characters.first;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color.alphaBlend(accent.withOpacity(0.16), theme.colorScheme.surface),
+            theme.colorScheme.surfaceContainerLow,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [accent, Color.alphaBlend(accent, Colors.white.withOpacity(0.3))],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withOpacity(0.28),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(name,
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium_outlined, size: 15, color: accent),
+              const SizedBox(width: 5),
+              Text(
+                profile?.roleLabel ?? '',
+                style: TextStyle(
+                    color: accent, fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ],
+          ),
+          if (profile?.college.isNotEmpty ?? false) ...[
+            const SizedBox(height: 2),
+            Text(
+              profile!.college,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildGradeThemeBanner(BuildContext context) {
     final theme = Theme.of(context);
     final themeNotifier = context.watch<ThemeNotifier>();
