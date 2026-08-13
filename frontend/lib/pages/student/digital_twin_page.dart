@@ -193,7 +193,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
             base64Decode(portrait.imageBase64),
             fit: BoxFit.cover,
             width: double.infinity,
-            height: 320,
+            // 与生成尺寸（256x256）一致，避免放大模糊
+            height: 256,
             errorBuilder: (_, __, ___) => const SizedBox(
               height: 120,
               child: Center(child: Text('画像数据异常')),
