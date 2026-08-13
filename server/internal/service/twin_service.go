@@ -28,12 +28,12 @@ func NewTwinService(repo *repository.TwinRepo, userRepo *repository.UserRepo, ll
 
 // TwinDimension 单维度结果
 type TwinDimension struct {
-	Key          string  `json:"key"`           // academic/ability/ideological/emotional/social
-	Name         string  `json:"name"`          // 中文维度名
-	Score        float64 `json:"score"`         // 0-100（无数据时为 0）
-	Level        string  `json:"level"`         // 优秀/良好/待提升/数据积累中
-	Desc         string  `json:"desc"`          // 该维度简述
-	DataAvailable bool   `json:"data_available"` // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
+	Key           string  `json:"key"`            // academic/ability/ideological/emotional/social
+	Name          string  `json:"name"`           // 中文维度名
+	Score         float64 `json:"score"`          // 0-100（无数据时为 0）
+	Level         string  `json:"level"`          // 优秀/良好/待提升/数据积累中
+	Desc          string  `json:"desc"`           // 该维度简述
+	DataAvailable bool    `json:"data_available"` // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
 }
 
 // TwinResult 数字孪生完整结果（返回给前端）

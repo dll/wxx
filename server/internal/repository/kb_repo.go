@@ -250,7 +250,7 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			 WHERE kb_fts MATCH ?
 			   AND kb.status = 'published'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND ` + r.roleScopeCond("kb") + `
+			   AND `+r.roleScopeCond("kb")+`
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
@@ -533,7 +533,7 @@ func (r *KBRepo) searchFAQWithQuery(ftsQuery string, ownerScope string, ownerID 
 			   AND kb.status = 'published'
 			   AND kb.resource_type = 'FAQ'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
-			   AND ` + r.roleScopeCond("kb") + `
+			   AND `+r.roleScopeCond("kb")+`
 			 ORDER BY score
 			 LIMIT ?`,
 		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,

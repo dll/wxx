@@ -105,7 +105,7 @@ var (
 	pragmaRe = regexp.MustCompile(`(?i)^\s*PRAGMA\s+`)
 	// 双引号标识符列定义（SQLite 允许 `"references"` 等）：MySQL 双引号是字符串字面量，
 	// 需转为反引号。仅匹配行首的标识符位置，避免误伤字符串内容中的中文引号。
-	doubleQuoteIdentRe = regexp.MustCompile(`(?m)^(\s*)"([a-z_][a-z0-9_]*)"`)	// MySQL 保留字列名（key/rank/value 等）在列定义位置加反引号（SQLite 也接受反引号）
+	doubleQuoteIdentRe = regexp.MustCompile(`(?m)^(\s*)"([a-z_][a-z0-9_]*)"`) // MySQL 保留字列名（key/rank/value 等）在列定义位置加反引号（SQLite 也接受反引号）
 	// MySQL 保留字列名（key/rank/value 等）在列定义位置加反引号（SQLite 也接受反引号）
 	reservedColRe = regexp.MustCompile(`(?m)^(\s*)(key|rank|value)(\s+(TEXT|INTEGER|BIGINT|VARCHAR|REAL|DATETIME|BLOB))`)
 	// INSERT 列清单中的保留字列名加反引号，如 `INSERT INTO system_settings (key, value, ...)`

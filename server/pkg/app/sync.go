@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/config"
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -434,6 +434,7 @@ func parseTime(s string) time.Time {
 // fixPasswordHashes 修复数据库中的密码哈希：
 //   - 空哈希 → 替换为 "wxx123456" 的 bcrypt 哈希
 //   - 非 bcrypt 前缀（$2a$/$2b$/$2y$ 之外）→ 重新哈希
+//
 // 注意：$2b$ 前缀已是标准 bcrypt，视为有效，避免对全量用户逐一 bcrypt 验证拖慢启动。
 func fixPasswordHashes(db *sql.DB) error {
 	rows, err := db.Query("SELECT id, password_hash FROM users")

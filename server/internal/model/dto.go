@@ -316,15 +316,15 @@ type EmotionUpdateRequest struct {
 
 // AgentCreateRequest 创建智能体请求
 type AgentCreateRequest struct {
-	AgentID       string  `json:"agent_id" binding:"required"`                                  // 唯一标识
-	Name          string  `json:"name" binding:"required"`                                      // 显示名
-	Description   string  `json:"description"`                                                  // 描述
+	AgentID       string  `json:"agent_id" binding:"required"`                                                // 唯一标识
+	Name          string  `json:"name" binding:"required"`                                                    // 显示名
+	Description   string  `json:"description"`                                                                // 描述
 	AgentType     string  `json:"agent_type" binding:"required,oneof=qa policy process major emotion custom"` // 类型
-	SystemPrompt  string  `json:"system_prompt"`                                                // 自定义系统提示词
-	ModelProvider string  `json:"model_provider"`                                               // deepseek / zhipu
-	ModelName     string  `json:"model_name"`                                                   // 具体模型
-	Temperature   float64 `json:"temperature"`                                                  // 0.0-2.0
-	MaxTokens     int     `json:"max_tokens"`                                                   // 最大 token 数
+	SystemPrompt  string  `json:"system_prompt"`                                                              // 自定义系统提示词
+	ModelProvider string  `json:"model_provider"`                                                             // deepseek / zhipu
+	ModelName     string  `json:"model_name"`                                                                 // 具体模型
+	Temperature   float64 `json:"temperature"`                                                                // 0.0-2.0
+	MaxTokens     int     `json:"max_tokens"`                                                                 // 最大 token 数
 }
 
 // AgentUpdateRequest 更新智能体请求

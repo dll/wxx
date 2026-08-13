@@ -375,23 +375,23 @@ func (s *AdminService) UpdateSettings(settings map[string]string, updatedBy stri
 
 // ImportStudentRow 导入学生行数据
 type ImportStudentRow struct {
-	Username      string // 学号
-	DisplayName   string // 姓名
-	College       string // 院系
-	Major         string // 专业
-	ClassName     string // 班级
-	EnrollmentDate string // 入学时间
-	EnrollmentYear string // 入学年份
-	Role          string // Excel 中的角色，仅允许学生
-	Gender        string // 性别
-	Campus        string // 校区
-	EducationLevel string // 学历层次
-	StudyDuration string // 学制
-	ExpectedGrad  string // 预期毕业时间
-	StudyMode     string // 学习形式
-	Ethnicity     string // 民族
+	Username        string // 学号
+	DisplayName     string // 姓名
+	College         string // 院系
+	Major           string // 专业
+	ClassName       string // 班级
+	EnrollmentDate  string // 入学时间
+	EnrollmentYear  string // 入学年份
+	Role            string // Excel 中的角色，仅允许学生
+	Gender          string // 性别
+	Campus          string // 校区
+	EducationLevel  string // 学历层次
+	StudyDuration   string // 学制
+	ExpectedGrad    string // 预期毕业时间
+	StudyMode       string // 学习形式
+	Ethnicity       string // 民族
 	PoliticalStatus string // 政治面貌
-	BirthDate     string // 出生年月
+	BirthDate       string // 出生年月
 }
 
 // ImportStudentsResult 导入结果
@@ -484,27 +484,27 @@ func (s *AdminService) ImportStudents(rows []*ImportStudentRow, defaultPassword,
 		}
 
 		u := &model.User{
-			Username:       username,
-			DisplayName:    displayName,
-			Role:           "student",
-			OwnerScope:     ownerScope,
-			OwnerID:        ownerID,
-			College:        college,
-			Major:          strings.TrimSpace(source.Major),
-			ClassName:      className,
-			EnrollmentDate: strings.TrimSpace(source.EnrollmentDate),
-			EnrollmentYear: strings.TrimSpace(source.EnrollmentYear),
-			Gender:         strings.TrimSpace(source.Gender),
-			Campus:         defaultCampus(strings.TrimSpace(source.Campus)),
-			EducationLevel: strings.TrimSpace(source.EducationLevel),
-			StudyDuration:  strings.TrimSpace(source.StudyDuration),
-			ExpectedGrad:   strings.TrimSpace(source.ExpectedGrad),
-			StudyMode:      strings.TrimSpace(source.StudyMode),
-			Ethnicity:      strings.TrimSpace(source.Ethnicity),
+			Username:        username,
+			DisplayName:     displayName,
+			Role:            "student",
+			OwnerScope:      ownerScope,
+			OwnerID:         ownerID,
+			College:         college,
+			Major:           strings.TrimSpace(source.Major),
+			ClassName:       className,
+			EnrollmentDate:  strings.TrimSpace(source.EnrollmentDate),
+			EnrollmentYear:  strings.TrimSpace(source.EnrollmentYear),
+			Gender:          strings.TrimSpace(source.Gender),
+			Campus:          defaultCampus(strings.TrimSpace(source.Campus)),
+			EducationLevel:  strings.TrimSpace(source.EducationLevel),
+			StudyDuration:   strings.TrimSpace(source.StudyDuration),
+			ExpectedGrad:    strings.TrimSpace(source.ExpectedGrad),
+			StudyMode:       strings.TrimSpace(source.StudyMode),
+			Ethnicity:       strings.TrimSpace(source.Ethnicity),
 			PoliticalStatus: strings.TrimSpace(source.PoliticalStatus),
-			BirthDate:      strings.TrimSpace(source.BirthDate),
-			Status:         "active",
-			PasswordHash:   passwordHash,
+			BirthDate:       strings.TrimSpace(source.BirthDate),
+			Status:          "active",
+			PasswordHash:    passwordHash,
 		}
 		students = append(students, u)
 	}
@@ -625,23 +625,23 @@ func (s *AdminService) ParseStudentXLSX(r io.ReaderAt, size int64) ([]*ImportStu
 			continue
 		}
 		r := &ImportStudentRow{
-			Username:       username,
-			DisplayName:    displayName,
-			College:        cell(row, colMap, "college"),
-			Major:          cell(row, colMap, "major"),
-			ClassName:      cell(row, colMap, "class_name"),
-			EnrollmentDate: cell(row, colMap, "enrollment_date"),
-			EnrollmentYear: cell(row, colMap, "enrollment_year"),
-			Role:           cell(row, colMap, "role"),
-			Gender:         cell(row, colMap, "gender"),
-			Campus:         cell(row, colMap, "campus"),
-			EducationLevel: cell(row, colMap, "education_level"),
-			StudyDuration:  cell(row, colMap, "study_duration"),
-			ExpectedGrad:   cell(row, colMap, "expected_graduation"),
-			StudyMode:      cell(row, colMap, "study_mode"),
-			Ethnicity:      cell(row, colMap, "ethnicity"),
+			Username:        username,
+			DisplayName:     displayName,
+			College:         cell(row, colMap, "college"),
+			Major:           cell(row, colMap, "major"),
+			ClassName:       cell(row, colMap, "class_name"),
+			EnrollmentDate:  cell(row, colMap, "enrollment_date"),
+			EnrollmentYear:  cell(row, colMap, "enrollment_year"),
+			Role:            cell(row, colMap, "role"),
+			Gender:          cell(row, colMap, "gender"),
+			Campus:          cell(row, colMap, "campus"),
+			EducationLevel:  cell(row, colMap, "education_level"),
+			StudyDuration:   cell(row, colMap, "study_duration"),
+			ExpectedGrad:    cell(row, colMap, "expected_graduation"),
+			StudyMode:       cell(row, colMap, "study_mode"),
+			Ethnicity:       cell(row, colMap, "ethnicity"),
 			PoliticalStatus: cell(row, colMap, "political_status"),
-			BirthDate:      cell(row, colMap, "birth_date"),
+			BirthDate:       cell(row, colMap, "birth_date"),
 		}
 		result = append(result, r)
 	}

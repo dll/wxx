@@ -27,7 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	_ "github.com/go-sql-driver/mysql" // MySQL 驱动（DB_DRIVER=mysql）
+	_ "github.com/go-sql-driver/mysql"                   // MySQL 驱动（DB_DRIVER=mysql）
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso 云数据库驱动（libsql:// 协议）
 	_ "modernc.org/sqlite"                               // 纯 Go SQLite 驱动（本地文件 + FTS5）
 )
@@ -1283,9 +1283,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				me.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
 				me.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)
 				me.GET("/weekly-report", auth.RequireCapability(auth.SelfWeeklyReport), studentH.WeeklyReport)
-me.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
-					me.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
-					me.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
+				me.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
+				me.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
+				me.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
 			}
 
 			// ── 辅导员 AI 功能 ──

@@ -11,10 +11,10 @@ import (
 
 	"github.com/dll/wxx/server/internal/config"
 	dbutil "github.com/dll/wxx/server/internal/db"
+	_ "github.com/go-sql-driver/mysql" // MySQL 驱动
 	"github.com/joho/godotenv"
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso 云数据库驱动
 	_ "modernc.org/sqlite"                               // 本地 SQLite 驱动
-	_ "github.com/go-sql-driver/mysql"                   // MySQL 驱动
 )
 
 func main() {

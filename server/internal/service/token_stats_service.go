@@ -45,13 +45,13 @@ func (s *TokenStatsService) SetModelConfigService(svc *ModelConfigService) {
 // NewTokenStatsService 创建词元统计服务
 func NewTokenStatsService(tokenRepo *repository.TokenUsageRepo, userRepo *repository.UserRepo, dailyQuota, monthlyQuota, monthlyTokenQuota int) *TokenStatsService {
 	return &TokenStatsService{
-		tokenRepo:          tokenRepo,
-		userRepo:           userRepo,
-		dailyCounts:        make(map[int64]map[string]int),
-		monthlyCounts:      make(map[int64]map[string]int),
-		dailyQuota:         dailyQuota,
-		monthlyQuota:       monthlyQuota,
-		monthlyTokenQuota:  monthlyTokenQuota,
+		tokenRepo:         tokenRepo,
+		userRepo:          userRepo,
+		dailyCounts:       make(map[int64]map[string]int),
+		monthlyCounts:     make(map[int64]map[string]int),
+		dailyQuota:        dailyQuota,
+		monthlyQuota:      monthlyQuota,
+		monthlyTokenQuota: monthlyTokenQuota,
 	}
 }
 

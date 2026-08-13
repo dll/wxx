@@ -4,14 +4,14 @@ import "testing"
 
 func TestSanitizePrivate(t *testing.T) {
 	u := &User{
-		Username:      "20260001",
-		DisplayName:   "测试",
-		Phone:         "13800000000",
-		Wechat:        "wx_test",
-		Email:         "t@t.com",
-		BirthDate:     "2008-01-01",
-		College:       "计算机学院",
-		Campus:        "会峰校区",
+		Username:        "20260001",
+		DisplayName:     "测试",
+		Phone:           "13800000000",
+		Wechat:          "wx_test",
+		Email:           "t@t.com",
+		BirthDate:       "2008-01-01",
+		College:         "计算机学院",
+		Campus:          "会峰校区",
 		PoliticalStatus: "共青团员",
 	}
 
