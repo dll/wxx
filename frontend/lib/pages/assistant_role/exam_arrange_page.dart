@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
+import '../../utils/api_error.dart';
 
 /// 教辅 - 考试编排
 class ExamArrangePage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _ExamArrangePageState extends State<ExamArrangePage> {
         setState(() => _result = res.data is Map<String, dynamic> ? res.data : {});
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyApiError(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -32,7 +33,11 @@ class _ExamArrangePageState extends State<ExamArrangePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetch().catchError((Object e) {
+        if (mounted) setState(() => _error = friendlyApiError(e));
+      });
+    });
   }
 
   @override

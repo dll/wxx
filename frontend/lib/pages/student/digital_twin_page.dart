@@ -25,10 +25,16 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<StudentFeatureProvider>();
-      provider.fetchDigitalTwin();
+      // fire-and-forget：必须兜底捕获，避免未 await 的 Future 把异常抛进
+      // Flutter zone（DioException 原始堆栈直接冒到界面/控制台）。
+      provider.fetchDigitalTwin().catchError((Object e) {
+        debugPrint('[digital-twin] 加载数字孪生失败: $e');
+      });
       provider.fetchAvatar(
         displayName: Storage.displayName ?? '同学',
-      );
+      ).catchError((Object e) {
+        debugPrint('[digital-twin] 加载数字人形象失败: $e');
+      });
     });
   }
 
@@ -109,13 +115,23 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     // 首次进入拉取已生成画像 + 个人信息（含头像，供图生图）
     if (!p.loading && p.current == null && p.error.isEmpty) {
       Future.microtask(() {
-        if (mounted) context.read<TwinPortraitProvider>().fetchPortraits();
+        if (mounted) {
+          context.read<TwinPortraitProvider>().fetchPortraits().catchError(
+              (Object e) {
+            debugPrint('[digital-twin] 加载孪生画像失败: $e');
+          });
+        }
       });
     }
     final detail = context.watch<PersonalDetailProvider>();
     if (!detail.loading && detail.detail == null) {
       Future.microtask(() {
-        if (mounted) context.read<PersonalDetailProvider>().fetchAll();
+        if (mounted) {
+          context.read<PersonalDetailProvider>().fetchAll().catchError(
+              (Object e) {
+            debugPrint('[digital-twin] 加载个人信息失败: $e');
+          });
+        }
       });
     }
     return Card(

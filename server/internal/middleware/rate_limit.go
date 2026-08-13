@@ -88,7 +88,7 @@ func IPThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 		if !limiter.getLimiter(ip).Allow() {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"code":    429,
-				"message": "请求过于频繁，请稍后再试",
+				"message": "操作过于频繁，已触发访问限制，请稍等片刻后重试",
 			})
 			return
 		}
@@ -196,7 +196,7 @@ func UserThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 		if !limiter.getLimiter(userCtx.UserID).Allow() {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"code":    429,
-				"message": "请求过于频繁，请稍后再试",
+				"message": "操作过于频繁，已触发访问限制，请稍等片刻后重试",
 			})
 			return
 		}
@@ -207,8 +207,12 @@ func UserThrottleMiddleware(rps float64, burst int) gin.HandlerFunc {
 // 常用限流配置常量
 const (
 	// GlobalIPRPS 全局限流：100 req/min/IP ≈ 1.67 rps
-	GlobalIPRPS   = 100.0 / 60.0
-	GlobalIPBurst = 10
+	GlobalIPRPS = 100.0 / 60.0
+	// GlobalIPBurst 令牌桶容量。Flutter Web 页面重载时首屏会并行发起约 8~15 个
+	// API 请求（首页聚合 + 数字孪生页 4 路 + 通知/会话等），burst=10 会在刷新时
+	// 被瞬时并发打爆返回 429，故放宽到 30 容忍一次页面级的正常突发，同时保留
+	// 100 req/min 的稳态限流防止滥用。
+	GlobalIPBurst = 30
 
 	// LoginIPRPS 登录接口限流：5 req/min/IP ≈ 0.083 rps
 	LoginIPRPS   = 5.0 / 60.0

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
+import '../../utils/api_error.dart';
 
 /// 教辅 - 毕业资格审核
 class GradAuditPage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _GradAuditPageState extends State<GradAuditPage> {
         setState(() => _result = res.data is Map<String, dynamic> ? res.data : {});
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyApiError(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -32,7 +33,11 @@ class _GradAuditPageState extends State<GradAuditPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetch().catchError((Object e) {
+        if (mounted) setState(() => _error = friendlyApiError(e));
+      });
+    });
   }
 
   @override

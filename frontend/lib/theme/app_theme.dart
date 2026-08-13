@@ -65,7 +65,14 @@ class AppTheme {
     final colors = base.copyWith(
       primary: isDark ? const Color(0xFF9CCBFF) : AppColors.brandPrimary,
       secondary: isDark ? const Color(0xFF70DBCD) : AppColors.aiAccent,
-      tertiary: gradeAccent, // 年级主题色：驱动 Chip/标签/部分强调元素可见变化
+      tertiary: gradeAccent, // 年级主题色：驱动 Chip/标签/强调元素可见变化
+      // 年级主题色同时渲染到导航选中态与输入框焦点，让「迎新」「追梦」等
+      // 主题在全站可见（不改变操作色语义，仅增强视觉表达）。
+      secondaryContainer: Color.alphaBlend(
+        gradeAccent.withOpacity(isDark ? 0.28 : 0.16),
+        base.secondaryContainer,
+      ),
+      onSecondaryContainer: base.onSecondaryContainer,
       error: isDark ? const Color(0xFFFFB3B8) : AppColors.danger,
       surface: isDark ? const Color(0xFF111418) : const Color(0xFFFAFBFC),
     );

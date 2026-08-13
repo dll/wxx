@@ -247,7 +247,7 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       key: ValueKey('chat-scaffold-$_rebuildKey'),
       appBar: AppBar(
-        title: const Text('蔚小芯'),
+        title: _buildAppBarTitle(chat, theme),
         actions: [
           if (chat.sessionId != null)
             IconButton(
@@ -315,77 +315,202 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 智能体选择器 — 水平滚动的 chip 列表
+  /// 顶部标题：蔚小芯 + 当前智能体徽标
+  Widget _buildAppBarTitle(ChatProvider chat, ThemeData theme) {
+    final agent = chat.selectedAgent;
+    if (agent == null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, size: 20, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          const Text('蔚小芯'),
+        ],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.auto_awesome, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        const Text('蔚小芯 · '),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: _agentColor(agent.agentType).withOpacity(0.14),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            agent.name,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _agentColor(agent.agentType),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 智能体选择器 — 带标题的卡片式横向选择条，显著可见
   Widget _buildAgentSelector(ChatProvider chat, ThemeData theme) {
     if (chat.agents.isEmpty) return const SizedBox.shrink();
 
     final agents = chat.agents;
     return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-          ),
-        ),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        itemCount: agents.length + 1, // +1 for "默认"
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // 默认智能体选项
-            final selected = chat.selectedAgentId == null;
-            return FilterChip(
-              label: const Text('默认', style: TextStyle(fontSize: 12)),
-              selected: selected,
-              onSelected: (_) => chat.selectAgent(null),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              selectedColor: theme.colorScheme.primaryContainer,
-              showCheckmark: false,
-            );
-          }
-          final agent = agents[index - 1];
-          final selected = chat.selectedAgentId == agent.agentId;
-          return FilterChip(
-            label: Text(agent.name, style: const TextStyle(fontSize: 12)),
-            selected: selected,
-            onSelected: (_) => chat.selectAgent(
-              selected ? null : agent.agentId,
+      color: theme.colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Row(
+              children: [
+                Icon(Icons.smart_toy_outlined,
+                    size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '智能体',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    chat.selectedAgent == null
+                        ? '点击选择，或直接提问自动匹配'
+                        : '当前：${chat.selectedAgent!.name}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: chat.selectedAgent == null
+                          ? theme.colorScheme.outline
+                          : _agentColor(chat.selectedAgent!.agentType),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            selectedColor: theme.colorScheme.primaryContainer,
-            avatar: _agentTypeIcon(agent.agentType),
-            showCheckmark: false,
-          );
-        },
+          ),
+          SizedBox(
+            height: 56,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              itemCount: agents.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  final selected = chat.selectedAgentId == null;
+                  return _buildAgentOption(
+                    theme,
+                    icon: Icons.auto_awesome,
+                    label: '默认',
+                    color: theme.colorScheme.primary,
+                    selected: selected,
+                    onTap: () => chat.selectAgent(null),
+                  );
+                }
+                final agent = agents[index - 1];
+                final selected = chat.selectedAgentId == agent.agentId;
+                return _buildAgentOption(
+                  theme,
+                  icon: _agentIcon(agent.agentType),
+                  label: agent.name,
+                  color: _agentColor(agent.agentType),
+                  selected: selected,
+                  onTap: () =>
+                      chat.selectAgent(selected ? null : agent.agentId),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// 智能体类型小图标（对齐 5 个专用智能体）
-  Widget _agentTypeIcon(String type) {
+  /// 单个智能体选项（图标 + 名称 + 选中态描边）
+  Widget _buildAgentOption(
+    ThemeData theme, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? color.withOpacity(0.14) : theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? color : theme.colorScheme.outlineVariant,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: selected ? color : theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 智能体类型图标（对齐 5 个专用智能体）
+  IconData _agentIcon(String type) {
     switch (type) {
-      case 'qa':
-        return const Icon(Icons.chat, size: 14, color: Color(0xFF1565C0));
       case 'policy':
-        return const Icon(Icons.gavel, size: 14, color: Color(0xFFE65100));
+        return Icons.gavel;
       case 'process':
-        return const Icon(Icons.assignment_outlined,
-            size: 14, color: Color(0xFF6A1B9A));
+        return Icons.assignment_outlined;
       case 'major':
-        return const Icon(Icons.menu_book_outlined,
-            size: 14, color: Color(0xFF6A1B9A));
+        return Icons.menu_book_outlined;
       case 'emotion':
-        return const Icon(Icons.favorite_border,
-            size: 14, color: Color(0xFFC62828));
+        return Icons.favorite_border;
+      case 'qa':
+        return Icons.chat;
       default:
-        return const Icon(Icons.smart_toy, size: 14, color: Color(0xFF7B1FA2));
+        return Icons.smart_toy;
+    }
+  }
+
+  /// 智能体类型主题色（与各智能体定位一致）
+  Color _agentColor(String type) {
+    switch (type) {
+      case 'policy':
+        return const Color(0xFFE65100);
+      case 'process':
+        return const Color(0xFF6A1B9A);
+      case 'major':
+        return const Color(0xFF00838F);
+      case 'emotion':
+        return const Color(0xFFC62828);
+      case 'qa':
+        return const Color(0xFF1565C0);
+      default:
+        return const Color(0xFF7B1FA2);
     }
   }
 
@@ -433,6 +558,7 @@ class _ChatPageState extends State<ChatPage> {
       icon: Icons.gavel,
       color: Color(0xFFE65100),
       name: '政策解读',
+      agentType: 'policy',
       questions: [
         '国家奖学金的申请条件是什么？',
         '转专业需要满足哪些要求？',
@@ -443,6 +569,7 @@ class _ChatPageState extends State<ChatPage> {
       icon: Icons.assignment_outlined,
       color: Color(0xFF6A1B9A),
       name: '流程指引',
+      agentType: 'process',
       questions: [
         '请假怎么办理？需要什么材料？',
         '入党流程是什么？',
@@ -453,6 +580,7 @@ class _ChatPageState extends State<ChatPage> {
       icon: Icons.favorite_border,
       color: Color(0xFFC62828),
       name: '心理疏导',
+      agentType: 'emotion',
       questions: [
         '最近压力大睡不着怎么办？',
         '考试焦虑怎么缓解？',
@@ -463,6 +591,7 @@ class _ChatPageState extends State<ChatPage> {
       icon: Icons.menu_book_outlined,
       color: Color(0xFF6A1B9A),
       name: '学科专业',
+      agentType: 'major',
       questions: [
         '网络空间安全专业学什么？',
         '人工智能方向有哪些课程？',
@@ -473,6 +602,7 @@ class _ChatPageState extends State<ChatPage> {
       icon: Icons.chat,
       color: Color(0xFF1565C0),
       name: '通用问答',
+      agentType: 'qa',
       questions: [
         '图书馆几点开门？',
         '校医院电话是多少？',
@@ -482,6 +612,7 @@ class _ChatPageState extends State<ChatPage> {
   ];
 
   Widget _buildAgentExampleGroup(ThemeData theme, _AgentExampleGroup group) {
+    final chat = context.read<ChatProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -496,6 +627,28 @@ class _ChatPageState extends State<ChatPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(width: 8),
+            // 点击即切换到对应智能体
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => chat.selectAgent(_agentIdForType(group.agentType)),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: group.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '用「${group.name}」回答 →',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: group.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -506,6 +659,8 @@ class _ChatPageState extends State<ChatPage> {
               .map((q) => ActionChip(
                     label: Text(q, style: const TextStyle(fontSize: 12)),
                     onPressed: () {
+                      // 提问同时选中对应智能体
+                      chat.selectAgent(_agentIdForType(group.agentType));
                       _inputCtrl.text = q;
                       _send();
                     },
@@ -514,6 +669,24 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ],
     );
+  }
+
+  /// 智能体类型 → agent_id 映射（与后端 agents 表一致）
+  String? _agentIdForType(String type) {
+    switch (type) {
+      case 'policy':
+        return 'policy-expert';
+      case 'process':
+        return 'process-guide';
+      case 'major':
+        return 'major-guide';
+      case 'emotion':
+        return 'emotion-counselor';
+      case 'qa':
+        return 'qa-default';
+      default:
+        return null;
+    }
   }
 
   Widget _buildMessage(Message msg, int index) {
@@ -1623,12 +1796,16 @@ class _AgentExampleGroup {
   final IconData icon;
   final Color color;
   final String name;
+
+  /// 关联智能体类型（qa/policy/process/major/emotion），提问时自动选中
+  final String agentType;
   final List<String> questions;
 
   const _AgentExampleGroup({
     required this.icon,
     required this.color,
     required this.name,
+    required this.agentType,
     required this.questions,
   });
 }

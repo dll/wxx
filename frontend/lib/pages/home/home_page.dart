@@ -11,6 +11,7 @@ import '../../providers/notification_provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../providers/update_provider.dart';
 import '../../providers/ai_briefing_provider.dart';
+import '../../main.dart';
 import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../utils/date_utils.dart';
@@ -180,6 +181,37 @@ class _HomePageState extends State<HomePage> {
 
   bool _canAccessAlerts(String? role) => RoleUtils.canAccessEmotion(role);
 
+  /// 首页标题：品牌 + 当前年级主题徽标（如「迎新」），让主题全站可感知
+  Widget _buildHomeTitle(ThemeData theme) {
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final accent = themeNotifier.gradeAccent;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.auto_awesome, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        const Text('蔚小芯'),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: accent.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accent.withOpacity(0.4)),
+          ),
+          child: Text(
+            '${themeNotifier.gradeThemeName}主题',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: accent,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = Storage.role;
@@ -194,7 +226,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('蔚小芯'),
+        title: _buildHomeTitle(theme),
         actions: [
           if (loggedIn)
             Stack(
