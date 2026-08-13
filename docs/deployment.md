@@ -83,6 +83,29 @@ mkdir -p /opt/wxx/backup
 echo '0 3 * * * root sqlite3 /opt/wxx/data/wxx.db ".backup /opt/wxx/backup/wxx-$(date +\%F).db" && find /opt/wxx/backup -name "wxx-*.db" -mtime +14 -delete' > /etc/cron.d/wxx-backup
 ```
 
+## 预置数据清理与管理员重建（上线前必须执行）
+
+> 迁移历史（`server/migrations/001`~`078`）注入了一批**演示业务数据**（示例知识库、流程、简讯、竞赛、毕设、校历、课表、活动等），用于开发演示。**正式提供服务前应清空**，改由管理员经管理界面重新上传真实资源。
+
+清理由迁移 `079_clear_preloaded_data.sql` 完成（随服务启动自动执行一次），**无需手工操作**。它按外键依赖顺序清空：
+
+| 清理对象 | 重建入口（管理端） |
+|----------|--------------------|
+| 知识库 `kb_resources`（约 60 条种子） | 「知识治理」页（counselor+），或 `/kb/import` NDJSON / zip 知识包 / `/kb/upload` 文档导入 |
+| 办事流程 `process_steps` + 提醒 | 「办事管理」→ 流程编辑（counselor+） |
+| AI 简讯 `ai_briefings` | 「AI 简讯管理」（sys_admin），或 RSS/Atom 自动抓取 |
+| 竞赛 `competitions` | 「内容管理→学科竞赛」（sys_admin） |
+| 毕设 `advisors`/`thesis_topics`/`graduation_milestones` | 「内容管理→毕设选题」（college_admin+） |
+| 就业 `career_policies` | 「内容管理→就业政策」（sys_admin） |
+| 校历 `academic_calendars`/`events`、示例课表 `course_schedules` | 成绩/课表导入（`/admin/data-import`） |
+| 报到打卡点 `campus_checkin_steps` | 报到节点管理（college_admin+，拖拽坐标） |
+| 健康活动 `health_activities` | 学生会「发起活动」（student_union+） |
+| 测试站内通知 `user_notifications` | 「通知管理」（sys_admin） |
+
+**保留不清理**：系统必需项（`admin` 账号、`system_settings` 默认配置、`agents` 系统智能体、`app_versions` 版本表、FTS 触发器）；无管理入口模块的种子（社团 `clubs`、心理 `psych_*`/`crisis_hotlines`/`counselors`/`psych_articles`、入党 `party_stages`、学习资源 `learning_resources`、规划模板 `plan_templates`）；全部用户账号；学生产生的真实数据（打卡/问答/积分/反馈/会话等）。
+
+> 提示：若需**彻底清空数据库重新初始化**（含账号），可删除 `/opt/wxx/data/wxx.db` 后重启服务，迁移会重建全部表结构；但 `admin` 外的演示账号会被重新注入。仅清理业务数据请依赖 `079` 迁移，勿删库。
+
 ## 历史方案（Vercel + Turso，已停用，仅归档）
 
 > 以下内容为 2026-07-31 前的部署方案，已被腾讯云 Lighthouse 方案取代，保留仅供归档参考。
