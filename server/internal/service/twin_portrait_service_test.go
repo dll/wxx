@@ -9,7 +9,7 @@ import (
 	"github.com/dll/wxx/server/internal/testutil"
 )
 
-// TestBuildPortraitPrompt 校验画像提示词包含写实摄影标准与卡通蔚小芯特色
+// TestBuildPortraitPrompt 校验画像提示词包含 Q 版可爱精灵风与蔚小芯特色
 func TestBuildPortraitPrompt(t *testing.T) {
 	p := BuildPortraitPrompt(PrototypePhoto, PortraitPersonalization{
 		DisplayName: "张三",
@@ -21,20 +21,18 @@ func TestBuildPortraitPrompt(t *testing.T) {
 	required := []string{
 		"蔚小芯",
 		"参考照片",
-		"生理性轻微不对称",
-		"毛孔",
-		"细绒毛",
-		"唇纹",
-		"无痕磨皮",
-		"畸形手",
-		"接触阴影",
-		"统一环境光",
-		"相机原生噪点",
-		"镜头景深",
-		"卡通动漫",
-		"校徽蓝",
+		"Q 版",
+		"大头小身",
+		"圆润",
+		"大而圆的眼睛",
+		"腮红",
 		"学士帽",
-		"明亮温暖",
+		"校徽蓝",
+		"精灵",
+		"微光粒子",
+		"可爱",
+		"3D 卡通",
+		"超星",
 	}
 	for _, kw := range required {
 		if !strings.Contains(p, kw) {
@@ -43,13 +41,11 @@ func TestBuildPortraitPrompt(t *testing.T) {
 	}
 	// 禁止项以「禁/避免」指令形式出现
 	for _, pair := range [][2]string{
-		{"瓷娃娃", "禁"},
-		{"塑料", "禁"},
-		{"悬浮", "禁"},
-		{"过度锐化", "禁"},
+		{"畸形", "无"},
+		{"不喧宾夺主", "不"},
 	} {
 		if !strings.Contains(p, pair[0]) {
-			t.Errorf("提示词应显式禁止: %s", pair[0])
+			t.Errorf("提示词应包含: %s", pair[0])
 		}
 	}
 }

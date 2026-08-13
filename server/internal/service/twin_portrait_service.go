@@ -12,7 +12,7 @@ import (
 )
 
 // PromptVersion 画像提示词版本（升级后前端可触发重新生成）
-const PromptVersion = "1.0"
+const PromptVersion = "2.0"
 
 // PortraitPrototypeType 原型类型
 const (
@@ -125,46 +125,41 @@ type PortraitPersonalization struct {
 }
 
 // BuildPortraitPrompt 构建画像提示词。
-// 分两层：底层为写实人像摄影标准（解剖/光学/物理），上层为卡通动漫蔚小芯风格化。
+// 风格定位：Q 版可爱精灵数字人（参考超星数字人），明亮清新、亲和讨喜，
+// 学生普遍喜爱；舍弃写实逼真路线。
 func BuildPortraitPrompt(prototypeType string, extra PortraitPersonalization) string {
 	var sb strings.Builder
-	sb.WriteString("创作一幅" + brandStyle() + "数字孪生半身人像插画。\n\n")
+	sb.WriteString("创作一幅" + brandStyle() + "Q 版可爱数字人半身像插画，风格参考超星数字人（卡通 3D、Q 萌可爱）。\n\n")
 
 	// 原型来源
 	if prototypeType == PrototypePhoto {
-		sb.WriteString("以参考照片中的人物为原型进行再创作，忠实还原其五官特征与辨识度。\n")
+		sb.WriteString("以参考照片中的人物为原型进行二次创作，保留其发型、发色、脸型轮廓等主要辨识特征，但整体化为 Q 版可爱形象。\n")
 	} else {
 		sb.WriteString("原型为一名中国高校学生（姓名" + safe(extra.DisplayName, "同学") + "），" +
 			safe(extra.Major, "计算机科学与技术") + "专业，" + roleLabel(extra.Role) + "。\n")
 	}
 
 	// 人物特征
-	sb.WriteString("人物特征：" + safe(extra.Highlights, "阳光积极、青春向上的在校大学生") + "。\n\n")
+	sb.WriteString("人物气质：" + safe(extra.Highlights, "阳光积极、青春向上的在校大学生") + "。\n\n")
 
-	// 底层：写实摄影标准（解剖/光学/物理）
-	sb.WriteString("遵循真实人像摄影与人体解剖规则（底层标准）：\n")
-	sb.WriteString("- 五官存在生理性轻微不对称，杜绝完全镜像；眼部结构真实，瞳仁有高光反光，非玻璃假眼。\n")
-	sb.WriteString("- 皮肤保留原生肌理：可见毛孔、面部细绒毛、唇纹、眼下细纹，贴合年龄，无痕磨皮；禁瓷娃娃无暇肤。\n")
-	sb.WriteString("- 姿态重心合理，关节与肌肉形变符合人体运动逻辑；手指姿态自然，无 AI 畸形手。\n")
-	sb.WriteString("- 服装随动作产生力学自然褶皱，面料质感真实无塑料感；双脚落地生成准确接触阴影，身体不悬浮。\n")
-	sb.WriteString("- 皮肤、毛发、服饰受统一环境光，光影协调、明暗过渡自然。\n")
-	sb.WriteString("- 保留适度相机原生噪点、真实镜头景深与轻微实拍曝光偏移；禁全局过度锐化、虚假光滑肌理。\n\n")
+	// 核心：Q 版可爱精灵造型
+	sb.WriteString("造型要求（Q 版可爱精灵风）：\n")
+	sb.WriteString("- 大头小身比例（Q 版约 3~4 头身），整体圆润饱满，萌态十足。\n")
+	sb.WriteString("- 大而圆的眼睛，亮晶晶有神，眼中有高光星点；脸颊自带可爱腮红；表情甜美微笑。\n")
+	sb.WriteString("- 圆润的娃娃脸、小巧的鼻子与嘴巴，整体Q萌可爱，亲和力强，学生一看就喜欢。\n")
+	sb.WriteString("- 保留标志性学士帽（黑色或校徽蓝装饰），帽檐下露出俏皮发丝，凸显「聪明小博士」气质。\n")
+	sb.WriteString("- 纯净通透的皮肤（卡通质感，不追求写实毛孔），线条圆滑干净，无 AI 畸形手指。\n\n")
 
-	// 上层：蔚小芯特色卡通动漫 + AI 特效（融合超星数字人 IP 参考）
-	sb.WriteString("在此基础上，以清新柔和的卡通动漫插画风格呈现（蔚小芯特色，参考超星数字人形象气质）：\n")
-	sb.WriteString("- 整体氛围明亮温暖、简洁干净、友好可爱，传达快乐与亲和力。\n")
-	sb.WriteString("- 头部圆润，眼睛大而有神、目光明亮友善；表情微笑，乐观向上。\n")
-	sb.WriteString("- 融入标志性学士帽元素（黑色学士帽或校徽蓝装饰），凸显「有学识的校园智能体」气质。\n")
-	sb.WriteString("- 色彩基调以明快暖色为主：阳光黄、校徽蓝（#1565C0）点缀，线条流畅干净。\n")
-	sb.WriteString("- 背景简洁留白，可点缀书本、小星星等校园元素，突出前景人物。\n")
-	sb.WriteString("- 卡通化仅在光影与线条层面，五官比例与皮肤质感仍遵循上述写实标准，避免过度幼态化。\n\n")
+	// 上色与背景
+	sb.WriteString("上色与背景（明亮清新）：\n")
+	sb.WriteString("- 色彩明快鲜亮：主色校徽蓝 #1565C0 + 暖阳黄点缀，饱和度适中，干净不刺眼。\n")
+	sb.WriteString("- 背景简洁梦幻：柔和渐变 + 漂浮的小星星、书本、光点等校园元素，不喧宾夺主。\n")
+	sb.WriteString("- 整体呈精致 3D 卡通渲染质感（参考超星数字人），光影柔和、边缘干净，如高品质游戏立绘。\n\n")
 
-	// AI 特效层：科技感光效，让画像呈现「AI 数字孪生」气质
-	sb.WriteString("叠加 AI 数字特效（科技感、梦幻感）：\n")
-	sb.WriteString("- 人物边缘与发梢点缀柔和的数字光晕与微光粒子（科技蓝 #00BFFF 与校徽蓝 #1565C0）。\n")
-	sb.WriteString("- 背景加入半透明的几何科技元素：漂浮的电路线条、粒子星点、全息投影质感。\n")
-	sb.WriteString("- 整体带有轻度的赛博学院风，但不喧宾夺主，保证人物辨识度清晰。\n")
-	sb.WriteString("- 光效柔和自然，无过曝、无噪点堆叠，观感精致如高品质数字插画。\n")
+	// 精灵感点缀
+	sb.WriteString("精灵感点缀：\n")
+	sb.WriteString("- 发梢与衣角点缀微光粒子与小星光，仿佛自带魔法光效，灵动梦幻。\n")
+	sb.WriteString("- 整体元气满满、积极向上的校园精灵气质，温暖治愈。\n")
 
 	return sb.String()
 }
