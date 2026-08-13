@@ -84,8 +84,9 @@ func (c *ZhipuCogViewClient) Generate(ctx context.Context, prompt string, refIma
 	req := cogViewRequest{
 		Model:  c.model,
 		Prompt: prompt,
-		// 256x256：头像/画像展示场景足够清晰，显著降低响应体积/成本/时延
-		Size: "256x256",
+		// CogView 尺寸下限为 512px（512-2880、16 整数倍、像素≤2^21），
+		// 512x512 为最小合法值；展示端按需缩小显示。
+		Size: "512x512",
 	}
 	if len(refImageData) > 0 {
 		// 图生图：转为 data URL base64
