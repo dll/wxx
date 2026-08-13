@@ -50,7 +50,11 @@ class CareerProvider extends ChangeNotifier {
     try {
       final res = await _api.get(ApiConfig.careerJobs);
       if (res.statusCode == 200 && res.data != null) {
-        _jobs = res.data is List ? res.data : (res.data['data'] as List?) ?? [];
+        final raw = res.data is List
+            ? res.data as List
+            : (res.data['data'] as List?) ?? const [];
+        // 过滤非法元素，避免后端单条异常数据使整列崩溃
+        _jobs = raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       }
     } catch (e) {
       _error = e.toString();

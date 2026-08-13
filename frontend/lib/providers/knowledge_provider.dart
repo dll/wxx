@@ -56,8 +56,10 @@ class KnowledgeProvider extends ChangeNotifier {
       } else {
         _categories = {};
         data.forEach((type, cards) {
-          final list = (cards as List)
-              .map((c) => KnowledgeCard.fromJson(c as Map<String, dynamic>))
+          if (cards is! List) return;
+          final list = cards
+              .whereType<Map>()
+              .map((c) => KnowledgeCard.fromJson(Map<String, dynamic>.from(c)))
               .toList();
           _categories[type] = list;
         });

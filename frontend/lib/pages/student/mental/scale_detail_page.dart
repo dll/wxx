@@ -138,7 +138,15 @@ class _ScaleDetailPageState extends State<ScaleDetailPage> {
       );
     }
 
-    final currentQ = questions[_currentQuestion] as Map<String, dynamic>;
+    final currentRaw = questions[_currentQuestion];
+    if (currentRaw is! Map) {
+      return Center(
+        child: Text('题目数据异常，请稍后重试',
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant)),
+      );
+    }
+    final currentQ = Map<String, dynamic>.from(currentRaw);
     final options = (currentQ['options'] as List?) ?? [];
 
     return Column(
@@ -169,7 +177,9 @@ class _ScaleDetailPageState extends State<ScaleDetailPage> {
                 const SizedBox(height: 24),
                 ...options.asMap().entries.map((entry) {
                   final idx = entry.key;
-                  final opt = entry.value as Map<String, dynamic>;
+                  final v = entry.value;
+                  if (v is! Map) return const SizedBox.shrink();
+                  final opt = Map<String, dynamic>.from(v);
                   final isSelected = _answers[_currentQuestion] == idx;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),

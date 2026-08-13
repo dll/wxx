@@ -44,7 +44,7 @@ type PortalProxyService struct {
 // 门户登录为统一身份认证，表单字段可在部署期通过环境变量配置；
 // 默认适配多数高校门户的 username/password 表单。
 func NewPortalProxyService(credRepo *repository.PortalCredentialRepo) *PortalProxyService {
-	return &PortalProxyService{
+	s := &PortalProxyService{
 		credRepo:     credRepo,
 		loginPath:    "/login",
 		accountKey:   "username",
@@ -52,6 +52,25 @@ func NewPortalProxyService(credRepo *repository.PortalCredentialRepo) *PortalPro
 		allowedHosts: []string{"my0.chzu.edu.cn", "chzu.edu.cn"},
 		ttl:          2 * time.Hour,
 		sessions:     map[int64]*PortalSession{},
+	}
+	// 定期清理过期会话（含解密后的明文门户密码驻留），避免 map 无限增长
+	go s.cleanupLoop(5 * time.Minute)
+	return s
+}
+
+// cleanupLoop 定期删除过期会话，释放内存与明文密码驻留
+func (s *PortalProxyService) cleanupLoop(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		s.mu.Lock()
+		for id, ss := range s.sessions {
+			if now.After(ss.expireAt) {
+				delete(s.sessions, id)
+			}
+		}
+		s.mu.Unlock()
 	}
 }
 
@@ -119,7 +138,12 @@ func (s *PortalProxyService) login(ss *PortalSession) error {
 		return fmt.Errorf("门户登录失败: %w", err)
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// 仅 2xx/3xx 视为登录成功；401/403 及错误页拒绝，避免"假登录成功"污染会话
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("门户登录失败（HTTP %d）", resp.StatusCode)
+	}
+	_ = body
 	return nil
 }
 

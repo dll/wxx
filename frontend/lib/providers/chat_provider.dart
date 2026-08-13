@@ -3,6 +3,7 @@ import '../config/api_config.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/voice/voice_service.dart';
+import '../utils/api_error.dart';
 import '../utils/chat_stream.dart';
 
 /// 对话状态管理
@@ -119,7 +120,7 @@ class ChatProvider extends ChangeNotifier {
       },
       onError: (e) {
         if (gen != _generation) return;
-        _error = '发送失败：$e';
+        _error = '发送失败：${friendlyApiError(e)}';
         _sending = false;
         notifyListeners();
       },
@@ -254,7 +255,8 @@ class ChatProvider extends ChangeNotifier {
       if (resp.data['code'] == 0) {
         final list = resp.data['data'] as List? ?? [];
         _agents = list
-            .map((e) => Agent.fromJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => Agent.fromJson(Map<String, dynamic>.from(e)))
             .where((a) => a.isActive)
             .toList();
       }

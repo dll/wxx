@@ -445,7 +445,9 @@ func (s *AuthService) ssoExchangeToken(ctx context.Context, ticket string) (map[
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	// 显式超时：ctx 无 deadline 时避免登录请求无限挂起
+	ssoClient := &http.Client{Timeout: 10 * time.Second}
+	resp, err := ssoClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("SSO token 交换失败: %w", err)
 	}
@@ -474,7 +476,8 @@ func (s *AuthService) ssoFetchUser(ctx context.Context, accessToken string) (map
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := http.DefaultClient.Do(req)
+	ssoClient := &http.Client{Timeout: 10 * time.Second}
+	resp, err := ssoClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("SSO 用户信息获取失败: %w", err)
 	}

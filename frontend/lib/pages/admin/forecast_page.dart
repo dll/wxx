@@ -148,7 +148,10 @@ class _ForecastPageState extends State<ForecastPage> {
             itemBuilder: (context, index) {
               if (index == provider.forecasts.length) {
                 if (provider.forecasts.length < provider.total) {
-                  provider.fetchForecasts();
+                  // build 期间不可同步触发 notifyListeners，延后到帧末
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) provider.fetchForecasts();
+                  });
                   return const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),

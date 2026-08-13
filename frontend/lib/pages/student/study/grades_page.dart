@@ -138,7 +138,8 @@ class _GradesPageState extends State<GradesPage> {
   List<Widget> _groupGradesBySemester(ThemeData theme, List<dynamic> grades) {
     final Map<String, List<dynamic>> grouped = {};
     for (final g in grades) {
-      final grade = g as Map<String, dynamic>;
+      if (g is! Map) continue; // 跳过非法元素，避免单条异常拖垮整页
+      final grade = Map<String, dynamic>.from(g);
       final semester = grade['semester'] as String? ?? '其他';
       if (!grouped.containsKey(semester)) {
         grouped[semester] = [];
@@ -163,7 +164,8 @@ class _GradesPageState extends State<GradesPage> {
           margin: const EdgeInsets.only(bottom: 16),
           child: Column(
             children: semesterGrades.map((g) {
-              final grade = g as Map<String, dynamic>;
+              if (g is! Map) return const SizedBox.shrink();
+              final grade = Map<String, dynamic>.from(g);
               final courseName = grade['course_name'] as String? ?? grade['name'] as String? ?? '';
               final score = grade['score'] as num? ?? grade['grade'] as num? ?? 0;
               final credit = grade['credit'] as num? ?? 0;

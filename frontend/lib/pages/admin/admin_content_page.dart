@@ -58,7 +58,7 @@ class _AdminContentPageState extends State<AdminContentPage>
       if (res.data is Map && (res.data as Map)['code'] == 0) {
         final data = (res.data as Map)['data'];
         if (data is List) {
-          setState(() => _thesisTopics = data);
+          setState(() => _thesisTopics = data.whereType<Map>().toList());
         }
       }
     } catch (_) {}
@@ -70,7 +70,7 @@ class _AdminContentPageState extends State<AdminContentPage>
       if (res.data is Map && (res.data as Map)['code'] == 0) {
         final data = (res.data as Map)['data'];
         if (data is List) {
-          setState(() => _careerPolicies = data);
+          setState(() => _careerPolicies = data.whereType<Map>().toList());
         }
       }
     } catch (_) {}
@@ -82,7 +82,7 @@ class _AdminContentPageState extends State<AdminContentPage>
       if (res.data is Map && (res.data as Map)['code'] == 0) {
         final data = (res.data as Map)['data'];
         if (data is List) {
-          setState(() => _competitions = data);
+          setState(() => _competitions = data.whereType<Map>().toList());
         }
       }
     } catch (_) {}

@@ -75,6 +75,12 @@ func (h *FeedbackHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 
 	items, total, err := h.feedbackSvc.List(status, page, pageSize)
 	if err != nil {
@@ -110,6 +116,12 @@ func (h *FeedbackHandler) Mine(c *gin.Context) {
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 
 	items, total, err := h.feedbackSvc.ListMine(userCtx.UserID, status, page, pageSize)
 	if err != nil {

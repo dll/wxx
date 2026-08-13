@@ -164,8 +164,9 @@ class ForecastProvider extends ChangeNotifier {
       final response = await _api.get(ApiConfig.forecastIssues, params: params);
       if (response.data['code'] == 0) {
         final list = (response.data['data'] as List?)
-                ?.map((e) =>
-                    IssueForecast.fromJson(e as Map<String, dynamic>))
+                ?.whereType<Map>()
+                .map((e) =>
+                    IssueForecast.fromJson(Map<String, dynamic>.from(e)))
                 .toList() ??
             [];
         _forecasts.addAll(list);

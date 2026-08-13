@@ -26,7 +26,10 @@ class SessionProvider extends ChangeNotifier {
       final data = resp.data;
       final list = data['data'] as List? ?? [];
 
-      _sessions = list.map((s) => Session.fromJson(s)).toList();
+      _sessions = list
+          .whereType<Map>()
+          .map((s) => Session.fromJson(Map<String, dynamic>.from(s)))
+          .toList();
       _loading = false;
       notifyListeners();
     } catch (e) {

@@ -266,14 +266,13 @@ func (c *Config) MySQLDSN() string {
 // Validate 集中做配置校验，返回第一个遇到的错误（A-09 增强版）
 func (c *Config) Validate() error {
 	// ── JWT 安全 ──
-	if c.JWTSecret == "" {
-		return fmt.Errorf("JWT_SECRET 不能为空")
+	// 默认密钥为公开常量，任何环境（含 debug）使用它都会被攻击者伪造任意角色
+	// 令牌接管系统，因此一律强制显式配置 JWT_SECRET。
+	if c.JWTSecret == "" || c.JWTSecret == defaultJWTSecret {
+		return fmt.Errorf("JWT_SECRET 必须显式配置为自定义强密钥（不得使用内置默认值）")
 	}
-	if c.IsRelease() && c.JWTSecret == defaultJWTSecret {
-		return fmt.Errorf("JWT_SECRET 使用了默认值，生产环境必须配置为自定义强密钥")
-	}
-	if c.IsRelease() && len(c.JWTSecret) < 32 {
-		return fmt.Errorf("JWT_SECRET 长度不足 32 位（当前 %d 位），生产环境密钥至少需要 32 字符", len(c.JWTSecret))
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET 长度不足 32 位（当前 %d 位），密钥至少需要 32 字符", len(c.JWTSecret))
 	}
 
 	// ── 端口合法性 ──

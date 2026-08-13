@@ -68,6 +68,8 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 
 	// 异步写入质量指标（不阻塞响应）
 	if h.metricsSvc != nil && card != nil {
+		// 安全：gin.Context 在请求结束后被池复用，先拷贝 traceID 再进 goroutine
+		traceID := middleware.GetTraceID(c)
 		go func() {
 			_ = h.metricsSvc.Insert(
 				sessionID,
@@ -78,7 +80,7 @@ func (h *ChatHandler) Ask(c *gin.Context) {
 				card.Fallback,
 				len(card.Sources),
 				durationMs,
-				middleware.GetTraceID(c),
+				traceID,
 			)
 		}()
 	}
@@ -176,9 +178,10 @@ func (h *ChatHandler) Stream(c *gin.Context) {
 
 	durationMs := time.Since(start).Milliseconds()
 	if h.metricsSvc != nil && card != nil {
+		traceID := middleware.GetTraceID(c)
 		go func() {
 			_ = h.metricsSvc.Insert(sessionID, userCtx.UserID, req.Question, "",
-				card.Confidence, card.Fallback, len(card.Sources), durationMs, middleware.GetTraceID(c))
+				card.Confidence, card.Fallback, len(card.Sources), durationMs, traceID)
 		}()
 	}
 	if h.emotionSvc != nil {

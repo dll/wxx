@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dll/wxx/server/internal/model"
 )
@@ -11,11 +13,15 @@ import (
 // UserRepo 用户数据访问
 type UserRepo struct {
 	db *sql.DB
+
+	// updated_at 活跃刷新节流：同一用户 5 分钟内不重复写库
+	lastTouchMu sync.Mutex
+	lastTouch   map[int64]time.Time
 }
 
 // NewUserRepo 创建用户 repo
 func NewUserRepo(db *sql.DB) *UserRepo {
-	return &UserRepo{db: db}
+	return &UserRepo{db: db, lastTouch: map[int64]time.Time{}}
 }
 
 // userCols 统一 SELECT 列名
@@ -393,7 +399,12 @@ func (r *UserRepo) BatchDelete(ids []int64) (int64, error) {
 		"feedback",
 	}
 	for _, table := range assocTables {
-		tx.Exec(fmt.Sprintf(`DELETE FROM %s WHERE user_id IN (%s)`, table, placeholders), idArgs...)
+		if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM %s WHERE user_id IN (%s)`, table, placeholders), idArgs...); err != nil {
+			// 表不存在（迁移未覆盖）时跳过，其余错误返回并回滚
+			if !isTableNotExist(err) {
+				return 0, fmt.Errorf("清理关联表 %s 失败: %w", table, err)
+			}
+		}
 	}
 
 	// 删除用户（排除系统管理员）
@@ -407,6 +418,15 @@ func (r *UserRepo) BatchDelete(ids []int64) (int64, error) {
 		return 0, fmt.Errorf("提交事务失败: %w", err)
 	}
 	return rows, nil
+}
+
+// isTableNotExist 判断错误是否为"表不存在"（SQLite: no such table / MySQL: doesn't exist）
+func isTableNotExist(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such table") || strings.Contains(msg, "doesn't exist")
 }
 
 // Count 统计用户总数（配合 List 分页）
@@ -544,7 +564,18 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 		// 安全修复 SEC-02：同意状态以数据库为权威，供 RequireConsent 中间件判断
 		userCtx.Consented = existing.Consented == 1
 
-		// 4) 仅刷新 updated_at 以标记活跃，不写回任何权限字段
+		// 4) 仅刷新 updated_at 以标记活跃，不写回任何权限字段。
+		// 节流：同一用户 5 分钟内只写一次，避免高 QPS 下每个请求都触发 UPDATE。
+		now := time.Now()
+		r.lastTouchMu.Lock()
+		last, ok := r.lastTouch[existing.ID]
+		if ok && now.Sub(last) < 5*time.Minute {
+			r.lastTouchMu.Unlock()
+			return nil
+		}
+		r.lastTouch[existing.ID] = now
+		r.lastTouchMu.Unlock()
+
 		_, err = r.db.Exec(
 			`UPDATE users SET updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 			existing.ID,

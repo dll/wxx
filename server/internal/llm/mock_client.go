@@ -45,6 +45,14 @@ func (m *MockClient) Stream(ctx context.Context, req *ChatRequest) (<-chan Strea
 	ch := make(chan StreamChunk, 2)
 	go func() {
 		defer close(ch)
+		trySend := func(v StreamChunk) bool {
+			select {
+			case ch <- v:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
 		resp, _ := m.Chat(ctx, req)
 		content := "这是模拟的回答内容。"
 		if resp != nil && resp.Content != "" {
@@ -52,9 +60,11 @@ func (m *MockClient) Stream(ctx context.Context, req *ChatRequest) (<-chan Strea
 		}
 		// 分块发送，模拟增量
 		for _, r := range content {
-			ch <- StreamChunk{Delta: string(r)}
+			if !trySend(StreamChunk{Delta: string(r)}) {
+				return
+			}
 		}
-		ch <- StreamChunk{Done: true, Content: content}
+		trySend(StreamChunk{Done: true, Content: content})
 	}()
 	return ch, nil
 }

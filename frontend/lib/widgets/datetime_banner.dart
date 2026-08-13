@@ -280,7 +280,8 @@ class _CalendarSheetState extends State<_CalendarSheet> {
     // 1) 课表
     final schedule = provider.schedule;
     for (final raw in schedule) {
-      final item = raw as Map<String, dynamic>;
+      if (raw is! Map) continue;
+      final item = Map<String, dynamic>.from(raw);
       final weekday = (item['weekday'] as num?)?.toInt() ?? 0;
       if (weekday < 1 || weekday > 7) continue;
       final name = (item['course_name'] as String?) ??
@@ -302,7 +303,8 @@ class _CalendarSheetState extends State<_CalendarSheet> {
         (cal?['upcoming_events'] as List?) ??
         const [];
     for (final raw in events) {
-      final e = raw as Map<String, dynamic>;
+      if (raw is! Map) continue;
+      final e = Map<String, dynamic>.from(raw);
       final name = (e['event_name'] as String?) ??
           (e['name'] as String?) ??
           '事件';

@@ -60,9 +60,9 @@ class _RadioPageState extends State<RadioPage> {
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    ...((data['recent_episodes'] as List?) ?? []).map(
+                    ...((data['recent_episodes'] as List?) ?? []).whereType<Map>().map(
                       (e) => _EpisodeCard(
-                        data: e as Map<String, dynamic>,
+                        data: Map<String, dynamic>.from(e),
                         theme: theme,
                       ),
                     ),

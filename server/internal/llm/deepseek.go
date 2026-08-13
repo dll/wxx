@@ -191,10 +191,23 @@ func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk 
 		defer close(ch)
 		defer r.Close()
 
+		// 发送辅助：消费方停止读取或 ctx 取消时不再阻塞发送，避免 goroutine/连接泄漏
+		trySend := func(v StreamChunk) bool {
+			select {
+			case ch <- v:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
+
 		var full strings.Builder
 		scanner := bufio.NewScanner(r)
 		scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 		for scanner.Scan() {
+			if ctx.Err() != nil {
+				return
+			}
 			line := scanner.Text()
 			if !strings.HasPrefix(line, "data:") {
 				continue
@@ -204,7 +217,7 @@ func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk 
 				continue
 			}
 			if data == "[DONE]" {
-				ch <- StreamChunk{Done: true, Content: full.String()}
+				trySend(StreamChunk{Done: true, Content: full.String()})
 				return
 			}
 			var chunk openAIStreamResponse
@@ -215,17 +228,13 @@ func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk 
 				delta := chunk.Choices[0].Delta.Content
 				if delta != "" {
 					full.WriteString(delta)
-					ch <- StreamChunk{Delta: delta}
+					if !trySend(StreamChunk{Delta: delta}) {
+						return
+					}
 				}
 			}
-			select {
-			case <-ctx.Done():
-				ch <- StreamChunk{Done: true, Content: full.String()}
-				return
-			default:
-			}
 		}
-		ch <- StreamChunk{Done: true, Content: full.String()}
+		trySend(StreamChunk{Done: true, Content: full.String()})
 	}()
 	return ch
 }

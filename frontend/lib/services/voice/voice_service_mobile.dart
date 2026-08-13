@@ -15,6 +15,7 @@ import '../api_service.dart';
 class VoiceService {
   final AudioRecorder _recorder = AudioRecorder();
   AudioPlayer? _player;
+  StreamSubscription? _playerSub;
 
   /// 录音完成回调，由 stopRecording() 触发
   Completer<Uint8List>? _recordCompleter;
@@ -162,7 +163,9 @@ class VoiceService {
 
     await _player!.play(DeviceFileSource(path));
 
-    _player!.onPlayerComplete.listen((_) {
+    // 取消旧的订阅，避免重复朗读时多个 listener 泄漏
+    await _playerSub?.cancel();
+    _playerSub = _player!.onPlayerComplete.listen((_) {
       _isPlaying = false;
       try {
         file.delete();
@@ -174,8 +177,11 @@ class VoiceService {
   Future<void> stopPlayback() async {
     if (_player != null) {
       await _player!.stop();
+      await _player!.dispose();
       _player = null;
     }
+    await _playerSub?.cancel();
+    _playerSub = null;
     _isPlaying = false;
   }
 
@@ -183,6 +189,8 @@ class VoiceService {
   void dispose() {
     _player?.dispose();
     _player = null;
+    _playerSub?.cancel();
+    _playerSub = null;
     _recorder.dispose();
     _isRecording = false;
     _isPlaying = false;

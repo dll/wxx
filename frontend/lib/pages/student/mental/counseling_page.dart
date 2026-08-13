@@ -148,7 +148,8 @@ class _CounselingPageState extends State<CounselingPage> {
         Text('选择咨询师', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
         ...provider.counselors.map((c) {
-          final counselor = c as Map<String, dynamic>;
+          if (c is! Map) return const SizedBox.shrink();
+          final counselor = Map<String, dynamic>.from(c);
           final id = counselor['id']?.toString() ?? '';
           final name = counselor['name'] as String? ?? '';
           final title = counselor['title'] as String? ?? '';

@@ -24,7 +24,8 @@ class GuestProvider extends ChangeNotifier {
       final response = await _api.get(ApiConfig.adminGuestsPending);
       if (response.data['code'] == 0) {
         final list = (response.data['data'] as List?)
-                ?.map((e) => UserProfile.fromJson({'data': e as Map<String, dynamic>}))
+                ?.whereType<Map>()
+                .map((e) => UserProfile.fromJson({'data': Map<String, dynamic>.from(e)}))
                 .toList() ??
             [];
         _pendingGuests

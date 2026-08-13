@@ -44,6 +44,15 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 			role = user.Role
 		}
 
+		// ── 安全：gin.Context 在请求结束（c.Next 返回）后会被 sync.Pool 复用，
+		// 异步 goroutine 再读 c.Request/c.Writer 属于数据竞争（可能读到下个请求的数据）。
+		// 因此先把所有需要写入审计的值拷贝为局部变量，再传入闭包。
+		method := c.Request.Method
+		fullPath := c.FullPath()
+		urlPath := c.Request.URL.Path
+		clientIP := c.ClientIP()
+		statusCode := c.Writer.Status()
+
 		// 异步写入审计日志（不阻塞响应）
 		auditWg.Add(1)
 		go func() {
@@ -54,13 +63,13 @@ func AuditLog(db *sql.DB) gin.HandlerFunc {
 				userID,
 				username,
 				role,
-				c.Request.Method,   // action
-				c.FullPath(),       // resource（路由模板，如 /api/v1/chat）
-				c.Request.URL.Path, // detail（实际路径）
+				method,
+				fullPath,
+				urlPath,
 				traceStr,
-				c.ClientIP(),
+				clientIP,
 				duration,
-				c.Writer.Status(),
+				statusCode,
 			)
 			if err != nil {
 				log.Printf("审计日志写入失败: %v [trace=%s]", err, traceStr)

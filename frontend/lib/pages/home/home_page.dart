@@ -98,8 +98,9 @@ class _HomePageState extends State<HomePage> {
     ConsentDialog.show(context).then((agreed) {
       if (agreed == true) {
         Storage.setConsented(true);
-        // 异步通知后端记录同意状态
-        ApiService().post(ApiConfig.consent, data: {});
+        // 异步通知后端记录同意状态（失败静默，不影响使用）
+        ApiService().post(ApiConfig.consent, data: {}).then((_) {},
+            onError: (Object _) {});
       }
     });
   }

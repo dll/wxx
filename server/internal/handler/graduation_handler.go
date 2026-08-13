@@ -29,6 +29,12 @@ func (h *GraduationHandler) ListAdvisors(c *gin.Context) {
 	college := c.Query("college")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
@@ -64,6 +70,12 @@ func (h *GraduationHandler) ListTopics(c *gin.Context) {
 	batch, _ := strconv.Atoi(c.DefaultQuery("batch", "2026"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
@@ -217,6 +229,12 @@ func (h *GraduationHandler) ListSelections(c *gin.Context) {
 	batch, _ := strconv.Atoi(c.DefaultQuery("batch", "2026"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {

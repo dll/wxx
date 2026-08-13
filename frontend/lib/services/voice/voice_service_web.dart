@@ -32,9 +32,12 @@ class VoiceService {
 
     _chunks.clear();
 
-    // 请求麦克风权限
-    final stream = await html.window.navigator.mediaDevices!
-        .getUserMedia({'audio': true});
+    // 请求麦克风权限（非 HTTPS/不支持环境 mediaDevices 为 null）
+    final mediaDevices = html.window.navigator.mediaDevices;
+    if (mediaDevices == null) {
+      throw StateError('当前环境不支持录音（需要 HTTPS）');
+    }
+    final stream = await mediaDevices.getUserMedia({'audio': true});
 
     // MediaRecorder 自动处理音频编码
     _recorder = html.MediaRecorder(stream);

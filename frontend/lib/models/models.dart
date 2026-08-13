@@ -1085,9 +1085,10 @@ class UserStats {
 
   factory UserStats.fromJson(Map<String, dynamic> json) {
     Map<String, int> roleMap = {};
-    if (json['by_role'] != null) {
-      (json['by_role'] as Map<String, dynamic>).forEach((key, value) {
-        roleMap[key] = value ?? 0;
+    final byRole = json['by_role'];
+    if (byRole is Map) {
+      byRole.forEach((key, value) {
+        roleMap['$key'] = (value is num) ? value.toInt() : 0;
       });
     }
     return UserStats(
@@ -1121,9 +1122,10 @@ class KnowledgeStats {
 
   factory KnowledgeStats.fromJson(Map<String, dynamic> json) {
     Map<String, int> typeMap = {};
-    if (json['by_type'] != null) {
-      (json['by_type'] as Map<String, dynamic>).forEach((key, value) {
-        typeMap[key] = value ?? 0;
+    final byType = json['by_type'];
+    if (byType is Map) {
+      byType.forEach((key, value) {
+        typeMap['$key'] = (value is num) ? value.toInt() : 0;
       });
     }
     return KnowledgeStats(

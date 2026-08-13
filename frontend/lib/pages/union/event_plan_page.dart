@@ -89,8 +89,8 @@ class _EventPlanPageState extends State<EventPlanPage> {
                     const SizedBox(height: 8),
                     Text('时间线', style: theme.textTheme.titleSmall),
                     const SizedBox(height: 4),
-                    ...((_result!['timeline'] as List?) ?? []).map((t) {
-                      final m = t as Map<String, dynamic>;
+                    ...((_result!['timeline'] as List?) ?? []).whereType<Map>().map((t) {
+                      final m = Map<String, dynamic>.from(t);
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,

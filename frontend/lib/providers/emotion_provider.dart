@@ -87,7 +87,8 @@ class EmotionProvider extends ChangeNotifier {
       if (response.data['code'] == 0) {
         final List rawList = response.data['data'] ?? [];
         final newAlerts = rawList
-            .map((e) => EmotionLog.fromJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => EmotionLog.fromJson(Map<String, dynamic>.from(e)))
             .toList();
         _alerts.addAll(newAlerts);
         _total = response.data['total'] ?? 0;

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"time"
 
@@ -10,6 +11,11 @@ import (
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
 )
+
+// statsLogScanError 记录统计查询行扫描失败（避免静默缺行）
+func statsLogScanError(ctx string, err error) {
+	log.Printf("[stats] 扫描 %s 行失败: %v", ctx, err)
+}
 
 // StatsHandler 统计数据 HTTP handler
 type StatsHandler struct {
@@ -172,6 +178,7 @@ func (h *StatsHandler) getUserStats(stats *DashboardStats) error {
 		var role string
 		var count int
 		if err := rows.Scan(&role, &count); err != nil {
+			statsLogScanError("user-by-role", err)
 			continue
 		}
 		stats.Users.ByRole[role] = count
@@ -202,7 +209,8 @@ func (h *StatsHandler) getKnowledgeStats(stats *DashboardStats) error {
 		var status string
 		var count int
 		if err := statusRows.Scan(&status, &count); err != nil {
-			continue
+			statsLogScanError("statusRows", err)
+
 		}
 		switch status {
 		case "draft":
@@ -227,7 +235,8 @@ func (h *StatsHandler) getKnowledgeStats(stats *DashboardStats) error {
 		var rtype string
 		var count int
 		if err := typeRows.Scan(&rtype, &count); err != nil {
-			continue
+			statsLogScanError("typeRows", err)
+
 		}
 		// 转换为小写以匹配前端期望
 		switch rtype {
@@ -314,12 +323,14 @@ func (h *StatsHandler) getWeekTrend() []DayTrendItem {
 	}
 
 	// 统计每天的会话数
+	// 用 Go 侧计算起始日期，避免 SQLite 专有 date('now',...) 在 MySQL 下失效
+	since := time.Now().AddDate(0, 0, -6).Format("2006-01-02")
 	sessionRows, err := h.db.Query(`
 		SELECT date(created_at) as d, COUNT(*) 
 		FROM sessions 
-		WHERE created_at >= date('now', '-6 days')
+		WHERE created_at >= ?
 		GROUP BY date(created_at)
-	`)
+	`, since)
 	if err == nil {
 		defer sessionRows.Close()
 		sessionMap := make(map[string]int)
@@ -328,6 +339,8 @@ func (h *StatsHandler) getWeekTrend() []DayTrendItem {
 			var count int
 			if err := sessionRows.Scan(&date, &count); err == nil {
 				sessionMap[date] = count
+			} else {
+				statsLogScanError("session", err)
 			}
 		}
 		for i := range result {
@@ -341,9 +354,9 @@ func (h *StatsHandler) getWeekTrend() []DayTrendItem {
 	messageRows, err := h.db.Query(`
 		SELECT date(created_at) as d, COUNT(*) 
 		FROM messages 
-		WHERE created_at >= date('now', '-6 days')
+		WHERE created_at >= ?
 		GROUP BY date(created_at)
-	`)
+	`, since)
 	if err == nil {
 		defer messageRows.Close()
 		messageMap := make(map[string]int)
@@ -352,6 +365,8 @@ func (h *StatsHandler) getWeekTrend() []DayTrendItem {
 			var count int
 			if err := messageRows.Scan(&date, &count); err == nil {
 				messageMap[date] = count
+			} else {
+				statsLogScanError("message", err)
 			}
 		}
 		for i := range result {
@@ -386,7 +401,8 @@ func (h *StatsHandler) getFeedbackStats(stats *DashboardStats) error {
 		var status string
 		var count int
 		if err := statusRows.Scan(&status, &count); err != nil {
-			continue
+			statsLogScanError("statusRows", err)
+
 		}
 		switch status {
 		case "pending":
