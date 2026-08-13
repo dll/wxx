@@ -731,6 +731,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 onSelectChanged:
                     canManage ? (v) => provider.toggleSelect(user.id) : null,
                 onTap: canManage ? () => _showEditDialog(user) : null,
+                onResetPassword:
+                    CapabilityUtils.has(Capability.systemPasswordReset)
+                        ? () => _showResetPasswordDialog(user)
+                        : null,
               );
             },
           ),
@@ -745,6 +749,83 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       builder: (ctx) => _UserEditDialog(user: user),
     );
   }
+
+  /// 系统管理员重置单个用户密码（快捷入口）
+  Future<void> _showResetPasswordDialog(UserProfile user) async {
+    final controller = TextEditingController();
+    var resetting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('重置密码'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '为「${user.displayName}」（${user.username}）重置密码。'
+                  '重置后该用户需用新密码重新登录，旧登录态将失效。',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  obscureText: true,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: '新密码（至少 6 位）',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '提示：若设为与学号相同，该用户下次登录会再次被要求修改密码。',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: resetting ? null : () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: resetting
+                  ? null
+                  : () async {
+                      final pwd = controller.text.trim();
+                      if (pwd.length < 6) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('新密码长度不能少于 6 位')));
+                        return;
+                      }
+                      setDialogState(() => resetting = true);
+                      final ok = await context
+                          .read<AdminProvider>()
+                          .resetUserPassword(user.id, pwd);
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(ok ? '密码重置成功' : '重置失败')));
+                    },
+              child: resetting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('确认重置'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── 用户列表项 ──
@@ -755,6 +836,7 @@ class _UserTile extends StatelessWidget {
   final bool showCheckbox;
   final ValueChanged<bool?>? onSelectChanged;
   final VoidCallback? onTap;
+  final VoidCallback? onResetPassword;
 
   const _UserTile({
     required this.user,
@@ -762,6 +844,7 @@ class _UserTile extends StatelessWidget {
     required this.showCheckbox,
     this.onSelectChanged,
     this.onTap,
+    this.onResetPassword,
   });
 
   @override
@@ -876,6 +959,14 @@ class _UserTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onResetPassword != null)
+                IconButton(
+                  tooltip: '重置密码',
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 20,
+                  onPressed: onResetPassword,
+                  icon: const Icon(Icons.password, color: Colors.blueGrey),
+                ),
               if (onTap != null)
                 Icon(
                   Icons.chevron_right,
