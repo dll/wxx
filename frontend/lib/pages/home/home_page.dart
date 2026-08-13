@@ -212,6 +212,44 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// 区块标题：图标 + 主标题 + 可选副标题，统一视觉层次
+  Widget _buildSectionHeader(
+    ThemeData theme, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Color? iconColor,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: (iconColor ?? theme.colorScheme.primary).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon,
+              size: 19, color: iconColor ?? theme.colorScheme.primary),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            if (subtitle != null)
+              Text(subtitle,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  )),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = Storage.role;
@@ -599,68 +637,141 @@ class _HomePageState extends State<HomePage> {
                 : hour < 18
                     ? '下午好'
                     : '晚上好';
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final accent = themeNotifier.gradeAccent;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        gradient: LinearGradient(
+          colors: [
+            accent.withOpacity(0.14),
+            theme.colorScheme.surfaceContainerLow,
+            theme.colorScheme.surfaceContainerLow,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withOpacity(0.18)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('$greeting，$displayName',
-                        style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 2),
-                    Text(
-                      '先看今日安排，也可以直接问小芯',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.school_outlined,
-                  color: theme.colorScheme.primary, size: 28),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Material(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () => context.go('/chat'),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(Icons.auto_awesome,
-                        size: 20, color: theme.colorScheme.secondary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '问小芯：政策、流程、学习与校园生活',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.mic_none,
-                        size: 20, color: theme.colorScheme.primary),
+          // 装饰：主题色光斑，让横幅有层次而非纯色块
+          Positioned(
+            right: -24,
+            top: -30,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    accent.withOpacity(0.18),
+                    accent.withOpacity(0),
                   ],
                 ),
               ),
             ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -36,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    theme.colorScheme.secondary.withOpacity(0.12),
+                    theme.colorScheme.secondary.withOpacity(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.auto_awesome,
+                                size: 18, color: accent),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${themeNotifier.gradeThemeName}主题',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text('$greeting，$displayName',
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '今日安排与智能服务都在这里',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(Icons.school_outlined,
+                        color: accent, size: 28),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Material(
+                color: theme.colorScheme.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: () => context.go('/chat'),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome,
+                            size: 20, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '问小芯：政策、流程、学习与校园生活',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.mic_none,
+                            size: 20, color: theme.colorScheme.primary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -765,8 +876,11 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('知识大厅', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
+        _buildSectionHeader(theme,
+            icon: Icons.menu_book_outlined,
+            title: '知识大厅',
+            subtitle: '政策 · 流程 · 问答 · 活动'),
+        const SizedBox(height: 14),
         Row(
           children: [
             _buildKnowledgeCard(
@@ -815,23 +929,36 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: Material(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withOpacity(0.12)),
+            ),
             child: Column(
               children: [
-                Icon(icon, color: color, size: 28),
-                const SizedBox(height: 6),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   label,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: color,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -925,8 +1052,11 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('校园服务', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
+        _buildSectionHeader(theme,
+            icon: Icons.location_city,
+            title: '校园服务',
+            subtitle: '导航 · 全景 · 学院入口'),
+        const SizedBox(height: 14),
         Row(
           children: [
             _buildKnowledgeCard(
@@ -971,8 +1101,11 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('学生专区', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
+        _buildSectionHeader(theme,
+            icon: Icons.school_outlined,
+            title: '学生专区',
+            subtitle: '成长 · 竞赛 · 规划 · 组织'),
+        const SizedBox(height: 14),
         Row(
           children: [
             for (final f in _studentFeatures.take(3))
@@ -1009,8 +1142,11 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('教育服务', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
+        _buildSectionHeader(theme,
+            icon: Icons.auto_stories_outlined,
+            title: '教育服务',
+            subtitle: '就业 · 学业 · 计划 · 心理'),
+        const SizedBox(height: 14),
         Row(
           children: [
             for (final f in _educationFeatures)
