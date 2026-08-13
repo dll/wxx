@@ -79,6 +79,15 @@ class AppTheme {
     final textTheme = ThemeData(
       brightness: brightness,
       fontFamily: 'Roboto',
+      // 中文回退到系统字体（微软雅黑/苹方/思源黑体），避免 Flutter Web 引擎
+      // 因 Roboto 缺中文字形而请求 fonts.gstatic.com（国内被墙 → Edge 乱码）。
+      fontFamilyFallback: const [
+        'Microsoft YaHei',
+        'PingFang SC',
+        'Noto Sans SC',
+        'Source Han Sans SC',
+        'sans-serif',
+      ],
     ).textTheme.copyWith(
           headlineSmall: const TextStyle(
             fontSize: 24,
@@ -110,6 +119,13 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       fontFamily: 'Roboto',
+      fontFamilyFallback: const [
+        'Microsoft YaHei',
+        'PingFang SC',
+        'Noto Sans SC',
+        'Source Han Sans SC',
+        'sans-serif',
+      ],
       textTheme: textTheme,
       scaffoldBackgroundColor: colors.surface,
       extensions: [
