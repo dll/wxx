@@ -696,6 +696,39 @@ class _ChatPageState extends State<ChatPage> {
     return _buildAssistantMessage(msg, index);
   }
 
+  /// 助手消息头部：圆形头像 + 当前智能体名称
+  Widget _buildAssistantHeader(ThemeData theme, ChatProvider chat) {
+    final agent = chat.selectedAgent;
+    final color = agent != null
+        ? _agentColor(agent.agentType)
+        : theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.auto_awesome, size: 15, color: color),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            agent?.name ?? '蔚小芯',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUserBubble(Message msg) {
     final theme = Theme.of(context);
     final isFailed = msg.isFailed;
@@ -733,7 +766,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-          // 消息气泡
+          // 消息气泡（主题色渐变，避免单一实色块）
           Flexible(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -742,6 +775,18 @@ class _ChatPageState extends State<ChatPage> {
                 maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
               decoration: BoxDecoration(
+                gradient: isFailed
+                    ? null
+                    : LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary,
+                          Color.alphaBlend(
+                              theme.colorScheme.primary,
+                              theme.colorScheme.tertiary.withOpacity(0.25)),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                 color: isFailed
                     ? theme.colorScheme.errorContainer
                     : theme.colorScheme.primary,
@@ -751,6 +796,15 @@ class _ChatPageState extends State<ChatPage> {
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(4),
                 ),
+                boxShadow: isFailed
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
               child: Text(
                 msg.content,
@@ -759,6 +813,7 @@ class _ChatPageState extends State<ChatPage> {
                       ? theme.colorScheme.onErrorContainer
                       : theme.colorScheme.onPrimary,
                   fontSize: 15,
+                  height: 1.45,
                 ),
               ),
             ),
@@ -874,6 +929,8 @@ class _ChatPageState extends State<ChatPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              _buildAssistantHeader(theme, chat),
+              const SizedBox(height: 6),
               AnswerCardWidget(
                 card: msg.answerCard!,
                 onFollowUp: (q) => chat.askFollowUp(q),
@@ -895,6 +952,8 @@ class _ChatPageState extends State<ChatPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          _buildAssistantHeader(theme, chat),
+          const SizedBox(height: 6),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

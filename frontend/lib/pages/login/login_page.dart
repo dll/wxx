@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../../config/api_config.dart';
 import '../../config/release_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../main.dart';
 import '../../services/api_service.dart';
 import '../../utils/storage.dart';
 
@@ -71,8 +72,24 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 年级主题色：登录页背景、Logo 与品牌区跟随全站主题
+    final themeNotifier = context.watch<ThemeNotifier>();
+    final accent = themeNotifier.gradeAccent;
     return Scaffold(
-      body: SafeArea(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color.alphaBlend(
+                  accent.withOpacity(0.10), theme.colorScheme.surface),
+              theme.colorScheme.surface,
+              theme.colorScheme.surface,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -86,14 +103,29 @@ class _LoginPageState extends State<LoginPage>
                   Center(
                     child: Column(
                       children: [
-                        Icon(Icons.school,
-                            size: 72, color: theme.colorScheme.primary),
-                        const SizedBox(height: 12),
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: accent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(26),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withOpacity(0.18),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Icon(Icons.school,
+                              size: 46, color: accent),
+                        ),
+                        const SizedBox(height: 14),
                         Text(
                           '蔚小芯',
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
+                            color: accent,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -196,6 +228,7 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
           ),
+        ),
         ),
       ),
     );
