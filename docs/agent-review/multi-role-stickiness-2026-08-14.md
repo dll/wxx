@@ -77,7 +77,7 @@
 **现状**：dashboard、metrics、users、content、audit、data_analysis、twin_screen。
 
 **粘性增强建议**：
-1. **治理闭环**：知识兜底率看板——哪些问题命中失败率高 → 一键补录/指派
+1. **治理闭环**（**已实现**）：admin_metrics_page 新增"高频兜底问题"区块，展示真实 chat_metrics 里的高频未命中问题及次数，引导补录知识库压降兜底率（后端 /admin/metrics/fallback-questions）；**不硬编码默认值**（metrics 无数据时原为 0.85/0.10 默认值，属展示局限）
 2. **指标下钻**：metrics 从学校→学院→年级下钻，定位异常
 3. **通知触达**：针对特定人群（如某年级欠费/缺勤）批量站内信
 
@@ -91,6 +91,6 @@
 | P1 | 学生会 | 活动报名管理闭环（**已实现**：activity_manage_page，统计/筛选/新建，复用 health/activities） |
 | P1 | 教师 | 学情预警联动（daily_overview alerts+heatmap 已覆盖）、AI评语一键落地（**已实现**：grading_page 复制评语按钮） |
 | P2 | 教辅 | 办理进度透明（**已实现**：grad_audit_page 学分进度条 + 已达标/待补项） |
-| P2 | 管理员 | 知识兜底率看板 + 治理闭环（**待做**） |
+| P2 | 管理员 | 知识兜底率看板 + 治理闭环（**已实现**：admin_metrics_page 高频兜底问题区块 + 后端 /admin/metrics/fallback-questions，基于真实 chat_metrics） |
 
 > 说明：本方案为分角色粘性增强的总纲与盘点；具体实现遵循 project 的 AGENTS.md 纪律（Plan→人审→编码）、逐项文档+git 提交、`flutter analyze` 验证。
