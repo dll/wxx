@@ -13,7 +13,7 @@ class EnrollmentProvider extends ChangeNotifier {
   final Set<String> _roleFilter = {};
   String? _audienceFilter;
 
-  String _flowType = 'process-registration-2026';
+  String _flowType = '0dad8dbf-b627-4f72-8556-142f9f2a697e';
   bool _loading = false;
   String? _error;
   AnswerCard? _answerCard;
@@ -56,7 +56,7 @@ class EnrollmentProvider extends ChangeNotifier {
   double get progress => totalSteps > 0 ? completedCount / totalSteps : 0;
 
   static const Map<String, String> _legacyFlowMap = {
-    'enrollment': 'process-registration-2026',
+    'enrollment': '0dad8dbf-b627-4f72-8556-142f9f2a697e',
     'graduation': 'process-graduation-2026',
     'major_change': 'process-major-change-2026',
     'student_loan': 'process-student-loan-2026',
