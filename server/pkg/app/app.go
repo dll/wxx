@@ -1238,6 +1238,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
 				student.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
 				student.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
+				student.POST("/schedule/import", auth.RequireCapability(auth.SelfProfileWrite), dataImportH.ImportMySchedule)
 				student.GET("/digital-twin", auth.RequireCapability(auth.SelfTwinRead), studentH.DigitalTwin)
 				student.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
 				student.GET("/achievements", auth.RequireCapability(auth.SelfAchievements), studentH.Achievements)

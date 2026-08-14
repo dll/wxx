@@ -373,6 +373,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/student/campus-life'),
             _buildMenuCard(context, Icons.event_available, '日程管理', '学习日程安排',
                 '/student/schedule'),
+            _buildMenuCard(context, Icons.upload_file, '导入我的课表', '从门户查到课表后导入本人课表',
+                '/student/schedule-import'),
             _buildMenuCard(context, Icons.favorite_border, '心理陪伴', '心情打卡与关怀',
                 '/student/mental-health'),
             _buildMenuCard(context, Icons.smart_toy_outlined, '数字导师',

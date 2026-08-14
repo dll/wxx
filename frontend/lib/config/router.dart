@@ -50,6 +50,7 @@ import '../pages/student/freshmen_guide_page.dart';
 import '../pages/student/freshman_onboarding_page.dart';
 import '../pages/student/freshman_agenda_page.dart';
 import '../pages/student/grade_growth_page.dart';
+import '../pages/student/my_schedule_import_page.dart';
 import '../pages/student/growth_path_page.dart';
 import '../pages/student/political_study_page.dart';
 import '../pages/student/ideological_record_page.dart';
@@ -489,6 +490,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/student/grade-growth',
             builder: (_, __) => const GradeGrowthPage()),
+        GoRoute(
+            path: '/student/schedule-import',
+            builder: (_, __) => const MyScheduleImportPage()),
         GoRoute(
             path: '/student/growth-path',
             builder: (_, __) => const GrowthPathPage()),

@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 	"github.com/gin-gonic/gin"
@@ -58,4 +59,38 @@ func (h *DataImportHandler) ImportSchedules(c *gin.Context) {
 	}
 	res := h.phase3.ImportSchedules(req.Schedules)
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": res})
+}
+
+// ImportMySchedule 学生个人导入自己的课表（角色化导入：仅限导入本人课表）
+// POST /api/v1/student/schedule/import
+// 学生从门户登录查到自己的课表后，按格式填入，由本接口导入本人课表；
+// 后端强制 user_id = 当前登录学生，杜绝越权改他人课表。
+func (h *DataImportHandler) ImportMySchedule(c *gin.Context) {
+	if h.phase3 == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "数据服务未就绪"})
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil || userCtx.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+	// 角色化：仅学生本人可导入自己的课表（学生会/教辅/辅导员走 /admin/schedules/import 批量）
+	var req struct {
+		Schedules []*repository.ScheduleRow `json:"schedules"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.Schedules) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误：需要 schedules 数组"})
+		return
+	}
+	if len(req.Schedules) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "单次最多导入 2000 条"})
+		return
+	}
+	// 强制本人：忽略请求里的 user_id，全部写当前登录学生
+	for _, s := range req.Schedules {
+		s.UserID = userCtx.UserID
+	}
+	res := h.phase3.ImportSchedules(req.Schedules)
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "导入成功(仅本人课表)", "data": res})
 }

@@ -365,6 +365,7 @@ class ApiConfig {
   static const String adminGradesImport = '$apiPrefix/admin/grades/import';
   static const String adminSchedulesImport =
       '$apiPrefix/admin/schedules/import';
+  static const String studentScheduleImport = '$apiPrefix/student/schedule/import';
 
   // ── 就业模块 ──
   static const String careerPolicies = '$apiPrefix/career/policies';
