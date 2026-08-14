@@ -1677,6 +1677,42 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// 根据课程时间("HH:MM-HH:MM")判断当前状态，返回状态徽章(进行中/即将开始/已结束)
+  Widget? _courseStatus(String time) {
+    final parts = time.split('-');
+    if (parts.length != 2) return null;
+    final s = parts[0].trim().split(':'), e = parts[1].trim().split(':');
+    if (s.length != 2 || e.length != 2) return null;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day, int.tryParse(s[0]) ?? 0, int.tryParse(s[1]) ?? 0);
+    final end = DateTime(now.year, now.month, now.day, int.tryParse(e[0]) ?? 0, int.tryParse(e[1]) ?? 0);
+    String label;
+    Color color;
+    if (now.isBefore(start)) {
+      final mins = start.difference(now).inMinutes;
+      if (mins > 120) return null; // 距开始超过2小时不提示
+      label = mins <= 0 ? '即将开始' : '$mins 分钟后开始';
+      color = Colors.orange;
+    } else if (now.isAfter(end)) {
+      return null; // 已结束不提示
+    } else {
+      label = '进行中';
+      color = Colors.green;
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(label,
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+
   Widget _buildCourseItem(ThemeData theme, Map<String, dynamic> course) {
     final color = Color(int.parse(
         (course['color'] as String? ?? '#1565C0').replaceAll('#', '0xFF')));
@@ -1684,6 +1720,7 @@ class _HomePageState extends State<HomePage> {
     final time = course['time'] ?? '';
     final location = course['location'] ?? '';
     final teacher = course['teacher'] ?? '';
+    final status = _courseStatus(time);
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -1709,6 +1746,7 @@ class _HomePageState extends State<HomePage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (status != null) ...[const SizedBox(height: 4), status],
                 const SizedBox(height: 4),
                 Row(
                   children: [
