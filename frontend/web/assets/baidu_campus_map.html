@@ -624,7 +624,7 @@ window.addEventListener('message',function(e){
   if(!_map){
     if(d.type==='init'){
       _pendingInit=d;
-    }else if(d.type==='refresh'||d.type==='set_step'||d.type==='fit_campus'||d.type==='set_3d'||d.type==='set_layer'){
+    }else if(d.type==='refresh'||d.type==='set_step'||d.type==='fit_campus'||d.type==='set_3d'||d.type==='set_layer'||d.type==='zoom_in'||d.type==='zoom_out'||d.type==='reset'||d.type==='fullscreen'||d.type==='search'||d.type==='save_image'){
       _pendingMsgs.push(d);
     }
     return;
@@ -664,6 +664,35 @@ window.addEventListener('message',function(e){
     set3DMode(d.enabled===true);
   } else if(d.type==='set_layer'){
     setMapLayer(d.layer||'standard');
+  } else if(d.type==='zoom_in'){
+    if(_map){_map.zoomIn()}
+  } else if(d.type==='zoom_out'){
+    if(_map){_map.zoomOut()}
+  } else if(d.type==='reset'){
+    fitCampusById(_campusId);
+  } else if(d.type==='fullscreen'){
+    var el=document.documentElement;
+    if(!document.fullscreenElement){
+      (el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen).call(el);
+    } else{
+      (document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen).call(document);
+    }
+  } else if(d.type==='search'){
+    if(_map&&d.query){
+      var local=new BMapGL.LocalSearch(_map,{renderOptions:{map:_map,autoViewport:true}});
+      local.search(d.query);
+    }
+  } else if(d.type==='save_image'){
+    try{
+      // 使用 html2canvas 截图或百度地图 getCanvas
+      var canvas=_map&&_map.getContainer?_map.getContainer().querySelector('canvas'):null;
+      if(canvas){
+        var link=document.createElement('a');
+        link.download='campus-map.png';
+        link.href=canvas.toDataURL('image/png');
+        link.click();
+      }
+    }catch(e){console.warn('save_image failed:',e)}
   }
 });
 

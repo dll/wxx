@@ -340,8 +340,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
   Future<void> _loadStepsFromServer() async {
     setState(() => _loadingSteps = true);
     try {
-      final resp =
-          await _api.get('${ApiConfig.campusSteps}?campus=${_campus.id}');
+      // 管理员用 admin 接口（含 draft），普通用户用公开接口（仅 published）
+      final url = _canEditNodes
+          ? '${ApiConfig.adminCampusSteps}?campus=${_campus.id}'
+          : '${ApiConfig.campusSteps}?campus=${_campus.id}';
+      final resp = await _api.get(url);
       if (resp.data['code'] == 0) {
         final list = resp.data['data'] as List? ?? [];
         if (list.isNotEmpty) {
@@ -1082,102 +1085,46 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  /// 移动端顶部紧凑控件栏：进度+校区+服务商+2D/3D，半透明浮在地图顶部。
+  /// 移动端顶部紧凑控件栏：单行合并布局。
   Widget _buildMobileTopBar(ThemeData theme) {
+    final cs = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(14),
+        color: cs.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)
         ],
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.route, size: 16, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(_campus.name,
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              Text('${_completed.length}/${_steps.length}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.primary)),
-              const Spacer(),
-              Wrap(
-                spacing: 6,
-                children: List.generate(_campuses.length, (index) {
-                  final campus = _campuses[index];
-                  final selected = _campusIndex == index;
-                  return ChoiceChip(
-                    selected: selected,
-                    label:
-                        Text(campus.name, style: const TextStyle(fontSize: 11)),
-                    onSelected: (_) => _switchCampus(index),
-                    visualDensity: VisualDensity.compact,
-                  );
-                }),
+          Icon(Icons.map, size: 14, color: cs.primary),
+          const SizedBox(width: 4),
+          Text(_campus.name,
+              style: theme.textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.bold, fontSize: 11)),
+          const SizedBox(width: 4),
+          Text('${_completed.length}/${_steps.length}',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: cs.primary, fontSize: 10)),
+          const SizedBox(width: 6),
+          _toolBtn(Icons.my_location, '复位', () => _mapController.reset()),
+          _toolBtn(Icons.add, '放大', () => _mapController.zoomIn()),
+          _toolBtn(Icons.remove, '缩小', () => _mapController.zoomOut()),
+          _toolBtn(Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
+          if (_canEditNodes) ...[
+            const SizedBox(width: 4),
+            Builder(
+              builder: (btnCtx) => _toolBtn(
+                Icons.admin_panel_settings,
+                '管理',
+                () => _openAdminMenu(btnCtx),
+                color: _editMode ? cs.primary : cs.onSurfaceVariant,
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              SegmentedButton<_MapLayer>(
-                segments: const [
-                  ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
-                  ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
-                ],
-                selected: {_layer},
-                onSelectionChanged: (v) {
-                  final l = v.first;
-                  setState(() => _layer = l);
-                  _mapController.setLayer(
-                      l == _MapLayer.satellite ? 'satellite' : 'standard');
-                },
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
-                ),
-              ),
-              SegmentedButton<_MapMode>(
-                segments: const [
-                  ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
-                  ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (v) {
-                  final m = v.first;
-                  setState(() => _mode = m);
-                  _mapController.set3D(m == _MapMode.threeD);
-                },
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
-                ),
-              ),
-              if (_canEditNodes)
-                Builder(
-                  builder: (btnCtx) => IconButton(
-                    icon: Icon(Icons.admin_panel_settings,
-                        size: 18,
-                        color: _editMode
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant),
-                    tooltip: '管理',
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    onPressed: () => _openAdminMenu(btnCtx),
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -1213,92 +1160,111 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  /// 桌面端顶部浮动控件栏：单行紧凑布局，校区+服务商+2D/3D 全部在一行。
+  /// 桌面端顶部浮动控件栏：单行紧凑，所有控件合并。
   Widget _buildDesktopTopBar(ThemeData theme) {
+    final cs = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(14),
+        color: cs.surface.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12)
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)
         ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.route, size: 18, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
+          // 校区切换
+          Icon(Icons.map, size: 16, color: cs.primary),
+          const SizedBox(width: 4),
           Text(_campus.name,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 8),
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(width: 4),
           Text('${_completed.length}/${_steps.length}',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.primary)),
-          const SizedBox(width: 14),
-          Wrap(
-            spacing: 6,
-            children: List.generate(_campuses.length, (index) {
-              final campus = _campuses[index];
-              final selected = _campusIndex == index;
-              return ChoiceChip(
-                selected: selected,
-                label: Text(campus.name, style: const TextStyle(fontSize: 12)),
-                onSelected: (_) => _switchCampus(index),
-                visualDensity: VisualDensity.compact,
-              );
-            }),
-          ),
-          const Spacer(),
-          SegmentedButton<_MapLayer>(
-            segments: const [
-              ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
-              ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
-            ],
-            selected: {_layer},
-            onSelectionChanged: (v) {
-              final l = v.first;
-              setState(() => _layer = l);
-              _mapController.setLayer(
-                  l == _MapLayer.satellite ? 'satellite' : 'standard');
-            },
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
-            ),
-          ),
+                  ?.copyWith(color: cs.primary, fontSize: 11)),
           const SizedBox(width: 8),
-          SegmentedButton<_MapMode>(
-            segments: const [
-              ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
-              ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (v) {
-              final m = v.first;
-              setState(() => _mode = m);
-              _mapController.set3D(m == _MapMode.threeD);
-            },
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+          // 地图工具按钮组
+          _toolBtn(Icons.my_location, '复位', () => _mapController.reset()),
+          _toolBtn(Icons.add, '放大', () => _mapController.zoomIn()),
+          _toolBtn(Icons.remove, '缩小', () => _mapController.zoomOut()),
+          _toolBtn(Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
+          _toolBtn(Icons.download, '保存', () => _mapController.saveImage()),
+          const SizedBox(width: 6),
+          // 图层/模式
+          Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: SegmentedButton<_MapLayer>(
+              segments: const [
+                ButtonSegment(value: _MapLayer.standard, label: Text('标', style: TextStyle(fontSize: 10))),
+                ButtonSegment(value: _MapLayer.satellite, label: Text('卫', style: TextStyle(fontSize: 10))),
+              ],
+              selected: {_layer},
+              onSelectionChanged: (v) {
+                final l = v.first;
+                setState(() => _layer = l);
+                _mapController.setLayer(l == _MapLayer.satellite ? 'satellite' : 'standard');
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
+              ),
             ),
           ),
+          const SizedBox(width: 4),
+          Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: SegmentedButton<_MapMode>(
+              segments: const [
+                ButtonSegment(value: _MapMode.twoD, label: Text('2D', style: TextStyle(fontSize: 10))),
+                ButtonSegment(value: _MapMode.threeD, label: Text('3D', style: TextStyle(fontSize: 10))),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (v) {
+                final m = v.first;
+                setState(() => _mode = m);
+                _mapController.set3D(m == _MapMode.threeD);
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
+              ),
+            ),
+          ),
+          // 管理员按钮
           if (_canEditNodes) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Builder(
-              builder: (btnCtx) => IconButton(
-                icon: Icon(Icons.admin_panel_settings,
-                    size: 20,
-                    color: _editMode
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant),
-                tooltip: '管理',
-                onPressed: () => _openAdminMenu(btnCtx),
+              builder: (btnCtx) => _toolBtn(
+                Icons.admin_panel_settings,
+                '管理',
+                () => _openAdminMenu(btnCtx),
+                color: _editMode ? cs.primary : cs.onSurfaceVariant,
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// 紧凑工具按钮
+  Widget _toolBtn(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: color),
+        ),
       ),
     );
   }

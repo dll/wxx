@@ -30,13 +30,25 @@ class BaiduCampusMapController {
   void setLayer(String layer) =>
       _st?._send({'type': 'set_layer', 'layer': layer});
 
+  /// 放大一级。
+  void zoomIn() => _st?._send({'type': 'zoom_in'});
+
+  /// 缩小一级。
+  void zoomOut() => _st?._send({'type': 'zoom_out'});
+
+  /// 复位到校区全景。
+  void reset() => _st?._send({'type': 'reset'});
+
+  /// 全屏切换。
+  void toggleFullscreen() => _st?._send({'type': 'fullscreen'});
+
+  /// 搜索地名。
+  void search(String query) => _st?._send({'type': 'search', 'query': query});
+
+  /// 保存地图为图片。
+  void saveImage() => _st?._send({'type': 'save_image'});
+
   /// 控制 iframe 可见性。
-  ///
-  /// Flutter Web CanvasKit 下 HtmlElementView（iframe）是真实 DOM 元素，
-  /// z-index 远高于 Flutter canvas，会遮挡所有 Flutter 绘制的弹窗
-  /// （showModalBottomSheet / showDialog 的 barrier 与内容均画在 canvas 上）。
-  /// 弹出 BottomSheet/Dialog 前调用 setVisible(false) 隐藏 iframe，
-  /// 弹窗关闭后调用 setVisible(true) 恢复，避免 iframe 遮挡弹窗。
   void setVisible(bool visible) => _st?._setVisible(visible);
 }
 

@@ -8,6 +8,12 @@ class BaiduCampusMapController {
   void fitCampus(String campusId) {}
   void set3D(bool enabled) {}
   void setLayer(String layer) {}
+  void zoomIn() {}
+  void zoomOut() {}
+  void reset() {}
+  void toggleFullscreen() {}
+  void search(String query) {}
+  void saveImage() {}
   void setVisible(bool visible) {}
 }
 

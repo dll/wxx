@@ -29,6 +29,24 @@ class BaiduCampusMapController {
   void setLayer(String layer) =>
       _st?._send({'type': 'set_layer', 'layer': layer});
 
+  /// 放大一级。
+  void zoomIn() => _st?._send({'type': 'zoom_in'});
+
+  /// 缩小一级。
+  void zoomOut() => _st?._send({'type': 'zoom_out'});
+
+  /// 复位到校区全景。
+  void reset() => _st?._send({'type': 'reset'});
+
+  /// 全屏切换。
+  void toggleFullscreen() => _st?._send({'type': 'fullscreen'});
+
+  /// 搜索地名。
+  void search(String query) => _st?._send({'type': 'search', 'query': query});
+
+  /// 保存地图为图片。
+  void saveImage() => _st?._send({'type': 'save_image'});
+
   /// 控制 iframe 可见性（仅 Web 端需要，Android 端空实现保持接口一致）。
   void setVisible(bool visible) {
     // Android 使用 WebViewWidget，由 Flutter 正常管理渲染层级，无需手动隐藏
