@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/model_config_provider.dart';
 import '../../providers/token_stats_provider.dart';
+import '../../utils/storage.dart';
 
 /// AI 模型配置页面 — 配置 DeepSeek / 智谱清言 / 讯飞星火 三大模型参数
 /// 兼作 AI 使用入口：顶部展示本月 token 用量，绑定个人 Key 后对话不消耗校内额度
@@ -79,6 +80,7 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
           return Column(
             children: [
               _buildUsageBanner(context),
+              _buildBeginnerGuide(context),
               _buildTabBar(),
               Expanded(
                 child: PageView(
@@ -203,6 +205,35 @@ class _ModelConfigPageState extends State<ModelConfigPage> {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
     return '$n';
+  }
+
+  /// 新手引导：用大白话解释 AI 额度与 API Key（对第一次使用的学生友好）
+  Widget _buildBeginnerGuide(BuildContext context) {
+    final theme = Theme.of(context);
+    final isStudent = Storage.role == 'student' || Storage.role == 'student_union';
+    if (!isStudent) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.6)),
+      ),
+      child: ExpansionTile(
+        leading: Icon(Icons.school_outlined, color: theme.colorScheme.primary),
+        title: const Text('新手必读：AI 额度是什么？',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '每次问蔚小芯都会消耗一点点“AI 额度”。学校每月给你 100,000 tokens（约够聊很多次），够用就不用管它。\n\n如果提示额度用完了，有两种办法：\n1. 等下个月自动重置，不用做任何事；\n2. 绑定你自己申请的 API Key（往下滑切换模型面板，填好 Key 保存即可），之后就用你自己的额度，不再扣学校的。\n\n想申请自己的 Key？\n• DeepSeek：platform.deepseek.com\n• 智谱清言：open.bigmodel.cn\n注册后在“API Keys”页面创建一个即可（免费额度也够日常用）。',
+            style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTabBar() {

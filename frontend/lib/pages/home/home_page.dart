@@ -78,6 +78,21 @@ class _HomePageState extends State<HomePage> {
       _loadData();
       _checkConsent();
       _checkAppUpdate();
+      _maybeShowOnboarding();
+    });
+  }
+
+  /// 首次登录的学生，弹出新生应用内引导（仅一次，可跳过）
+  void _maybeShowOnboarding() {
+    if (!Storage.isLoggedIn) return;
+    final role = Storage.role;
+    final isStudent = role == 'student' || role == 'student_union';
+    if (!isStudent) return;
+    if (Storage.freshmanGuideSeen) return;
+    // 让首页先渲染完，再轻量弹出，避免打扰正在进行的操作
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      context.push('/student/freshman-onboarding');
     });
   }
 
@@ -1832,6 +1847,11 @@ class _HomePageState extends State<HomePage> {
             {'icon': 'career', 'title': '就业服务', 'route': '/student/career'},
             {'icon': 'study', 'title': '学业服务', 'route': '/student/study'},
             {'icon': 'mental', 'title': '心理健康', 'route': '/student/mental'},
+            {
+              'icon': 'agenda',
+              'title': '开学待办',
+              'route': '/student/freshman-agenda'
+            },
           ]
         : quickEntries;
 
@@ -1842,6 +1862,7 @@ class _HomePageState extends State<HomePage> {
       'career': Icons.work_outline,
       'study': Icons.menu_book_outlined,
       'mental': Icons.favorite_outline,
+      'agenda': Icons.checklist,
     };
 
     final colorMap = <String, Color>{
@@ -1851,6 +1872,7 @@ class _HomePageState extends State<HomePage> {
       'career': const Color(0xFFE65100),
       'study': const Color(0xFF7B1FA2),
       'mental': const Color(0xFFC62828),
+      'agenda': const Color(0xFF00695C),
     };
 
     return Column(

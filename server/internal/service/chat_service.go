@@ -709,20 +709,21 @@ func (s *ChatService) buildQuotaExceededAnswer(traceID string, reason string) *m
 // fallbackAnswer 构造兜底回答
 func (s *ChatService) fallbackAnswer(traceID string, question string) *model.AnswerCard {
 	return &model.AnswerCard{
-		Conclusion: "知识库中暂未找到足够信息。建议联系辅导员、学院学工办公室或相关职能部门确认。",
+		Conclusion: "知识库中暂未找到足够信息，我不能凭空猜测（会误导你）。\n\n你可以这样做，很快就能问到答案：\n1. 联系你的辅导员（班级群/企业微信/电话）；\n2. 到学院学工办公室现场咨询；\n3. 在下方“问题反馈”里提交这个问题，我们修复后会通知你。",
 		TraceID:    traceID,
 		Confidence: 0.0,
 		Fallback:   true,
 		FollowUps: []string{
 			"联系辅导员的方式是什么？",
 			"学工办公室在哪里？",
+			"怎么提交问题反馈？",
 		},
 	}
 }
 
 // fallbackAnswerWithSources 构造兜底回答（保留搜索到的 sources）
 func (s *ChatService) fallbackAnswerWithSources(traceID string, question string, results []*repository.SearchResult) *model.AnswerCard {
-	conclusion := "知识库中暂未找到足够信息。建议联系辅导员或学工办公室确认。"
+	conclusion := "知识库中暂未找到足够信息，我不能凭空猜测（会误导你）。我可以给你整理出相关的资料，如需准确答案建议：\n1. 联系你的辅导员；\n2. 到学院学工办公室现场咨询；\n3. 在“问题反馈”提交，修复后通知你。"
 	confidence := 0.3
 	if len(results) > 0 {
 		var b strings.Builder
@@ -750,6 +751,7 @@ func (s *ChatService) fallbackAnswerWithSources(traceID string, question string,
 		FollowUps: []string{
 			"联系辅导员的方式是什么？",
 			"学工办公室在哪里？",
+			"怎么提交问题反馈？",
 		},
 	}
 

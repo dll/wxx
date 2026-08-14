@@ -9,6 +9,7 @@ class Storage {
   static const String _keyDisplayName = 'display_name';
   static const String _keyConsented = 'consented';
   static const String _keyFirstLaunch = 'first_launch_done';
+  static const String _keyFreshmanGuideSeen = 'freshman_guide_seen';
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyCapabilities = 'capabilities';
   static const String _keyListedFeatures = 'listed_features';
@@ -57,6 +58,13 @@ class Storage {
   static bool get firstLaunchDone => _prefs.getBool(_keyFirstLaunch) ?? false;
   static Future<void> setFirstLaunchDone() =>
       _prefs.setBool(_keyFirstLaunch, true);
+
+  // ── 新生引导状态 ──
+  /// 是否已看过新生应用内引导（onboarding）
+  static bool get freshmanGuideSeen =>
+      _prefs.getBool(_keyFreshmanGuideSeen) ?? false;
+  static Future<void> setFreshmanGuideSeen() =>
+      _prefs.setBool(_keyFreshmanGuideSeen, true);
 
   // ── 同意授权状态 ──
   static bool get consented => _prefs.getBool(_keyConsented) ?? false;
