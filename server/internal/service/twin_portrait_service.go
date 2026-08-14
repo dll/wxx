@@ -12,7 +12,7 @@ import (
 )
 
 // PromptVersion 画像提示词版本（升级后前端可触发重新生成）
-const PromptVersion = "2.0"
+const PromptVersion = "3.0"
 
 // PortraitPrototypeType 原型类型
 const (
@@ -125,41 +125,31 @@ type PortraitPersonalization struct {
 }
 
 // BuildPortraitPrompt 构建画像提示词。
-// 风格定位：Q 版可爱精灵数字人（参考超星数字人），明亮清新、亲和讨喜，
-// 学生普遍喜爱；舍弃写实逼真路线。
+// 策略：CogView 对过长提示词容易忽略细节，精简为 3 段式：
+// 风格定义 → 人物描述 → 画面元素，总计 ≤200 字。
 func BuildPortraitPrompt(prototypeType string, extra PortraitPersonalization) string {
 	var sb strings.Builder
-	sb.WriteString("创作一幅" + brandStyle() + "Q 版可爱数字人半身像插画，风格参考超星数字人（卡通 3D、Q 萌可爱）。\n\n")
 
-	// 原型来源
+	// 第一段：风格（最关键，放最前面）
+	sb.WriteString("Q版卡通可爱风格半身像，大头小身3头身比例，超星数字人风格，明亮3D渲染，圆润Q萌。\n")
+
+	// 第二段：人物
 	if prototypeType == PrototypePhoto {
-		sb.WriteString("以参考照片中的人物为原型进行二次创作，保留其发型、发色、脸型轮廓等主要辨识特征，但整体化为 Q 版可爱形象。\n")
+		sb.WriteString("以参考照片人物为原型，保留发型、发色、脸型等主要特征，转化为Q版可爱形象。")
 	} else {
-		sb.WriteString("原型为一名中国高校学生（姓名" + safe(extra.DisplayName, "同学") + "），" +
-			safe(extra.Major, "计算机科学与技术") + "专业，" + roleLabel(extra.Role) + "。\n")
+		name := safe(extra.DisplayName, "同学")
+		major := safe(extra.Major, "计算机科学")
+		sb.WriteString(name + "，" + major + "专业学生，")
+		role := roleLabel(extra.Role)
+		if role == "在校学生" {
+			sb.WriteString(role + "，")
+		}
 	}
+	highlights := safe(extra.Highlights, "阳光青春")
+	sb.WriteString(highlights + "，甜美微笑，大眼睛亮晶晶，腮红可爱。\n")
 
-	// 人物特征
-	sb.WriteString("人物气质：" + safe(extra.Highlights, "阳光积极、青春向上的在校大学生") + "。\n\n")
-
-	// 核心：Q 版可爱精灵造型
-	sb.WriteString("造型要求（Q 版可爱精灵风）：\n")
-	sb.WriteString("- 大头小身比例（Q 版约 3~4 头身），整体圆润饱满，萌态十足。\n")
-	sb.WriteString("- 大而圆的眼睛，亮晶晶有神，眼中有高光星点；脸颊自带可爱腮红；表情甜美微笑。\n")
-	sb.WriteString("- 圆润的娃娃脸、小巧的鼻子与嘴巴，整体Q萌可爱，亲和力强，学生一看就喜欢。\n")
-	sb.WriteString("- 保留标志性学士帽（黑色或校徽蓝装饰），帽檐下露出俏皮发丝，凸显「聪明小博士」气质。\n")
-	sb.WriteString("- 纯净通透的皮肤（卡通质感，不追求写实毛孔），线条圆滑干净，无 AI 畸形手指。\n\n")
-
-	// 上色与背景
-	sb.WriteString("上色与背景（明亮清新）：\n")
-	sb.WriteString("- 色彩明快鲜亮：主色校徽蓝 #1565C0 + 暖阳黄点缀，饱和度适中，干净不刺眼。\n")
-	sb.WriteString("- 背景简洁梦幻：柔和渐变 + 漂浮的小星星、书本、光点等校园元素，不喧宾夺主。\n")
-	sb.WriteString("- 整体呈精致 3D 卡通渲染质感（参考超星数字人），光影柔和、边缘干净，如高品质游戏立绘。\n\n")
-
-	// 精灵感点缀
-	sb.WriteString("精灵感点缀：\n")
-	sb.WriteString("- 发梢与衣角点缀微光粒子与小星光，仿佛自带魔法光效，灵动梦幻。\n")
-	sb.WriteString("- 整体元气满满、积极向上的校园精灵气质，温暖治愈。\n")
+	// 第三段：画面元素
+	sb.WriteString("学士帽蓝色装饰，背景柔和渐变，星星书本点缀，发梢微光粒子，精致3D卡通质感，高清。")
 
 	return sb.String()
 }

@@ -177,6 +177,7 @@ func (h *KBHandler) CreateResource(c *gin.Context) {
 
 	kb, err := h.kbSvc.Create(c.Request.Context(), &req, userCtx)
 	if err != nil {
+		log.Printf("kb CreateResource err: user=%s type=%s scope=%s err=%v", userCtx.Username, req.ResourceType, req.OwnerScope, err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "创建知识资源失败，请稍后重试",
