@@ -180,36 +180,32 @@ jobs:
           npm config set @ohos:registry=https://repo.harmonyos.com/npm/
           npm config set registry=https://repo.huaweicloud.com/repository/npm/
 
-      # ── 安装 HarmonyOS SDK（DevEco 命令行工具 + sdkmgr）──
+      # ── 安装 HarmonyOS 命令行工具（内含完整 SDK / hvigor / ohpm / node）──
       - name: 下载 HarmonyOS 命令行工具
         run: |
-          # 官方命令：命令行工具内含 hvigor / ohpm / node / sdkmanager
-          # 注意：新版本 CLI 从华为 CDN 下载，若 URL 变更更新此处
-          curl -L -o /tmp/clt.zip "https://contentcenter-drcn.dbankcdn.cn/cdc/developer/application/bundle/codegen/command-line-tools/linux_6.0.1.zip" \
-            -H "User-Agent: Mozilla/5.0" || echo "下载失败，请更新 URL 或使用 actions/checkout 缓存的 CLI"
-          if [ -s /tmp/clt.zip ]; then
-            unzip -q /tmp/clt.zip -d /opt/clt
-            ls -la /opt/clt
-          fi
+          # 华为云镜像（repo.huaweicloud.com）提供稳定的 linux-x64 命令行工具包，
+          # 内含完整 SDK（sdk/）、hvigor、ohpm、node，无需再单独装 SDK。
+          curl -L --fail --retry 3 -o /tmp/clt.zip \
+            "https://repo.huaweicloud.com/harmonyos/ohpm/5.0.3/commandline-tools-linux-x64-5.0.3.906.zip" \
+            -H "User-Agent: Mozilla/5.0"
+          mkdir -p /opt/clt
+          unzip -q /tmp/clt.zip -d /opt/clt
+          find /opt/clt -maxdepth 2 -type d | sort | head -20
 
-      - name: 安装 HarmonyOS SDK
+      - name: 配置 HarmonyOS SDK 环境
         run: |
-          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Duser.country=CN"
-          # 定位 sdkmgr
-          SDKMANAGER=$(find /opt/clt -name "sdkmgr" -o -name "sdkmanager" 2>/dev/null | head -1)
-          if [ -n "$SDKMANAGER" ]; then
-            chmod +x "$SDKMANAGER"
-            # 安装 HarmonyOS 5.0 (API 12) 组件
-            "$SDKMANAGER" install --accept-license \
-              toolsets:12 HarmonyOS/toolsets:12 \
-              || "$SDKMANAGER" install toolchains:12 HarmonyOS/toolchains:12 --accept-license \
-              || echo "SDK 安装命令需按实际 CLI 版本调整"
-          else
-            echo "未找到 sdkmgr，尝试 actions 缓存 SDK 或手动安装"
+          CLT_DIR=$(find /opt/clt -maxdepth 2 -type d -name "command-line-tools" | head -1)
+          if [ -z "$CLT_DIR" ]; then
+            echo "未找到 command-line-tools 目录，列出解压内容："
+            find /opt/clt -maxdepth 3 | head -40
+            exit 1
           fi
-          # SDK 安装目录（sdkmgr 默认装到命令行工具同级）
-          echo "HOS_SDK_HOME=${{ runner.tool_cache }}/harmonyos-sdk" >> $GITHUB_ENV
-          echo "DEVECO_SDK_HOME=${{ runner.tool_cache }}/harmonyos-sdk" >> $GITHUB_ENV
+          echo "CLT_DIR=$CLT_DIR" >> $GITHUB_ENV
+          echo "DEVECO_SDK_HOME=$CLT_DIR/sdk" >> $GITHUB_ENV
+          echo "HOS_SDK_HOME=$CLT_DIR/sdk" >> $GITHUB_ENV
+          echo "$CLT_DIR/tool/node/bin" >> $GITHUB_PATH
+          echo "$CLT_DIR/bin" >> $GITHUB_PATH
+          echo "SDK 结构："; ls "$CLT_DIR/sdk" 2>/dev/null | head
 
       - name: 配置签名（signed 目标，凭据就绪时）
         if: inputs.harmonyos_target == 'signed'
@@ -228,8 +224,14 @@ jobs:
         run: |
           cd frontend/harmonyos
           chmod +x hvigorw
-          export HOS_SDK_HOME="${HOS_SDK_HOME:-/opt/hwsdk}"
-          export DEVECO_SDK_HOME="${DEVECO_SDK_HOME:-/opt/hwsdk}"
+          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Duser.country=CN"
+          export HOS_SDK_HOME="${HOS_SDK_HOME:-${CLT_DIR}/sdk}"
+          export DEVECO_SDK_HOME="${DEVECO_SDK_HOME:-${CLT_DIR}/sdk}"
+          # hvigorw wrapper 依赖 node（命令行工具自带），确认可用
+          command -v node || exit 1
+          node -v
+          # 安装工程与模块依赖（本项目无三方依赖，仅为确保 ohpm 初始化）
+          ohpm install 2>/dev/null || true
           if [ "${{ inputs.harmonyos_target }}" = "signed" ]; then
             ./hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
           else
@@ -242,6 +244,8 @@ jobs:
           find frontend/harmonyos/entry/build -name "*.hap" | while read f; do
             cp "$f" "dist/$(basename "$f")"
           done
+          # 若无产出，检查构建输出目录
+          ls -la frontend/harmonyos/entry/build 2>/dev/null || true
           ls -la dist/
 
       - name: 上传 HAP 制品
