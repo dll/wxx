@@ -464,6 +464,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/union/event-plan'),
             _buildMenuCard(context, Icons.brush, 'AI 海报文案', '智能海报文案生成',
                 '/union/poster-gen'),
+            _buildMenuCard(context, Icons.groups_outlined, '活动报名管理', '查看报名热度、新建活动',
+                '/union/activity-manage'),
           ],
 
           // 学院管理员 AI 功能
@@ -678,6 +680,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '智能活动方案生成', '/union/event-plan'),
           _ProfileFeature('u_poster', '学生会服务', Icons.brush, 'AI 海报文案',
               '智能海报文案生成', '/union/poster-gen'),
+          _ProfileFeature('u_act_mgmt', '学生会服务', Icons.groups_outlined, '活动报名管理',
+              '查看报名热度、新建活动', '/union/activity-manage'),
         ],
         if (_canAccessAdmin(role)) ...[
           _ProfileFeature('college_twin', '管理服务', Icons.dashboard, '数字孪生大屏',

@@ -93,6 +93,7 @@ import '../pages/assistant_role/grad_audit_page.dart';
 import '../pages/assistant_role/exam_arrange_page.dart';
 import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
+import '../pages/union/activity_manage_page.dart';
 import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
 import '../pages/profile/model_config_page.dart';
@@ -610,6 +611,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/union/poster-gen',
             builder: (_, __) => const PosterGenPage()),
+        GoRoute(
+            path: '/union/activity-manage',
+            builder: (_, __) => const UnionActivityManagePage()),
         GoRoute(
             path: '/college/twin-screen',
             builder: (_, __) => const TwinScreenPage()),
