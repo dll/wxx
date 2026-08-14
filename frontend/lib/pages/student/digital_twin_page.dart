@@ -156,7 +156,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '以照片或校园原型生成卡通 AI 数字孪生画像：柔和卡通 + 科技光效，保留真实五官辨识度。',
+              'Q 版可爱精灵数字人画像，大头小身萌态十足，超星风格 3D 卡通渲染。',
               style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant),
             ),
@@ -184,52 +184,61 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
 
   Widget _buildPortraitImage(ThemeData theme, TwinPortraitProvider p) {
     final portrait = p.current!;
+    final cs = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 虚拟人像居中缩小展示：200x200 圆角方块，卡片保持较宽，人像精致小巧
         Center(
           child: Container(
-            width: 200,
-            height: 200,
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
+                  color: cs.primary.withOpacity(0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               child: Image.memory(
                 base64Decode(portrait.imageBase64),
                 fit: BoxFit.cover,
-                width: 200,
-                height: 200,
-                errorBuilder: (_, __, ___) => const SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: Center(child: Text('画像数据异常')),
+                width: 120,
+                height: 120,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 120,
+                  height: 120,
+                  color: cs.surfaceContainerHighest,
+                  child: Icon(Icons.person, size: 48, color: cs.onSurfaceVariant),
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Chip(
-              label: Text(portrait.prototypeType == 'photo' ? '照片版' : '校园原型版'),
-              visualDensity: VisualDensity.compact,
+            Icon(Icons.smart_toy_outlined, size: 14, color: cs.primary),
+            const SizedBox(width: 4),
+            Text(
+              portrait.prototypeType == 'photo' ? '照片版' : '校园精灵',
+              style: theme.textTheme.labelMedium?.copyWith(color: cs.primary),
             ),
+            const SizedBox(width: 8),
             TextButton.icon(
               onPressed: () => _showGenerateDialog(p),
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('重新生成'),
+              icon: const Icon(Icons.refresh, size: 14),
+              label: const Text('重新生成', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ],
         ),
