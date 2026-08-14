@@ -77,7 +77,27 @@ class _GradAuditPageState extends State<GradAuditPage> {
               ]),
               const SizedBox(height: 12),
               Text('学生：$name', style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              // 学分进度条（办理进度透明）
+              Row(
+                children: [
+                  Text('学分进度', style: theme.textTheme.bodySmall),
+                  const Spacer(),
+                  Text('${total.toStringAsFixed(0)}/${required.toStringAsFixed(0)}',
+                      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
               const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: LinearProgressIndicator(
+                  value: required > 0 ? (total / required).clamp(0.0, 1.0) : 0,
+                  minHeight: 8,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  color: passed ? Colors.green : theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 10),
               Text('已获学分：${total.toStringAsFixed(0)} / 要求 ${required.toStringAsFixed(0)}',
                   style: theme.textTheme.bodyMedium),
               const SizedBox(height: 4),
