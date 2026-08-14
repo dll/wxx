@@ -220,22 +220,20 @@ jobs:
           echo "$HUAWEI_SIGNING_PROFILE" | base64 --decode > frontend/harmonyos/signing.p7b
           # 写入 build-profile.json5 的 signingConfigs（凭据就绪后按 AGC 配置填字段）
 
-      - name: 构建 HAP（hvigorw 自动安装 hvigor）
+      - name: 构建 HAP（用命令行工具自带 hvigorw）
         run: |
           cd frontend/harmonyos
-          chmod +x hvigorw
           export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Duser.country=CN"
           export HOS_SDK_HOME="${HOS_SDK_HOME:-${CLT_DIR}/sdk}"
           export DEVECO_SDK_HOME="${DEVECO_SDK_HOME:-${CLT_DIR}/sdk}"
-          # hvigorw wrapper 依赖 node（命令行工具自带），确认可用
-          command -v node || exit 1
-          node -v
-          # 安装工程与模块依赖（本项目无三方依赖，仅为确保 ohpm 初始化）
-          ohpm install 2>/dev/null || true
+          # 直接使用命令行工具自带的 hvigorw（位于 CLT_DIR/bin，已加 PATH），
+          # 而非工程 ./hvigorw wrapper（其依赖 npm 下载 hvigor，dependencies 为空会静默失败）
+          command -v hvigorw || exit 1
+          hvigorw -v
           if [ "${{ inputs.harmonyos_target }}" = "signed" ]; then
-            ./hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
+            hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
           else
-            ./hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
+            hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
           fi
 
       - name: 整理 HAP 制品
