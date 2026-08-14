@@ -52,6 +52,7 @@
 | **AI 简讯模块** | `docs/ai-briefings.md`（首页资讯 + 管理 CRUD + RSS/Atom 自动抓取 + md/pdf 导出） |
 | **微信小程序（WebView 壳）** | `frontend/miniprogram/`（AppID: wx811d1225e67b8f38，加载 Cloudflare Pages 前端） |
 | **移动应用（iOS + 鸿蒙）构建发布** | `docs/移动应用构建与发布.md`（手动触发 workflow、Secrets 清单、产物分发） |
+| **移动应用签名（iOS + 鸿蒙）** | `docs/移动应用构建与发布v1.md`（Apple/AGC 凭据申请、Secrets 配置、签名注入与上架步骤） |
 | **数据库迁移（SQLite → MySQL + Redis）** | `docs/database-migration-mysql.md`（方言转换层、迁移执行、验证与回滚） |
 
 ## 内部知识（可选）

@@ -64,6 +64,7 @@ jobs:
           APPLE_CERT_BASE64: ${{ secrets.APPLE_CERT_BASE64 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
           APPLE_PROFILE_BASE64: ${{ secrets.APPLE_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           # 证书与描述文件以 base64 存入 Secrets，运行时还原到钥匙串
           echo "$APPLE_CERT_BASE64" | base64 --decode > /tmp/dist_cert.p12
@@ -76,6 +77,30 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< "$(security cms -D -i /tmp/profile.mobileprovision)")
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+          # 证书名（Apple Distribution: ...）
+          CERT_NAME=$(security find-identity -v -p codesigning build.keychain | grep "Apple Distribution" | awk -F'"' '{print $2}')
+          if [ -z "$CERT_NAME" ]; then
+            echo "未在钥匙串找到 Apple Distribution 证书，请检查 APPLE_CERT_BASE64"
+            exit 1
+          fi
+          echo "CERT_NAME=$CERT_NAME" >> $GITHUB_ENV
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "APPLE_TEAM_ID=$APPLE_TEAM_ID" >> $GITHUB_ENV
+          # 用真实值填充 ExportOptions.plist（仓库内为占位符）
+          /usr/libexec/PlistBuddy -c "Set :teamID $APPLE_TEAM_ID" frontend/ios/ExportOptions.plist
+          /usr/libexec/PlistBuddy -c "Set :signingCertificate $CERT_NAME" frontend/ios/ExportOptions.plist
+          /usr/libexec/PlistBuddy -c "Set :provisioningProfiles:com.wxx.wxxApp $PROFILE_UUID" frontend/ios/ExportOptions.plist
+          # 注入 DEVELOPMENT_TEAM + 手动签名到 pbxproj（Runner 与 RunnerTests 一并处理）
+          python3 - <<'PYEOF'
+          import os
+          team_id = os.environ["APPLE_TEAM_ID"]
+          p = "frontend/ios/Runner.xcodeproj/project.pbxproj"
+          s = open(p, encoding="utf-8").read()
+          s = s.replace('CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = %s;' % team_id)
+          s = s.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";')
+          open(p, "w", encoding="utf-8").write(s)
+          print("pbxproj 签名配置注入完成")
+          PYEOF
           echo "证书导入完成"
 
       - name: 构建 iOS 应用（注入地图 AK）
@@ -214,11 +239,33 @@ jobs:
           HUAWEI_SIGNING_P12: ${{ secrets.HUAWEI_SIGNING_P12 }}
           HUAWEI_SIGNING_PROFILE: ${{ secrets.HUAWEI_SIGNING_PROFILE }}
           HUAWEI_SIGNING_STORE_PASSWORD: ${{ secrets.HUAWEI_SIGNING_STORE_PASSWORD }}
+          HUAWEI_SIGNING_KEY_ALIAS: ${{ secrets.HUAWEI_SIGNING_KEY_ALIAS }}
+          HUAWEI_SIGNING_KEY_PASSWORD: ${{ secrets.HUAWEI_SIGNING_KEY_PASSWORD }}
         run: |
           echo "$HUAWEI_SIGNING_CERT" | base64 --decode > frontend/harmonyos/signing.cer
           echo "$HUAWEI_SIGNING_P12" | base64 --decode > frontend/harmonyos/signing.p12
           echo "$HUAWEI_SIGNING_PROFILE" | base64 --decode > frontend/harmonyos/signing.p7b
-          # 写入 build-profile.json5 的 signingConfigs（凭据就绪后按 AGC 配置填字段）
+          # 写入 build-profile.json5 的 signingConfigs（products 已引用 signingConfig: default）
+          python3 - <<'PYEOF'
+          import json, os
+          p = "frontend/harmonyos/build-profile.json5"
+          d = json.load(open(p, encoding="utf-8"))
+          d["app"]["signingConfigs"] = [{
+              "name": "default",
+              "type": "HarmonyOS",
+              "material": {
+                  "certpath": "./signing.cer",
+                  "storePassword": os.environ["HUAWEI_SIGNING_STORE_PASSWORD"],
+                  "keyAlias": os.environ["HUAWEI_SIGNING_KEY_ALIAS"],
+                  "keyPassword": os.environ.get("HUAWEI_SIGNING_KEY_PASSWORD", os.environ["HUAWEI_SIGNING_STORE_PASSWORD"]),
+                  "profile": "./signing.p7b",
+                  "signAlg": "SHA256withECDSA",
+                  "storeFile": "./signing.p12"
+              }
+          }]
+          json.dump(d, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+          print("build-profile.json5 signingConfigs 注入完成")
+          PYEOF
 
       - name: 构建 HAP（用命令行工具自带 hvigorw）
         run: |
