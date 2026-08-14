@@ -38,6 +38,19 @@ COLUMNS = [
          rtype="Activity", tags=["竞赛", "学科竞赛"], pages=1),
     dict(name="团学工作", url="https://csci.chzu.edu.cn/tzzdt/list.htm",
          rtype="Activity", tags=["团学", "活动"], pages=1),
+    # 第二批：高年级/学业/就业主题
+    dict(name="考研事迹", url="https://csci.chzu.edu.cn/kysj/list.htm",
+         rtype="FAQ", tags=["考研", "上岸", "经验"], pages=1),
+    dict(name="大创项目", url="https://csci.chzu.edu.cn/3582/list.htm",
+         rtype="FAQ", tags=["大创", "科研", "项目"], pages=1),
+    dict(name="毕设工作", url="https://csci.chzu.edu.cn/bysj/list.htm",
+         rtype="Process", tags=["毕设", "毕业设计"], pages=1),
+    dict(name="学风建设", url="https://csci.chzu.edu.cn/sqyr/list.htm",
+         rtype="Activity", tags=["学风", "三全育人"], pages=1),
+    dict(name="研究生通知", url="https://csci.chzu.edu.cn/yjstz/list.htm",
+         rtype="FAQ", tags=["研究生", "通知"], pages=1),
+    dict(name="学科建设", url="https://csci.chzu.edu.cn/xkjj/list.htm",
+         rtype="FAQ", tags=["学科", "专业"], pages=1),
 ]
 
 SESSION = requests.Session()
@@ -146,7 +159,7 @@ def main():
     args = ap.parse_args()
 
     base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-    out = args.out or os.path.join(base, "server", "migrations", "082_fetched_kb.sql")
+    out = args.out or os.path.join(base, "server", "migrations", "083_fetched_kb2.sql")
     want = set(x.strip() for x in args.cols.split(",") if x.strip())
 
     rows = []
