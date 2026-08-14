@@ -208,8 +208,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMenuCard(context, Icons.dashboard_outlined, '质量看板',
                 '查看系统问答质量指标', '/admin/metrics'),
 
-          // 数据底座导入（college_admin 及以上）
-          if (_canAccessAdmin(profile?.role))
+          // 数据底座导入：管理员 或 具备批量导入权限的学生会/教辅/辅导员
+          if (_canAccessAdmin(profile?.role) ||
+              CapabilityUtils.has(Capability.batchScheduleImport))
             _buildMenuCard(context, Icons.storage_outlined, '数据底座导入',
                 '批量导入成绩与课表', '/admin/data-import'),
 

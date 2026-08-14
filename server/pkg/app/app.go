@@ -1142,7 +1142,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				admin.POST("/users/import", auth.RequireCapability(auth.CounselorImportStudent), adminH.ImportStudents)
 				// ── 数据底座导入（成绩/课表，college_admin+）──
 				admin.POST("/grades/import", auth.RequireCapability(auth.CollegeUserRead), dataImportH.ImportGrades)
-				admin.POST("/schedules/import", auth.RequireCapability(auth.CollegeUserRead), dataImportH.ImportSchedules)
+				admin.POST("/schedules/import", auth.RequireCapability(auth.BatchScheduleImport), dataImportH.ImportSchedules)
 
 				// ── 校园报到步骤管理（college_admin+）──
 				campusAdmin := admin.Group("/campus")

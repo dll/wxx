@@ -114,6 +114,7 @@ const (
 	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
 	CounselorImportStudent     Capability = "counselor.import.student" // 导入学生（学生会及以上角色继承）
 	CounselorNotify            Capability = "counselor.notify"         // 通知管理（创建/发布/删除）
+	BatchScheduleImport        Capability = "college.schedule.import"  // 批量导入班级课表（学生会/教辅/辅导员/管理员；普通学生仅能导入本人课表）
 )
 
 // 教师能力
@@ -230,6 +231,7 @@ var roles = map[string]*roleNode{
 			UnionKBSubmit, UnionFeedbackList, UnionFeedbackRead, UnionFeedbackWrite,
 			UnionEventPlan, UnionPosterGen,
 			CounselorImportStudent,
+			BatchScheduleImport,
 		},
 	},
 	"counselor": {
