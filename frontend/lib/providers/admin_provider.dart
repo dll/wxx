@@ -14,6 +14,31 @@ class AdminProvider extends ChangeNotifier {
   AdminMetrics? get metrics => _metrics;
   bool get metricsLoading => _metricsLoading;
 
+  // ── 高频兜底问题（知识治理）──
+  List<Map<String, dynamic>> _fallbackQuestions = [];
+  bool _fallbackLoading = false;
+  List<Map<String, dynamic>> get fallbackQuestions => _fallbackQuestions;
+  bool get fallbackLoading => _fallbackLoading;
+
+  Future<void> fetchFallbackQuestions() async {
+    if (_fallbackLoading) return;
+    _fallbackLoading = true;
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.adminFallbackQuestions, params: {'days': '7', 'top': '20'});
+      final data = res.data;
+      if (data['code'] == 0 && data['data'] != null) {
+        _fallbackQuestions =
+            (data['data'] as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      }
+    } catch (e) {
+      _fallbackQuestions = [];
+    } finally {
+      _fallbackLoading = false;
+      notifyListeners();
+    }
+  }
+
   // ── 数据仪表盘 ──
   DashboardStats? _dashboard;
   bool _dashboardLoading = false;

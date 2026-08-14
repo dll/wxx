@@ -91,11 +91,78 @@ class _AdminMetricsPageState extends State<AdminMetricsPage> {
                     color: Colors.deepOrange,
                   ),
                 ]),
+                const SizedBox(height: 20),
+                _buildFallbackGovernance(context, provider),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  /// 高频兜底问题（知识治理）：展示真实兜底问题，提示补录知识库压降兜底率
+  Widget _buildFallbackGovernance(BuildContext context, AdminProvider provider) {
+    final theme = Theme.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (provider.fallbackQuestions.isEmpty && !provider.fallbackLoading) {
+        provider.fetchFallbackQuestions();
+      }
+    });
+    final qs = provider.fallbackQuestions;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(Icons.contact_support_outlined, color: theme.colorScheme.tertiary),
+          const SizedBox(width: 8),
+          Text('高频兜底问题（知识治理）',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 4),
+        Text('以下问题命中知识库失败（兜底），建议补录进知识库以压降兜底率。',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 10),
+        if (provider.fallbackLoading)
+          const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
+        else if (qs.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(children: [
+              const Icon(Icons.check_circle_outline, color: Colors.green),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('暂无兜底问题记录。（若有问答数据，此处会显示高频未命中问题以便治理）',
+                    style: theme.textTheme.bodySmall),
+              ),
+            ]),
+          )
+        else
+          ...qs.asMap().entries.map((e) => Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 13,
+                    child: Text('${e.key + 1}', style: const TextStyle(fontSize: 12)),
+                  ),
+                  title: Text(e.value['question'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('兜底 ${e.value['count']} 次',
+                        style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              )),
+      ],
     );
   }
 }

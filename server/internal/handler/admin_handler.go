@@ -57,6 +57,22 @@ func (h *AdminHandler) GetMetrics(c *gin.Context) {
 	})
 }
 
+// TopFallbackQuestions 高频兜底问题清单（知识治理：命中失败高的问题应补录知识库）
+// GET /api/v1/admin/metrics/fallback-questions?days=7&top=20
+func (h *AdminHandler) TopFallbackQuestions(c *gin.Context) {
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "7"))
+	top, _ := strconv.Atoi(c.DefaultQuery("top", "20"))
+	list, err := h.adminSvc.TopFallbackQuestions(days, top)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "获取高频兜底问题失败",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list})
+}
+
 // ListUsers 用户列表 GET /api/v1/admin/users?role=&owner_scope=&owner_id=&page=&page_size=
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	role := c.Query("role")

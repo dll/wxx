@@ -1072,6 +1072,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 			{
 				admin.GET("/stats/dashboard", auth.RequireCapability(auth.CollegeMetricsRead), statsH.GetDashboardStats)
 				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), adminH.GetMetrics)
+				admin.GET("/metrics/fallback-questions", auth.RequireCapability(auth.CollegeMetricsRead), adminH.TopFallbackQuestions)
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), adminH.ListUsers)
 				admin.GET("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.ListAudit)
 				admin.DELETE("/audit", auth.RequireCapability(auth.CollegeAuditRead), adminH.DeleteAudit)

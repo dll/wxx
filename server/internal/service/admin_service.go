@@ -91,6 +91,14 @@ func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 	return m, nil
 }
 
+// TopFallbackQuestions 高频兜底问题（知识治理：命中失败高的问题应补录知识库）
+func (s *AdminService) TopFallbackQuestions(sinceDays, topN int) ([]repository.TopFallbackQuestion, error) {
+	if s.chatMetricsRepo == nil {
+		return nil, nil
+	}
+	return s.chatMetricsRepo.TopFallbackQuestions(sinceDays, topN)
+}
+
 // ListUsers 分页查询用户列表，按调用者 scope 过滤
 func (s *AdminService) ListUsers(role, ownerScope, ownerID string, page, pageSize int) ([]*model.User, int, error) {
 	offset, page, pageSize := util.Paginate(page, pageSize)

@@ -108,6 +108,44 @@ type IntentCount struct {
 	Count  int
 }
 
+// TopFallbackQuestion 高频兜底问题
+type TopFallbackQuestion struct {
+	Question string
+	Count    int
+}
+
+// TopFallbackQuestions 统计最近 sinceDays 天高频兜底问题（用于知识治理：
+// 命中失败率高的问题应补录进知识库）。按出现次数降序，取 topN。
+func (r *ChatMetricsRepo) TopFallbackQuestions(sinceDays, topN int) ([]TopFallbackQuestion, error) {
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	if topN <= 0 {
+		topN = 20
+	}
+	since := time.Now().AddDate(0, 0, -sinceDays).Format("2006-01-02")
+
+	rows, err := r.db.Query(`
+		SELECT TRIM(question) AS q, COUNT(*) AS cnt FROM chat_metrics
+		WHERE created_at >= ? AND fallback = 1 AND TRIM(question) != ''
+		GROUP BY q ORDER BY cnt DESC, q ASC LIMIT ?
+	`, since, topN)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []TopFallbackQuestion
+	for rows.Next() {
+		var tf TopFallbackQuestion
+		if err := rows.Scan(&tf.Question, &tf.Count); err != nil {
+			return nil, err
+		}
+		result = append(result, tf)
+	}
+	return result, rows.Err()
+}
+
 // CountByIntent 统计最近 sinceDays 天各意图的调用次数
 func (r *ChatMetricsRepo) CountByIntent(sinceDays int) ([]IntentCount, error) {
 	if sinceDays <= 0 {

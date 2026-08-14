@@ -84,6 +84,7 @@ class ApiConfig {
   // ── 管理端 ──
   static const String adminDashboard = '$apiPrefix/admin/stats/dashboard';
   static const String adminMetrics = '$apiPrefix/admin/metrics';
+  static const String adminFallbackQuestions = '$apiPrefix/admin/metrics/fallback-questions';
   static const String adminUsers = '$apiPrefix/admin/users';
   static String adminUserUpdate(String id) => '$apiPrefix/admin/users/$id';
   static String adminUserDelete(String id) => '$apiPrefix/admin/users/$id';
