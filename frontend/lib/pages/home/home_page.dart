@@ -1334,6 +1334,8 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildGradeGrowthCard(theme),
+        const SizedBox(height: 16),
         _buildCalendarBar(theme),
         const SizedBox(height: 16),
         _buildTodayOverview(theme),
@@ -1346,6 +1348,55 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 16),
         _buildUpcomingEvents(theme),
       ],
+    );
+  }
+
+  /// 分年级成长计划卡片（大二/大三/大四粘性增强）：首屏即见"本阶段该做什么"
+  Widget _buildGradeGrowthCard(ThemeData theme) {
+    final grade = context.watch<ThemeNotifier>().grade;
+    if (grade < 2 || grade > 4) return const SizedBox.shrink(); // 大一走开学待办
+
+    final color = context.watch<ThemeNotifier>().gradeAccent;
+    final name = context.watch<ThemeNotifier>().gradeThemeName;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.16), color.withOpacity(0.06)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, color: color, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '本阶段成长计划',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$name阶段专属：现在该做什么，一看就懂',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.go('/student/grade-growth'),
+            child: const Text('查看'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1847,11 +1898,18 @@ class _HomePageState extends State<HomePage> {
             {'icon': 'career', 'title': '就业服务', 'route': '/student/career'},
             {'icon': 'study', 'title': '学业服务', 'route': '/student/study'},
             {'icon': 'mental', 'title': '心理健康', 'route': '/student/mental'},
-            {
-              'icon': 'agenda',
-              'title': '开学待办',
-              'route': '/student/freshman-agenda'
-            },
+            // 按年级：大一→开学待办，大二以上→本阶段成长
+            (context.read<ThemeNotifier>().grade <= 1
+                ? {
+                    'icon': 'agenda',
+                    'title': '开学待办',
+                    'route': '/student/freshman-agenda'
+                  }
+                : {
+                    'icon': 'agenda',
+                    'title': '本阶段成长',
+                    'route': '/student/grade-growth'
+                  }),
           ]
         : quickEntries;
 

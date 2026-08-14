@@ -685,13 +685,14 @@ class _CampusMapPageState extends State<CampusMapPage> {
           );
         }
         // 移动端：上下布局 —— 地图在上（含顶部控件栏+地图+底部当前步骤操作面板），
-        // 完整报到流程列表在下，与 Web 端信息一致，无需额外弹出层。
+        // 完整报到流程列表在下。地图占大头（flex 7），步骤列表收窄为可滚动
+        // 区域，保证 APK/小屏上地图有足够高度显示与操作。
         return Column(
           children: [
-            Expanded(flex: 5, child: map),
+            Expanded(flex: 7, child: map),
             VerticalDivider(
                 width: 1, color: theme.colorScheme.outlineVariant),
-            Expanded(flex: 4, child: _buildStepsPanel(theme)),
+            Expanded(flex: 2, child: _buildStepsPanel(theme)),
           ],
         );
       },

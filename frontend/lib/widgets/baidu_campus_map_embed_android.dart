@@ -175,6 +175,7 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
         'type': 'refresh',
         'steps': widget.steps,
         'currentStep': widget.currentStep,
+        'mode': widget.editMode ? 'edit' : 'view',
       });
     }
     // 校区切换：重新取景到对应校区完整范围
