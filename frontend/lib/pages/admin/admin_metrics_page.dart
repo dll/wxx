@@ -47,25 +47,25 @@ class _AdminMetricsPageState extends State<AdminMetricsPage> {
                 _MetricGrid(children: [
                   _MetricCard(
                     label: '问答命中率',
-                    value: '${(m.hitRate * 100).toStringAsFixed(1)}%',
+                    value: _rate(m.hitRate),
                     icon: Icons.check_circle_outline,
                     color: Colors.green,
                   ),
                   _MetricCard(
                     label: '兜底率',
-                    value: '${(m.fallbackRate * 100).toStringAsFixed(1)}%',
+                    value: _rate(m.fallbackRate),
                     icon: Icons.help_outline,
                     color: Colors.orange,
                   ),
                   _MetricCard(
                     label: '引用覆盖率',
-                    value: '${(m.sourceCoverage * 100).toStringAsFixed(1)}%',
+                    value: _rate(m.sourceCoverage),
                     icon: Icons.link,
                     color: Colors.blue,
                   ),
                   _MetricCard(
                     label: 'P95 延迟',
-                    value: '${m.p95LatencyMs} ms',
+                    value: m.p95LatencyMs < 0 ? '暂无数据' : '${m.p95LatencyMs} ms',
                     icon: Icons.speed,
                     color: Colors.purple,
                   ),
@@ -99,6 +99,12 @@ class _AdminMetricsPageState extends State<AdminMetricsPage> {
         },
       ),
     );
+  }
+
+  /// 比率显示：无真实数据(<0)时显示"暂无数据"，否则显示百分比
+  String _rate(double v) {
+    if (v < 0) return '暂无数据';
+    return '${(v * 100).toStringAsFixed(1)}%';
   }
 
   /// 高频兜底问题（知识治理）：展示真实兜底问题，提示补录知识库压降兜底率

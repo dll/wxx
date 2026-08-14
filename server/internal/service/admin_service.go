@@ -66,27 +66,24 @@ func (s *AdminService) GetMetrics() (*model.AdminMetrics, error) {
 	}
 	m.ActiveUsersNow = int64(auditToday)
 
-	// 这些指标优先从 chat_metrics 表聚合，无数据时使用合理默认值
+	// 这些指标优先从 chat_metrics 表聚合；无真实数据时置 -1，前端显示"暂无数据"而非虚假默认值
+	hasMetrics := false
 	if s.chatMetricsRepo != nil {
-		agg, err := s.chatMetricsRepo.Aggregate(7)
-		if err == nil && agg.TotalQuestions > 0 {
+		if agg, err := s.chatMetricsRepo.Aggregate(7); err == nil && agg.TotalQuestions > 0 {
+			hasMetrics = true
 			m.HitRate = agg.SourceHitRate
 			m.FallbackRate = agg.FallbackRate
-			m.SourceCoverage = agg.SourceHitRate
 			m.P95Latency = agg.P95DurationMs
-		} else {
-			// 无数据或查询失败，使用默认值
-			m.HitRate = 0.85
-			m.FallbackRate = 0.10
-			m.SourceCoverage = 0.92
-			m.P95Latency = 1800
 		}
-	} else {
-		m.HitRate = 0.85
-		m.FallbackRate = 0.10
-		m.SourceCoverage = 0.92
-		m.P95Latency = 1800
 	}
+	if !hasMetrics {
+		// 无真实数据：用 -1 表示缺失，前端应显示"暂未采集到问答质量数据"，而非编造数字
+		m.HitRate = -1
+		m.FallbackRate = -1
+		m.P95Latency = -1
+	}
+	// 引用覆盖率暂无独立的真实统计来源，统一置 -1，避免显示未经验证的数值
+	m.SourceCoverage = -1
 
 	return m, nil
 }
