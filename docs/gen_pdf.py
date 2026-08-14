@@ -1,4 +1,5 @@
 import os
+import re
 import markdown
 import subprocess
 
@@ -10,6 +11,29 @@ pdf_file = os.path.join(docs_dir, '蔚小芯智能体学生操作手册v3.0.pdf'
 with open(md_file, 'r', encoding='utf-8') as f:
     md_content = f.read()
 
+# ── 预处理：把 <div> 内的 markdown 图片/斜体转成原始 HTML ──
+# Python-Markdown 默认不解析 HTML 块（<div>）内的 markdown，
+# 导致 ![..](..) 图片语法不转换为 <img>，图片在 PDF 中丢失。
+# 这里手动替换：图片语法 → <img>，图注 *...* → <em>...</em>。
+
+# 1) 图片语法 ![alt](src) → <img src="src" alt="alt">
+md_content = re.sub(
+    r'!\[([^\]]+)\]\(([^)]+)\)',
+    r'<img src="\2" alt="\1">',
+    md_content,
+)
+
+# 2) 图注斜体 *图 X-X ...* → <em>图 X-X ...</em>（只处理「*图」开头的行）
+md_content = re.sub(
+    r'^\*(图[^\n*]+)\*$',
+    r'<em>\1</em>',
+    md_content,
+    flags=re.MULTILINE,
+)
+
+# 3) 去掉图片强制缩小宽度（46%/30%），恢复正常尺寸
+md_content = re.sub(r'\swidth="\d+%"', '', md_content)
+
 html_body = markdown.markdown(
     md_content,
     extensions=['tables', 'fenced_code', 'toc'],
@@ -18,7 +42,7 @@ html_body = markdown.markdown(
 css = '''
 @page {
   size: A4;
-  margin: 18mm 16mm 18mm 16mm;
+  margin: 16mm 14mm 16mm 14mm;
 }
 * { box-sizing: border-box; }
 body {
@@ -56,7 +80,7 @@ h4 {
   margin: 10px 0 6px;
   page-break-after: avoid;
 }
-p { margin: 6px 0; }
+p { margin: 6px 0; text-align: justify; }
 table {
   border-collapse: collapse;
   width: 100%;
@@ -93,28 +117,38 @@ blockquote {
   font-size: 9.5pt;
   page-break-inside: avoid;
 }
+/* 图片：水平居中 + 正常尺寸 */
 div[align="center"] {
   text-align: center;
-  margin: 10px 0;
+  margin: 12px 0;
   page-break-inside: avoid;
 }
 div[align="center"] img {
+  display: block;
+  margin: 4px auto;
   max-width: 100%;
   height: auto;
-  margin: 4px auto;
 }
 div[align="center"] table {
   margin-left: auto;
   margin-right: auto;
 }
 div[align="center"] table img {
+  display: block;
+  margin: 0 auto;
   max-width: 100%;
   height: auto;
+}
+div[align="center"] p {
+  text-align: center;
 }
 em {
   color: #666;
   font-size: 9pt;
   font-style: normal;
+  display: block;
+  text-align: center;
+  margin-top: 3px;
 }
 hr {
   border: none;
@@ -162,4 +196,3 @@ if os.path.exists(pdf_file):
     print(f'Size: {size/1024:.0f} KB')
 else:
     print('PDF generation failed')
-    print(result.stderr[:2000])
