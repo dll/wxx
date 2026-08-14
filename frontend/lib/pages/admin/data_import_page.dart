@@ -143,6 +143,53 @@ class _DataImportPageState extends State<DataImportPage> {
             result: _scheduleResult,
             onImport: _importSchedules,
           ),
+          const SizedBox(height: 8),
+          _buildScheduleHelp(theme),
+        ],
+      ),
+    );
+  }
+
+  /// 课表字段说明：帮助辅导员/教务员填对 JSON（准确性第一）
+  Widget _buildScheduleHelp(ThemeData theme) {
+    const rows = [
+      ('user_id', '学生用户 ID（数字）'),
+      ('course_id', '课程编号（用于去重，如 CS103）'),
+      ('course_name', '课程名称，如 数据结构'),
+      ('semester_code', '学期代码，如 2025-2026-2'),
+      ('weekday', '星期：1=周一 … 7=周日'),
+      ('start_period', '开始节次：1-10（1=08:00，3=10:00）'),
+      ('end_period', '结束节次：≤10，且 ≥ start_period'),
+      ('weeks_pattern', '周次，如 "1-16" 或 "1-8,10-16"'),
+      ('location', '上课地点，如 信息楼C301'),
+      ('teacher', '任课教师'),
+    ];
+    return Card(
+      child: ExpansionTile(
+        leading: Icon(Icons.help_outline, color: theme.colorScheme.primary),
+        title: Text('课表字段说明', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('节次对应时间段：1=08:00, 2=08:55, 3=10:00, 4=10:55, 5=14:00, 6=14:55, 7=16:00, 8=16:55, 9=19:00, 10=19:55',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          ...rows.map((r) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 118,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(r.$1, style: TextStyle(fontSize: 12, color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(r.$2, style: theme.textTheme.bodySmall)),
+                ]),
+              )),
         ],
       ),
     );
