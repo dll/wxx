@@ -1,0 +1,13 @@
+# hvigor 构建输出
+.hvigor/
+.idea/
+oh_modules/
+entry/build/
+**/build/
+*.hap
+
+# 本地环境配置（不提交，由 CI/本机生成）
+local.properties
+
+# 日志
+*.log

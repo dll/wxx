@@ -1,0 +1,2 @@
+# 混淆规则文件（当前 release 未启用混淆）
+-enable-property-obfuscation
