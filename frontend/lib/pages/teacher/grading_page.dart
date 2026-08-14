@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/teacher_feature_provider.dart';
 import '../../widgets/md_text.dart';
@@ -64,6 +65,21 @@ class _GradingPageState extends State<GradingPage> {
                     Icon(Icons.rate_review, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Text('批改结果', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: '复制评语',
+                      icon: const Icon(Icons.copy, size: 20),
+                      onPressed: () {
+                        final text = (provider.gradingResult!['feedback'] ??
+                                provider.gradingResult!['content'] ?? '')
+                            .toString();
+                        Clipboard.setData(ClipboardData(text: text));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('评语已复制，可直接粘贴到成绩/评阅系统')));
+                        }
+                      },
+                    ),
                   ]),
                   const SizedBox(height: 12),
                   if (provider.gradingResult!['score'] != null)
