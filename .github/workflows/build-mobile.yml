@@ -247,22 +247,24 @@ jobs:
           echo "$HUAWEI_SIGNING_P12" | base64 --decode > frontend/harmonyos/material/signing.p12
           echo "$HUAWEI_SIGNING_PROFILE" | base64 --decode > frontend/harmonyos/material/signing.p7b
           # 写入 build-profile.json5 的 signingConfigs（products 已引用 signingConfig: default）
-          # 注意：hvigor 对相对路径按 <工程>/material/<文件> 解析，故文件置于 material/ 目录
+          # 注意：hvigor 5.x 对 storeFile/certpath/profile 的相对路径统一加 <工程>/material/ 前缀；
+          #       storeFile 值必须能被识别为 .p12 文件，使用绝对路径最稳妥（兼容 32 位口令要求）。
           python3 - <<'PYEOF'
           import json, os
           p = "frontend/harmonyos/build-profile.json5"
+          base = os.path.join(os.getcwd(), "frontend/harmonyos/material")
           d = json.load(open(p, encoding="utf-8"))
           d["app"]["signingConfigs"] = [{
               "name": "default",
               "type": "HarmonyOS",
               "material": {
-                  "certpath": "signing.cer",
+                  "certpath": os.path.join(base, "signing.cer"),
                   "storePassword": os.environ["HUAWEI_SIGNING_STORE_PASSWORD"],
                   "keyAlias": os.environ["HUAWEI_SIGNING_KEY_ALIAS"],
                   "keyPassword": os.environ.get("HUAWEI_SIGNING_KEY_PASSWORD", os.environ["HUAWEI_SIGNING_STORE_PASSWORD"]),
-                  "profile": "signing.p7b",
+                  "profile": os.path.join(base, "signing.p7b"),
                   "signAlg": "SHA256withECDSA",
-                  "storeFile": "signing.p12"
+                  "storeFile": os.path.join(base, "signing.p12")
               }
           }]
           json.dump(d, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
