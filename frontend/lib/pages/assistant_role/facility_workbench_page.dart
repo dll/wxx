@@ -30,7 +30,6 @@ class _FacilityWorkbenchPageState extends State<FacilityWorkbenchPage>
   Map<String, dynamic> _dashboard = {};
 
   // 登记表单
-  final Map<String, String> _roleMeta = {}; // 前端兜底常量
   String? _formRole;
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _locCtrl = TextEditingController();
