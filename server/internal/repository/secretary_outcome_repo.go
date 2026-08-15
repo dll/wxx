@@ -543,7 +543,7 @@ func (r *SecretaryOutcomeRepo) PartyRecordItem(id int64) (map[string]interface{}
 	row := r.db.QueryRow(
 		`SELECT psr.id, psr.study_type, psr.title, psr.content, psr.duration, psr.study_date,
 		        psr.status, psr.created_by, psr.created_by_role,
-		        COALESCE(u.real_name, u.username, ''), COALESCE(psr.user_id,0)
+		        COALESCE(u.display_name, u.username, ''), COALESCE(psr.user_id,0)
 		 FROM party_study_records psr
 		 LEFT JOIN users u ON u.id = psr.created_by
 		 WHERE psr.id = ?`,
@@ -581,7 +581,7 @@ func (r *SecretaryOutcomeRepo) PartyRecordItem(id int64) (map[string]interface{}
 func (r *SecretaryOutcomeRepo) ListPartyRecords(opID int64) ([]map[string]interface{}, error) {
 	rows, err := r.db.Query(
 		`SELECT psr.id, psr.study_type, psr.title, psr.content, psr.duration, psr.study_date, psr.status,
-		        psr.created_by, psr.created_by_role, COALESCE(u.real_name, u.username, ''), COALESCE(psr.user_id,0)
+		        psr.created_by, psr.created_by_role, COALESCE(u.display_name, u.username, ''), COALESCE(psr.user_id,0)
 		 FROM party_study_records psr
 		 LEFT JOIN users u ON u.id = psr.created_by
 		 WHERE psr.created_by = ?
