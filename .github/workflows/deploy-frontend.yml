@@ -179,8 +179,12 @@ jobs:
             set -e
             echo "=== 后端更新开始 $(date +%H:%M:%S) ==="
             cd /opt/wxx || exit 1
-            # 1. 备份数据库（部署前）
-            sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).db'" 2>/dev/null || true
+            # 1. 备份数据库（部署前）——实际架构为 MySQL，用 mysqldump；密码从 /etc/wxx/env 提取
+            echo "--- 备份 MySQL 数据库 ---"
+            DB_PW=$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)
+            DB_NAME=$(grep '^DB_NAME=' /etc/wxx/env | cut -d= -f2-)
+            mysqldump -h127.0.0.1 -uwxx -p"$DB_PW" "$DB_NAME" > "/opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).sql" 2>/dev/null && \
+              echo "MySQL 备份完成: $(ls -la /opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).sql)" || echo "[warn] MySQL 备份失败(忽略，继续部署)"
             # 2. 尝试拉取最新源码（容错：GitHub 网络不稳定，超时/失败不阻塞，用现有源码编译）
             echo "--- 尝试 git fetch(容错) ---"
             timeout 40 git fetch origin main 2>&1 || echo "[warn] git fetch 超时/失败，将使用服务器现有源码"

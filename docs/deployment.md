@@ -3,8 +3,10 @@
 > 蔚小芯当前正式部署架构：
 > - **前端**：正式入口 `https://wxx-agent.online`（腾讯云 Lighthouse Caddy 静态服务，ICP 备案皖ICP备2026004593号-2；`www.wxx-agent.online` 永久重定向至此），备用入口 `https://wxx-logistic.pages.dev`（Cloudflare Pages）
 > - **后端**：腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04），Go 二进制 systemd 常驻，Caddy 反向代理 + 自动 HTTPS（`https://wxx-agent.online`）
-> - **数据库**：服务器本地 SQLite（`/opt/wxx/data/wxx.db`，含 FTS5）
-> - **代理链路**：用户 → Caddy（`https://wxx-agent.online`）→ `/api/*` 反代 `http://localhost:8080`（Go 后端）→ 本地 SQLite；Caddy 同时静态服务 `/opt/wxx/frontend/web`
+> - **数据库**：**MySQL 8.0（`localhost:3306`，库名 `wxx`，用户 `wxx`）** + **Redis（`localhost:6379`，DB=1）**；连接参数在 `/etc/wxx/env`（`DB_DRIVER=mysql`、`DB_HOST`、`DB_NAME`、`DB_USER`、`DB_PASSWORD`、`REDIS_ADDR` 等）
+> - **代理链路**：用户 → Caddy（`https://wxx-agent.online`）→ `/api/*` 反代 `http://localhost:8080`（Go 后端）→ MySQL；Caddy 同时静态服务 `/opt/wxx/frontend/web`
+>
+> ⚠️ 注意：旧文档/旧 CI 曾以 **SQLite**（`/opt/wxx/data/wxx.db`）为正式架构，服务器上仍有该遗留文件，**但当前正式架构已迁移到 MySQL + Redis**（`DB_DRIVER=mysql`）。本文以下内容均按 MySQL 架构编写。
 >
 > 历史方案（Vercel Serverless + Turso）已于 2026-07-31 停用，仅作归档参考，见文末「历史方案」。
 
@@ -21,18 +23,18 @@
 
 ## 部署模式对比
 
-| 特性 | 腾讯云 Lighthouse + SQLite（**当前正式**） | Vercel + Turso（历史/已停用） |
-|------|-------------------------------------------|------------------------------|
-| 前端托管 | Cloudflare Pages（国内加速） | Cloudflare Pages |
+| 特性 | 腾讯云 Lighthouse + MySQL/Redis（**当前正式**） | Vercel + Turso（历史/已停用） |
+|------|-----------------------------------------------|------------------------------|
+| 前端托管 | 服务器 Caddy 静态（国内加速） | Cloudflare Pages |
 | 后端运行 | systemd 常驻（无冷启动） | Vercel Serverless（有冷启动） |
-| 数据持久化 | 本地 SQLite `/opt/wxx/data/wxx.db` | Turso 云端 |
-| SQLite 延迟 | ~58µs（本地文件） | ~50ms（网络往返） |
-| FTS5 全文检索 | ✅ `ok` | ⚠️ Turso 上 `unavailable` |
+| 数据持久化 | MySQL 8.0（`localhost:3306/wxx`）+ Redis | Turso 云端 |
+| 存储延迟 | ~100µs（本地 TCP，实测 `/health` 约 105–140µs） | ~50ms（网络往返） |
+| 全文检索 | 后端 FTS5（注：MySQL 驱动下 `/health` 报 `fts5 unavailable (mysql)` 属正常，检索由应用层处理） | ⚠️ Turso 上 `unavailable` |
 | LLM 长请求 | ✅ 无超时限制 | ⚠️ Serverless 超时截断 |
 | 运维成本 | 中（需维护服务器，约 ¥150–220/月） | 低（免运维，按量计费） |
 | 适用场景 | **当前正式方案** | 已停用 |
 
-## 腾讯云 Lighthouse + SQLite 部署（当前正式方案）
+## 腾讯云 Lighthouse + MySQL/Redis 部署（当前正式方案）
 
 详细的服务器迁移与部署过程见 `docs/蔚小芯-后端迁移常驻服务器方案.md` 与 `docs/蔚小芯Fable5审核和开发计划与实现v4.md` §1。核心步骤概览：
 
@@ -48,7 +50,9 @@ export PATH=$PATH:/usr/local/go/bin
 export GOPROXY=https://goproxy.cn,direct
 cd /opt/wxx && go build -tags fts5 -o /opt/wxx/wxx-server ./server/cmd/server
 
-# 3. 环境变量写入 /etc/wxx/env（APP_MODE、APP_PORT=8080、SQLITE_PATH、JWT_SECRET≥32位、各 LLM 密钥、CORS_ALLOWED_ORIGINS）
+# 3. 环境变量写入 /etc/wxx/env（APP_MODE、APP_PORT=8080、JWT_SECRET≥32位、各 LLM 密钥、CORS_ALLOWED_ORIGINS、
+#    MySQL 配置：DB_DRIVER=mysql、DB_HOST=localhost、DB_PORT=3306、DB_NAME=wxx、DB_USER=wxx、DB_PASSWORD=<密码>、
+#    Redis 配置：REDIS_ADDR=localhost:6379、REDIS_DB=1、REDIS_PASS=<可选>）
 # 4. systemd 服务 /etc/systemd/system/wxx.service（EnvironmentFile=/etc/wxx/env，Restart=always）
 systemctl enable --now wxx
 
@@ -60,7 +64,7 @@ systemctl enable --now caddy
 
 # 6. Lighthouse 防火墙放通 TCP 22 / 80 / 443 / 8080
 # 7. 健康检查
-curl -s http://localhost:8080/health   # status=healthy, fts5=ok, sqlite=ok
+curl -s http://localhost:8080/health   # status=healthy, database=mysql ok, redis ok
 ```
 
 关键前置条件：
@@ -75,13 +79,15 @@ curl -s http://localhost:8080/health   # status=healthy, fts5=ok, sqlite=ok
 
 ## 备份（重要）
 
-SQLite 是唯一数据存储，须定期备份。写入 cron：
+MySQL 是唯一数据存储（`/opt/wxx/data/wxx.db` 为遗留 SQLite 文件，非当前数据源），须定期备份。写入 cron：
 
 ```bash
 mkdir -p /opt/wxx/backup
-# 每日 03:00 备份
-echo '0 3 * * * root sqlite3 /opt/wxx/data/wxx.db ".backup /opt/wxx/backup/wxx-$(date +\%F).db" && find /opt/wxx/backup -name "wxx-*.db" -mtime +14 -delete' > /etc/cron.d/wxx-backup
+# 每日 03:00 备份（需先在服务器确保 `mysql`/`mysqldump` 可用；密码从 /etc/wxx/env 提取）
+echo '0 3 * * * root PW=$(grep "^DB_PASSWORD=" /etc/wxx/env | cut -d= -f2-); mysqldump -h127.0.0.1 -uwxx -p"$PW" wxx > /opt/wxx/backup/wxx-$(date +\%F).sql 2>/dev/null && find /opt/wxx/backup -name "wxx-*.sql" -mtime +14 -delete' > /etc/cron.d/wxx-backup
 ```
+
+> ⚠️ 注意：服务器现有 `/etc/cron.d/wxx-backup` 仍是 **SQLite 备份**（备份的是已废弃的 `/opt/wxx/data/wxx.db`），**迁移到 MySQL 后真实数据一直没有备份**。修复 cron 为上面的 mysqldump 版本（见下文「CI/CD 与生产对齐」）。
 
 ## 预置数据清理与管理员重建（上线前必须执行）
 
@@ -104,7 +110,7 @@ echo '0 3 * * * root sqlite3 /opt/wxx/data/wxx.db ".backup /opt/wxx/backup/wxx-$
 
 **保留不清理**：系统必需项（`admin` 账号、`system_settings` 默认配置、`agents` 系统智能体、`app_versions` 版本表、FTS 触发器）；无管理入口模块的种子（社团 `clubs`、心理 `psych_*`/`crisis_hotlines`/`counselors`/`psych_articles`、入党 `party_stages`、学习资源 `learning_resources`、规划模板 `plan_templates`）；全部用户账号；学生产生的真实数据（打卡/问答/积分/反馈/会话等）。
 
-> 提示：若需**彻底清空数据库重新初始化**（含账号），可删除 `/opt/wxx/data/wxx.db` 后重启服务，迁移会重建全部表结构；但 `admin` 外的演示账号会被重新注入。仅清理业务数据请依赖 `079` 迁移，勿删库。
+> 提示：若需**彻底清空数据库重新初始化**（含账号），可 `DROP DATABASE wxx` + `CREATE DATABASE wxx` 后重启服务，迁移会重建全部表结构；但 `admin` 外的演示账号会被重新注入。仅清理业务数据请依赖 `079` 迁移，勿删库。
 
 ## 历史方案（Vercel + Turso，已停用，仅归档）
 
@@ -475,18 +481,20 @@ npx wrangler pages deploy build/web --project-name wxx-agent --branch main
 ## 数据备份
 
 ```bash
-# SQLite 在线备份（不中断服务）
-sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-$(date +%Y%m%d).db'"
+# MySQL 在线备份（mysqldump；不中断服务）
+PW=$(grep "^DB_PASSWORD=" /etc/wxx/env | cut -d= -f2-)
+mysqldump -h127.0.0.1 -uwxx -p"$PW" wxx > "/opt/wxx/backup/wxx-$(date +%Y%m%d).sql"
 
-# 建议：每日定时备份
-# crontab -e
-# 0 3 * * * sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-$(date +\%Y\%m\%d).db'"
+# 建议：每日定时备份（见上文「备份」章节 cron）
+# 0 3 * * * root PW=$(grep "^DB_PASSWORD=" /etc/wxx/env | cut -d= -f2-); mysqldump -h127.0.0.1 -uwxx -p"$PW" wxx > /opt/wxx/backup/wxx-$(date +\%F).sql
 ```
+
+> MySQL 连接要点：本机连接必须显式用 TCP（`-h127.0.0.1`）；若省去 `-h` 走 localhost socket，`wxx@localhost` 认证会失败（ERROR 1045）。
 
 ## 日志管理
 
 - 应用日志通过 systemd journal 管理
-- 审计日志存储在 SQLite `audit_logs` 表中
+- 审计日志存储在 MySQL `audit_logs` 表中
 - 建议保留审计日志至少 180 天
 
 ## 健康检查
@@ -496,13 +504,15 @@ sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-$(date +%Y%m%d).db'"
 sudo systemctl status wxx
 
 # 检查接口可用性
-curl -s http://localhost:8080/api/v1/health
+curl -s http://localhost:8080/health      # 返回 JSON：database.mysql ok、redis ok、llm_api configured
+# 注意：健康端点挂在 /health（非 /api/v1/health）；MySQL 驱动下 "fts5 unavailable (mysql)" 属正常
 
-# 检查数据库完整性
-sqlite3 /opt/wxx/data/wxx.db "PRAGMA integrity_check;"
+# 检查数据库连通与迁移记录
+mysql -h127.0.0.1 -uwxx -p"$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)" wxx -e "SHOW TABLES;
+SELECT filename FROM _migrations ORDER BY id DESC LIMIT 5;"
 
-# 检查 FTS 索引同步
-sqlite3 /opt/wxx/data/wxx.db "SELECT COUNT(*) FROM kb_fts; SELECT COUNT(*) FROM kb_resources WHERE status='published';"
+# 知识库数据量
+mysql -h127.0.0.1 -uwxx -p"$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)" wxx -e "SELECT COUNT(*) FROM kb_resources WHERE status='published';"
 ```
 
 ## 更新流程
@@ -511,21 +521,20 @@ sqlite3 /opt/wxx/data/wxx.db "SELECT COUNT(*) FROM kb_fts; SELECT COUNT(*) FROM 
 # 1. 拉取最新代码
 cd /path/to/wxx && git pull
 
-# 2. 编译
-make build
+# 2. 编译（Linux amd64，CGO=0，带 FTS5）
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags fts5 -o bin/wxx-server ./cmd/server  # 在 server/ 目录下
 
-# 3. 备份数据库
-sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-pre-update.db'"
+# 3. 备份数据库（MySQL）
+mysqldump -h127.0.0.1 -uwxx -p"$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)" wxx > /opt/wxx/backup/wxx-pre-update.sql
 
 # 4. 替换二进制
-sudo cp bin/wxx-server /opt/wxx/bin/
+sudo cp bin/wxx-server /opt/wxx/wxx-server
 
-# 5. 执行迁移（如有新 migration 文件）
-cd /opt/wxx && ./bin/wxx-server migrate
-
-# 6. 重启服务
+# 5. 重启服务（新迁移随启动自动应用，无需单独执行 migrate 命令）
 sudo systemctl restart wxx
 
-# 7. 验证
-curl -s http://localhost:8080/api/v1/health
+# 6. 验证
+curl -s http://localhost:8080/health
 ```
+
+> 迁移机制：`server/embed.go` 用 `//go:embed migrations/*.sql` 把迁移文件嵌入二进制，启动时由 `runMigrations` 自动应用（`_migrations` 表按 filename 去重）。替换二进制后重启即自动应用新增迁移，无需单独上传迁移文件或执行 `migrate` 子命令。
