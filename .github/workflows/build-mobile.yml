@@ -278,15 +278,8 @@ jobs:
             exit 1
           fi
           echo "HAP_TOOL=$HAP_TOOL"
-          # 提取叶子发布证书（证书链最后一个，被华为 CA 签发）
-          python3 - <<'PYEOF'
-          import base64, re, os
-          data = open("signing/app-cert-chain.cer", "rb").read()
-          pems = re.findall(rb"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", data, re.S)
-          leaf = base64.b64decode(b"".join(l.strip() for l in pems[-1].splitlines()))
-          open("signing/app-cert.cer", "wb").write(leaf)
-          print("叶子证书提取完成:", len(leaf), "bytes")
-          PYEOF
+          # appCertFile 必须提供完整证书链（根CA→CA→叶子），hap-sign-tool 要求 cert chain
+          echo "使用完整证书链签名"
           # 找 unsigned HAP
           HAP=$(find frontend/harmonyos/entry/build -name "*.hap" | head -1)
           echo "待签名 HAP: $HAP"
@@ -296,7 +289,7 @@ jobs:
             -mode localSign \
             -keyAlias "$HUAWEI_SIGNING_KEY_ALIAS" \
             -keyPwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
-            -appCertFile signing/app-cert.cer \
+            -appCertFile signing/app-cert-chain.cer \
             -profileFile signing/app.p7b \
             -profileSigned 1 \
             -inFile "$HAP" \
