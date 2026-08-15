@@ -312,3 +312,102 @@ func extractJSON(s string) string {
 	}
 	return s[start : end+1]
 }
+
+// ─────────────────────────────────────────────────────────────
+// 教辅/教师绩效画像（GetStaffTwin）
+//
+// 与 GetDigitalTwin（学生五维）不同：绩效画像把「我完成了多少工作」
+// 汇聚成数字孪生画像，并把 教师 / 学生 / 蔚小芯 三方绑定到同一画像上。
+//
+// 打分规则（透明、可解释、不编造）：
+//   Score = min(100, 真实次数)，次数即分数（1 次 = 1 分，封顶 100）；
+//   DataAvailable = 次数 > 0（无记录时前端显示「数据积累中」）。
+//   协作教师绑定因暂无独立教师协作表，诚实返回 DataAvailable=false。
+
+// computeStaffDimensions 把绩效原始指标转成维度列表（含三方绑定块）
+func computeStaffDimensions(m *repository.StaffTwinMetrics) []TwinDimension {
+	mk := func(key, name string, count int, desc string) TwinDimension {
+		return TwinDimension{
+			Key:           key,
+			Name:          name,
+			Score:         clamp(float64(count)),
+			Level:         "",
+			Desc:          desc,
+			DataAvailable: count > 0,
+		}
+	}
+	dims := []TwinDimension{
+		mk("help", "帮扶咨询", m.TalkCount, fmt.Sprintf("开展谈心帮扶 %d 次", m.TalkCount)),
+		mk("schedule", "排课处理", m.ScheduleCount, fmt.Sprintf("处理排课冲突 %d 次", m.ScheduleCount)),
+		mk("exam", "考试编排", m.ExamCount, fmt.Sprintf("编排考试 %d 次", m.ExamCount)),
+		mk("notify", "通知发布", m.NotifyCount, fmt.Sprintf("发布通知 %d 次", m.NotifyCount)),
+		mk("material", "材料产出", m.MaterialCount, fmt.Sprintf("产出材料模板/文档 %d 次", m.MaterialCount)),
+		mk("wxx_use", "蔚小芯使用", m.WxxUseCount, fmt.Sprintf("调用蔚小芯功能 %d 次", m.WxxUseCount)),
+		// 三方绑定块
+		mk("bind_student", "服务学生", m.StudentBindCount, fmt.Sprintf("已服务 %d 名学生", m.StudentBindCount)),
+		mk("bind_wxx", "蔚小芯能力", m.WxxBindCount, fmt.Sprintf("使用过 %d 项蔚小芯能力", m.WxxBindCount)),
+		{
+			Key: "bind_teacher", Name: "协作教师", Score: 0, Level: "",
+			Desc:          "暂无教师协作记录，完成协同教学/评教后生成",
+			DataAvailable: false,
+		},
+	}
+	return dims
+}
+
+// GetStaffTwin 计算教辅/教师绩效画像（含三方绑定）。
+// 供教辅/教师角色访问自己的数字孪生画像。
+func (s *TwinService) GetStaffTwin(ctx context.Context, userID int64) (*TwinResult, error) {
+	metrics, err := s.repo.AggregateStaffMetrics(userID)
+	if err != nil {
+		return nil, fmt.Errorf("聚合绩效画像指标失败: %w", err)
+	}
+
+	dims := computeStaffDimensions(metrics)
+
+	// 综合绩效分：仅对有数据维度求平均（无数据跳过，避免拉低）
+	var sum, n float64
+	for _, d := range dims {
+		if d.DataAvailable {
+			sum += d.Score
+			n++
+		}
+	}
+	var overall float64
+	if n > 0 {
+		overall = clamp(sum / n)
+	}
+
+	displayName := ""
+	if s.userRepo != nil {
+		if u, uerr := s.userRepo.GetByID(userID); uerr == nil && u != nil {
+			displayName = u.DisplayName
+		}
+	}
+
+	// 绩效解读（规则文本，避免编造情感化表述）
+	interpretation := "你的绩效画像数据尚在积累中，完成谈心帮扶、排课、考试编排、通知发布等教辅工作后会自动汇聚。"
+	var advice []string
+	if n > 0 {
+		interpretation = fmt.Sprintf("当前已汇聚 %d 项绩效维度：累计 %d 次蔚小芯功能调用、服务 %d 名学生。",
+			int(n), metrics.WxxUseCount, metrics.StudentBindCount)
+		if metrics.TalkCount == 0 {
+			advice = append(advice, "创建谈心帮扶记录可将「帮扶咨询」维度纳入绩效画像。")
+		}
+		if metrics.ScheduleCount == 0 && metrics.ExamCount == 0 {
+			advice = append(advice, "使用排课冲突检测与考试编排功能可完善教务绩效。")
+		}
+	}
+
+	return &TwinResult{
+		UserID:         userID,
+		DisplayName:    displayName,
+		OverallScore:   overall,
+		Dimensions:     dims,
+		Interpretation: interpretation,
+		GapAnalysis:    advice,
+		StageAdvice:    advice,
+		ComputedAt:     time.Now().Format(time.RFC3339),
+		Fallback:       true, // 绩效为规则聚合，非 LLM 生成
+	}, nil
+}

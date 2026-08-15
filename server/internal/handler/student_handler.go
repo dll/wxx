@@ -326,14 +326,28 @@ func (h *StudentHandler) GrowthPath(c *gin.Context) {
 	h.GenericAI("growth-path")(c)
 }
 
+// isStaffRole 判断角色是否为教辅/教师（走绩效画像而非学生五维）
+func isStaffRole(role string) bool {
+	return role == "counselor" || role == "teacher" || role == "assistant"
+}
+
 func (h *StudentHandler) DigitalTwin(c *gin.Context) {
 	// 优先走真实五维聚合服务（S1.1 数字孪生数据底座）
 	if h.twinSvc != nil {
 		if userCtx := middleware.GetUserContext(c); userCtx != nil {
-			result, err := h.twinSvc.GetDigitalTwin(c.Request.Context(), userCtx.UserID)
-			if err == nil && result != nil {
-				c.JSON(http.StatusOK, result)
-				return
+			// 教辅/教师角色走绩效画像（帮扶/咨询等 → 教师+学生+蔚小芯三方绑定）
+			if isStaffRole(userCtx.Role) {
+				result, err := h.twinSvc.GetStaffTwin(c.Request.Context(), userCtx.UserID)
+				if err == nil && result != nil {
+					c.JSON(http.StatusOK, result)
+					return
+				}
+			} else {
+				result, err := h.twinSvc.GetDigitalTwin(c.Request.Context(), userCtx.UserID)
+				if err == nil && result != nil {
+					c.JSON(http.StatusOK, result)
+					return
+				}
 			}
 		}
 	}

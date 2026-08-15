@@ -618,6 +618,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '社团加入与活动参与', '/club'),
         ],
         if (role == 'counselor') ...[
+          _ProfileFeature('c_perf_twin', '辅导员服务', Icons.person_pin, '绩效画像',
+              '我的帮扶咨询绩效 · 学生绑定', '/student/digital-twin'),
           _ProfileFeature('c_daily_focus', '辅导员服务', Icons.visibility_outlined,
               'AI 今日关注', '重点关注学生提醒', '/counselor/daily-focus'),
           _ProfileFeature('c_class_report', '辅导员服务', Icons.assessment_outlined,
@@ -651,6 +653,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '学生列表', '查看管理学生名单', '/counselor/student-list'),
         ],
         if (role == 'teacher') ...[
+          _ProfileFeature('t_perf_twin', '教师服务', Icons.person_pin, '绩效画像',
+              '我的工作绩效 · 学生绑定', '/student/digital-twin'),
           _ProfileFeature('t_daily', '教师服务', Icons.school_outlined, '今日授课',
               'AI 授课概览', '/teacher/daily-overview'),
           _ProfileFeature('t_lesson', '教师服务', Icons.auto_awesome, 'AI 备课',
@@ -671,6 +675,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '社区问答', '教师社区答疑', '/teacher/community-qa'),
         ],
         if (role == 'assistant') ...[
+          _ProfileFeature('a_perf_twin', '教辅服务', Icons.person_pin, '绩效画像',
+              '我的教务绩效 · 蔚小芯绑定', '/student/digital-twin'),
           _ProfileFeature('a_schedule', '教辅服务', Icons.event_busy, '排课检测',
               '排课冲突检测', '/assistant/schedule-check'),
           _ProfileFeature('a_grad', '教辅服务', Icons.school, '毕业审核', '毕业资格审核',

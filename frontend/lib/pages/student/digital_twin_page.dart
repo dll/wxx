@@ -20,6 +20,28 @@ class DigitalTwinPage extends StatefulWidget {
 }
 
 class _DigitalTwinPageState extends State<DigitalTwinPage> {
+  /// 当前登录者是否为教辅/教师（counselor/teacher/assistant）
+  bool get _isStaff {
+    final r = Storage.role ?? '';
+    return r == 'counselor' || r == 'teacher' || r == 'assistant';
+  }
+
+  /// 教辅/教师中文角色名（学生/学生会回退历史逻辑）
+  String get _roleLabel {
+    switch (Storage.role) {
+      case 'counselor':
+        return '辅导员';
+      case 'teacher':
+        return '教师';
+      case 'assistant':
+        return '教辅';
+      case 'student_union':
+        return '学生会';
+      default:
+        return '学生';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -469,13 +491,13 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '综合画像 · $label',
+                    _isStaff ? '绩效画像 · $label' : '综合画像 · $label',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${Storage.displayName ?? '同学'} · ${Storage.role == 'student_union' ? '学生会' : '学生'}',
+                    '${Storage.displayName ?? '同学'} · ${_roleLabel}',
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -483,7 +505,9 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '点击下方雷达图查看各维度详情，数字人形象随数据自动变化',
+                    _isStaff
+                        ? '绩效汇聚你的帮扶咨询、排课考试、通知材料等教辅工作，并绑定教师、学生与蔚小芯'
+                        : '点击下方雷达图查看各维度详情，数字人形象随数据自动变化',
                     style: TextStyle(
                       color: theme.colorScheme.outline,
                       fontSize: 12,
@@ -841,11 +865,11 @@ class _RadarChartPainter extends CustomPainter {
       );
     }
 
-    // 标签
+    // 标签（维度多时自适应：更多维度 → 更小字号 + 稍外移半径，避免重叠）
+    final labelFontSize = n >= 8 ? 9.0 : (n >= 6 ? 10.5 : 12.0);
+    final labelRadius = radius + (n >= 8 ? 30 : 22);
     for (int i = 0; i < n; i++) {
       final angle = startAngle + i * angleStep;
-      // 标签放在多边形外侧
-      final labelRadius = radius + 22;
       final x = center.dx + labelRadius * cos(angle);
       final y = center.dy + labelRadius * sin(angle);
 
@@ -854,14 +878,14 @@ class _RadarChartPainter extends CustomPainter {
           text: labels[i],
           style: TextStyle(
             color: Colors.grey.shade700,
-            fontSize: 12,
+            fontSize: labelFontSize,
             fontWeight: FontWeight.w500,
           ),
         ),
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
       );
-      textPainter.layout(maxWidth: 80);
+      textPainter.layout(maxWidth: 72);
       textPainter.paint(
         canvas,
         Offset(x - textPainter.width / 2, y - textPainter.height / 2),

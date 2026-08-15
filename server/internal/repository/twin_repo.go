@@ -330,3 +330,91 @@ func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className 
 	}
 	return list, rows.Err()
 }
+
+// ─────────────────────────────────────────────────────────────
+// 教辅/教师绩效画像聚合（工作绩效 → 数字孪生画像）
+//
+// 数据全部来自真实业务/审计记录，不做任何硬编码示例：
+//   - 帮扶/咨询       ← talk_records（按创建人 counselor_id 计数）
+//   - 排课/考试/通知/材料 ← audit_logs（resource 为 /assistant/* 路由）
+//   - 蔚小芯能力使用   ← audit_logs（assistant + counselor 路由总数）
+//   - 服务学生绑定     ← talk_records 去重 student_id
+//   - 蔚小芯能力绑定   ← audit_logs 去重 resource
+//   - 协作教师绑定     ← 暂无独立教师协作记录表，诚实返回 0
+// 无数据时返回 0（上游按 DataAvailable=false 显示「数据积累中」，
+// 绝不展示伪绩效）。
+
+// StaffTwinMetrics 教辅/教师绩效画像原始指标（未归一化）
+type StaffTwinMetrics struct {
+	TalkCount        int // 帮扶/咨询（谈心）记录数
+	ScheduleCount    int // 排课冲突处理数
+	ExamCount        int // 考试编排数
+	NotifyCount      int // 通知发布数
+	MaterialCount    int // 材料模板/文档处理数
+	WxxUseCount      int // 蔚小芯（assistant+counselor）功能调用总数
+	StudentBindCount int // 服务学生去重数
+	WxxBindCount     int // 使用过的蔚小芯能力去重数
+}
+
+// AggregateStaffMetrics 聚合某教辅/教师用户的绩效画像原始指标。
+// userID 为该用户主键；talk_records.counselor_id 即创建人（辅导员/教辅）。
+func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error) {
+	m := &StaffTwinMetrics{}
+
+	// 帮扶/咨询：该用户创建的谈心记录数
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM talk_records WHERE counselor_id = ?`, userID).
+		Scan(&m.TalkCount); err != nil {
+		m.TalkCount = 0
+	}
+
+	// 排课冲突处理（assistant/schedule-check）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND resource LIKE '%/assistant/schedule-check'`, userID).
+		Scan(&m.ScheduleCount); err != nil {
+		m.ScheduleCount = 0
+	}
+
+	// 考试编排（assistant/exam-arrange）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND resource LIKE '%/assistant/exam-arrange'`, userID).
+		Scan(&m.ExamCount); err != nil {
+		m.ExamCount = 0
+	}
+
+	// 通知发布（assistant/notification）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND resource LIKE '%/assistant/notification'`, userID).
+		Scan(&m.NotifyCount); err != nil {
+		m.NotifyCount = 0
+	}
+
+	// 材料产出（assistant/material-templates + doc-process）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/material-templates' OR resource LIKE '%/assistant/doc-process')`, userID).
+		Scan(&m.MaterialCount); err != nil {
+		m.MaterialCount = 0
+	}
+
+	// 蔚小芯（assistant + counselor）功能调用总数
+	if err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%')`, userID).
+		Scan(&m.WxxUseCount); err != nil {
+		m.WxxUseCount = 0
+	}
+
+	// 服务学生去重数（talk_records.student_id 非 0 去重）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(DISTINCT student_id) FROM talk_records WHERE counselor_id = ? AND student_id > 0`, userID).
+		Scan(&m.StudentBindCount); err != nil {
+		m.StudentBindCount = 0
+	}
+
+	// 蔚小芯能力去重数（audit_logs 去重 resource）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(DISTINCT resource) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%')`, userID).
+		Scan(&m.WxxBindCount); err != nil {
+		m.WxxBindCount = 0
+	}
+
+	return m, nil
+}
