@@ -79,7 +79,7 @@ curl -s http://localhost:8080/health   # status=healthy, database=mysql ok, redi
 
 ## 备份（重要）
 
-MySQL 是唯一数据存储（`/opt/wxx/data/wxx.db` 为遗留 SQLite 文件，非当前数据源），须定期备份。写入 cron：
+MySQL 是唯一数据存储，须定期备份（旧 SQLite 文件 `wxx.db` 已归档到 `backup/legacy-sqlite-wxx.db`）。写入 cron：
 
 ```bash
 mkdir -p /opt/wxx/backup
