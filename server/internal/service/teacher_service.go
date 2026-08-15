@@ -509,17 +509,15 @@ func (s *TeacherService) GenerateStudentTwinTeaching(ctx context.Context, course
 		courseName = "数据结构"
 	}
 
+	// 诚实：该服务当前未接入真实课程/学情数据源，不返回编造的学生教学画像。
+	// 返回空结构，前端应展示「数据积累中」而非虚构学生名单。
 	return &StudentTwinTeaching{
 		CourseName:    courseName,
-		TotalStudents: 45,
-		AvgMastery:    0.72,
-		Distribution:  map[string]int{"优秀(90+)": 5, "良好(80-89)": 12, "中等(70-79)": 15, "及格(60-69)": 8, "需关注(<60)": 5},
-		FocusStudents: []map[string]interface{}{
-			{"name": "张明", "mastery": 0.42, "weakness": "递归思想", "risk": "挂科风险"},
-			{"name": "李华", "mastery": 0.48, "weakness": "动态规划", "risk": "需辅导"},
-			{"name": "王芳", "mastery": 0.95, "weakness": "", "risk": "可担任助教"},
-		},
-		DataSource: "reference",
+		TotalStudents: 0,
+		AvgMastery:    0,
+		Distribution:  map[string]int{},
+		FocusStudents: []map[string]interface{}{},
+		DataSource:    "empty",
 	}
 }
 

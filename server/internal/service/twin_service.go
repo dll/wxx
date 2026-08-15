@@ -322,7 +322,8 @@ func extractJSON(s string) string {
 // 打分规则（透明、可解释、不编造）：
 //   Score = min(100, 真实次数)，次数即分数（1 次 = 1 分，封顶 100）；
 //   DataAvailable = 次数 > 0（无记录时前端显示「数据积累中」）。
-//   协作教师绑定因暂无独立教师协作表，诚实返回 DataAvailable=false。
+//   协作教师绑定取真实排课/课程数据（course_schedules.teacher 关联学生数），
+//   无排课导入时诚实返回 DataAvailable=false。
 
 // computeStaffDimensions 把绩效原始指标转成维度列表（含三方绑定块）
 func computeStaffDimensions(m *repository.StaffTwinMetrics) []TwinDimension {
@@ -347,11 +348,7 @@ func computeStaffDimensions(m *repository.StaffTwinMetrics) []TwinDimension {
 		// 三方绑定块
 		mk("bind_student", "服务学生", m.StudentBindCount, fmt.Sprintf("已服务 %d 名学生", m.StudentBindCount)),
 		mk("bind_wxx", "蔚小芯能力", m.WxxBindCount, fmt.Sprintf("使用过 %d 项蔚小芯能力", m.WxxBindCount)),
-		{
-			Key: "bind_teacher", Name: "协作教师", Score: 0, Level: "",
-			Desc:          "暂无教师协作记录，完成协同教学/评教后生成",
-			DataAvailable: false,
-		},
+		mk("bind_teacher", "协作教师", m.TeacherStuCount, fmt.Sprintf("关联 %d 名学生（任课/排课，来自课程数据）", m.TeacherStuCount)),
 	}
 	return dims
 }
@@ -359,7 +356,15 @@ func computeStaffDimensions(m *repository.StaffTwinMetrics) []TwinDimension {
 // GetStaffTwin 计算教辅/教师绩效画像（含三方绑定）。
 // 供教辅/教师角色访问自己的数字孪生画像。
 func (s *TwinService) GetStaffTwin(ctx context.Context, userID int64) (*TwinResult, error) {
-	metrics, err := s.repo.AggregateStaffMetrics(userID)
+	// 先取 displayName（用于匹配课程任课老师以统计师生关联）
+	displayName := ""
+	if s.userRepo != nil {
+		if u, uerr := s.userRepo.GetByID(userID); uerr == nil && u != nil {
+			displayName = u.DisplayName
+		}
+	}
+
+	metrics, err := s.repo.AggregateStaffMetrics(userID, displayName)
 	if err != nil {
 		return nil, fmt.Errorf("聚合绩效画像指标失败: %w", err)
 	}
@@ -377,13 +382,6 @@ func (s *TwinService) GetStaffTwin(ctx context.Context, userID int64) (*TwinResu
 	var overall float64
 	if n > 0 {
 		overall = clamp(sum / n)
-	}
-
-	displayName := ""
-	if s.userRepo != nil {
-		if u, uerr := s.userRepo.GetByID(userID); uerr == nil && u != nil {
-			displayName = u.DisplayName
-		}
 	}
 
 	// 绩效解读（规则文本，避免编造情感化表述）

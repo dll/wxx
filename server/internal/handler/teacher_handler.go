@@ -297,17 +297,19 @@ func (h *TeacherHandler) StudentTwin(c *gin.Context) {
 	courseName := c.Query("course")
 	if h.svc != nil {
 		data := h.svc.GenerateStudentTwinTeaching(c.Request.Context(), courseName)
-		if data != nil {
+		if data != nil && len(data.FocusStudents) > 0 {
 			c.JSON(http.StatusOK, data)
 			return
 		}
 	}
+	// 诚实兜底：无真实课程/学生数据时不返回编造学生，标记 empty
 	c.JSON(http.StatusOK, gin.H{
 		"course":       courseName,
-		"total":        45,
-		"at_risk":      5,
-		"top_students": []gin.H{{"name": "王芳", "score": 92, "strength": "算法能力强"}},
-		"data_source":  "fallback",
+		"total":        0,
+		"avg_mastery":  0,
+		"focus_students": []gin.H{},
+		"distribution":  gin.H{},
+		"data_source":   "empty",
 	})
 }
 

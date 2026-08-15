@@ -355,11 +355,13 @@ type StaffTwinMetrics struct {
 	StudentBindCount int // 服务学生去重数
 	WxxBindCount     int // 使用过的蔚小芯能力去重数
 	FacilityCount    int // 后勤服务记录数（实验室/保洁/热水/查岗/环卫/借阅）
+	TeacherStuCount  int // 该教师真实关联学生数（course 数据）
 }
 
 // AggregateStaffMetrics 聚合某教辅/教师用户的绩效画像原始指标。
 // userID 为该用户主键；talk_records.counselor_id 即创建人（辅导员/教辅）。
-func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error) {
+// displayName 用于匹配 course_schedules.teacher（课程任课老师名）以统计师生关联。
+func (r *TwinRepo) AggregateStaffMetrics(userID int64, displayName string) (*StaffTwinMetrics, error) {
 	m := &StaffTwinMetrics{}
 
 	// 帮扶/咨询：该用户创建的谈心记录数
@@ -396,9 +398,9 @@ func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error
 		m.MaterialCount = 0
 	}
 
-	// 蔚小芯（assistant + counselor）功能调用总数
+	// 蔚小芯（assistant + counselor + teacher）功能调用总数
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%')`, userID).
+		`SELECT COUNT(*) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%' OR resource LIKE '%/teacher/%')`, userID).
 		Scan(&m.WxxUseCount); err != nil {
 		m.WxxUseCount = 0
 	}
@@ -410,9 +412,9 @@ func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error
 		m.StudentBindCount = 0
 	}
 
-	// 蔚小芯能力去重数（audit_logs 去重 resource）
+	// 蔚小芯能力去重数（audit_logs 去重 resource，含 teacher 路由）
 	if err := r.db.QueryRow(
-		`SELECT COUNT(DISTINCT resource) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%')`, userID).
+		`SELECT COUNT(DISTINCT resource) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%' OR resource LIKE '%/teacher/%')`, userID).
 		Scan(&m.WxxBindCount); err != nil {
 		m.WxxBindCount = 0
 	}
@@ -421,6 +423,14 @@ func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error
 	if err := r.db.QueryRow(`SELECT COUNT(*) FROM facility_records WHERE operator_id = ?`, userID).
 		Scan(&m.FacilityCount); err != nil {
 		m.FacilityCount = 0
+	}
+
+	// 教师真实关联学生数：course_schedules.teacher=本人 display_name 的排课绑定的学生去重
+	// （无教师真实课时仍为 0，诚实呈现；不编造）
+	if err := r.db.QueryRow(
+		`SELECT COUNT(DISTINCT cs.user_id) FROM course_schedules cs WHERE cs.teacher <> '' AND (cs.teacher = ?)`, displayName).
+		Scan(&m.TeacherStuCount); err != nil {
+		m.TeacherStuCount = 0
 	}
 
 	return m, nil
