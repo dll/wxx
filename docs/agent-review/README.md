@@ -21,6 +21,7 @@
 | 2026-08-15 | [secretary-party-closed-loop-2026-08-15.md](secretary-party-closed-loop-2026-08-15.md) | 书记×蔚小芯党建育人闭环蓝图（数据模型已对上，缺口+设计） | 方案已审，待确认口径 |
 | 2026-08-15 | [secretary-full-education-closed-loop-2026-08-15.md](secretary-full-education-closed-loop-2026-08-15.md) | 书记×蔚小芯**全人教育**育人闭环蓝图（五维孪生总纲，党建为思想子集） | ★主方案，待确认口径 |
 | 2026-08-15 | [secretary-outcome-dashboard-2026-08-15.md](secretary-outcome-dashboard-2026-08-15.md) | **书记教育成果绩效大屏**（竞赛/入党/学业/毕业真实汇集；就业考研诚实占位） | ★设计定稿，待确认 |
+| 2026-08-15 | [full-role-stickiness-audit-2026-08-15.md](full-role-stickiness-audit-2026-08-15.md) | **全角色×四维审核**（学生→书记：需求契合/粘性/数据贯通/流程通畅），跨级归因未闭环 | ★已产出 |
 
 ## 说明
 
