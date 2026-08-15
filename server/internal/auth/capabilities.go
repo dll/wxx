@@ -144,6 +144,16 @@ const (
 	FacilityDashboard     Capability = "facility.dashboard"      // 后勤服务台看板
 )
 
+// 毕业去向登记与审核能力（2026-08-15，书记教育成果闭环）
+// 教辅（counselor/teacher/assistant）可录入并审核；college_admin 继承三者自带；
+// 学生可自报（待教辅审核）；书记（school/college_admin）可看聚合看板。
+const (
+	OutcomeRecordWrite  Capability = "outcome.record.write"  // 毕业去向登记/自报
+	OutcomeRecordRead   Capability = "outcome.record.read"   // 毕业去向查询
+	OutcomeReview       Capability = "outcome.review"        // 毕业去向审核（教辅）
+	OutcomeDashboard    Capability = "outcome.dashboard"     // 教育成果看板（书记）
+)
+
 // 学院管理能力
 const (
 	CollegeUserRead        Capability = "college.user.read"        // 本院用户管理
@@ -229,6 +239,8 @@ var roles = map[string]*roleNode{
 			SelfHealthRead, SelfHealthWrite,
 			// AI 简讯（首页资讯）
 			SelfAIBriefingRead,
+			// 毕业去向登记（2026-08-15）：学生可自报，待教辅审核
+			OutcomeRecordWrite, OutcomeRecordRead,
 		},
 	},
 	"student_union": {
@@ -258,6 +270,8 @@ var roles = map[string]*roleNode{
 			CounselorProcessEdit, CounselorStudentList,
 			CounselorTokenSubordinates,
 			CounselorNotify,
+			// 毕业去向（教辅：录入+审核，2026-08-15）
+			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 		},
 	},
 	"teacher": {
@@ -269,6 +283,8 @@ var roles = map[string]*roleNode{
 			TeacherDailyOverview, TeacherGrading,
 			TeacherReflection, TeacherStyleDist, TeacherCommunityQA,
 			CounselorTokenSubordinates,
+			// 毕业去向（教师教辅可录入+审核，2026-08-15）
+			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 		},
 	},
 	"assistant": {
@@ -277,6 +293,8 @@ var roles = map[string]*roleNode{
 		capabilities: []Capability{
 			AssistantScheduleCheck, AssistantGradAudit, AssistantExamArrange,
 			FacilityRecordWrite, FacilityRecordRead, FacilityDashboard,
+			// 毕业去向（教辅可录入+审核，2026-08-15）
+			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 		},
 	},
 	"college_admin": {
@@ -287,6 +305,8 @@ var roles = map[string]*roleNode{
 			CollegeUserRead, CollegeAuditRead, CollegeMetricsRead,
 			CollegeTwinScreen, CollegeDataAnalysis,
 			CollegeGraduationRead, CollegeGraduationWrite, CollegeForecast,
+			// 教育成果看板（书记：本院），2026-08-15
+			OutcomeDashboard,
 		},
 	},
 	"school_admin": {

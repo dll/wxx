@@ -393,6 +393,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	facilitySvc := service.NewFacilityService(facilityRepo)
 	facilityHandler := handler.NewFacilityHandler(facilitySvc)
 
+	// 书记教育成果（毕业去向登记+审核+教育成果大屏）：真实数据聚合，不依赖 LLM，始终构建。
+	secretaryRepo := repository.NewSecretaryOutcomeRepo(db)
+	secretarySvc := service.NewSecretaryOutcomeService(secretaryRepo)
+	secretaryHandler := handler.NewSecretaryOutcomeHandler(secretarySvc)
+
 	// 学生会服务始终构建：真实数据统计（成员/活动分析）不依赖 LLM，LLM 仅用于增强解读。
 	unionSvc := service.NewUnionService(db, llmClient)
 	unionHandler := handler.NewUnionHandler(unionSvc)
@@ -429,7 +434,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
-		studentHandler, counselorHandler, teacherHandler, assistantHandler, facilityHandler, unionHandler, collegeHandler,
+		studentHandler, counselorHandler, teacherHandler, assistantHandler, facilityHandler, secretaryHandler, unionHandler, collegeHandler,
 		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler, twinPortraitHandler, portalCredHandler, portalProxyHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
@@ -723,6 +728,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	teacherH *handler.TeacherHandler,
 	assistantH *handler.AssistantHandler,
 	facilityH *handler.FacilityHandler,
+	secretaryH *handler.SecretaryOutcomeHandler,
 	unionH *handler.UnionHandler,
 	collegeH *handler.CollegeHandler,
 	cultureH *handler.CultureHandler,
@@ -1244,6 +1250,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				student.POST("/checkin", auth.RequireCapability(auth.SelfCheckinWrite), studentH.Checkin)
 				student.GET("/checkin/history", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinHistory)
 				student.POST("/checkin/makeup", auth.RequireCapability(auth.SelfCheckinWrite), studentH.CheckinMakeup)
+				// 毕业去向自报（学生，待教辅审核；2026-08-15）
+				student.POST("/outcome/self-report", auth.RequireCapability(auth.OutcomeRecordWrite), secretaryH.SubmitOutcome)
+				student.GET("/outcome/my", auth.RequireCapability(auth.OutcomeRecordRead), secretaryH.ListOutcomes)
 				student.POST("/schedule/import", auth.RequireCapability(auth.SelfProfileWrite), dataImportH.ImportMySchedule)
 				student.GET("/digital-twin", auth.RequireCapability(auth.SelfTwinRead), studentH.DigitalTwin)
 				student.GET("/personality", auth.RequireCapability(auth.SelfPersonalityRead), studentH.Personality)
@@ -1404,6 +1413,13 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				assistantGroup.POST("/facility/record", auth.RequireCapability(auth.FacilityRecordWrite), facilityH.CreateRecord)
 				assistantGroup.GET("/facility/records", auth.RequireCapability(auth.FacilityRecordRead), facilityH.ListRecords)
 				assistantGroup.GET("/facility/dashboard", auth.RequireCapability(auth.FacilityDashboard), facilityH.Dashboard)
+
+				// ── 毕业去向登记与审核（教辅，2026-08-15 书记教育成果闭环）──
+				assistantGroup.GET("/outcome/meta", auth.RequireCapability(auth.OutcomeRecordRead), secretaryH.OutcomeMeta)
+				assistantGroup.POST("/outcome/record", auth.RequireCapability(auth.OutcomeRecordWrite), secretaryH.SubmitOutcome)
+				assistantGroup.GET("/outcome/records", auth.RequireCapability(auth.OutcomeRecordRead), secretaryH.ListOutcomes)
+				assistantGroup.GET("/outcome/pending", auth.RequireCapability(auth.OutcomeReview), secretaryH.CountPending)
+				assistantGroup.PUT("/outcome/review/:id", auth.RequireCapability(auth.OutcomeReview), secretaryH.ReviewOutcome)
 			}
 
 			// ── 学生会 AI 功能 ──
@@ -1430,6 +1446,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				collegeGroup.GET("/course-quality", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.CourseQuality)
 				collegeGroup.GET("/college-report", auth.RequireCapability(auth.CollegeTwinScreen), collegeH.CollegeReport)
 				collegeGroup.GET("/process-step-edit", auth.RequireCapability(auth.CollegeDataAnalysis), collegeH.ProcessStepEdit)
+				// ── 书记教育成果大屏（2026-08-15）：school_admin 全校/college_admin 本院 ──
+				// college 参数空=全校（学校书记），传学院=本院（学院书记）
+				collegeGroup.GET("/education-outcome", auth.RequireCapability(auth.OutcomeDashboard), secretaryH.OutcomeDashboard)
 			}
 
 			// ── 学校管理员 AI 功能（P2）──
