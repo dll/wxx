@@ -286,17 +286,23 @@ jobs:
           # appCertFile 必须提供完整证书链（根CA→CA→叶子），hap-sign-tool 要求 cert chain
           echo "使用完整证书链签名"
           echo "unsigned .app: $APP_FILE"
+          # APP_FILE 是相对工程根目录的路径，转成绝对路径供子目录操作使用
+          export APP_FILE_ABS="$(pwd)/frontend/harmonyos/$APP_FILE"
+          if [ ! -f "$APP_FILE_ABS" ]; then
+            echo "APP_FILE_ABS 不存在: $APP_FILE_ABS，回退到相对路径"
+            export APP_FILE_ABS="$APP_FILE"
+          fi
+          echo "APP_FILE_ABS=$APP_FILE_ABS"
           mkdir -p dist sign_work
           cd sign_work
           # 1. 解包 unsigned .app，找到内部 HAP
           python3 - <<'PYEOF'
-          import zipfile, os, glob
-          app = os.environ["APP_FILE"]
+          import zipfile, os
+          app = os.environ["APP_FILE_ABS"]
           z = zipfile.ZipFile(app)
           z.extractall(".")
           haps = [n for n in z.namelist() if n.endswith(".hap")]
           print("解包完成，HAP 列表:", haps)
-          print("APP_FILES=" + " ".join(z.namelist()))  # 供重打包使用
           PYEOF
           # 2. 对内部每个 HAP 签名（覆盖写回同文件名，保持 .app 结构不变）
           find . -name "*.hap" | while read hap; do
@@ -355,7 +361,7 @@ jobs:
             # signed 目标已产出 weixiaoxin-full.app（外壳+内部HAP均签名）
             ls -la dist/
           else
-            cp "$APP_FILE" dist/$(basename "$APP_FILE")
+            cp "frontend/harmonyos/$APP_FILE" "dist/$(basename "$APP_FILE")"
             ls -la dist/
           fi
 
