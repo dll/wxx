@@ -1215,6 +1215,9 @@ class _HomePageState extends State<HomePage> {
     if (CapabilityUtils.has(Capability.counselorStudentList))
       entries.add(_WorkbenchEntry(Icons.people_alt_outlined, '学生名单',
           const Color(0xFF00695C), '/counselor/student-list'));
+    if (CapabilityUtils.has(Capability.counselorSecondClassBoard))
+      entries.add(_WorkbenchEntry(Icons.school_outlined, '第二课堂',
+          const Color(0xFF00838F), '/counselor/second-class-board'));
     if (CapabilityUtils.has(Capability.counselorTwinBoard))
       entries.add(_WorkbenchEntry(Icons.dashboard_outlined, '学生孪生看板',
           const Color(0xFF1565C0), '/counselor/twin-board'));

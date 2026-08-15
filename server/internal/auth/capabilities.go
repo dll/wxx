@@ -112,9 +112,10 @@ const (
 	CounselorProcessEdit       Capability = "counselor.process.edit"       // 流程步骤编辑
 	CounselorStudentList       Capability = "counselor.student.list"       // 学生列表
 	CounselorTokenSubordinates Capability = "counselor.token.subordinates"
-	CounselorImportStudent     Capability = "counselor.import.student" // 导入学生（学生会及以上角色继承）
-	CounselorNotify            Capability = "counselor.notify"         // 通知管理（创建/发布/删除）
-	BatchScheduleImport        Capability = "college.schedule.import"  // 批量导入班级课表（学生会/教辅/辅导员/管理员；普通学生仅能导入本人课表）
+	CounselorImportStudent     Capability = "counselor.import.student"    // 导入学生（学生会及以上角色继承）
+	CounselorSecondClassBoard  Capability = "counselor.secondclass.board" // 第二课堂班级看板（按名下学生聚合真实参与/积分）
+	CounselorNotify            Capability = "counselor.notify"            // 通知管理（创建/发布/删除）
+	BatchScheduleImport        Capability = "college.schedule.import"     // 批量导入班级课表（学生会/教辅/辅导员/管理员；普通学生仅能导入本人课表）
 )
 
 // 教师能力
@@ -270,6 +271,8 @@ var roles = map[string]*roleNode{
 			CounselorProcessEdit, CounselorStudentList,
 			CounselorTokenSubordinates,
 			CounselorNotify,
+			// 第二课堂班级看板（2026-08-15）：按辅导员名下学生聚合真实活动参与/积分
+			CounselorSecondClassBoard,
 			// 毕业去向（教辅：录入+审核，2026-08-15）
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 		},

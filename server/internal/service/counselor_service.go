@@ -19,6 +19,8 @@ type CounselorService struct {
 	twinRepo    *repository.TwinRepo
 	llmClient   llm.ChatClient
 	phase2      *Phase2Service // 真实谈心记录（可选），生成真实跟进提醒
+
+	secondClassRepo *repository.SecondClassRepo // 第二课堂看板（可选，可空）
 }
 
 // NewCounselorService 创建辅导员服务
@@ -39,6 +41,11 @@ func NewCounselorService(
 // SetPhase2Service 注入阶段二真实谈话记录服务（可选），用于生成真实跟进提醒
 func (s *CounselorService) SetPhase2Service(phase2 *Phase2Service) {
 	s.phase2 = phase2
+}
+
+// SetSecondClassRepo 注入第二课堂看板数据访问（可选），用于生成真实的班级第二课堂看板
+func (s *CounselorService) SetSecondClassRepo(repo *repository.SecondClassRepo) {
+	s.secondClassRepo = repo
 }
 
 // FocusedStudent 今日关注的学生
@@ -1081,4 +1088,42 @@ func (s *CounselorService) GetStudentList(ctx context.Context, scope, ownerID st
 		Total:      0,
 		DataSource: "fallback",
 	}
+}
+
+// SecondClassBoard 班级第二课堂看板（真实数据聚合）。
+// 当 secondClassRepo 已注入且查询成功时返回真实聚合；否则返回诚实空看板（data_source=not_available），不造数。
+func (s *CounselorService) SecondClassBoard(ctx context.Context, scope, ownerID string) *SecondClassBoardResult {
+	if s.secondClassRepo != nil {
+		board, err := s.secondClassRepo.ClassSecondClassBoard(scope, ownerID)
+		if err == nil && board != nil {
+			return &SecondClassBoardResult{
+				College:       board.College,
+				Students:      board.Students,
+				StudentTotal:  board.StudentTotal,
+				ActivityTotal: board.ActivityTotal,
+				AttendTotal:   board.AttendTotal,
+				PointTotal:    board.PointTotal,
+				DataSource:    board.DataSource,
+				Note:          board.Note,
+			}
+		}
+	}
+	// 兜底：无 repo / 查询失败时返回诚实空看板（前端显示"暂无记录/数据待接入"，不造假）
+	return &SecondClassBoardResult{
+		Students:   []repository.SecondClassStudent{},
+		DataSource: "not_available",
+		Note:       "第二课堂数据待接入（暂无真实报名/积分记录）",
+	}
+}
+
+// SecondClassBoardResult 班级第二课堂看板（对外 JSON结构，复用 repository.SecondClassStudent）
+type SecondClassBoardResult struct {
+	College       string                          `json:"college"`
+	Students      []repository.SecondClassStudent `json:"students"`
+	StudentTotal  int                             `json:"student_total"`
+	ActivityTotal int                             `json:"activity_total"`
+	AttendTotal   int                             `json:"attend_total"`
+	PointTotal    int                             `json:"point_total"`
+	DataSource    string                          `json:"data_source"`
+	Note          string                          `json:"note"`
 }

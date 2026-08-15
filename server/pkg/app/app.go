@@ -393,6 +393,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	facilitySvc := service.NewFacilityService(facilityRepo)
 	facilityHandler := handler.NewFacilityHandler(facilitySvc)
 
+	// 第二课堂看板（辅导员侧）：真实聚合名下学生活动参与/积分，不依赖 LLM。
+	secondClassRepo := repository.NewSecondClassRepo(db)
+	counselorSvc.SetSecondClassRepo(secondClassRepo)
+
 	// 书记教育成果（毕业去向登记+审核+教育成果大屏）：真实数据聚合，不依赖 LLM，始终构建。
 	secretaryRepo := repository.NewSecretaryOutcomeRepo(db)
 	secretarySvc := service.NewSecretaryOutcomeService(secretaryRepo)
@@ -1328,6 +1332,8 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				counselor.GET("/hot-topic-sense", auth.RequireCapability(auth.CounselorHotTopicSense), counselorH.HotTopicSense)
 				counselor.GET("/process-edit", auth.RequireCapability(auth.CounselorProcessEdit), counselorH.ProcessEdit)
 				counselor.GET("/student-list", auth.RequireCapability(auth.CounselorStudentList), counselorH.StudentList)
+				// 第二课堂班级看板（辅导员）：真实聚合名下学生活动参与/积分
+				counselor.GET("/second-class-board", auth.RequireCapability(auth.CounselorSecondClassBoard), counselorH.SecondClassBoard)
 				// ── P2 辅导员深度分析 ──
 				counselor.GET("/follow-up-reminders", auth.RequireCapability(auth.CounselorTalkRecord), counselorH.FollowUpReminders)
 				counselor.GET("/checkin-stats", auth.RequireCapability(auth.CounselorClassReport), counselorH.CheckinStats)

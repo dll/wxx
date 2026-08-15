@@ -66,6 +66,7 @@ class Capability {
 
   static const counselorStudentList = 'counselor.student.list';
   static const counselorTokenSubordinates = 'counselor.token.subordinates';
+  static const counselorSecondClassBoard = 'counselor.secondclass.board';
 
   // ── 教师能力 ──
   static const teacherLessonPrep = 'teacher.lesson.prep';

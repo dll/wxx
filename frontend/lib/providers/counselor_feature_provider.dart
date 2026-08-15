@@ -240,4 +240,30 @@ class CounselorFeatureProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // ── 第二课堂班级看板 ──
+  Map<String, dynamic> _secondClassBoard = {};
+  Map<String, dynamic> get secondClassBoard => _secondClassBoard;
+  bool _secondClassLoading = false;
+  bool get secondClassLoading => _secondClassLoading;
+  String _secondClassError = '';
+  String get secondClassError => _secondClassError;
+
+  Future<void> fetchSecondClassBoard() async {
+    _secondClassLoading = true;
+    _secondClassError = '';
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.counselorSecondClassBoard);
+      if (res.statusCode == 200 && res.data != null) {
+        _secondClassBoard =
+            res.data is Map ? Map<String, dynamic>.from(res.data) : {};
+      }
+    } catch (e) {
+      _secondClassError = friendlyApiError(e);
+    } finally {
+      _secondClassLoading = false;
+      notifyListeners();
+    }
+  }
 }

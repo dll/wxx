@@ -242,6 +242,8 @@ class ApiConfig {
       '$apiPrefix/counselor/process-edit';
   static const String counselorStudentList =
       '$apiPrefix/counselor/student-list';
+  static const String counselorSecondClassBoard =
+      '$apiPrefix/counselor/second-class-board';
 
   // ── 教师 AI 功能 ──
   static const String teacherDailyOverview =

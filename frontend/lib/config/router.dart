@@ -78,6 +78,7 @@ import '../pages/counselor/class_profile_page.dart';
 import '../pages/counselor/community_manage_page.dart';
 import '../pages/counselor/hot_topic_sense_page.dart';
 import '../pages/counselor/student_list_page.dart';
+import '../pages/counselor/second_class_board_page.dart';
 // ── 教师 AI 功能页面 ──
 import '../pages/teacher/daily_overview_page.dart';
 import '../pages/teacher/lesson_prep_page.dart';
@@ -581,6 +582,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/counselor/student-list',
             builder: (_, __) => const StudentListPage()),
+        GoRoute(
+            path: '/counselor/second-class-board',
+            builder: (_, __) => const SecondClassBoardPage()),
         // ── 教师 AI 功能路由 ──
         GoRoute(
             path: '/teacher/daily-overview',

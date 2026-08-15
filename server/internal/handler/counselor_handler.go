@@ -378,6 +378,30 @@ func (h *CounselorHandler) StudentList(c *gin.Context) {
 	})
 }
 
+// SecondClassBoard 班级第二课堂看板（真实数据聚合，能力: counselor.secondclass.board）
+func (h *CounselorHandler) SecondClassBoard(c *gin.Context) {
+	if h.svc != nil {
+		userCtx := middleware.GetUserContext(c)
+		if userCtx != nil {
+			data := h.svc.SecondClassBoard(c.Request.Context(), userCtx.OwnerScope, userCtx.OwnerID)
+			if data != nil {
+				c.JSON(http.StatusOK, data)
+				return
+			}
+		}
+	}
+	// 兜底：诚实空看板（无数据时不造假）
+	c.JSON(http.StatusOK, gin.H{
+		"students":       []interface{}{},
+		"student_total":  0,
+		"activity_total": 0,
+		"attend_total":   0,
+		"point_total":    0,
+		"data_source":    "not_available",
+		"note":           "第二课堂数据待接入",
+	})
+}
+
 // ======================== P2 深度分析功能 ========================
 
 // FollowUpReminders 谈话跟进提醒
