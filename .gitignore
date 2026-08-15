@@ -210,3 +210,10 @@ functions/node_modules/
 # APK 下载包（GitHub Release 分发，不进 Git）
 frontend/web/downloads/*.apk
 
+# 移动应用签名密钥（绝不入库）
+signing/
+*.p12
+*.csr
+*.cer
+*.p7b
+

@@ -20,8 +20,8 @@ on:
         type: choice
         default: unsigned
         options:
-          - unsigned # 未签名 HAP 制品
-          - signed   # 签名（需配置华为 AGC 证书）
+          - unsigned # 未签名 .app 制品
+          - signed   # 签名 .app（需配置华为 AGC 证书）
 
 permissions:
   contents: write
@@ -251,7 +251,7 @@ jobs:
           echo "签名材料就绪："
           ls -la signing/
 
-      - name: 构建 HAP（用命令行工具自带 hvigorw，产出 unsigned）
+      - name: 构建 APP（用命令行工具自带 hvigorw，产出 unsigned .app）
         run: |
           cd frontend/harmonyos
           export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Duser.country=CN"
@@ -261,10 +261,15 @@ jobs:
           # 而非工程 ./hvigorw wrapper（其依赖 npm 下载 hvigor，dependencies 为空会静默失败）
           command -v hvigorw || exit 1
           hvigorw -v
-          # 统一构建未签名 HAP（release），签名用 hap-sign-tool 手动完成
-          hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
+          # 构建未签名 App Pack（.app，Release），签名用 hap-sign-tool 手动完成。
+          # 注意：工程 build-profile.json5 的 signingConfigs 必须保持为空数组，
+          # hvigor 5.x 对 material 路径强制加 material/ 前缀无法解析，签名在后续步骤手动完成。
+          hvigorw assembleApp -p product=default -p buildMode=release --no-daemon
+          APP=$(find build/outputs -name "*.app" | head -1)
+          echo "产出 unsigned .app: $APP"
+          echo "APP_FILE=$APP" >> $GITHUB_ENV
 
-      - name: 手动签名 HAP（signed 目标，用 hap-sign-tool.jar）
+      - name: 手动签名 APP（signed 目标，用 hap-sign-tool.jar）
         if: inputs.harmonyos_target == 'signed'
         env:
           HUAWEI_SIGNING_KEY_ALIAS: ${{ secrets.HUAWEI_SIGNING_KEY_ALIAS }}
@@ -280,11 +285,52 @@ jobs:
           echo "HAP_TOOL=$HAP_TOOL"
           # appCertFile 必须提供完整证书链（根CA→CA→叶子），hap-sign-tool 要求 cert chain
           echo "使用完整证书链签名"
-          # 找 unsigned HAP
-          HAP=$(find frontend/harmonyos/entry/build -name "*.hap" | head -1)
-          echo "待签名 HAP: $HAP"
-          mkdir -p dist
-          # 华为官方签名工具 sign-app
+          echo "unsigned .app: $APP_FILE"
+          mkdir -p dist sign_work
+          cd sign_work
+          # 1. 解包 unsigned .app，找到内部 HAP
+          python3 - <<'PYEOF'
+          import zipfile, os, glob
+          app = os.environ["APP_FILE"]
+          z = zipfile.ZipFile(app)
+          z.extractall(".")
+          haps = [n for n in z.namelist() if n.endswith(".hap")]
+          print("解包完成，HAP 列表:", haps)
+          print("APP_FILES=" + " ".join(z.namelist()))  # 供重打包使用
+          PYEOF
+          # 2. 对内部每个 HAP 签名（覆盖写回同文件名，保持 .app 结构不变）
+          find . -name "*.hap" | while read hap; do
+            echo "签名 HAP: $hap"
+            java -jar "$HAP_TOOL" sign-app \
+              -mode localSign \
+              -keyAlias "$HUAWEI_SIGNING_KEY_ALIAS" \
+              -keyPwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
+              -appCertFile ../signing/app-cert-chain.cer \
+              -profileFile ../signing/app.p7b \
+              -profileSigned 1 \
+              -inFile "$hap" \
+              -signAlg SHA256withECDSA \
+              -keystoreFile ../signing/app.p12 \
+              -keystorePwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
+              -outFile "$hap" \
+              -compatibleVersion 12 \
+              -signCode 1
+          done
+          # 3. 重打包为签名 .app（内部 HAP 已签名）
+          cd ..
+          python3 - <<'PYEOF'
+          import zipfile, os
+          out = "dist/weixiaoxin-signed.app"
+          z = zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED)
+          for root, dirs, files in os.walk("sign_work"):
+            for f in files:
+              p = os.path.join(root, f)
+              rel = os.path.relpath(p, "sign_work")
+              z.write(p, rel)
+          z.close()
+          print("内部 HAP 已签名并重打包:", out)
+          PYEOF
+          # 4. 对 .app 外壳签名（上架需 App Pack 外壳签名）
           java -jar "$HAP_TOOL" sign-app \
             -mode localSign \
             -keyAlias "$HUAWEI_SIGNING_KEY_ALIAS" \
@@ -292,31 +338,28 @@ jobs:
             -appCertFile signing/app-cert-chain.cer \
             -profileFile signing/app.p7b \
             -profileSigned 1 \
-            -inFile "$HAP" \
+            -inFile dist/weixiaoxin-signed.app \
             -signAlg SHA256withECDSA \
             -keystoreFile signing/app.p12 \
             -keystorePwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
-            -outFile dist/app-signed.hap \
+            -outFile dist/weixiaoxin-full.app \
             -compatibleVersion 12 \
             -signCode 1
           echo "签名完成："
           ls -la dist/
 
-      - name: 整理 HAP 制品
+      - name: 整理 APP 制品
         run: |
           mkdir -p dist
           if [ "${{ inputs.harmonyos_target }}" = "signed" ]; then
-            # signed 目标已产出 app-signed.hap
+            # signed 目标已产出 weixiaoxin-full.app（外壳+内部HAP均签名）
             ls -la dist/
           else
-            find frontend/harmonyos/entry/build -name "*.hap" | while read f; do
-              cp "$f" "dist/$(basename "$f")"
-            done
-            ls -la frontend/harmonyos/entry/build 2>/dev/null || true
+            cp "$APP_FILE" dist/$(basename "$APP_FILE")
             ls -la dist/
           fi
 
-      - name: 上传 HAP 制品
+      - name: 上传 APP 制品
         uses: actions/upload-artifact@v4
         with:
           name: wxx-harmonyos-${{ github.run_id }}
