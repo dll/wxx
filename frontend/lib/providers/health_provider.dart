@@ -481,4 +481,19 @@ class HealthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// 更新活动状态（end/close/active），活动生命周期管理
+  Future<bool> updateActivityStatus(String activityId, String status) async {
+    try {
+      final res = await _api.post('${ApiConfig.healthActivities}/$activityId/status',
+          data: {'status': status});
+      if (res.data['code'] == 0) {
+        await fetchActivities();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

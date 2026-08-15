@@ -777,7 +777,34 @@ func (h *EducationHandler) ToggleActivityFavorite(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success"})
 }
 
-// ToggleActivitySignup 报名/取消报名活动
+// UpdateHealthActivityStatus 更新活动状态（进行中→已结束/已关闭），用于活动生命周期的"结束"阶段
+// POST /api/v1/health/activities/:id/status  body: {status: "active"|"closed"|"ended"}
+func (h *EducationHandler) UpdateHealthActivityStatus(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
+		return
+	}
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=active closed ended"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "status 需为 active/closed/ended"})
+		return
+	}
+	res, err := h.db.Exec(`UPDATE health_activities SET status=? WHERE activity_id=?`, req.Status, c.Param("id"))
+	if err != nil {
+		log.Printf("health UpdateHealthActivityStatus err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新活动状态失败"})
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "活动不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "活动状态已更新", "status": req.Status})
+}
+
 // POST /api/v1/health/activities/:id/signup  body: {signup: bool}
 func (h *EducationHandler) ToggleActivitySignup(c *gin.Context) {
 	userID := getCurrentUserID(c)
