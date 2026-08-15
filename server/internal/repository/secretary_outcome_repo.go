@@ -33,12 +33,12 @@ type GraduationOutcome struct {
 
 // OutcomeTypeMeta 去向类型元信息
 var OutcomeTypeMeta = map[string]string{
-	"employment":      "就业",
-	"postgrad":        "国内升读研",
-	"study_abroad":    "出国/境外升学",
-	"flexible":        "灵活就业",
+	"employment":       "就业",
+	"postgrad":         "国内升读研",
+	"study_abroad":     "出国/境外升学",
+	"flexible":         "灵活就业",
 	"entrepreneurship": "自主创业",
-	"unemployed":      "暂未就业",
+	"unemployed":       "暂未就业",
 }
 
 // SecretaryOutcomeRepo 书记教育成果数据访问层
@@ -298,9 +298,9 @@ func (r *SecretaryOutcomeRepo) EducationOutcomeDashboard(college string) (map[st
 		"data_source":        "real",
 	}
 	res["academic"] = map[string]interface{}{
-		"grade_count":     gradeCnt,
-		"pass_rate":       passRate(passCnt, gradeCnt),
-		"data_source":     "real",
+		"grade_count": gradeCnt,
+		"pass_rate":   passRate(passCnt, gradeCnt),
+		"data_source": "real",
 	}
 	res["counseling"] = map[string]interface{}{"talk_total": talkTotal, "data_source": "real"}
 	res["facility"] = map[string]interface{}{"record_total": facilityTotal, "data_source": "real"}
@@ -368,4 +368,3 @@ func passRate(pass, total int) float64 {
 	}
 	return float64(pass) / float64(total) * 100
 }
-

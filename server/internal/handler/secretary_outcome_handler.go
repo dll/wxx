@@ -154,7 +154,7 @@ func (h *SecretaryOutcomeHandler) CountPending(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "pending": n, "data_source": "real"})
 }
 
-// OutcomeDashboard 书记教育成果大屏（school_admin 全校 college=''；college_admin 本院 college=角色归属）
+// OutcomeDashboard 书记教育成果大屏（school_admin 全校 college=”；college_admin 本院 college=角色归属）
 func (h *SecretaryOutcomeHandler) OutcomeDashboard(c *gin.Context) {
 	college := c.Query("college")
 	// 若未显式传学院，尝试从用户上下文取角色归属（college_admin 看本院）

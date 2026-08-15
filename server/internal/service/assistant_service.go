@@ -14,7 +14,7 @@ import (
 // AssistantService 教辅角色 AI 功能服务
 type AssistantService struct {
 	llmClient llm.ChatClient
-	phase3    *Phase3Service // 阶段三真实数据（可选），无真实数据时回落 reference
+	phase3    *Phase3Service       // 阶段三真实数据（可选），无真实数据时回落 reference
 	userRepo  *repository.UserRepo // 真实学生账号来源（可选），用于学生信息查询
 }
 
@@ -294,13 +294,13 @@ func (s *AssistantService) QueryStudentInfo(ctx context.Context, query string) *
 			result := make([]map[string]interface{}, 0, len(users))
 			for _, u := range users {
 				item := map[string]interface{}{
-					"user_id":   u.ID,
+					"user_id":    u.ID,
 					"student_id": u.Username,
-					"name":      u.DisplayName,
-					"major":     u.Major,
-					"class":     u.ClassName,
-					"college":   u.College,
-					"status":    u.Status,
+					"name":       u.DisplayName,
+					"major":      u.Major,
+					"class":      u.ClassName,
+					"college":    u.College,
+					"status":     u.Status,
 				}
 				result = append(result, item)
 			}

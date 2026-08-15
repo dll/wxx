@@ -139,19 +139,19 @@ const (
 
 // 后勤服务台能力（并入教辅角色，2026-08-15）
 const (
-	FacilityRecordWrite   Capability = "facility.record.write"   // 后勤服务记录登记
-	FacilityRecordRead    Capability = "facility.record.read"    // 后勤服务记录查询
-	FacilityDashboard     Capability = "facility.dashboard"      // 后勤服务台看板
+	FacilityRecordWrite Capability = "facility.record.write" // 后勤服务记录登记
+	FacilityRecordRead  Capability = "facility.record.read"  // 后勤服务记录查询
+	FacilityDashboard   Capability = "facility.dashboard"    // 后勤服务台看板
 )
 
 // 毕业去向登记与审核能力（2026-08-15，书记教育成果闭环）
 // 教辅（counselor/teacher/assistant）可录入并审核；college_admin 继承三者自带；
 // 学生可自报（待教辅审核）；书记（school/college_admin）可看聚合看板。
 const (
-	OutcomeRecordWrite  Capability = "outcome.record.write"  // 毕业去向登记/自报
-	OutcomeRecordRead   Capability = "outcome.record.read"   // 毕业去向查询
-	OutcomeReview       Capability = "outcome.review"        // 毕业去向审核（教辅）
-	OutcomeDashboard    Capability = "outcome.dashboard"     // 教育成果看板（书记）
+	OutcomeRecordWrite Capability = "outcome.record.write" // 毕业去向登记/自报
+	OutcomeRecordRead  Capability = "outcome.record.read"  // 毕业去向查询
+	OutcomeReview      Capability = "outcome.review"       // 毕业去向审核（教辅）
+	OutcomeDashboard   Capability = "outcome.dashboard"    // 教育成果看板（书记）
 )
 
 // 学院管理能力

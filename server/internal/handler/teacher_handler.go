@@ -304,12 +304,12 @@ func (h *TeacherHandler) StudentTwin(c *gin.Context) {
 	}
 	// 诚实兜底：无真实课程/学生数据时不返回编造学生，标记 empty
 	c.JSON(http.StatusOK, gin.H{
-		"course":       courseName,
-		"total":        0,
-		"avg_mastery":  0,
+		"course":         courseName,
+		"total":          0,
+		"avg_mastery":    0,
 		"focus_students": []gin.H{},
-		"distribution":  gin.H{},
-		"data_source":   "empty",
+		"distribution":   gin.H{},
+		"data_source":    "empty",
 	})
 }
 

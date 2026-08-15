@@ -9,17 +9,17 @@ import (
 // 对应迁移 086_facility_records 表。
 type FacilityRecord struct {
 	ID           int64     `json:"id"`
-	Role         string    `json:"role"`         // 岗位类型: lab/clean/hotwater/dorm/envir/library
-	Title        string    `json:"title"`        // 事项简述
-	Location     string    `json:"location"`     // 地点
-	Detail       string    `json:"detail"`       // 详情/数量/备注
-	OperatorID   int64     `json:"operator_id"`  // 登记人
+	Role         string    `json:"role"`        // 岗位类型: lab/clean/hotwater/dorm/envir/library
+	Title        string    `json:"title"`       // 事项简述
+	Location     string    `json:"location"`    // 地点
+	Detail       string    `json:"detail"`      // 详情/数量/备注
+	OperatorID   int64     `json:"operator_id"` // 登记人
 	OperatorName string    `json:"operator_name"`
-	StudentID    int64     `json:"student_id"`   // 关联学生(0=无)
+	StudentID    int64     `json:"student_id"` // 关联学生(0=无)
 	StudentName  string    `json:"student_name"`
-	OccurredAt   string    `json:"occurred_at"`  // 服务发生时间(ISO)
+	OccurredAt   string    `json:"occurred_at"` // 服务发生时间(ISO)
 	CreatedAt    time.Time `json:"created_at"`
-	DataSource   string    `json:"data_source"`  // 固定 real
+	DataSource   string    `json:"data_source"` // 固定 real
 }
 
 // FacilityRoleMeta 岗位类型元信息（供前端下拉/看板展示）
