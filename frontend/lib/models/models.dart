@@ -639,6 +639,7 @@ class UserProfile {
   final String studyMode;
   final String ethnicity;
   final String politicalStatus;
+  final String position;
 
   UserProfile({
     required this.id,
@@ -661,6 +662,7 @@ class UserProfile {
     this.studyMode = '',
     this.ethnicity = '',
     this.politicalStatus = '',
+    this.position = '',
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -687,6 +689,7 @@ class UserProfile {
       studyMode: data['study_mode'] ?? '',
       ethnicity: data['ethnicity'] ?? '',
       politicalStatus: data['political_status'] ?? '',
+      position: data['position'] ?? '',
     );
   }
 

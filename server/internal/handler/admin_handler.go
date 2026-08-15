@@ -166,7 +166,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.adminSvc.UpdateUser(userID, &req, userCtx.Username)
+	user, err := h.adminSvc.UpdateUser(userID, &req, userCtx)
 	if err != nil {
 		log.Printf("更新用户失败 user_id=%d: %v", userID, err)
 		util.FailBadRequest(c, "更新用户失败")

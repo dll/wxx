@@ -6,6 +6,7 @@ type User struct {
 	Username        string `json:"username" db:"username"`                                 // 用户名（唯一）
 	DisplayName     string `json:"display_name" db:"display_name"`                         // 显示名
 	Role            string `json:"role" db:"role"`                                         // 角色枚举
+	Position        string `json:"position" db:"position"`                                 // 职务（与角色正交，如主席/部长/干事等）
 	OwnerScope      string `json:"owner_scope" db:"owner_scope"`                           // 归属范围：school/college/class
 	OwnerID         string `json:"owner_id" db:"owner_id"`                                 // 归属 ID
 	College         string `json:"college" db:"college"`                                   // 学院

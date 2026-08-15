@@ -459,8 +459,8 @@ func (r *UserRepo) Count(role, ownerScope, ownerID string) (int, error) {
 // 避免被降权用户凭旧 JWT 继续以原权限访问。
 func (r *UserRepo) Update(user *model.User) error {
 	_, err := r.db.Exec(
-		`UPDATE users SET role=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-		user.Role, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
+		`UPDATE users SET role=?, position=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+		user.Role, user.Position, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
 	)
 	return err
 }

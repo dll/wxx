@@ -484,6 +484,7 @@ type UserListResponse struct {
 type UserUpdateRequest struct {
 	DisplayName *string `json:"display_name"`
 	Role        *string `json:"role" binding:"omitempty,oneof=sys_admin school_admin college_admin counselor teacher assistant student_union student guest"`
+	Position    *string `json:"position"`
 	OwnerScope  *string `json:"owner_scope" binding:"omitempty,oneof=school college class"`
 	OwnerID     *string `json:"owner_id"`
 	Status      *string `json:"status" binding:"omitempty,oneof=active disabled pending rejected"`

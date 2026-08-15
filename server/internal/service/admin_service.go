@@ -114,13 +114,17 @@ func (s *AdminService) ListUsers(role, ownerScope, ownerID string, page, pageSiz
 }
 
 // UpdateUser 修改用户角色/scope
-func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, updatedBy string) (*model.User, error) {
+func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, operator *model.UserContext) (*model.User, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if user == nil {
 		return nil, fmt.Errorf("用户不存在: id=%d", userID)
+	}
+
+	if err := s.checkRoleChangeAuth(operator, user, req); err != nil {
+		return nil, err
 	}
 
 	if req.DisplayName != nil {
@@ -132,6 +136,9 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 	}
 	if req.Role != nil {
 		user.Role = *req.Role
+	}
+	if req.Position != nil {
+		user.Position = strings.TrimSpace(*req.Position)
 	}
 	if req.OwnerScope != nil {
 		user.OwnerScope = *req.OwnerScope
@@ -147,8 +154,67 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, up
 		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 
-	log.Printf("用户信息已更新 user_id=%d role=%s scope=%s by=%s", userID, user.Role, user.OwnerScope, updatedBy)
+	log.Printf("用户信息已更新 user_id=%d role=%s position=%s scope=%s by=%s", userID, user.Role, user.Position, user.OwnerScope, operator.Username)
 	return s.userRepo.GetByID(userID)
+}
+
+// checkRoleChangeAuth 角色/职务/归属变更的权限校验（防止越权提权）。
+// 规则：
+//   - 任何人都不能修改 sys_admin 账号的角色/状态（防止锁死或越权）。
+//   - college_admin 只能管理本院（owner_id/college 匹配）用户，且不能授予/转为
+//     sys_admin / school_admin 等校级管理员角色，也不能修改其他管理员。
+//   - sys_admin / school_admin 可管理任意角色。
+func (s *AdminService) checkRoleChangeAuth(operator *model.UserContext, target *model.User, req *model.UserUpdateRequest) error {
+	// 操作者必须有效
+	if operator == nil {
+		return fmt.Errorf("缺少操作者信息")
+	}
+
+	// 任何人不能改系统管理员
+	if target.Role == "sys_admin" {
+		if req.Role != nil && *req.Role != "sys_admin" {
+			return fmt.Errorf("不可修改系统管理员角色")
+		}
+		if req.Status != nil && *req.Status != target.Status {
+			return fmt.Errorf("不可修改系统管理员状态")
+		}
+	}
+
+	// 系统/学校管理员拥有最高权限
+	if operator.Role == "sys_admin" || operator.Role == "school_admin" {
+		return nil
+	}
+
+	// 学院管理员：仅本院 + 不能授予校级管理员 + 不能改管理员
+	if operator.Role == "college_admin" {
+		if req.Role != nil {
+			switch *req.Role {
+			case "sys_admin", "school_admin":
+				return fmt.Errorf("学院管理员不可授予校级管理员角色")
+			case "college_admin":
+				if target.ID != operator.UserID {
+					return fmt.Errorf("学院管理员不可指派其他学院管理员")
+				}
+			}
+		}
+		if target.Role == "college_admin" || target.Role == "school_admin" || target.Role == "sys_admin" {
+			if target.ID != operator.UserID {
+				return fmt.Errorf("学院管理员不可修改其他管理员账户")
+			}
+		}
+		// 归属范围校验：仅能操作本院用户；无法判定时不误拦（前端已按角色隐藏高阶选项）
+		targetCollege := strings.TrimSpace(target.College)
+		if targetCollege == "" {
+			targetCollege = strings.TrimSpace(target.OwnerID)
+		}
+		opCollege := strings.TrimSpace(operator.OwnerID)
+		if target.ID != operator.UserID && opCollege != "" && targetCollege != "" && targetCollege != opCollege {
+			return fmt.Errorf("学院管理员仅可管理本院用户")
+		}
+		return nil
+	}
+
+	return fmt.Errorf("当前角色(%s)无权修改用户角色/职务", operator.Role)
 }
 
 // DeleteUser 删除用户及其关联数据

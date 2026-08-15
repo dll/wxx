@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../providers/admin_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/capability_utils.dart';
+import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 import '_import_dialog.dart';
 
@@ -927,6 +929,25 @@ class _UserTile extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (user.position.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              user.position,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: theme.colorScheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (user.status != 'active') ...[
                           const SizedBox(width: 6),
                           Container(
@@ -1042,6 +1063,7 @@ class _UserEditDialog extends StatefulWidget {
 class _UserEditDialogState extends State<_UserEditDialog> {
   late final TextEditingController _displayNameController;
   late final TextEditingController _ownerIdController;
+  late final TextEditingController _positionController;
   final _passwordController = TextEditingController();
   late String _role;
   late String _scope;
@@ -1056,6 +1078,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
     _displayNameController =
         TextEditingController(text: widget.user.displayName);
     _ownerIdController = TextEditingController(text: widget.user.ownerId);
+    _positionController = TextEditingController(text: widget.user.position);
     _role = widget.user.role;
     _scope =
         widget.user.ownerScope.isEmpty ? 'college' : widget.user.ownerScope;
@@ -1066,8 +1089,59 @@ class _UserEditDialogState extends State<_UserEditDialog> {
   void dispose() {
     _displayNameController.dispose();
     _ownerIdController.dispose();
+    _positionController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  /// 当前操作者角色（用于角色指派范围限制）
+  String _operatorRole(BuildContext context) {
+    final profile = context.read<AuthProvider>().profile;
+    if (profile != null && profile.role.isNotEmpty) return profile.role;
+    return Storage.role ?? '';
+  }
+
+  /// 可按角色分组的职务快捷选项
+  List<String> _positionPresets(String role) {
+    switch (role) {
+      case 'student_union':
+        return const ['主席', '副主席', '部长', '副部长', '干事'];
+      case 'counselor':
+        return const ['年级辅导员', '专职辅导员', '兼职辅导员'];
+      case 'teacher':
+        return const ['专任教师', '讲师', '副教授', '教授'];
+      case 'assistant':
+        return const ['教学秘书', '教务员', '辅导员助理'];
+      case 'college_admin':
+        return const ['院长', '副院长', '系主任'];
+      case 'school_admin':
+      case 'sys_admin':
+        return const ['信息中心', '学工处', '教务处'];
+      case 'student':
+        return const ['班长', '团支书', '学习委员', '生活委员', '无'];
+      default:
+        return const [];
+    }
+  }
+
+  /// 当前操作者可指派的角色列表
+  List<Map<String, String>> _assignableRoles(String operatorRole) {
+    final base = [
+      {'v': 'student', 'label': '学生'},
+      {'v': 'student_union', 'label': '学生会'},
+      {'v': 'counselor', 'label': '辅导员'},
+      {'v': 'teacher', 'label': '教师'},
+      {'v': 'assistant', 'label': '教辅'},
+      {'v': 'college_admin', 'label': '学院管理员'},
+      {'v': 'school_admin', 'label': '学校管理员'},
+    ];
+    if (operatorRole == 'college_admin') {
+      // 学院管理员不能授予校级/系统管理员，也不能给其他学院管理员指派
+      return base
+          .where((r) => r['v'] != 'school_admin' && r['v'] != 'college_admin')
+          .toList();
+    }
+    return base;
   }
 
   @override
@@ -1075,6 +1149,13 @@ class _UserEditDialogState extends State<_UserEditDialog> {
     final canUpdate = CapabilityUtils.has(Capability.schoolUserUpdate);
     final canResetPwd = CapabilityUtils.has(Capability.systemPasswordReset);
     final theme = Theme.of(context);
+    final operatorRole = _operatorRole(context);
+    final assignableRoles = _assignableRoles(operatorRole);
+    // 当前角色若不在可指派列表（如学校管理员被学院管理员查看），仍保留显示
+    if (!assignableRoles.any((r) => r['v'] == _role)) {
+      assignableRoles.insert(0, {'v': _role, 'label': _role});
+    }
+    final positionPresets = _positionPresets(_role);
 
     return AlertDialog(
       backgroundColor: theme.colorScheme.surface,
@@ -1139,20 +1220,43 @@ class _UserEditDialogState extends State<_UserEditDialog> {
                   labelText: '角色',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'student', child: Text('学生')),
-                  DropdownMenuItem(value: 'student_union', child: Text('学生会')),
-                  DropdownMenuItem(value: 'counselor', child: Text('辅导员')),
-                  DropdownMenuItem(value: 'teacher', child: Text('教师')),
-                  DropdownMenuItem(value: 'assistant', child: Text('教辅')),
-                  DropdownMenuItem(
-                      value: 'college_admin', child: Text('学院管理员')),
-                  DropdownMenuItem(value: 'school_admin', child: Text('学校管理员')),
-                ],
+                items: assignableRoles
+                    .map((r) => DropdownMenuItem(
+                        value: r['v'], child: Text(r['label'] ?? r['v']!)))
+                    .toList(),
                 onChanged: canUpdate
                     ? (v) => setState(() => _role = v ?? 'student')
                     : null,
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _positionController,
+                enabled: canUpdate,
+                decoration: InputDecoration(
+                  labelText: '职务',
+                  hintText: '如 主席 / 部长 / 干事，或职称职务',
+                  helperText: '职务与角色分开，描述岗位/职责',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              if (positionPresets.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: positionPresets
+                      .map((p) => ActionChip(
+                            label: Text(p),
+                            visualDensity: VisualDensity.compact,
+                            labelStyle: const TextStyle(fontSize: 12),
+                            onPressed: canUpdate
+                                ? () => setState(
+                                    () => _positionController.text = p)
+                                : null,
+                          ))
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _scope,
@@ -1300,6 +1404,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
       {
         'display_name': _displayNameController.text.trim(),
         'role': _role,
+        'position': _positionController.text.trim(),
         'owner_scope': _scope,
         'owner_id': _ownerIdController.text.trim(),
         'status': _status,
