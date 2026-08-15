@@ -6,7 +6,7 @@
 INSERT INTO kb_resources (
     resource_id, resource_type, owner_scope, owner_id, role_scope,
     version, status, title, summary, content, source_link, source_version,
-    effective_at, tags, updated_by, created_at, updated_at
+    effective_at, tags, updated_by, created_at, updated_at, remark
 ) VALUES (
     'official-第二课堂成绩单-0621', 'Policy', 'school', '', '["student","counselor","assistant","college_admin","school_admin"]',
     'v1.0', 'published',
@@ -160,13 +160,14 @@ INSERT INTO kb_resources (
 ## 附件
 滁州学院本科生“第二课堂”学分认证标准''',
     'http://校发〔2026〕16号', '2026-06-21', '2026-06-21 00:00:00',
-    '["第二课堂","成绩单","学分","五育","综合素质"]', 'system:doc-import', '2026-08-15 22:08:48', '2026-08-15 22:08:48'
+    '["第二课堂","成绩单","学分","五育","综合素质"]', 'system:doc-import', '2026-08-15 22:08:48', '2026-08-15 22:08:48',
+    '官方文档导入：第二课堂成绩单制度实施办法（校发〔2026〕16号）'
 );
 
 INSERT INTO kb_resources (
     resource_id, resource_type, owner_scope, owner_id, role_scope,
     version, status, title, summary, content, source_link, source_version,
-    effective_at, tags, updated_by, created_at, updated_at
+    effective_at, tags, updated_by, created_at, updated_at, remark
 ) VALUES (
     'official-学生手册2025-0827', 'Policy', 'school', '', '["student","counselor","assistant","college_admin","school_admin"]',
     'v1.0', 'published',
@@ -634,6 +635,7 @@ INSERT INTO kb_resources (
 2. 原文中校歌曲谱为图片资源，Markdown文档内仅文字记录标题，无图片嵌入；
 3. 全部制度条款按原文完整梳理、分段分层，无删减关键管理细则，适配打印、电子存档、新生培训。''',
     'http://', '2025-08-27', '2025-08-27 00:00:00',
-    '["学生手册","学籍","奖惩","资助","安全","校规"]', 'system:doc-import', '2026-08-15 22:08:48', '2026-08-15 22:08:48'
+    '["学生手册","学籍","奖惩","资助","安全","校规"]', 'system:doc-import', '2026-08-15 22:08:48', '2026-08-15 22:08:48',
+    '官方文档导入：2025版学生手册全文'
 );
 
