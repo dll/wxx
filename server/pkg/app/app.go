@@ -358,6 +358,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	phase2Repo := repository.NewPhase2Repo(db)
 	phase2Svc := service.NewPhase2Service(phase2Repo, checkinRepo)
 	studentHandler.SetPhase2Service(phase2Svc)
+	counselorSvc.SetPhase2Service(phase2Svc)
 
 	// 阶段三数据底座服务（成绩/课表导入 + 教辅真实数据）
 	dataImportRepo := repository.NewDataImportRepo(db)
@@ -383,6 +384,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	if llmClient != nil {
 		assistantSvc = service.NewAssistantService(llmClient)
 		assistantSvc.SetPhase3Service(phase3Svc)
+		assistantSvc.SetUserRepo(userRepo)
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantSvc)
 

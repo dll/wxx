@@ -683,6 +683,12 @@ class _ProfilePageState extends State<ProfilePage> {
               '/assistant/grad-audit'),
           _ProfileFeature('a_exam', '教辅服务', Icons.event_note, '考试编排', '考试安排管理',
               '/assistant/exam-arrange'),
+          _ProfileFeature('a_calendar', '教辅服务', Icons.calendar_month,
+              '教学日历', '学期关键节点', '/assistant/teaching-calendar'),
+          _ProfileFeature('a_student_info', '教辅服务', Icons.person_search,
+              '学生信息查询', '真实学生账号查询', '/assistant/student-info'),
+          _ProfileFeature('a_notify', '教辅服务', Icons.campaign_outlined,
+              '通知批量', 'AI 辅助通知草稿', '/assistant/notification-draft'),
         ],
         if (role == 'student_union') ...[
           _ProfileFeature('u_event_plan', '学生会服务', Icons.event, 'AI 活动策划',

@@ -266,6 +266,12 @@ class ApiConfig {
       '$apiPrefix/assistant/graduation-audit';
   static const String assistantExamArrange =
       '$apiPrefix/assistant/exam-arrange';
+  static const String assistantTeachingCalendar =
+      '$apiPrefix/assistant/teaching-calendar';
+  static const String assistantStudentInfo =
+      '$apiPrefix/assistant/student-info';
+  static const String assistantNotification =
+      '$apiPrefix/assistant/notification';
 
   // ── 学生会 AI 功能 ──
   static const String unionEventPlan = '$apiPrefix/union/event-plan';

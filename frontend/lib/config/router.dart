@@ -92,6 +92,9 @@ import '../pages/teacher/community_qa_page.dart';
 import '../pages/assistant_role/schedule_check_page.dart';
 import '../pages/assistant_role/grad_audit_page.dart';
 import '../pages/assistant_role/exam_arrange_page.dart';
+import '../pages/assistant_role/teaching_calendar_page.dart';
+import '../pages/assistant_role/student_info_page.dart';
+import '../pages/assistant_role/notification_draft_page.dart';
 import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
 import '../pages/union/activity_manage_page.dart';
@@ -610,6 +613,15 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/assistant/exam-arrange',
             builder: (_, __) => const ExamArrangePage()),
+        GoRoute(
+            path: '/assistant/teaching-calendar',
+            builder: (_, __) => const TeachingCalendarPage()),
+        GoRoute(
+            path: '/assistant/student-info',
+            builder: (_, __) => const StudentInfoPage()),
+        GoRoute(
+            path: '/assistant/notification-draft',
+            builder: (_, __) => const NotificationDraftPage()),
         GoRoute(
             path: '/union/event-plan',
             builder: (_, __) => const EventPlanPage()),

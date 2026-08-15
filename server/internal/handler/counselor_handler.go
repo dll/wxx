@@ -385,7 +385,7 @@ func (h *CounselorHandler) FollowUpReminders(c *gin.Context) {
 	if h.svc != nil {
 		userCtx := middleware.GetUserContext(c)
 		if userCtx != nil {
-			data := h.svc.GenerateFollowUpReminders(c.Request.Context(), userCtx.OwnerScope, userCtx.OwnerID)
+			data := h.svc.GenerateFollowUpReminders(c.Request.Context(), userCtx.UserID)
 			if data != nil {
 				c.JSON(http.StatusOK, data)
 				return

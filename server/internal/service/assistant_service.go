@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 )
 
@@ -14,10 +15,16 @@ import (
 type AssistantService struct {
 	llmClient llm.ChatClient
 	phase3    *Phase3Service // 阶段三真实数据（可选），无真实数据时回落 reference
+	userRepo  *repository.UserRepo // 真实学生账号来源（可选），用于学生信息查询
 }
 
 func NewAssistantService(llmClient llm.ChatClient) *AssistantService {
 	return &AssistantService{llmClient: llmClient}
+}
+
+// SetUserRepo 注入用户仓储（学生信息查询用真实账号数据，可选依赖）
+func (s *AssistantService) SetUserRepo(userRepo *repository.UserRepo) {
+	s.userRepo = userRepo
 }
 
 // SetPhase3Service 注入阶段三真实数据服务（可选依赖）
@@ -280,13 +287,32 @@ type StudentInfoQuery struct {
 }
 
 func (s *AssistantService) QueryStudentInfo(ctx context.Context, query string) *StudentInfoQuery {
+	// 优先查真实学生账号（users.role=student），不再硬编码示例人物
+	if s.userRepo != nil {
+		q := &model.UserQuery{Role: "student", Keyword: query}
+		if users, _, err := s.userRepo.ListAdvanced(q); err == nil && len(users) > 0 {
+			result := make([]map[string]interface{}, 0, len(users))
+			for _, u := range users {
+				item := map[string]interface{}{
+					"user_id":   u.ID,
+					"student_id": u.Username,
+					"name":      u.DisplayName,
+					"major":     u.Major,
+					"class":     u.ClassName,
+					"college":   u.College,
+					"status":    u.Status,
+				}
+				result = append(result, item)
+			}
+			return &StudentInfoQuery{Query: query, Result: result, DataSource: "real"}
+		}
+	}
+
+	// 无真实数据或未命中：诚实返回空结果（data_source=real），不展示伪数据
 	return &StudentInfoQuery{
-		Query: query,
-		Result: []map[string]interface{}{
-			{"student_id": "202301001", "name": "张明", "major": "计算机科学与技术", "class": "计科2301", "gpa": 2.8, "status": "在读"},
-			{"student_id": "202301002", "name": "李华", "major": "计算机科学与技术", "class": "计科2301", "gpa": 3.5, "status": "在读"},
-		},
-		DataSource: "reference",
+		Query:      query,
+		Result:     []map[string]interface{}{},
+		DataSource: "real",
 	}
 }
 

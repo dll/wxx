@@ -18,6 +18,7 @@ type CounselorService struct {
 	emotionRepo *repository.EmotionRepo
 	twinRepo    *repository.TwinRepo
 	llmClient   llm.ChatClient
+	phase2      *Phase2Service // 真实谈心记录（可选），生成真实跟进提醒
 }
 
 // NewCounselorService 创建辅导员服务
@@ -33,6 +34,11 @@ func NewCounselorService(
 		twinRepo:    twinRepo,
 		llmClient:   llmClient,
 	}
+}
+
+// SetPhase2Service 注入阶段二真实谈话记录服务（可选），用于生成真实跟进提醒
+func (s *CounselorService) SetPhase2Service(phase2 *Phase2Service) {
+	s.phase2 = phase2
 }
 
 // FocusedStudent 今日关注的学生
@@ -574,11 +580,8 @@ func riskFromSnapshot(sp *repository.TwinSnapshot) string {
 }
 
 func fallbackTwinBoard() []*TwinBoardStudent {
-	return []*TwinBoardStudent{
-		{StudentID: "s001", Name: "张明", Academic: 65, Social: 45, Mental: 55, Practice: 70, Innovate: 48, Risk: "high"},
-		{StudentID: "s002", Name: "李华", Academic: 72, Social: 80, Mental: 78, Practice: 60, Innovate: 65, Risk: "medium"},
-		{StudentID: "s003", Name: "王芳", Academic: 88, Social: 55, Mental: 70, Practice: 75, Innovate: 82, Risk: "low"},
-	}
+	// 无真实学生画像时诚实返回空（前端显示“数据积累中”），不再虚构示例学生。
+	return []*TwinBoardStudent{}
 }
 
 type PredictionStudent struct {
@@ -656,9 +659,9 @@ func riskTypeFromScore(score float64) string {
 }
 
 func fallbackPredictions() []*PredictionStudent {
-	return []*PredictionStudent{
-		{StudentID: "s001", Name: "张明", RiskType: "dropout", Probability: 0.35, Factors: []string{"出勤率低", "成绩下滑", "社交减少"}, Suggestion: "建议尽快约谈"},
-	}
+	// 无真实预警数据时不返回虚构学生，诚实返回空（前端显示“暂无风险预测/数据积累中”），
+	// 避免把示例人物当作真实学生风险预测展示（不瞎编原则）。
+	return []*PredictionStudent{}
 }
 
 // ─── P2 深度功能 ───
@@ -764,21 +767,58 @@ type FollowUpReminder struct {
 	DataSource   string                   `json:"data_source"`
 }
 
-func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, scope, ownerID string) *FollowUpReminder {
+func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, counselorID int64) *FollowUpReminder {
 	reminder := &FollowUpReminder{
-		Tasks: []map[string]interface{}{
-			{"student": "张明", "type": "学业帮扶", "due": "2026-05-19", "status": "pending", "priority": "high"},
-			{"student": "李华", "type": "心理关怀", "due": "2026-05-17", "status": "overdue", "priority": "high"},
-			{"student": "王芳", "type": "思想汇报", "due": "2026-05-22", "status": "upcoming", "priority": "medium"},
-			{"student": "赵强", "type": "入党谈话", "due": "2026-05-25", "status": "pending", "priority": "low"},
-		},
-		OverdueCount: 1,
-		PendingCount: 3,
-		Suggestion:   "李华的心理关怀谈话已逾期，建议今天内安排。张明学业帮扶截止临近，优先处理。",
-		DataSource:   "fallback",
+		Tasks:        []map[string]interface{}{},
+		OverdueCount: 0,
+		PendingCount: 0,
+		Suggestion:   "暂无待跟进的谈心记录。完成谈心谈话并保存记录后，这里会自动生成跟进提醒。",
+		DataSource:   "real",
 	}
 
-	if s.llmClient != nil {
+	// 真实数据：从谈心记录（talk_records）取 status=following 的待跟进学生
+	if s.phase2 != nil && counselorID > 0 {
+		records, err := s.phase2.ListTalkRecords(counselorID, 100)
+		if err == nil {
+			now := time.Now()
+			var overdue, pending int
+			for _, rec := range records {
+				status, _ := rec["status"].(string)
+				if status != "following" {
+					continue
+				}
+				studentName, _ := rec["student_name"].(string)
+				topic, _ := rec["topic"].(string)
+				createdAt, _ := rec["created_at"].(string)
+				if studentName == "" {
+					continue
+				}
+				// 逾期判定：跟进中的记录距今超过 7 天未处理视为逾期
+				due := "待跟进"
+				if ts, terr := time.Parse("2006-01-02 15:04:05", createdAt); terr == nil {
+					ageDays := now.Sub(ts).Hours() / 24
+					if ageDays >= 7 {
+						due = "已逾期"
+						overdue++
+					} else if ageDays >= 3 {
+						due = "临近截止"
+						pending++
+					}
+				}
+				reminder.Tasks = append(reminder.Tasks, map[string]interface{}{
+					"student": studentName, "type": topic, "due": due,
+					"status": status, "priority": "high",
+				})
+			}
+			reminder.OverdueCount = overdue
+			reminder.PendingCount = pending + len(reminder.Tasks)
+			if len(reminder.Tasks) > 0 {
+				reminder.Suggestion = fmt.Sprintf("当前有 %d 名学生的谈心记录待跟进（%d 项已逾期），请优先处理。", len(reminder.Tasks), overdue)
+			}
+		}
+	}
+
+	if s.llmClient != nil && len(reminder.Tasks) > 0 {
 		prompt := fmt.Sprintf("你是辅导员助理。%d项待跟进谈话，%d项已逾期。请给出50字优先级建议。",
 			reminder.PendingCount+reminder.OverdueCount, reminder.OverdueCount)
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
@@ -842,22 +882,19 @@ type CheckinStats struct {
 
 func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className string) *CheckinStats {
 	if className == "" {
-		className = "计科2301班"
+		className = "全部班级"
 	}
 
+	// 暂无真实班级级打卡聚合，不虚构人数/比例/学生（不瞎编原则）：
+	// 返回零基数 + 诚实说明，前端显示“暂无真实打卡统计（数据积累中）”。
 	return &CheckinStats{
-		ClassName:     className,
-		TotalStudents: 45,
-		TodayRate:     0.93,
-		StreakDistribution: map[string]int{
-			"连续7天+": 18, "连续3-6天": 15, "连续1-2天": 7, "今日未打卡": 3, "连续3天未打卡": 2,
-		},
-		DeclineStudents: []map[string]interface{}{
-			{"name": "张明", "prev_streak": 5, "curr_streak": 0, "risk": "medium"},
-			{"name": "李华", "prev_streak": 3, "curr_streak": 0, "risk": "low"},
-		},
-		AIAnalysis: "班级整体打卡率93%，3人今日未打卡。张明同学连续打卡中断，建议关注其近期状态。",
-		DataSource: "reference",
+		ClassName:          className,
+		TotalStudents:      0,
+		TodayRate:          0,
+		StreakDistribution: map[string]int{},
+		DeclineStudents:    []map[string]interface{}{},
+		AIAnalysis:         "暂无真实打卡统计数据。学生启用每日打卡后，这里会自动汇聚班级打卡率与中断提醒，不展示示例数据。",
+		DataSource:         "real",
 	}
 }
 
