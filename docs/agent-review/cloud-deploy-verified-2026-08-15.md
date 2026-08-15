@@ -41,3 +41,13 @@
 - CI 自动后端部署依赖服务器的 git fetch；若 GitHub 持续不通，自动部署会 fallback 编译服务器现有源码（功能完整但可能滞后最新 commit）
 - 若需每次都部署最新代码，需给服务器配 GitHub 加速（如 gitee 镜像 / ghproxy 代理）或改用 CI runner 侧打包上传的稳定通道
 - 服务器 `wxx_deploy.pem` 私钥存在于本地 `~/.ssh/`，注意保管
+
+## 追加批次部署记录（2026-08-15 17:58）— 首次批量上线未部署改动
+- 部署范围：角色管理 04e7682 + 212ff06/d7b4ed2/111003a + 绩效画像 cb4f78e + 强关联/不瞎编 e9e6a1e（此前均推 GitHub 未上线）。
+- 后端：本机交叉编译 linux/amd64（CGO_ENABLED=0；生产 MySQL 用 go-sql-driver/mysql 纯 Go，无需 CGO）→ scp 至 /opt/wxx/wxx-server.new → 备份 wxx-server.bak-e9e6a1e → 替换 → systemctl restart wxx（active）。
+  - 因服务器 git fetch GitHub 超时，本次绕过 git，直接 scp 二进制上线。
+  - /health ✓（mysql ok、迁移全最新——085 为末位，无新迁移待跑）。
+- 前端：flutter build web --release → tar 排除 downloads（413MB APK）后仅 9MB → scp → 服务器解压至 /opt/wxx/frontend/web（先备份 web.bak-e9e6a1e、清旧）→ chown caddy:caddy → systemctl reload caddy。
+  - https://wxx-agent.online 标题「蔚小芯」✓、main.dart.js 200 ✓。
+- 实测：登录 sysadmin/counselor1/student1 → 200（token 正常）；staff1/teacher1 → 429 为登录限流非失败。
+- 绩效画像（cb4f78e 核心）实测：GET /student/digital-twin（counselor1 token）→ 200，返回新结构 overall_score + dimensions（帮扶咨询/排课处理/考试编排，data_available=False 诚实「数据积累中」），fallback:true（规则聚合非 LLM）→ 线上生效。

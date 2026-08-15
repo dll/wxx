@@ -12,7 +12,8 @@
 | 2026-08-15 | [role-management-2026-08-15.md](role-management-2026-08-15.md) | 角色管理增强：角色分配入口 + 职务字段 + 越权防护 | 已实现，后端/前端验证通过 |
 | 2026-08-15 | [counselor-assistant-role-audit-2026-08-15.md](counselor-assistant-role-audit-2026-08-15.md) | 辅导员/教辅角色功能审核：入口+数据真实性 | 审核完成；教辅数据来源标注已落地 |
 | 2026-08-15 | [staff-performance-twin-2026-08-15.md](staff-performance-twin-2026-08-15.md) | 教辅/教师绩效画像：绩效→数字孪生画像→三方绑定（方案A第一增量） | 已实现，后端/前端编译验证通过 |
-| 2026-08-15 | [assistant-frontend-real-data-2026-08-15.md](assistant-frontend-real-data-2026-08-15.md) | 强关联教辅前端(教学日历/学生信息/通知) + 弱关联藏起 + 辅导员不瞎编整改 | 已实现，后端/前端验证通过 |
+| 2026-08-15 | [assistant-frontend-real-data-2026-08-15.md](assistant-frontend-real-data-2026-08-15.md) | 强关联教辅前端(教学日历/学生信息/通知) + 弱关联藏起 + 辅导员不瞎编整改 | 已实现并部署，验证通过 |
+| 2026-08-15 | [cloud-deploy-verified-2026-08-15.md](cloud-deploy-verified-2026-08-15.md) | 云端部署验证：含全功能后端 + 首/批未部署改动上线 | 已部署，health/登录/绩效画像实测通过 |
 
 ## 说明
 
