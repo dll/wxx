@@ -496,4 +496,39 @@ class HealthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// 活动复盘指标（真实统计）
+  Future<Map<String, dynamic>?> fetchReviewStats() async {
+    try {
+      final res = await _api.get('${ApiConfig.healthActivities}/review-stats');
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 活动报名/到场名单
+  Future<List<Map<String, dynamic>>> listActivitySignups(String activityId) async {
+    try {
+      final res = await _api.get('${ApiConfig.healthActivities}/$activityId/signups');
+      if (res.data['code'] == 0) {
+        return (res.data['items'] as List).cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// 标记报名者签到/取消
+  Future<bool> attendSignup(String activityId, int userId, bool attended) async {
+    try {
+      final res = await _api.post('${ApiConfig.healthActivities}/$activityId/attend/$userId',
+          data: {'attended': attended});
+      return res.data['code'] == 0;
+    } catch (_) {
+      return false;
+    }
+  }
 }

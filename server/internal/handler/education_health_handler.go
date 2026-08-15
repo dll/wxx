@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -803,6 +804,148 @@ func (h *EducationHandler) UpdateHealthActivityStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "活动状态已更新", "status": req.Status})
+}
+
+// AttendActivitySignup 活动签到：学生会将某报名者标记为到场（复盘用）
+// POST /api/v1/health/activities/:id/attend/:uid  body: {attended: bool}
+func (h *EducationHandler) AttendActivitySignup(c *gin.Context) {
+	var req struct {
+		Attended bool `json:"attended"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	attach := 0
+	if req.Attended {
+		attach = 1
+	}
+	res, err := h.db.Exec(
+		`UPDATE health_activity_signups SET attended=? WHERE activity_id=? AND user_id=? AND status='registered'`,
+		attach, c.Param("id"), c.Param("uid"))
+	if err != nil {
+		log.Printf("health AttendActivitySignup err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "签到失败"})
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "该用户未报名或活动不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "签到状态已更新", "attended": req.Attended})
+}
+
+// ActivityReviewStats 活动复盘指标（真实统计，非 mock）
+// GET /api/v1/health/activities/review-stats
+// 返回：每个活动 报名/到场/到场率 + 汇总（总报名/总到场/平均到场率/分类分布/组织方排行）
+func (h *EducationHandler) ActivityReviewStats(c *gin.Context) {
+	type row struct {
+		ActivityID  string  `json:"activity_id"`
+		Title       string  `json:"title"`
+		Category    string  `json:"category"`
+		Venue       string  `json:"venue"`
+		Organizer   string  `json:"organizer"`
+		Status      string  `json:"status"`
+		SignupCount int     `json:"signup_count"`
+		AttendCount int     `json:"attend_count"`
+		AttendRate  float64 `json:"attend_rate"`
+	}
+	rows, err := h.db.Query(`
+		SELECT a.activity_id, a.title, a.category, a.venue, a.organizer, a.status,
+		       (SELECT COUNT(*) FROM health_activity_signups s WHERE s.activity_id=a.activity_id AND s.status='registered') AS sg,
+		       (SELECT COUNT(*) FROM health_activity_signups s WHERE s.activity_id=a.activity_id AND s.status='registered' AND s.attended=1) AS at
+		FROM health_activities a
+		ORDER BY sg DESC`)
+	if err != nil {
+		log.Printf("health ActivityReviewStats err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "获取复盘数据失败"})
+		return
+	}
+	defer rows.Close()
+	var items []row
+	totalSignup, totalAttend := 0, 0
+	catCount := map[string]int{}
+	orgStat := map[string][2]int{} // organizer -> [报名, 到场]
+	for rows.Next() {
+		var r row
+		var sg, at int
+		if err := rows.Scan(&r.ActivityID, &r.Title, &r.Category, &r.Venue, &r.Organizer, &r.Status, &sg, &at); err != nil {
+			continue
+		}
+		r.SignupCount = sg
+		r.AttendCount = at
+		if sg > 0 {
+			r.AttendRate = math.Round(float64(at)/float64(sg)*1000) / 10
+		}
+		items = append(items, r)
+		totalSignup += sg
+		totalAttend += at
+		catCount[r.Category]++
+		o := r.Organizer
+		if o == "" {
+			o = "未知组织方"
+		}
+		orgStat[o] = [2]int{orgStat[o][0] + sg, orgStat[o][1] + at}
+	}
+	orgRank := make([]gin.H, 0, len(orgStat))
+	for k, v := range orgStat {
+		rate := 0.0
+		if v[0] > 0 {
+			rate = math.Round(float64(v[1])/float64(v[0])*1000) / 10
+		}
+		orgRank = append(orgRank, gin.H{"organizer": k, "signup": v[0], "attend": v[1], "attend_rate": rate})
+	}
+	// 到场率降序
+	for i := 0; i < len(orgRank); i++ {
+		for j := i + 1; j < len(orgRank); j++ {
+			if orgRank[j]["attend_rate"].(float64) > orgRank[i]["attend_rate"].(float64) {
+				orgRank[i], orgRank[j] = orgRank[j], orgRank[i]
+			}
+		}
+	}
+	avgRate := 0.0
+	if totalSignup > 0 {
+		avgRate = math.Round(float64(totalAttend)/float64(totalSignup)*1000) / 10
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":         0,
+		"total_signup": totalSignup,
+		"total_attend": totalAttend,
+		"avg_attend_rate": avgRate,
+		"category_count":  catCount,
+		"organizer_rank":  orgRank,
+		"activities":      items,
+	})
+}
+
+// ListActivitySignups 活动报名/到场名单（学生会签到用）
+// GET /api/v1/health/activities/:id/signups
+func (h *EducationHandler) ListActivitySignups(c *gin.Context) {
+	rows, err := h.db.Query(`
+		SELECT s.user_id, u.username, u.display_name, s.attended, s.created_at
+		FROM health_activity_signups s
+		LEFT JOIN users u ON u.id = s.user_id
+		WHERE s.activity_id=? AND s.status='registered'
+		ORDER BY s.attended ASC, s.created_at ASC`, c.Param("id"))
+	if err != nil {
+		log.Printf("health ListActivitySignups err: %v", err)
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "获取名单失败"})
+		return
+	}
+	defer rows.Close()
+	var list []gin.H
+	for rows.Next() {
+		var uid int
+		var uname, disp string
+		var att int
+		var created string
+		if err := rows.Scan(&uid, &uname, &disp, &att, &created); err != nil {
+			continue
+		}
+		show := disp
+		if show == "" {
+			show = uname
+		}
+		list = append(list, gin.H{"user_id": uid, "name": show, "username": uname, "attended": att == 1, "created_at": created})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "items": list})
 }
 
 // POST /api/v1/health/activities/:id/signup  body: {signup: bool}

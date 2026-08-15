@@ -32,7 +32,16 @@ class _UnionActivityManagePageState extends State<UnionActivityManagePage> {
     final theme = Theme.of(context);
     final acts = provider.activities;
     return Scaffold(
-      appBar: AppBar(title: const Text('活动报名管理')),
+      appBar: AppBar(
+        title: const Text('活动报名管理'),
+        actions: [
+          IconButton(
+            tooltip: '活动复盘',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: () => _showReviewDialog(context, provider),
+          ),
+        ],
+      ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -192,9 +201,25 @@ class _UnionActivityManagePageState extends State<UnionActivityManagePage> {
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 TextButton(
+                  onPressed: () => _showAttendDialog(context, provider, a),
+                  child: const Text('签到'),
+                ),
+                TextButton(
                   onPressed: () => _confirmEndActivity(context, provider, a),
                   child: const Text('结束活动'),
                 ),
+              ]),
+            ] else ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                Text('${a.signupCount} 人报名',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                if (a.status == 'closed')
+                  TextButton(
+                    onPressed: () => _showAttendDialog(context, provider, a),
+                    child: const Text('签到/复盘'),
+                  ),
               ]),
             ],
           ],
@@ -297,6 +322,147 @@ class _UnionActivityManagePageState extends State<UnionActivityManagePage> {
       if (seg.length >= 2 && seg.length <= 24) { venue = seg; break; }
     }
     return {'title': title, 'description': t, 'start_at': startAt.trim(), 'venue': venue.trim()};
+  }
+
+  /// 活动复盘指标对话框（真实统计）
+  void _showReviewDialog(BuildContext context, HealthProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: provider.fetchReviewStats(),
+          builder: (ctx, snap) {
+            if (!snap.hasData || snap.data == null) {
+              return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+            }
+            final d = snap.data!;
+            final acts = (d['activities'] as List?)?.cast<Map>() ?? [];
+            final orgRank = (d['organizer_rank'] as List?)?.cast<Map>() ?? [];
+            return Container(
+              width: 460,
+              padding: const EdgeInsets.all(18),
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('活动复盘', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    _statBox(ctx, '总报名', '${d['total_signup'] ?? 0}'),
+                    const SizedBox(width: 8),
+                    _statBox(ctx, '总到场', '${d['total_attend'] ?? 0}'),
+                    const SizedBox(width: 8),
+                    _statBox(ctx, '到场率', '${d['avg_attend_rate'] ?? 0}%'),
+                  ]),
+                  const SizedBox(height: 16),
+                  Text('组织方到场率排行', style: Theme.of(ctx).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  ...orgRank.map((o) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text('${o['organizer']}：报名 ${o['signup']} / 到场 ${o['attend']} · ${o['attend_rate']}%',
+                            style: Theme.of(ctx).textTheme.bodySmall),
+                      )),
+                  if (orgRank.isEmpty)
+                    Text('暂无组织方统计', style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 14),
+                  Text('各活动到场情况', style: Theme.of(ctx).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  ...acts.map((a) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(children: [
+                          Expanded(child: Text('${a['title']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: Theme.of(ctx).textTheme.bodySmall)),
+                          Text('${a['attend_count']}/${a['signup_count']} · ${a['attend_rate']}%',
+                              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                        ]),
+                      )),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+                  ),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _statBox(BuildContext ctx, String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).colorScheme.primaryContainer.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(children: [
+          Text(value, style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(label, style: Theme.of(ctx).textTheme.bodySmall),
+        ]),
+      ),
+    );
+  }
+
+  /// 活动签到对话框：列出报名者，标记到场
+  void _showAttendDialog(BuildContext context, HealthProvider provider, HealthActivity a) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: provider.listActivitySignups(a.activityId),
+          builder: (ctx, snap) {
+            final list = snap.data ?? [];
+            return Container(
+              width: 420,
+              padding: const EdgeInsets.all(18),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('签到：${a.title}', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('报名 ${list.length} 人 · 点击右侧勾选标记到场',
+                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                const Divider(height: 20),
+                if (list.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text('暂无报名者', style: Theme.of(ctx).textTheme.bodySmall),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final u = list[i];
+                        final checked = u['attended'] == true;
+                        return CheckboxListTile(
+                          dense: true,
+                          title: Text('${u['name']}', style: Theme.of(ctx).textTheme.bodyMedium),
+                          subtitle: Text('${u['username']}', style: Theme.of(ctx).textTheme.bodySmall),
+                          value: checked,
+                          onChanged: (v) {
+                            provider.attendSignup(a.activityId, (u['user_id'] as num).toInt(), v ?? false);
+                            setState(() {});
+                            Navigator.pop(ctx);
+                            _showAttendDialog(context, provider, a);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+                ),
+              ]),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   void _showCreateDialog(BuildContext context, HealthProvider provider, {Map<String, String>? prefill}) {

@@ -1525,6 +1525,9 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				health.POST("/activities/:id/favorite", auth.RequireCapability(auth.SelfHealthWrite), educationH.ToggleActivityFavorite)
 				health.POST("/activities/:id/signup", auth.RequireCapability(auth.SelfHealthWrite), educationH.ToggleActivitySignup)
 				health.POST("/activities/:id/status", auth.RequireCapability(auth.UnionEventPlan), educationH.UpdateHealthActivityStatus)
+				health.POST("/activities/:id/attend/:uid", auth.RequireCapability(auth.UnionEventPlan), educationH.AttendActivitySignup)
+				health.GET("/activities/review-stats", auth.RequireCapability(auth.UnionEventPlan), educationH.ActivityReviewStats)
+				health.GET("/activities/:id/signups", auth.RequireCapability(auth.UnionEventPlan), educationH.ListActivitySignups)
 			}
 
 			// ── 校园文化智能体（全员可见）──
