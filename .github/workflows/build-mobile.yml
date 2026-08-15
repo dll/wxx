@@ -256,13 +256,13 @@ jobs:
               "name": "default",
               "type": "HarmonyOS",
               "material": {
-                  "certpath": "material/signing.cer",
+                  "certpath": "signing.cer",
                   "storePassword": os.environ["HUAWEI_SIGNING_STORE_PASSWORD"],
                   "keyAlias": os.environ["HUAWEI_SIGNING_KEY_ALIAS"],
                   "keyPassword": os.environ.get("HUAWEI_SIGNING_KEY_PASSWORD", os.environ["HUAWEI_SIGNING_STORE_PASSWORD"]),
-                  "profile": "material/signing.p7b",
+                  "profile": "signing.p7b",
                   "signAlg": "SHA256withECDSA",
-                  "storeFile": "material/signing.p12"
+                  "storeFile": "signing.p12"
               }
           }]
           json.dump(d, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
