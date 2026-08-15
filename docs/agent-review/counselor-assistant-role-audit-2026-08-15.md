@@ -1,47 +1,81 @@
 # 辅导员 / 教辅 角色功能审核报告
 
 > 日期：2026-08-15
-> 审核对象：counselor（辅导员）、assistant（教辅）角色的功能完整性、数据真实性、入口可达性
-> 状态：审核完成；教辅数据来源标注已落地（本增量）；辅导员口头规划见「后续」
+> 审核对象：counselor（辅导员）、assistant（教辅）角色
+> 对齐依据：`docs/蔚小芯角色功能.md` v5.2 / `docs/蔚小芯待完成.md`（权威角色需求清单）
+> 状态：P1 全部落地；P2 存在「后端已就绪、前端缺页面」缺口；数据真实性标注（教辅）已落地
 
-## 一、入口可达性 ✅（无缺口）
+## ⚠️ 结论：未完全对齐角色需求（本审核补充了 P2 缺口）
 
-- **辅导员**：profile「辅导员服务」含 13 项（今日关注/班级学情日报/数字孪生看板/预测性预警/AI干预/谈心谈话/AI话术/思想档案/班级画像/社区管理/热点感知/办事管理/学生列表），路由全部注册，均有入口。
-- **教辅**：profile「教辅服务」3 项（排课冲突检测/毕业资格审核/考试编排），路由全部注册，均有入口。
+首批审核只覆盖了 P1（辅导员 11 项、教辅 3 项），**未核对 P2**。权威清单为辅导员 **17 项**（P1 11 + P2 6）、教辅 **12 项**（P1 3 + P2 9）。对齐后现状：
 
-> 与学生会（此前 5 个 union 接口无前端入口）不同，辅导员/教辅入口**均已存在**，非断链问题。
+## 一、权威角色需求对齐表
+
+### 辅导员（共 17 项）
+
+| 项 | 后端 | 前端页面/入口 | 状态 |
+|----|------|--------------|------|
+| P1-1 AI 今日关注 daily_focus | ✅ | ✅ daily_focus_page | 落地 |
+| P1-2 数字孪生看板 twin_board | ✅ | ✅ twin_board_page | 落地(硬编码⚠️) |
+| P1-3 AI 预测性预警 prediction | ✅ | ✅ prediction_page | 落地(硬编码⚠️) |
+| P1-4 班级学情日报 class_report | ✅ | ✅ class_report_page | 落地 |
+| P1-5 谈心谈话记录 talk_record | ✅ | ✅ talk_record_page | 落地 |
+| P1-6 谈话话术推荐 talk_tips | ✅ | ✅ talk_tips_page | 落地 |
+| P1-7 AI 干预方案 intervention | ✅ | ✅ intervention_page | 落地 |
+| P1-8 思想档案 ideological | ✅ | ✅ ideological_page | 落地 |
+| P1-9 班级性格画像 class_profile | ✅ | ✅ class_profile_page | 落地 |
+| P1-10 社区问答管理 community_manage | ✅ | ✅ community_manage_page | 落地(假帖⚠️) |
+| P1-11 热点话题感知 hot_topic_sense | ✅ | ✅ hot_topic_sense_page | 落地(假热点⚠️) |
+| P2-1 谈话跟进提醒 follow_up_reminders | ✅ 路由已注册 | ❌ 无页面 | **缺前端** |
+| P2-2 班级打卡统计 checkin_stats | ✅ 路由已注册 | ❌ 无页面 | **缺前端** |
+| P2-3 智能群发 smart_notify | ✅ 路由已注册 | ❌ 无页面 | **缺前端** |
+| P2-4 AI 月度简报 monthly_brief | ✅ 路由已注册 | ❌ 无页面 | **缺前端** |
+| P2-5 AI 会话洞察 session_insight | ✅ 路由已注册 | ❌ 无页面 | **缺前端** |
+| P2-6 流程步骤编辑 process_edit | ✅ | ✅ process_edit_page | 落地 |
+
+> **辅导员缺口 = 5 项 P2 后端已就绪、只缺前端页面+入口**（follow-up-reminders / checkin-stats / smart-notify / monthly-brief / session-insight 路由均在 app.go）。补齐成本低、风险低。
+
+### 教辅（共 12 项）
+
+| 项 | 后端 | 前端页面 | 状态 |
+|----|------|---------|------|
+| P1-1 AI 排课冲突检测 | ✅ phase3 真实 | ✅ schedule_check_page | 落地 |
+| P1-2 AI 毕业资格审核 | ✅ phase3 真实 | ✅ grad_audit_page | 落地 |
+| P1-3 AI 考试安排优化 | ✅ phase3 真实 | ✅ exam_arrange_page | 落地 |
+| P2-1 AI 通知批量生成 | ❌ 后端无 | ❌ 无 | **缺失** |
+| P2-2 教学日历管理 | 部分 | ❌ 无 | **缺** |
+| P2-3 AI 材料模板库 | ❌ 模板业务无 | ❌ 无 | **缺失** |
+| P2-4 AI 学生信息查询 | ✅ StudentInfoQuery | ❌ 无 | **缺前端** |
+| P2-5 AI 文档智能处理 | ✅ | ✅ process_document | 落地(学生/管理侧) |
+| P2-6 AI 流程自动化 | ❌ | ❌ 无 | **缺失** |
+| P2-7 流程步骤详情管理 | ✅ | ✅ process_edit(共享) | 落地 |
+| P2-8 音乐电台 | ✅ | ✅ radio_page | 落地(学生端) |
+| P2-9 校园活动报名 | 部分 | ❌ 无 | **缺** |
+
+> **教辅缺口更大**：P2 中 4 项（通知批量/模板库/流程自动化）+ 3 项部分（教学日历/学生信息查询前端/活动报名）未落地，其中后端也缺的需新建。
 
 ## 二、数据真实性（核心问题 ⚠️）
 
-沿用「不瞎编、真实数据标注」原则逐端点核查：
-
 ### 无问题的部分 ✅
-- **assistant** `ScheduleCheck` / `GradAudit` / `ExamArrange`：优先走 `phase3.GetScheduleConflicts/GetGraduationSummaries/GetExams` 真实课表/成绩/考试数据（已导入 10870 条课表+491 学生），空数据兜底为 `reference` 且**不再硬编码假学生**（2026-08-15 前曾硬编码「示例学生/王老师」伪数据，现兜底已诚实）。
-- **counselor** `GetStudentList`：走 `userRepo.List(scope/ownerID)` 真实学生 + 姓名脱敏 + 范围锁定。
-- **counselor** `TalkRecord`：LLM 从真实谈话输入中提取。
+- **assistant** P1 三接口：优先走 `phase3` 真实课表/成绩/考试数据（已导入 10870 条课表+491 学生），空数据诚实兜底为 `reference`。
+- **counselor** `GetStudentList`：真实学生 + 脱敏 + 范围锁定。
 
-### 仍有编造/误导风险的部分 ⚠️
-以下 counselor 接口在无真实数据时**返回硬编码示例人物/数据**且前端**无来源标注**（辅导员会误以为是真实学生）：
-- `GenerateTwinBoard`（数字孪生看板）：硬编码 张明/王芳/李华 及学术/心理分数。
-- `GeneratePredictions`（预测性预警）：硬编码 张明(dropout 0.35)/王芳 风险预测。
-- `GenerateMonthlyBrief` / `GenerateFollowUpReminders`：硬编码 张明(学业风险)/李华(情感关注)/逾期提醒。
-- `GenerateCheckinStats`：硬编码 张明 打卡中断。
-- `GenerateCommunityManage` / `GenerateHotTopicSense`：硬编码假帖子/热点。
-- `GenerateDailyFocus` fallback。
+### 仍有编造/误导风险 ⚠️（缺来源标注）
+以下 counselor 接口无真实数据时返回硬编码示例人物且前端无来源标注：
+- `GenerateTwinBoard` / `GeneratePredictions` / `GenerateMonthlyBrief` / `GenerateFollowUpReminders` / `GenerateCheckinStats` / `GenerateCommunityManage` / `GenerateHotTopicSense`（硬编码 张明/王芳/李华 + 假分数/假日期）。
 
-> 风险等级：**高**。这些是「人 + 决策」数据，若展示为真会造成辅导员对并不存在的学生做干预（如"跟进张明学业帮扶"）。
+> 风险等级：**高**（人+决策数据，辅导员可能对不存在的学生做干预）。
 
-## 三、本增量实现（教辅数据来源标注）
+## 三、本增量已落地（教辅数据来源标注，commit 212ff06）
 
-- 新增通用组件 `frontend/lib/widgets/data_src_badge.dart`：`DataSrcBadge(src)`，「真实数据」（绿，real）/「参考/AI」（琥珀，其余），点击弹窗说明来源（对齐学生会工作台 `_srcBadge` 语义）。
-- 应用到教辅 3 页：`schedule_check_page.dart` / `exam_arrange_page.dart` / `grad_audit_page.dart` 列表头展示后端 `data_source`。
-- 验证：`flutter analyze` 项目级 **0 error / 0 warning**（仅新增 info 级 prefer_const，CI `--no-fatal-infos` 通过）。
+- 新增通用组件 `frontend/lib/widgets/data_src_badge.dart`（真实数据/参考AI，点击弹窗，对齐学生会工作台语义）。
+- 应用到教辅 3 页列表头。
+- `flutter analyze` 项目级 0 error / 0 warning。
 
-## 四、后续（辅导员 补齐规划，待确认）
+## 四、待办（对齐角色需求的两个有序增量）
 
-辅导员数据真实性标注与「不瞎编」整改涉及 provider 层 + 后端兜底改造，改动面较大，单列下一增量：
-1. `twin_board` / `prediction` / `followup` / `monthly_brief` / `checkin` / `community` / `hot_topic`：把硬编码示例人物改为诚实兜底（空/参考），或注入真实数据，并统一标 `data_source`。
-2. 辅导员页统一展示 `DataSrcBadge`。
-3. 教辅 `GradAudit` 增加**学生选择器**（当前默认取 `summaries[0]`，需新增学生列表能力给 assistant 角色）。
+**增量 A（P2 前端补齐，低风险）**：辅导员 5 项 P2（follow-up/checkin/smart-notify/monthly/session）+ 教辅 P2-4 学生信息查询 —— **后端已就绪，建前端页 + 注册路由 + 入口**。
 
-> 是否按此继续辅导员增量？（改动涉及后端 ~8 个 handler/服务方法 + 前端 ~8 页，一次性完成约需一次跨端提交。）
+**增量 B（不瞎编整改，高风险优先）**：辅导员 7 个接口去硬编码示例人物 + 统一 `DataSrcBadge`；教辅 `GradAudit` 加学生选择器。
+
+**增量 C（后端新建，教辅）**：通知批量生成 / 材料模板库 / 流程自动化（后端也缺，需新建 service+handler+capability）。
