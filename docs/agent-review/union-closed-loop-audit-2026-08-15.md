@@ -58,4 +58,24 @@
 
 ## 四、风险提示
 - mock 假数据兜底在"活动分析/成员管理/问卷"存在，若上线误展示会给学生会误导
+
+---
+
+## 五、修复跟进（2026-08-15 已落地，commit 16f1aa1）
+
+### 完成项
+- **P0-1 补齐 5 个断链接口前端** ✅：新增「学生会工作台」页（`/union/workbench`，union_workbench_page.dart）集中呈现 成员活跃/活动分析/招新/问卷/热点 5 功能；profile 学生会服务新增入口；路由 / ApiConfig / HealthProvider 打通。
+- **P0-2 活动分析改真实数据** ✅：`UnionService` 注入 `db *sql.DB`（`NewUnionService(db, llmClient)`，app.go 无条件构建，不再依赖 LLM）；`AnalyzeActivity` 从 health_activities + health_activity_signups 聚合真实报名率/到场率（含 attended 字段，迁移 084）；去掉硬编码 0.85/0.72 假兜底。
+- **P0-3 成员管理真实数据** ✅：`ManageMembers` 按 health_activity_signups JOIN users 真实聚合（参与次数/到场/performance 评级/建议）。
+- **结构统一** ✅：五个 /union/* 接口统一返回 `{code,message,data}` 包装（与原 API 约定一致），前端按 `res.data['data']` 解析。
+- **数据来源诚实标注**：真实统计时 `data_source=real`；空库/无对应数据时 `data_source=reference`（返回 0/空，不编造张明/0.85 等假值）。
+
+### 验证
+- 本机 SQLite 冒烟：member-manage / activity-analysis 真实路径 `data_source=real` 返回真实聚合（报名3/到场2→到场率66.67%，建议树出）。
+- 云端部署（服务器源码 reset 到 16f1aa1 + 本地编译 + systemd 重启）：health healthy（mysql 驱动）；登录 stunion/Wxx@2026 code=0；/union/member-manage、activity-analysis、recruitment、questionnaire、hot-topic-track 全部 HTTP 200 code=0。
+- 云端 MySQL 空库时 member/analysis 返回空(reference)属正常，待真实活动+报名产生数据后自动转 real。
+
+### 未做/超出范围
+- `club_activities` 社团活动体系仍未合并（P1-5），学生会活动仍统一走 health_activities。
+- 活动分析建议解析：后端 Suggestions 为 `[]string`（前端勿 cast<Map>）。
 - 两套活动体系长期并存会导致统计口径混乱
