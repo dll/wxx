@@ -67,6 +67,10 @@ class SecretaryProvider extends ChangeNotifier {
   Map<String, dynamic>? dashboard;
   bool dashboardLoading = false;
 
+  // 党建育人聚合看板（书记接线）
+  Map<String, dynamic>? partyDashboard;
+  bool partyDashboardLoading = false;
+
   // 毕业去向列表
   List<OutcomeRecord> outcomes = [];
   bool outcomesLoading = false;
@@ -112,6 +116,23 @@ class SecretaryProvider extends ChangeNotifier {
     });
     dashboard = data;
     dashboardLoading = false;
+    notifyListeners();
+  }
+
+  /// 拉取党建育人聚合看板（owner_id 空=全校，非空=本院；后端自动按角色归属）
+  Future<void> fetchPartyDashboard() async {
+    partyDashboardLoading = true;
+    partyDashboard = null;
+    error = '';
+    notifyListeners();
+    final data = await _guard(() async {
+      final r = await _api.get('${ApiConfig.apiPrefix}/college/party-dashboard');
+      final body = r.data;
+      if (body is Map && body['data'] != null) return body['data'] as Map<String, dynamic>;
+      return null;
+    });
+    partyDashboard = data;
+    partyDashboardLoading = false;
     notifyListeners();
   }
 

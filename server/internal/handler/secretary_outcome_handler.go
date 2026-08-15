@@ -170,3 +170,19 @@ func (h *SecretaryOutcomeHandler) OutcomeDashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": data})
 }
+
+// PartyDashboard 党建育人聚合看板（college_admin 看本院/owner_id；school_admin 看全校/空）
+func (h *SecretaryOutcomeHandler) PartyDashboard(c *gin.Context) {
+	ownerID := c.Query("owner_id")
+	if ownerID == "" {
+		if u := middleware.GetUserContext(c); u != nil && u.Role == "college_admin" && u.OwnerScope == "college" {
+			ownerID = u.OwnerID
+		}
+	}
+	data, err := h.svc.PartyDashboard(c.Request.Context(), ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": data})
+}

@@ -24,6 +24,7 @@ class _SecretaryOutcomeDashboardPageState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SecretaryProvider>().fetchDashboard();
+      context.read<SecretaryProvider>().fetchPartyDashboard();
     });
   }
 
@@ -45,7 +46,10 @@ class _SecretaryOutcomeDashboardPageState
           final d = provider.dashboard;
           if (d == null) return ErrorView.empty(message: '暂无数据');
           return RefreshIndicator(
-            onRefresh: () => provider.fetchDashboard(),
+            onRefresh: () async {
+              await provider.fetchDashboard();
+              await provider.fetchPartyDashboard();
+            },
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -53,7 +57,7 @@ class _SecretaryOutcomeDashboardPageState
                 const SizedBox(height: 12),
                 _buildCompetition(d['competition']),
                 const SizedBox(height: 12),
-                _buildParty(d['party']),
+                _buildParty(provider.partyDashboard ?? d['party']),
                 const SizedBox(height: 12),
                 _buildAcademic(d['academic']),
                 const SizedBox(height: 12),
@@ -144,23 +148,37 @@ class _SecretaryOutcomeDashboardPageState
     if (party is! Map) return const SizedBox.shrink();
     final members = (party['members'] as Map?)?.cast<String, dynamic>() ?? {};
     final stage = (party['stage_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
+    final studyByType = (party['study_by_type'] as Map?)?.cast<String, dynamic>() ?? {};
+    final stageTotal = (party['stage_total'] as num?)?.toInt() ?? 0;
+    final studyCount = (party['study_records'] as num?)?.toInt() ?? 0;
+    final studyHours = (party['study_hours'] as num?)?.toInt() ?? 0;
+    // 阶段中文名
+    const stageNames = {
+      'applicant': '申请入党',
+      'activist': '入党积极分子',
+      'development': '发展对象',
+      'probation': '预备党员',
+      'member': '正式党员',
+    };
     return _SectionCard(
-      title: '入党（思想政治）',
+      title: '党建育人（思想政治）',
       icon: Icons.flag,
       src: '${party['data_source']}',
       children: [
-        _StatRow(
-          label: '正式党员',
-          value: '${members['member'] ?? 0}',
-        ),
+        _StatRow(label: '入党申请总人数', value: '$stageTotal'),
+        _StatRow(label: '正式党员', value: '${members['member'] ?? 0}'),
         _StatRow(label: '预备党员', value: '${members['probation'] ?? 0}'),
-        if ((stage['member'] ?? 0) > 0 ||
-            (stage['activist'] ?? 0) > 0 ||
-            (stage['development'] ?? 0) > 0)
+        if (stage.isNotEmpty)
           _ChipRow(items: {
-            '积极分子': '${stage['activist'] ?? 0}',
-            '发展对象': '${stage['development'] ?? 0}',
-            '预备': '${stage['probation'] ?? 0}',
+            for (final e in stage.entries)
+              stageNames[e.key] ?? e.key: '${e.value}',
+          }),
+        _StatRow(label: '党课/学习记录', value: '$studyCount 人次'),
+        _StatRow(label: '学习时长', value: '$studyHours 小时'),
+        if (studyByType.isNotEmpty)
+          _ChipRow(items: {
+            for (final e in studyByType.entries)
+              e.key: '${e.value['count'] ?? 0} 人次',
           }),
       ],
     );

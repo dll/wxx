@@ -66,3 +66,8 @@ func (s *SecretaryOutcomeService) CountPending(ctx context.Context) (int, error)
 func (s *SecretaryOutcomeService) OutcomeDashboard(ctx context.Context, college string) (map[string]interface{}, error) {
 	return s.repo.EducationOutcomeDashboard(college)
 }
+
+// PartyDashboard 党建育人聚合（ownerID 为空=全校，非空=本院（按 users.owner_id 精确匹配））
+func (s *SecretaryOutcomeService) PartyDashboard(ctx context.Context, ownerID string) (map[string]interface{}, error) {
+	return s.repo.PartyDashboard(ownerID)
+}

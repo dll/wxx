@@ -1455,6 +1455,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				// ── 书记教育成果大屏（2026-08-15）：school_admin 全校/college_admin 本院 ──
 				// college 参数空=全校（学校书记），传学院=本院（学院书记）
 				collegeGroup.GET("/education-outcome", auth.RequireCapability(auth.OutcomeDashboard), secretaryH.OutcomeDashboard)
+				collegeGroup.GET("/party-dashboard", auth.RequireCapability(auth.OutcomeDashboard), secretaryH.PartyDashboard)
 			}
 
 			// ── 学校管理员 AI 功能（P2）──

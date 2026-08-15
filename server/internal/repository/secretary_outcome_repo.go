@@ -368,3 +368,118 @@ func passRate(pass, total int) float64 {
 	}
 	return float64(pass) / float64(total) * 100
 }
+
+// ══════════════════════════════════════════════════════════════
+// 党建育人聚合（书记接线）
+// ══════════════════════════════════════════════════════════════
+//
+// ownerID != "" 时限定本院（按 users.owner_id 精确匹配，学院书记看本院）；
+// ownerID == "" 时全校（学校书记）。
+//
+// 诚实边界：party_progress/party_study_records 目前由学生自报（意向登记），
+// 非组织确认。real=有记录；self_reported=只有自报（当前阶段)；
+// not_available=表里无任何记录（未接入真实党建数据）。
+func (r *SecretaryOutcomeRepo) PartyDashboard(ownerID string) (map[string]interface{}, error) {
+	res := map[string]interface{}{}
+	// 本院范围过滤（通过 users.owner_id 唯一归属键，而非 party_progress.college 中文学名）
+	scopeJoin := ""
+	scopeArg := []interface{}{}
+	if ownerID != "" {
+		scopeJoin = ` JOIN users u ON u.id = pp.user_id WHERE u.owner_id = ?`
+		scopeArg = append(scopeArg, ownerID)
+	}
+
+	// ① 入党漏斗：各当前阶段人数（applicant 申请 → activist 积极分子 → development 发展对象 → probation 预备 → member 党员）
+	stageRows, err := r.db.Query(`SELECT pp.current_stage, COUNT(*) FROM party_progress pp`+scopeJoin+` GROUP BY pp.current_stage`, scopeArg...)
+	if err != nil {
+		return nil, fmt.Errorf("党建漏斗统计: %w", err)
+	}
+	defer stageRows.Close()
+	stageDist := map[string]int{}
+	stageTotal := 0
+	for stageRows.Next() {
+		var s string
+		var c int
+		if err := stageRows.Scan(&s, &c); err != nil {
+			return nil, fmt.Errorf("党建漏斗扫描: %w", err)
+		}
+		stageDist[s] = c
+		stageTotal += c
+	}
+	if err := stageRows.Err(); err != nil {
+		return nil, fmt.Errorf("党建漏斗遍历: %w", err)
+	}
+
+	// ② 党员数（正式 member + 预备 probation）
+	memberMap := map[string]int{}
+	qMembers2 := `SELECT p.status, COUNT(*) FROM party_progress p JOIN users u ON u.id = p.user_id WHERE p.status IN ('member','probation')`
+	mArgs := []interface{}{}
+	if ownerID != "" {
+		qMembers2 += ` AND u.owner_id = ?`
+		mArgs = append(mArgs, ownerID)
+	}
+	qMembers2 += ` GROUP BY p.status`
+	mRows, err := r.db.Query(qMembers2, mArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("党员数统计: %w", err)
+	}
+	defer mRows.Close()
+	for mRows.Next() {
+		var s string
+		var c int
+		if err := mRows.Scan(&s, &c); err != nil {
+			return nil, fmt.Errorf("党员数扫描: %w", err)
+		}
+		memberMap[s] = c
+	}
+	if err := mRows.Err(); err != nil {
+		return nil, fmt.Errorf("党员数遍历: %w", err)
+	}
+
+	// ③ 学习记录：总人次 / 总时长(小时) / 按类型分布 / 党课(理论)人次
+	studyScopeJoin := ""
+	studyScopeArg := []interface{}{}
+	if ownerID != "" {
+		studyScopeJoin = ` JOIN users u ON u.id = psr.user_id WHERE u.owner_id = ?`
+		studyScopeArg = append(studyScopeArg, ownerID)
+	}
+	var studyCount, studyDuration int
+	if err := r.db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(psr.duration),0) FROM party_study_records psr`+studyScopeJoin, studyScopeArg...).Scan(&studyCount, &studyDuration); err != nil {
+		return nil, fmt.Errorf("学习记录统计: %w", err)
+	}
+	typeRows, err := r.db.Query(`SELECT psr.study_type, COUNT(*), COALESCE(SUM(psr.duration),0) FROM party_study_records psr`+studyScopeJoin+` GROUP BY psr.study_type`, studyScopeArg...)
+	if err != nil {
+		return nil, fmt.Errorf("学习类型统计: %w", err)
+	}
+	defer typeRows.Close()
+	studyByType := map[string]map[string]int{}
+	for typeRows.Next() {
+		var t string
+		var c, d int
+		if err := typeRows.Scan(&t, &c, &d); err != nil {
+			return nil, fmt.Errorf("学习类型扫描: %w", err)
+		}
+		studyByType[t] = map[string]int{"count": c, "hours": d / 60}
+	}
+	if err := typeRows.Err(); err != nil {
+		return nil, fmt.Errorf("学习类型遍历: %w", err)
+	}
+
+	res["stage_distribution"] = stageDist
+	res["stage_total"] = stageTotal
+	res["members"] = memberMap
+	res["study_records"] = studyCount
+	res["study_hours"] = studyDuration / 60
+	res["study_by_type"] = studyByType
+	res["owner_id"] = ownerID
+	res["data_source"] = partyDataSource(stageTotal, studyCount)
+	return res, nil
+}
+
+// partyDataSource 诚实标注党建数据来源
+func partyDataSource(stageTotal, studyCount int) string {
+	if stageTotal == 0 && studyCount == 0 {
+		return "not_available" // 无任何记录：未接入真实党建数据
+	}
+	return "self_reported" // 现有记录为自报/意向登记，尚未经组织确认
+}
