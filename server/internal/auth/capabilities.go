@@ -137,6 +137,13 @@ const (
 	AssistantExamArrange   Capability = "assistant.exam.arrange"   // 考试安排
 )
 
+// 后勤服务台能力（并入教辅角色，2026-08-15）
+const (
+	FacilityRecordWrite   Capability = "facility.record.write"   // 后勤服务记录登记
+	FacilityRecordRead    Capability = "facility.record.read"    // 后勤服务记录查询
+	FacilityDashboard     Capability = "facility.dashboard"      // 后勤服务台看板
+)
+
 // 学院管理能力
 const (
 	CollegeUserRead        Capability = "college.user.read"        // 本院用户管理
@@ -269,6 +276,7 @@ var roles = map[string]*roleNode{
 		parents: []string{"student_union"},
 		capabilities: []Capability{
 			AssistantScheduleCheck, AssistantGradAudit, AssistantExamArrange,
+			FacilityRecordWrite, FacilityRecordRead, FacilityDashboard,
 		},
 	},
 	"college_admin": {

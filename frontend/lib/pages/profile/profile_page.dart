@@ -459,6 +459,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/assistant/grad-audit'),
             _buildMenuCard(context, Icons.event_note, '考试编排', '考试安排管理',
                 '/assistant/exam-arrange'),
+            _buildMenuCard(context, Icons.build, '后勤服务台', '实验/保洁/热水/查岗/环卫/借阅',
+                '/assistant/facility-workbench'),
           ],
 
           // 学生会 AI 功能
@@ -689,6 +691,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '学生信息查询', '真实学生账号查询', '/assistant/student-info'),
           _ProfileFeature('a_notify', '教辅服务', Icons.campaign_outlined,
               '通知批量', 'AI 辅助通知草稿', '/assistant/notification-draft'),
+          _ProfileFeature('a_facility', '教辅服务', Icons.build,
+              '后勤服务台', '实验/保洁/热水/查岗/环卫/借阅', '/assistant/facility-workbench'),
         ],
         if (role == 'student_union') ...[
           _ProfileFeature('u_event_plan', '学生会服务', Icons.event, 'AI 活动策划',

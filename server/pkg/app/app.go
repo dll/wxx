@@ -388,6 +388,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantSvc)
 
+	// 后勤服务台（并入教辅角色）：纯真实数据记录，不依赖 LLM，始终构建。
+	facilityRepo := repository.NewFacilityRepo(db)
+	facilitySvc := service.NewFacilityService(facilityRepo)
+	facilityHandler := handler.NewFacilityHandler(facilitySvc)
+
 	// 学生会服务始终构建：真实数据统计（成员/活动分析）不依赖 LLM，LLM 仅用于增强解读。
 	unionSvc := service.NewUnionService(db, llmClient)
 	unionHandler := handler.NewUnionHandler(unionSvc)
@@ -424,7 +429,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	router := setupRouter(cfg, db, userRepo, authHandler, sessionHandler, chatHandler, kbHandler,
 		voiceHandler, emotionHandler, agentHandler, exportHandler, integrationHandler, recHandler,
 		adminHandler, feedbackHandler, modelConfigHandler, tokenStatsHandler,
-		studentHandler, counselorHandler, teacherHandler, assistantHandler, unionHandler, collegeHandler,
+		studentHandler, counselorHandler, teacherHandler, assistantHandler, facilityHandler, unionHandler, collegeHandler,
 		cultureHandler, schoolAdminHandler, sysAdminHandler, processRecordHandler, processHandler, forecastHandler, graduationHandler, studentFeaturesHandler, notificationHandler, uploadHandler, documentHandler, educationHandler, studyPlanHandler, statsHandler, userNotificationHandler, appVersionHandler, campusHandler, dataImportH, externalAppHandler, aiBriefingHandler, twinPortraitHandler, portalCredHandler, portalProxyHandler)
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
@@ -717,6 +722,7 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 	counselorH *handler.CounselorHandler,
 	teacherH *handler.TeacherHandler,
 	assistantH *handler.AssistantHandler,
+	facilityH *handler.FacilityHandler,
 	unionH *handler.UnionHandler,
 	collegeH *handler.CollegeHandler,
 	cultureH *handler.CultureHandler,
@@ -1393,6 +1399,11 @@ func setupRouter(cfg *config.Config, db *sql.DB,
 				assistantGroup.GET("/process-steps-manage", auth.RequireCapability(auth.AssistantGradAudit), assistantH.ProcessStepsManage)
 				assistantGroup.GET("/music-radio", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.MusicRadio)
 				assistantGroup.GET("/activity-register", auth.RequireCapability(auth.AssistantScheduleCheck), assistantH.ActivityRegister)
+				// ── 后勤服务台（并入教辅，2026-08-15）──
+				assistantGroup.GET("/facility/roles", auth.RequireCapability(auth.FacilityRecordRead), facilityH.RoleMeta)
+				assistantGroup.POST("/facility/record", auth.RequireCapability(auth.FacilityRecordWrite), facilityH.CreateRecord)
+				assistantGroup.GET("/facility/records", auth.RequireCapability(auth.FacilityRecordRead), facilityH.ListRecords)
+				assistantGroup.GET("/facility/dashboard", auth.RequireCapability(auth.FacilityDashboard), facilityH.Dashboard)
 			}
 
 			// ── 学生会 AI 功能 ──

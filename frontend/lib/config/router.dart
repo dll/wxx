@@ -95,6 +95,7 @@ import '../pages/assistant_role/exam_arrange_page.dart';
 import '../pages/assistant_role/teaching_calendar_page.dart';
 import '../pages/assistant_role/student_info_page.dart';
 import '../pages/assistant_role/notification_draft_page.dart';
+import '../pages/assistant_role/facility_workbench_page.dart';
 import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
 import '../pages/union/activity_manage_page.dart';
@@ -622,6 +623,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/assistant/notification-draft',
             builder: (_, __) => const NotificationDraftPage()),
+        GoRoute(
+            path: '/assistant/facility-workbench',
+            builder: (_, __) => const FacilityWorkbenchPage()),
         GoRoute(
             path: '/union/event-plan',
             builder: (_, __) => const EventPlanPage()),

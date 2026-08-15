@@ -273,6 +273,16 @@ class ApiConfig {
   static const String assistantNotification =
       '$apiPrefix/assistant/notification';
 
+  // ── 后勤服务台（并入教辅，2026-08-15）──
+  static const String facilityRoles =
+      '$apiPrefix/assistant/facility/roles';
+  static const String facilityRecord =
+      '$apiPrefix/assistant/facility/record';
+  static const String facilityRecords =
+      '$apiPrefix/assistant/facility/records';
+  static const String facilityDashboard =
+      '$apiPrefix/assistant/facility/dashboard';
+
   // ── 学生会 AI 功能 ──
   static const String unionEventPlan = '$apiPrefix/union/event-plan';
   static const String unionPosterGen = '$apiPrefix/union/poster-gen';

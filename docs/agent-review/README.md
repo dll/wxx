@@ -14,6 +14,8 @@
 | 2026-08-15 | [staff-performance-twin-2026-08-15.md](staff-performance-twin-2026-08-15.md) | 教辅/教师绩效画像：绩效→数字孪生画像→三方绑定（方案A第一增量） | 已实现，后端/前端编译验证通过 |
 | 2026-08-15 | [assistant-frontend-real-data-2026-08-15.md](assistant-frontend-real-data-2026-08-15.md) | 强关联教辅前端(教学日历/学生信息/通知) + 弱关联藏起 + 辅导员不瞎编整改 | 已实现并部署，验证通过 |
 | 2026-08-15 | [cloud-deploy-verified-2026-08-15.md](cloud-deploy-verified-2026-08-15.md) | 云端部署验证：含全功能后端 + 首/批未部署改动上线 | 已部署，health/登录/绩效画像实测通过 |
+| 2026-08-15 | [facility-workbench-2026-08-15.md](facility-workbench-2026-08-15.md) | 后勤服务台落地：实验/保洁/热水/查岗/环卫/借阅真实登记，并入教辅角色 + 绩效画像维度 | 已实现，后端编译+前端 analyze+本地运行时联调通过 |
+| 2026-08-15 | [facility-workbench-plan-2026-08-15.md](facility-workbench-plan-2026-08-15.md) | 后勤服务台方案（合并方案定稿） | 方案已审 |
 
 ## 说明
 

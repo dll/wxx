@@ -342,6 +342,7 @@ func computeStaffDimensions(m *repository.StaffTwinMetrics) []TwinDimension {
 		mk("exam", "考试编排", m.ExamCount, fmt.Sprintf("编排考试 %d 次", m.ExamCount)),
 		mk("notify", "通知发布", m.NotifyCount, fmt.Sprintf("发布通知 %d 次", m.NotifyCount)),
 		mk("material", "材料产出", m.MaterialCount, fmt.Sprintf("产出材料模板/文档 %d 次", m.MaterialCount)),
+		mk("facility", "后勤服务", m.FacilityCount, fmt.Sprintf("完成后勤服务 %d 次(实验/保洁/热水/查岗/环卫/借阅)", m.FacilityCount)),
 		mk("wxx_use", "蔚小芯使用", m.WxxUseCount, fmt.Sprintf("调用蔚小芯功能 %d 次", m.WxxUseCount)),
 		// 三方绑定块
 		mk("bind_student", "服务学生", m.StudentBindCount, fmt.Sprintf("已服务 %d 名学生", m.StudentBindCount)),
@@ -386,7 +387,7 @@ func (s *TwinService) GetStaffTwin(ctx context.Context, userID int64) (*TwinResu
 	}
 
 	// 绩效解读（规则文本，避免编造情感化表述）
-	interpretation := "你的绩效画像数据尚在积累中，完成谈心帮扶、排课、考试编排、通知发布等教辅工作后会自动汇聚。"
+	interpretation := "你的绩效画像数据尚在积累中，完成谈心帮扶、排课、考试编排、通知发布、后勤服务等教辅工作后会自动汇聚。"
 	var advice []string
 	if n > 0 {
 		interpretation = fmt.Sprintf("当前已汇聚 %d 项绩效维度：累计 %d 次蔚小芯功能调用、服务 %d 名学生。",

@@ -354,6 +354,7 @@ type StaffTwinMetrics struct {
 	WxxUseCount      int // 蔚小芯（assistant+counselor）功能调用总数
 	StudentBindCount int // 服务学生去重数
 	WxxBindCount     int // 使用过的蔚小芯能力去重数
+	FacilityCount    int // 后勤服务记录数（实验室/保洁/热水/查岗/环卫/借阅）
 }
 
 // AggregateStaffMetrics 聚合某教辅/教师用户的绩效画像原始指标。
@@ -414,6 +415,12 @@ func (r *TwinRepo) AggregateStaffMetrics(userID int64) (*StaffTwinMetrics, error
 		`SELECT COUNT(DISTINCT resource) FROM audit_logs WHERE user_id = ? AND (resource LIKE '%/assistant/%' OR resource LIKE '%/counselor/%')`, userID).
 		Scan(&m.WxxBindCount); err != nil {
 		m.WxxBindCount = 0
+	}
+
+	// 后勤服务记录数（facility_records 真实登记）
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM facility_records WHERE operator_id = ?`, userID).
+		Scan(&m.FacilityCount); err != nil {
+		m.FacilityCount = 0
 	}
 
 	return m, nil
