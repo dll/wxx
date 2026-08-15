@@ -164,10 +164,10 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # 后端更新按 docs/deployment.md「更新流程」标准执行：
+      # 后端更新按 docs/deployment.md「更新流程」标准执行，并修正为实际 systemd 路径：
+      #   systemd ExecStart=/opt/wxx/wxx-server（/etc/systemd/system/wxx.service），不是 bin/。
       #   服务器已有 /opt/wxx git 仓库 → git fetch+reset → 备份旧库 → 服务器本地 go build(fts5)
-      #   → 输出 /opt/wxx/bin/wxx-server（systemd ExecStart 指向此路径）
-      #   → systemctl restart wxx（迁移在启动时自动执行）
+      #   → 输出 /opt/wxx/wxx-server（systemd ExecStart 指向此路径）→ stop→cp→start（迁移在启动时自动执行）
       # 全程不跨机传二进制（彻底绕开 appleboy/scp-action 连接不关闭导致的挂起）。
       - name: 服务器更新后端（git pull + 服务器编译 + 重启）
         uses: appleboy/ssh-action@v1
@@ -178,7 +178,7 @@ jobs:
           command_timeout: 480s
           script: |
             set -e
-            echo "=== 后端更新开始 $(date) ==="
+            echo "=== 后端更新开始 $(date +%H:%M:%S) ==="
             cd /opt/wxx || exit 1
             # 1. 备份数据库（部署前）
             sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).db'" 2>/dev/null || true
@@ -190,18 +190,23 @@ jobs:
             echo "--- go build -tags fts5 ---"
             export GOPROXY=https://goproxy.cn,direct
             cd /opt/wxx/server
-            go build -tags fts5 -o /opt/wxx/bin/wxx-server.new ./cmd/server 2>&1 | tail -15 || true
-            test -x /opt/wxx/bin/wxx-server.new && echo "编译完成: $(ls -la /opt/wxx/bin/wxx-server.new)" || (echo "编译失败"; exit 1)
-            # 4. 替换二进制（迁移在启动时由 app.NewWithConfig 自动执行，无需单独 migrate 子命令）
-            chmod +x /opt/wxx/bin/wxx-server.new
-            mv /opt/wxx/bin/wxx-server.new /opt/wxx/bin/wxx-server
-            # 5. 重启服务
-            echo "--- 重启 wxx ---"
-            sudo systemctl restart wxx
-            sleep 4
+            go build -tags fts5 -o /opt/wxx/wxx-server.new ./cmd/server 2>&1 | tail -15 || true
+            test -x /opt/wxx/wxx-server.new && echo "编译完成: $(ls -la /opt/wxx/wxx-server.new)" || (echo "编译失败"; exit 1)
+            # 4. 停服务 → 替换 systemd 二进制 → 启动（迁移在启动时由 app.NewWithConfig 自动执行）
+            chmod +x /opt/wxx/wxx-server.new
+            echo "--- stop wxx ---"
+            sudo systemctl stop wxx
+            sleep 2
+            cp /opt/wxx/wxx-server.new /opt/wxx/wxx-server
+            # 5. 启动服务
+            echo "--- start wxx ---"
+            sudo systemctl start wxx
+            sleep 5
             systemctl is-active wxx || true
             echo "--- 健康检查 ---"
-            curl -s -m 5 localhost:8080/health && echo "" || echo "health check failed(忽略)"
+            curl -s -m 8 localhost:8080/health && echo "" || echo "health check failed(忽略)"
+            rm -f /opt/wxx/wxx-server.new
+
 
 
   # ── Job 3：构建 Android APK 并上传制品 ───────────────────────────────
