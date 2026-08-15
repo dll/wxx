@@ -1203,12 +1203,21 @@ class _HomePageState extends State<HomePage> {
     if (CapabilityUtils.has(Capability.counselorAlertRead))
       entries.add(_WorkbenchEntry(Icons.warning_amber_rounded, '情感预警',
           const Color(0xFFC62828), '/emotion'));
+    if (CapabilityUtils.has(Capability.counselorDailyFocusRead))
+      entries.add(_WorkbenchEntry(Icons.today_outlined, '今日关注',
+          const Color(0xFF1565C0), '/counselor/daily-focus'));
+    if (CapabilityUtils.has(Capability.counselorClassReport))
+      entries.add(_WorkbenchEntry(Icons.assessment_outlined, '班级学情日报',
+          const Color(0xFFE65100), '/counselor/class-report'));
     if (CapabilityUtils.has(Capability.counselorTalkRecord))
       entries.add(_WorkbenchEntry(Icons.forum_outlined, '谈心记录',
           const Color(0xFF2E7D32), '/counselor/talk-record'));
+    if (CapabilityUtils.has(Capability.counselorStudentList))
+      entries.add(_WorkbenchEntry(Icons.people_alt_outlined, '学生名单',
+          const Color(0xFF00695C), '/counselor/student-list'));
     if (CapabilityUtils.has(Capability.counselorTwinBoard))
-      entries.add(_WorkbenchEntry(Icons.dashboard_outlined, '班级画像',
-          const Color(0xFF1565C0), '/counselor/class-profile'));
+      entries.add(_WorkbenchEntry(Icons.dashboard_outlined, '学生孪生看板',
+          const Color(0xFF1565C0), '/counselor/twin-board'));
     if (CapabilityUtils.has(Capability.counselorIdeological))
       entries.add(_WorkbenchEntry(Icons.flag_outlined, '思想动态',
           const Color(0xFF7B1FA2), '/counselor/ideological'));

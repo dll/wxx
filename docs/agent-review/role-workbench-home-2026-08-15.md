@@ -25,7 +25,7 @@
 
 | 角色 | 工作台标题 | 卡片（能力门控） | 直达路由（已存在） |
 |---|---|---|---|
-| 辅导员 | 辅导员工作台 | 情感预警 / 谈心记录 / 班级画像 / 思想动态 | `/emotion`、`/counselor/talk`、班级看板、`/counselor/ideological` |
+| 辅导员 | 辅导员工作台 | 情感预警 / 今日关注 / 班级学情日报 / 谈心记录 / 学生名单 / 学生孪生看板 / 思想动态 | `/emotion`、`/counselor/daily-focus`、`/counselor/class-report`、`/counselor/talk-record`、`/counselor/student-list`、`/counselor/twin-board`、`/counselor/ideological` |
 | 教辅 | 教辅工作台 | 后勤服务台(待办) / 毕业去向登记(待审核) / 排课 / 考试 / 毕业审核 | `/assistant/facility-workbench`、`/secretary/outcome-manage`、排课/考试/毕业审核 |
 | 学生会 | 学生会工作台 | 成员活跃 / 活动分析 / 活动策划 / 反馈处理 | `/union/workbench`、`/union/activity-manage` |
 | 学院书记 | 书记工作台 | 教育成果大屏 / 数字孪生大屏 / 数据分析 / 情感预警 | `/secretary/education-outcome`、`/college/twin-screen`、`/college/data-analysis`、`/emotion` |
@@ -62,5 +62,10 @@
 - ## ✓ 已实现：home_page.dart 插入 `if (loggedIn) _buildRoleWorkbench(theme)`（学生/教师区之前）
 - ✓ `_buildRoleWorkbench` 按能力门控收集各角色工作卡片，复用 `_buildKnowledgeCard`
 - ✓ `_WorkbenchEntry` 数据类；`_workbenchTitle` 角色标题映射
-- ✓ 正确路由：`/counselor/talk-record`、`/counselor/class-profile`、`/assistant/facility-workbench`(role=='assistant' 门控，facility 无独立能力)等
+- ✓ 辅导员工作台已补全辅导员日常真实能力：情感预警/今日关注/班级学情日报/谈心记录/学生名单/孪生看板/思想动态（全接真实路由）
 - ✓ flutter analyze 0 error（新增 info 级单行 if lint，与既有风格一致）
+
+## 七、诚实边界：班会/第二课堂/班级活动（辅导员点名的基本能力）
+- **现状**：系统目前**无**「班会管理/第二课堂学分/班级活动发起」专属模块（后端无表/API/页面；活动组织在学生会侧 activity_manage）。
+- 已做：把辅导员**真实存在**的日常页面（学情日报/今日关注/学生名单等）全部补进工作台。
+- **未做**：班会/第二课堂/班级活动专属模块 —— 需新建后端表+API+页面（属于审核报告 P1「社团/活动体系」范围）。**待用户决定是否立项开发。**
