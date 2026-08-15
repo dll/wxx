@@ -17,6 +17,7 @@
 | 2026-08-15 | [facility-workbench-2026-08-15.md](facility-workbench-2026-08-15.md) | 后勤服务台落地：实验/保洁/热水/查岗/环卫/借阅真实登记，并入教辅角色 + 绩效画像维度 | 已实现，后端编译+前端 analyze+本地运行时联调通过 |
 | 2026-08-15 | [facility-workbench-plan-2026-08-15.md](facility-workbench-plan-2026-08-15.md) | 后勤服务台方案（合并方案定稿） | 方案已审 |
 | 2026-08-15 | [triple-linkage-audit-2026-08-15.md](triple-linkage-audit-2026-08-15.md) | 教师/教辅×学生×蔚小芯三者关联强度审核 + 教师三方绑定真实化 | 三类联调通过，教师造假数据移除 |
+| 2026-08-15 | [secretary-education-performance-2026-08-15.md](secretary-education-performance-2026-08-15.md) | 书记视角×蔚小芯育人绩效报告能力分析 | 已梳理差距，未实施 |
 
 ## 说明
 
