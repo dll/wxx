@@ -71,6 +71,10 @@ class SecretaryProvider extends ChangeNotifier {
   Map<String, dynamic>? partyDashboard;
   bool partyDashboardLoading = false;
 
+  // 协同育人总览（书记视角，2026-08-16，蓝图第2块）
+  Map<String, dynamic>? collabDashboard;
+  bool collabDashboardLoading = false;
+
   // 毕业去向列表
   List<OutcomeRecord> outcomes = [];
   bool outcomesLoading = false;
@@ -134,6 +138,75 @@ class SecretaryProvider extends ChangeNotifier {
     partyDashboard = data;
     partyDashboardLoading = false;
     notifyListeners();
+  }
+
+  /// 拉取协同育人总览（书记视角，2026-08-16，蓝图第2块）
+  Future<void> fetchCollabDashboard() async {
+    collabDashboardLoading = true;
+    collabDashboard = null;
+    error = '';
+    notifyListeners();
+    final data = await _guard(() async {
+      final r = await _api.get('${ApiConfig.apiPrefix}/college/collab-dashboard');
+      final body = r.data;
+      if (body is Map && body['data'] != null) return body['data'] as Map<String, dynamic>;
+      return null;
+    });
+    collabDashboard = data;
+    collabDashboardLoading = false;
+    notifyListeners();
+  }
+
+  /// 登记党课/活动（教师/教辅，蓝图第3块）。studentIds 空=未指定具体学生
+  Future<dynamic> registerPartyRecord({
+    required String title,
+    required String studyType,
+    String content = '',
+    int duration = 0,
+    required String studyDate,
+    List<int>? studentIds,
+  }) async {
+    try {
+      final r = await _api.post('${ApiConfig.apiPrefix}/teacher/party/register', data: {
+        'title': title,
+        'study_type': studyType,
+        'content': content,
+        'duration': duration,
+        'study_date': studyDate,
+        'student_ids': studentIds ?? [],
+      });
+      return r.data;
+    } catch (e) {
+      error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// 拉取本人的党课/活动登记（教师/教辅）
+  Future<List<dynamic>?> fetchMyPartyRecords() async {
+    try {
+      final r = await _api.get('${ApiConfig.apiPrefix}/teacher/party/records');
+      final body = r.data;
+      if (body is Map && body['list'] is List) return body['list'] as List;
+      return null;
+    } catch (e) {
+      error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// 删除本人的党课/活动登记
+  Future<dynamic> deletePartyRecord(int id) async {
+    try {
+      final r = await _api.delete('${ApiConfig.apiPrefix}/teacher/party/records/$id');
+      return r.data;
+    } catch (e) {
+      error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return null;
+    }
   }
 
   /// 拉取毕业去向列表

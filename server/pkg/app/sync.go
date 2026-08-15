@@ -432,12 +432,16 @@ func parseTime(s string) time.Time {
 }
 
 // fixPasswordHashes 修复数据库中的密码哈希：
-//   - 空哈希 → 替换为 "wxx123456" 的 bcrypt 哈希
+//   - 空哈希 → 替换为 "Wxx@2026" 的 bcrypt 哈希
 //   - 非 bcrypt 前缀（$2a$/$2b$/$2y$ 之外）→ 重新哈希
+//   - 内置种子账号（用户名在白名单内）→ 无条件重置为 "Wxx@2026"，
+//     保证内置账号（admin/学院/学校书记/各角色种子）每次启动都能用统一密码登录
+//     （即使旧种子是 wxx@2025 等的有效 bcrypt 哈希也会被覆盖）。
 //
 // 注意：$2b$ 前缀已是标准 bcrypt，视为有效，避免对全量用户逐一 bcrypt 验证拖慢启动。
+// 真实导入的用户账号（不在白名单）保持密码不变。
 func fixPasswordHashes(db *sql.DB) error {
-	rows, err := db.Query("SELECT id, password_hash FROM users")
+	rows, err := db.Query("SELECT id, username, password_hash FROM users")
 	if err != nil {
 		return err
 	}
@@ -450,23 +454,41 @@ func fixPasswordHashes(db *sql.DB) error {
 	var fixes []fix
 	const seedPassword = "Wxx@2026"
 
+	// 内置种子账号（与 reset-seed 工具的种子白名单一致）：无条件重置为 seedPassword
+	seedUsers := map[string]bool{
+		"sysadmin": true, "schooladmin": true, "collegeadmin": true,
+		"counselor_cs": true, "counselor_math": true, "counselor1": true, "counselor2": true,
+		"stunion": true, "student_cs": true, "student_math": true, "student1": true,
+		"teacher1": true, "assistant1": true, "admin": true,
+	}
+
 	for rows.Next() {
 		var id int64
-		var hash string
-		if err := rows.Scan(&id, &hash); err != nil {
+		var username, hash string
+		if err := rows.Scan(&id, &username, &hash); err != nil {
 			return err
 		}
 		hash = strings.TrimSpace(hash)
+		username = strings.TrimSpace(username)
 
-		// 已是标准 bcrypt 哈希（$2a$/$2b$/$2y$）→ 视为有效，跳过，避免启动时全量重算
+		// 内置种子账号 → 无论当前哈希是否有效，都重置
+		if seedUsers[username] {
+			fixes = append(fixes, fix{id, hash})
+			continue
+		}
+
+		// 空哈希 → 重置
 		if hash == "" {
 			fixes = append(fixes, fix{id, hash})
 			continue
 		}
+
+		// 已是标准 bcrypt 哈希（$2a$/$2b$/$2y$）→ 视为有效，跳过，避免启动时全量重算
 		if strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$") || strings.HasPrefix(hash, "$2y$") {
 			continue
 		}
 
+		// 非 bcrypt → 重置
 		fixes = append(fixes, fix{id, hash})
 	}
 

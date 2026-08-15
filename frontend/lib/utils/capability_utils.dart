@@ -96,6 +96,10 @@ class Capability {
   static const outcomeRecordRead = 'outcome.record.read';
   static const outcomeReview = 'outcome.review';
   static const outcomeDashboard = 'outcome.dashboard';
+  // 党课/活动登记 + 协同育人总览（2026-08-16）
+  static const partyRecordWrite = 'party.record.write';
+  static const partyRecordRead = 'party.record.read';
+  static const collabDashboard = 'college.collab.dashboard';
 
   // ── 学校管理 ──
   static const schoolAgentWrite = 'school.agent.write';

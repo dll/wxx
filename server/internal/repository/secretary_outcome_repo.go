@@ -483,3 +483,256 @@ func partyDataSource(stageTotal, studyCount int) string {
 	}
 	return "self_reported" // 现有记录为自报/意向登记，尚未经组织确认
 }
+
+// ══════════════════════════════════════════════════════════════
+// 党课/活动登记（蓝图第3块，2026-08-16）
+// 教师/教辅登记其组织的党课/积极分子活动，落 party_study_records(created_by).
+// ══════════════════════════════════════════════════════════════
+
+// CreatePartyRecord 登记党课/活动。
+// 未指定参与学生时，仅创建一条无学生绑定的登记（title 标注组织者）；
+// 指定学生时，为每个学生各建一条记录（同一活动多生参与），都带 created_by。
+func (r *SecretaryOutcomeRepo) CreatePartyRecord(title, studyType, content string, duration int, studyDate string, createdBy int64, createdByRole string, studentIDs []int64) ([]int64, error) {
+	ids := []int64{}
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 无学生指定：登记一条组织者记录
+	if len(studentIDs) == 0 {
+		res, err := tx.Exec(
+			`INSERT INTO party_study_records (user_id, study_type, title, content, duration, study_date, status, created_by, created_by_role)
+			 VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?)`,
+			createdBy, studyType, title, content, duration, studyDate, createdBy, createdByRole,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("登记党课失败: %w", err)
+		}
+		id, _ := res.LastInsertId()
+		ids = append(ids, id)
+		return ids, tx.Commit()
+	}
+
+	// 为每个参与学生建一条记录（同一活动多生参与）
+	for _, sid := range studentIDs {
+		res, err := tx.Exec(
+			`INSERT INTO party_study_records (user_id, study_type, title, content, duration, study_date, status, created_by, created_by_role)
+			 VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?)`,
+			sid, studyType, title, content, duration, studyDate, createdBy, createdByRole,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("登记党课(学生 %d)失败: %w", sid, err)
+		}
+		id, _ := res.LastInsertId()
+		ids = append(ids, id)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// PartyRecordItem 党课/活动登记条目
+func (r *SecretaryOutcomeRepo) PartyRecordItem(id int64) (map[string]interface{}, error) {
+	row := r.db.QueryRow(
+		`SELECT psr.id, psr.study_type, psr.title, psr.content, psr.duration, psr.study_date,
+		        psr.status, psr.created_by, psr.created_by_role,
+		        COALESCE(u.real_name, u.username, ''), COALESCE(psr.user_id,0)
+		 FROM party_study_records psr
+		 LEFT JOIN users u ON u.id = psr.created_by
+		 WHERE psr.id = ?`,
+		id,
+	)
+	var rec struct {
+		ID, Duration       int64
+		StudyType, Title   string
+		Content            interface{}
+		StudyDate, Status  string
+		CreatedBy          interface{}
+		CreatedByRole      interface{}
+		CreatedByName, UID interface{}
+	}
+	if err := row.Scan(&rec.ID, &rec.StudyType, &rec.Title, &rec.Content, &rec.Duration, &rec.StudyDate,
+		&rec.Status, &rec.CreatedBy, &rec.CreatedByRole, &rec.CreatedByName, &rec.UID); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"id":              rec.ID,
+		"study_type":      rec.StudyType,
+		"title":           rec.Title,
+		"content":         rec.Content,
+		"duration":        rec.Duration,
+		"study_date":      rec.StudyDate,
+		"status":          rec.Status,
+		"created_by":      rec.CreatedBy,
+		"created_by_role": rec.CreatedByRole,
+		"created_by_name": rec.CreatedByName,
+		"user_id":         rec.UID,
+	}, nil
+}
+
+// ListPartyRecordsByOperator 查登记人的党课/活动（created_by=opID）
+func (r *SecretaryOutcomeRepo) ListPartyRecords(opID int64) ([]map[string]interface{}, error) {
+	rows, err := r.db.Query(
+		`SELECT psr.id, psr.study_type, psr.title, psr.content, psr.duration, psr.study_date, psr.status,
+		        psr.created_by, psr.created_by_role, COALESCE(u.real_name, u.username, ''), COALESCE(psr.user_id,0)
+		 FROM party_study_records psr
+		 LEFT JOIN users u ON u.id = psr.created_by
+		 WHERE psr.created_by = ?
+		 ORDER BY psr.id DESC`,
+		opID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []map[string]interface{}
+	for rows.Next() {
+		var id, dur, uid int64
+		var stype, title, sdate, status string
+		var content, createdBy, createdByRole, cbName interface{}
+		if err := rows.Scan(&id, &stype, &title, &content, &dur, &sdate, &status, &createdBy, &createdByRole, &cbName, &uid); err != nil {
+			return nil, err
+		}
+		list = append(list, map[string]interface{}{
+			"id": id, "study_type": stype, "title": title, "content": content,
+			"duration": dur, "study_date": sdate, "status": status,
+			"created_by": createdBy, "created_by_role": createdByRole,
+			"created_by_name": cbName, "user_id": uid,
+		})
+	}
+	return list, rows.Err()
+}
+
+// DeletePartyRecord 删除登记人的党课/活动记录（仅本人 created_by 可删）
+func (r *SecretaryOutcomeRepo) DeletePartyRecord(id, opID int64) error {
+	res, err := r.db.Exec(`DELETE FROM party_study_records WHERE id = ? AND created_by = ?`, id, opID)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("记录不存在或无权删除")
+	}
+	return nil
+}
+
+// ══════════════════════════════════════════════════════════════
+// 协同育人总览（蓝图第2块，2026-08-16）
+// 书记视角：教师/教辅为育人做了多少 —— 聚合谈心/后勤/党建活动/教学排课，按学院/角色汇总。
+// ══════════════════════════════════════════════════════════════
+
+// CollabDashboard 协同育人总览。
+// ownerID!=空 → 本院（按 users.owner_id 过滤学生主体）；空 → 全校。
+// 诚实边界：记录为真实表；表空则对应项 data_source=not_available。
+func (r *SecretaryOutcomeRepo) CollabDashboard(ownerID string) (map[string]interface{}, error) {
+	res := map[string]interface{}{}
+
+	// 范围过滤：学生主体取 users.owner_id；角色主体（辅导员/教辅）也同学院时纳入
+	scopeStudent := ""
+	argsStudent := []interface{}{}
+	if ownerID != "" {
+		scopeStudent = ` JOIN users stu ON stu.id = t.student_id AND stu.owner_id = ?`
+		argsStudent = append(argsStudent, ownerID)
+	}
+
+	// ① 谈心（辅导员记录）+ 该学院学生数
+	var talkTotal, studentCnt int
+	qTalk := `SELECT COUNT(t.id) FROM talk_records t` + scopeStudent
+	if err := r.db.QueryRow(qTalk, argsStudent...).Scan(&talkTotal); err != nil {
+		talkTotal = 0
+	}
+	qStu := `SELECT COUNT(*) FROM users WHERE role='student'`
+	stuArgs := []interface{}{}
+	if ownerID != "" {
+		qStu += ` AND owner_id = ?`
+		stuArgs = append(stuArgs, ownerID)
+	}
+	if err := r.db.QueryRow(qStu, stuArgs...).Scan(&studentCnt); err != nil {
+		studentCnt = 0
+	}
+
+	// ② 后勤服务（operator = 教辅，与学生主体无强关联，可按 operator 归属学院过滤）
+	var facilityTotal int
+	qFac := `SELECT COUNT(*) FROM facility_records fr`
+	facArgs := []interface{}{}
+	if ownerID != "" {
+		qFac += ` JOIN users op ON op.id = fr.operator_id AND op.owner_id = ?`
+		facArgs = append(facArgs, ownerID)
+	}
+	if err := r.db.QueryRow(qFac, facArgs...).Scan(&facilityTotal); err != nil {
+		facilityTotal = 0
+	}
+
+	// ③ 党建活动登记（created_by 非空 = 组织侧，2026-08-16 新增列；含学生主体范围过滤）
+	var partyRegTotal int
+	qParty := `SELECT COUNT(*) FROM party_study_records psr WHERE psr.created_by IS NOT NULL`
+	partyArgs := []interface{}{}
+	if ownerID != "" {
+		qParty += ` AND EXISTS (SELECT 1 FROM users ua WHERE ua.id = psr.user_id AND ua.owner_id = ?)`
+		partyArgs = append(partyArgs, ownerID)
+	}
+	if err := r.db.QueryRow(qParty, partyArgs...).Scan(&partyRegTotal); err != nil {
+		partyRegTotal = 0
+	}
+
+	// ④ 教学（排课，教师归属学院）
+	var courseTotal int
+	qCourse := `SELECT COUNT(*) FROM course_schedules cs`
+	courseArgs := []interface{}{}
+	if ownerID != "" {
+		qCourse += ` JOIN users t ON t.id = cs.teacher_id AND t.owner_id = ?`
+		courseArgs = append(courseArgs, ownerID)
+	}
+	if err := r.db.QueryRow(qCourse, courseArgs...).Scan(&courseTotal); err != nil {
+		courseTotal = 0
+	}
+
+	// 按角色汇总（本院/全校范围内各角色育人动作数）
+	roleSum := map[string]int{}
+	qRole := `SELECT u.role, COUNT(*) FROM (
+	           SELECT user_id FROM party_study_records WHERE created_by IS NOT NULL
+	           UNION ALL
+	           SELECT student_id FROM talk_records
+	         ) x
+	         JOIN users u ON u.id = x.user_id`
+	roleArgs := []interface{}{}
+	if ownerID != "" {
+		qRole += ` WHERE u.owner_id = ?`
+		roleArgs = append(roleArgs, ownerID)
+	}
+	qRole += ` GROUP BY u.role`
+	rows, err := r.db.Query(qRole, roleArgs...)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rl string
+			var c int
+			if err := rows.Scan(&rl, &c); err == nil {
+				roleSum[rl] = c
+			}
+		}
+	}
+
+	res["owner_id"] = ownerID
+	res["students_total"] = studentCnt
+	res["talk_records"] = talkTotal
+	res["facility_records"] = facilityTotal
+	res["party_registrations"] = partyRegTotal
+	res["course_schedules"] = courseTotal
+	res["by_role"] = roleSum
+
+	// 诚实 data_source：全部 0 且无学生 → not_available
+	if talkTotal == 0 && facilityTotal == 0 && partyRegTotal == 0 && courseTotal == 0 && studentCnt == 0 {
+		res["data_source"] = "not_available"
+	} else {
+		res["data_source"] = "real"
+	}
+	return res, nil
+}

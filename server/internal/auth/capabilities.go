@@ -153,6 +153,12 @@ const (
 	OutcomeRecordRead  Capability = "outcome.record.read"  // 毕业去向查询
 	OutcomeReview      Capability = "outcome.review"       // 毕业去向审核（教辅）
 	OutcomeDashboard   Capability = "outcome.dashboard"    // 教育成果看板（书记）
+
+	// 党课/活动登记（2026-08-16）：教师/教辅登记党课与积极分子活动，落 party_study_records(created_by)
+	PartyRecordWrite Capability = "party.record.write" // 党课/活动登记（教师/教辅）
+	PartyRecordRead  Capability = "party.record.read"  // 党课/活动登记查看
+	// 协同育人总览（2026-08-16）：书记视角聚合教师/教辅育人动作（谈心/后勤/党建/排课），按学院
+	CollabDashboard Capability = "college.collab.dashboard" // 协同育人总览（书记：本院+全校）
 )
 
 // 学院管理能力
@@ -275,6 +281,8 @@ var roles = map[string]*roleNode{
 			CounselorSecondClassBoard,
 			// 毕业去向（教辅：录入+审核，2026-08-15）
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
+			// 党课/活动登记（2026-08-16）
+			PartyRecordWrite, PartyRecordRead,
 		},
 	},
 	"teacher": {
@@ -288,6 +296,8 @@ var roles = map[string]*roleNode{
 			CounselorTokenSubordinates,
 			// 毕业去向（教师教辅可录入+审核，2026-08-15）
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
+			// 党课/活动登记（2026-08-16）
+			PartyRecordWrite, PartyRecordRead,
 		},
 	},
 	"assistant": {
@@ -298,6 +308,8 @@ var roles = map[string]*roleNode{
 			FacilityRecordWrite, FacilityRecordRead, FacilityDashboard,
 			// 毕业去向（教辅可录入+审核，2026-08-15）
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
+			// 党课/活动登记（2026-08-16）
+			PartyRecordWrite, PartyRecordRead,
 		},
 	},
 	"college_admin": {
@@ -310,6 +322,8 @@ var roles = map[string]*roleNode{
 			CollegeGraduationRead, CollegeGraduationWrite, CollegeForecast,
 			// 教育成果看板（书记：本院），2026-08-15
 			OutcomeDashboard,
+			// 协同育人总览（书记：本院），2026-08-16
+			CollabDashboard,
 		},
 	},
 	"school_admin": {

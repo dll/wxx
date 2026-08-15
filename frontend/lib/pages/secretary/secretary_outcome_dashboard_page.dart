@@ -25,6 +25,7 @@ class _SecretaryOutcomeDashboardPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SecretaryProvider>().fetchDashboard();
       context.read<SecretaryProvider>().fetchPartyDashboard();
+      context.read<SecretaryProvider>().fetchCollabDashboard();
     });
   }
 
@@ -49,6 +50,7 @@ class _SecretaryOutcomeDashboardPageState
             onRefresh: () async {
               await provider.fetchDashboard();
               await provider.fetchPartyDashboard();
+              await provider.fetchCollabDashboard();
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -58,6 +60,8 @@ class _SecretaryOutcomeDashboardPageState
                 _buildCompetition(d['competition']),
                 const SizedBox(height: 12),
                 _buildParty(provider.partyDashboard ?? d['party']),
+                const SizedBox(height: 12),
+                _buildCollab(provider.collabDashboard),
                 const SizedBox(height: 12),
                 _buildAcademic(d['academic']),
                 const SizedBox(height: 12),
@@ -145,8 +149,7 @@ class _SecretaryOutcomeDashboardPageState
   }
 
   Widget _buildParty(dynamic party) {
-    if (party is! Map) return const SizedBox.shrink();
-    final members = (party['members'] as Map?)?.cast<String, dynamic>() ?? {};
+    if (party is! Map) return const SizedBox.shrink();    final members = (party['members'] as Map?)?.cast<String, dynamic>() ?? {};
     final stage = (party['stage_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
     final studyByType = (party['study_by_type'] as Map?)?.cast<String, dynamic>() ?? {};
     final stageTotal = (party['stage_total'] as num?)?.toInt() ?? 0;
@@ -180,6 +183,40 @@ class _SecretaryOutcomeDashboardPageState
             for (final e in studyByType.entries)
               e.key: '${e.value['count'] ?? 0} 人次',
           }),
+      ],
+    );
+  }
+
+  // 协同育人总览（蓝图第2块，2026-08-16）：书记视角教师/教辅育人动作汇总
+  Widget _buildCollab(dynamic col) {
+    if (col is! Map) return const SizedBox.shrink();
+    final src = '${col['data_source']}';
+    final roleSum = (col['by_role'] as Map?)?.cast<String, dynamic>() ?? {};
+    const roleNames = {
+      'counselor': '辅导员',
+      'teacher': '教师',
+      'assistant': '教辅',
+      'student_union': '学生会',
+      'college_admin': '学院管理员',
+    };
+    return _SectionCard(
+      title: '协同育人总览（教师/教辅付出）',
+      icon: Icons.groups,
+      src: src,
+      children: [
+        _StatRow(label: '本院学生数', value: '${col['students_total'] ?? 0}'),
+        _StatRow(label: '谈心记录', value: '${col['talk_records'] ?? 0}'),
+        _StatRow(label: '后勤服务', value: '${col['facility_records'] ?? 0}'),
+        _StatRow(label: '党课/活动登记', value: '${col['party_registrations'] ?? 0}'),
+        _StatRow(label: '教学课表节次', value: '${col['course_schedules'] ?? 0}'),
+        if (roleSum.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('育人动作按角色',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          _ChipRow(items: {
+            for (final e in roleSum.entries) roleNames[e.key] ?? e.key: '${e.value}',
+          }),
+        ],
       ],
     );
   }

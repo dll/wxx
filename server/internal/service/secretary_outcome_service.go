@@ -71,3 +71,30 @@ func (s *SecretaryOutcomeService) OutcomeDashboard(ctx context.Context, college 
 func (s *SecretaryOutcomeService) PartyDashboard(ctx context.Context, ownerID string) (map[string]interface{}, error) {
 	return s.repo.PartyDashboard(ownerID)
 }
+
+// CreatePartyRecord 党课/活动登记（教师/教辅，蓝图第3块）
+func (s *SecretaryOutcomeService) CreatePartyRecord(ctx context.Context, title, studyType, content string, duration int, studyDate string, createdBy int64, createdByRole string, studentIDs []int64) (int64, error) {
+	ids, err := s.repo.CreatePartyRecord(title, studyType, content, duration, studyDate, createdBy, createdByRole, studentIDs)
+	if err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, fmt.Errorf("登记失败")
+	}
+	return ids[0], nil
+}
+
+// ListPartyRecords 查看党课/活动登记（本人登记的）
+func (s *SecretaryOutcomeService) ListPartyRecords(ctx context.Context, opID int64) ([]map[string]interface{}, error) {
+	return s.repo.ListPartyRecords(opID)
+}
+
+// DeletePartyRecord 删除本人登记的党课/活动
+func (s *SecretaryOutcomeService) DeletePartyRecord(ctx context.Context, id, opID int64) error {
+	return s.repo.DeletePartyRecord(id, opID)
+}
+
+// CollabDashboard 协同育人总览（书记视角，蓝图第2块）
+func (s *SecretaryOutcomeService) CollabDashboard(ctx context.Context, ownerID string) (map[string]interface{}, error) {
+	return s.repo.CollabDashboard(ownerID)
+}

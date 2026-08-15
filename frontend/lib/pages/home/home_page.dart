@@ -1245,6 +1245,11 @@ class _HomePageState extends State<HomePage> {
       entries.add(_WorkbenchEntry(Icons.build, '后勤服务台',
           const Color(0xFF00695C), '/assistant/facility-workbench'));
 
+    // ── 党课/活动登记（蓝图第3块，2026-08-16）：教师/教辅登记 → 书记党建看板 ──
+    if (CapabilityUtils.has(Capability.partyRecordWrite))
+      entries.add(_WorkbenchEntry(Icons.flag, '党课/活动登记',
+          const Color(0xFFC62828), '/teacher/party-register'));
+
     // ── 学生会工作台 ──
     if (CapabilityUtils.has(Capability.unionEventPlan))
       entries.add(_WorkbenchEntry(Icons.event_available, '活动策划',

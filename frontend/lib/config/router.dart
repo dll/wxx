@@ -89,6 +89,7 @@ import '../pages/teacher/heatmap_page.dart';
 import '../pages/teacher/reflection_page.dart';
 import '../pages/teacher/style_dist_page.dart';
 import '../pages/teacher/community_qa_page.dart';
+import '../pages/teacher/party_activity_register_page.dart';
 // ── 教辅/学生会/学院管理员 AI 功能页面 ──
 import '../pages/assistant_role/schedule_check_page.dart';
 import '../pages/assistant_role/grad_audit_page.dart';
@@ -610,6 +611,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/teacher/community-qa',
             builder: (_, __) => const CommunityQAPage()),
+        // ── 党课/活动登记（蓝图第3块，2026-08-16）──
+        GoRoute(
+            path: '/teacher/party-register',
+            builder: (_, __) => const PartyActivityRegisterPage()),
         // ── 教辅/学生会/学院管理员 AI 功能路由 ──
         GoRoute(
             path: '/assistant/schedule-check',

@@ -186,3 +186,93 @@ func (h *SecretaryOutcomeHandler) PartyDashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": data})
 }
+
+// ══════════════════════════════════════════════════════════════
+// 党课/活动登记（教师/教辅侧，2026-08-16，蓝图第3块）
+// ══════════════════════════════════════════════════════════════
+// 教师/教辅登记其组织的党课/积极分子活动，落 party_study_records(created_by=登记人)。
+// 数据立即进现有 party 聚合 → 书记看板可见；状态 completed。
+
+// CreatePartyRecord 登记党课/活动
+// POST /api/v1/party/register  (party.record.write)
+func (h *SecretaryOutcomeHandler) CreatePartyRecord(c *gin.Context) {
+	var req struct {
+		Title      string  `json:"title"`       // 主题
+		StudyType  string  `json:"study_type"`  // theory/practice/meeting/volunteer
+		Content    string  `json:"content"`     // 内容
+		Duration   int     `json:"duration"`    // 时长(分钟)
+		StudyDate  string  `json:"study_date"`  // 日期
+		StudentIDs []int64 `json:"student_ids"` // 参与学生（可为空=面向全体/未指定）
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误"})
+		return
+	}
+	opID, _, opRole := outcomeRole(c)
+	if opID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录或登录已过期"})
+		return
+	}
+	if req.Title == "" || req.StudyType == "" || req.StudyDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "主题、类型、日期必填"})
+		return
+	}
+	// 单个登记：未指定学生则只创建一条无学生关联记录（标注 organizer）
+	id, err := h.svc.CreatePartyRecord(c.Request.Context(), req.Title, req.StudyType, req.Content, req.Duration, req.StudyDate, opID, opRole, req.StudentIDs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "党课/活动登记成功", "id": id, "data_source": "real"})
+}
+
+// ListPartyRecords 查看党课/活动登记（本人登记的；书记可查全部）
+// GET /api/v1/party/records  (party.record.read)
+func (h *SecretaryOutcomeHandler) ListPartyRecords(c *gin.Context) {
+	opID, _, _ := outcomeRole(c)
+	list, err := h.svc.ListPartyRecords(c.Request.Context(), opID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	if list == nil {
+		list = []map[string]interface{}{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "list": list, "data_source": "real"})
+}
+
+// DeletePartyRecord 删除本人登记的党课/活动
+// DELETE /api/v1/party/records/:id  (party.record.write)
+func (h *SecretaryOutcomeHandler) DeletePartyRecord(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	opID, _, _ := outcomeRole(c)
+	if id <= 0 || opID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误"})
+		return
+	}
+	if err := h.svc.DeletePartyRecord(c.Request.Context(), id, opID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已删除"})
+}
+
+// CollabDashboard 协同育人总览（书记视角，2026-08-16，蓝图第2块）
+// 聚合教师/教辅的育人动作：谈心(talk_records)、后勤(facility_records)、党建活动(party_study_records by created_by)、
+// 教学排课(course_schedules by teacher)。
+// ownerID!=空 → 本院（按 users.owner_id）；空 → 全校(school_admin)。
+// GET /api/v1/college/collab-dashboard  (college.collab.dashboard)
+func (h *SecretaryOutcomeHandler) CollabDashboard(c *gin.Context) {
+	ownerID := c.Query("owner_id")
+	if ownerID == "" {
+		if u := middleware.GetUserContext(c); u != nil && u.Role == "college_admin" && u.OwnerScope == "college" {
+			ownerID = u.OwnerID
+		}
+	}
+	data, err := h.svc.CollabDashboard(c.Request.Context(), ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": data})
+}
