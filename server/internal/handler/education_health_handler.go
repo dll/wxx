@@ -905,9 +905,9 @@ func (h *EducationHandler) ActivityReviewStats(c *gin.Context) {
 		avgRate = math.Round(float64(totalAttend)/float64(totalSignup)*1000) / 10
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"code":         0,
-		"total_signup": totalSignup,
-		"total_attend": totalAttend,
+		"code":            0,
+		"total_signup":    totalSignup,
+		"total_attend":    totalAttend,
 		"avg_attend_rate": avgRate,
 		"category_count":  catCount,
 		"organizer_rank":  orgRank,
