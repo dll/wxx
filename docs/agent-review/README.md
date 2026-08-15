@@ -18,6 +18,7 @@
 | 2026-08-15 | [facility-workbench-plan-2026-08-15.md](facility-workbench-plan-2026-08-15.md) | 后勤服务台方案（合并方案定稿） | 方案已审 |
 | 2026-08-15 | [triple-linkage-audit-2026-08-15.md](triple-linkage-audit-2026-08-15.md) | 教师/教辅×学生×蔚小芯三者关联强度审核 + 教师三方绑定真实化 | 三类联调通过，教师造假数据移除 |
 | 2026-08-15 | [secretary-education-performance-2026-08-15.md](secretary-education-performance-2026-08-15.md) | 书记视角×蔚小芯育人绩效报告能力分析 | 已梳理差距，未实施 |
+| 2026-08-15 | [secretary-party-closed-loop-2026-08-15.md](secretary-party-closed-loop-2026-08-15.md) | 书记×蔚小芯党建育人闭环蓝图（数据模型已对上，缺口+设计） | 方案已审，待确认口径 |
 
 ## 说明
 
