@@ -92,7 +92,11 @@ func (h *UnionHandler) PosterGen(c *gin.Context) {
 	})
 }
 
-// ======================== P2 深度分析功能 ========================
+// ======================== P2 深度分析功能（统一 code/data 包装，与全站一致） ==========
+
+func okData(c *gin.Context, v any) {
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": v})
+}
 
 // Recruitment 招新助手
 func (h *UnionHandler) Recruitment(c *gin.Context) {
@@ -100,30 +104,27 @@ func (h *UnionHandler) Recruitment(c *gin.Context) {
 	if h.svc != nil {
 		data := h.svc.GenerateRecruitment(c.Request.Context(), dept)
 		if data != nil {
-			c.JSON(http.StatusOK, data)
+			okData(c, data)
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
+	okData(c, gin.H{
 		"plan":        dept + "招新方案",
 		"stages":      []string{"宣传期", "报名期", "面试期"},
-		"data_source": "fallback",
+		"data_source": "reference",
 	})
 }
 
-// MemberManage 成员管理
+// MemberManage 成员管理（真实数据）
 func (h *UnionHandler) MemberManage(c *gin.Context) {
 	if h.svc != nil {
 		data := h.svc.ManageMembers(c.Request.Context())
 		if data != nil {
-			c.JSON(http.StatusOK, data)
+			okData(c, data)
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"members":     []gin.H{{"name": "张明", "role": "干事", "hours": 45}},
-		"data_source": "fallback",
-	})
+	okData(c, gin.H{"members": []gin.H{}, "stats": gin.H{}, "data_source": "reference"})
 }
 
 // Questionnaire AI 问卷生成
@@ -132,14 +133,14 @@ func (h *UnionHandler) Questionnaire(c *gin.Context) {
 	if h.svc != nil {
 		data := h.svc.GenerateQuestionnaire(c.Request.Context(), topic)
 		if data != nil {
-			c.JSON(http.StatusOK, data)
+			okData(c, data)
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
+	okData(c, gin.H{
 		"title":       topic + "调查问卷",
 		"questions":   []gin.H{{"type": "single_choice", "q": "满意度如何？"}},
-		"data_source": "fallback",
+		"data_source": "reference",
 	})
 }
 
@@ -148,30 +149,27 @@ func (h *UnionHandler) HotTopicTrack(c *gin.Context) {
 	if h.svc != nil {
 		data := h.svc.TrackHotTopics(c.Request.Context())
 		if data != nil {
-			c.JSON(http.StatusOK, data)
+			okData(c, data)
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"topics":      []gin.H{{"topic": "期末复习资料", "heat": 88}},
-		"data_source": "fallback",
-	})
+	okData(c, gin.H{"topics": []gin.H{}, "suggestions": []string{}, "data_source": "reference"})
 }
 
-// ActivityAnalysis 活动数据分析
+// ActivityAnalysis 活动数据分析（真实数据）
 func (h *UnionHandler) ActivityAnalysis(c *gin.Context) {
 	eventName := c.Query("event")
 	if h.svc != nil {
 		data := h.svc.AnalyzeActivity(c.Request.Context(), eventName)
 		if data != nil {
-			c.JSON(http.StatusOK, data)
+			okData(c, data)
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
+	okData(c, gin.H{
 		"event_name":  eventName,
-		"reg_rate":    0.85,
-		"attend_rate": 0.72,
-		"data_source": "fallback",
+		"reg_rate":    0,
+		"attend_rate": 0,
+		"data_source": "reference",
 	})
 }

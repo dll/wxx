@@ -2,19 +2,23 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/llm"
 )
 
 // UnionService 学生会角色 AI 功能服务
+// db 用于接真实数据（活动/报名/到场统计），不依赖 LLM 也能返回真实统计。
 type UnionService struct {
+	db        *sql.DB
 	llmClient llm.ChatClient
 }
 
-func NewUnionService(llmClient llm.ChatClient) *UnionService {
-	return &UnionService{llmClient: llmClient}
+func NewUnionService(db *sql.DB, llmClient llm.ChatClient) *UnionService {
+	return &UnionService{db: db, llmClient: llmClient}
 }
 
 // EventPlan 活动策划方案
@@ -143,14 +147,87 @@ type MemberManagementData struct {
 	DataSource string                   `json:"data_source"`
 }
 
+// ManageMembers 成员活跃度（真实数据）：按报名/到场聚合到人，避免编造姓名。
+// 数据源：health_activity_signups JOIN users（真实报名与签到记录）。
 func (s *UnionService) ManageMembers(ctx context.Context) *MemberManagementData {
-	return &MemberManagementData{
-		Members: []map[string]interface{}{
-			{"name": "张明", "role": "干事", "hours": 45, "performance": "A", "suggestion": "推荐晋升副部长"},
-			{"name": "李华", "role": "干事", "hours": 30, "performance": "B", "suggestion": "需加强主动性和责任心"},
-		},
-		Stats:      map[string]interface{}{"total": 20, "active": 18, "excellent": 5, "needs_improve": 2},
+	data := &MemberManagementData{
+		Members:    []map[string]interface{}{},
+		Stats:      map[string]interface{}{"total": 0, "active": 0, "excellent": 0, "needs_improve": 0, "with_signups": 0},
 		DataSource: "reference",
+	}
+	if s.db == nil {
+		return data
+	}
+	drv := dbutil.DriverOf(s.db)
+	// 每个参与人：报名次数、到场次数（attended=1）、到场率；去重按 user_id
+	stmt := `SELECT u.id, COALESCE(u.display_name, u.username, ?) AS name,
+	                COUNT(s.id) AS signups,
+	                COALESCE(SUM(CASE WHEN s.attended = 1 THEN 1 ELSE 0 END), 0) AS attends
+	         FROM health_activity_signups s
+	         LEFT JOIN users u ON u.id = s.user_id
+	         WHERE s.status = 'registered'
+	         GROUP BY u.id
+	         ORDER BY signups DESC, attends DESC
+	         LIMIT 50`
+	rows, err := s.db.Query(dbutil.AdaptForDriver(stmt, drv), "未署名同学")
+	if err != nil {
+		return data
+	}
+	defer rows.Close()
+
+	total := 0
+	excellent := 0
+	needsImprove := 0
+	active := 0
+	for rows.Next() {
+		var uid int64
+		var name string
+		var signups, attends int
+		if err := rows.Scan(&uid, &name, &signups, &attends); err != nil {
+			continue
+		}
+		total++
+		perf := "C"
+		if attends >= 3 {
+			perf = "A"
+			excellent++
+		} else if attends >= 1 {
+			perf = "B"
+			active++
+		} else {
+			needsImprove++
+		}
+		data.Members = append(data.Members, map[string]interface{}{
+			"user_id":     uid,
+			"name":        name,
+			"signups":     signups,
+			"attends":     attends,
+			"performance": perf,
+			"suggestion":  perfSuggest(perf),
+		})
+	}
+	// 有真实记录即标记为真实数据
+	if total > 0 {
+		data.DataSource = "real"
+	}
+	data.Stats = map[string]interface{}{
+		"total":         total,
+		"active":        active,
+		"excellent":     excellent,
+		"needs_improve": needsImprove,
+		"with_signups":  total,
+	}
+	return data
+}
+
+func perfSuggest(p string) string {
+	switch p {
+	case "A":
+		return "积极参与、到场稳定，可考虑委以更重要的组织任务"
+	case "B":
+		return "有参与，建议持续保持，可增加组织协调机会"
+	default:
+		return "报名但到场较少，建议关注其参与情况"
 	}
 }
 
@@ -205,15 +282,70 @@ type ActivityAnalysisData struct {
 	DataSource  string                 `json:"data_source"`
 }
 
+// AnalyzeActivity 活动数据分析（真实数据）：按活动查真实 报名数/名额/到场数。
+// 数据源：health_activities + health_activity_signups。
 func (s *UnionService) AnalyzeActivity(ctx context.Context, eventName string) *ActivityAnalysisData {
-	return &ActivityAnalysisData{
+	data := &ActivityAnalysisData{
 		EventName:   eventName,
-		RegRate:     0.85,
-		AttendRate:  0.72,
-		Feedback:    4.2,
-		Demographic: map[string]interface{}{"大一": 40, "大二": 35, "大三": 20, "大四": 5},
-		Report:      fmt.Sprintf("%s活动整体参与度良好，报名率达85%%，到场率72%%。大一大二学生为主要参与群体。建议优化活动时间安排以提升到场率。", eventName),
-		Suggestions: []string{"优化时间安排，避开考试周", "增加线上参与渠道", "提前一周加大宣传力度"},
+		RegRate:     0,
+		AttendRate:  0,
+		Feedback:    0,
+		Demographic: map[string]interface{}{},
+		Report:      "暂无该活动的报名数据，可先新建活动并引导报名。",
+		Suggestions: []string{},
 		DataSource:  "reference",
 	}
+	if s.db == nil || eventName == "" {
+		return data
+	}
+	drv := dbutil.DriverOf(s.db)
+	var id string
+	var title, startAt, venue, organizer string
+	var capacity, creatorID int64
+	err := s.db.QueryRow(dbutil.AdaptForDriver(
+		`SELECT activity_id, title, COALESCE(start_at,''), COALESCE(venue,''), COALESCE(organizer,''), COALESCE(capacity,0), COALESCE(creator_id,0) FROM health_activities WHERE activity_id = ? OR title = ? LIMIT 1`, drv),
+		eventName, eventName).Scan(&id, &title, &startAt, &venue, &organizer, &capacity, &creatorID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			data.Report = fmt.Sprintf("未找到活动「%s」，请先用活动报名管理创建。", eventName)
+		}
+		return data
+	}
+	data.EventName = title
+
+	var signups, attends int
+	_ = s.db.QueryRow(dbutil.AdaptForDriver(
+		`SELECT COUNT(*) FROM health_activity_signups WHERE activity_id = ? AND status = 'registered'`, drv), id).Scan(&signups)
+	_ = s.db.QueryRow(dbutil.AdaptForDriver(
+		`SELECT COALESCE(SUM(CASE WHEN attended = 1 THEN 1 ELSE 0 END),0) FROM health_activity_signups WHERE activity_id = ? AND status = 'registered'`, drv), id).Scan(&attends)
+
+	if signups > 0 {
+		data.DataSource = "real"
+		reg := float64(signups)
+		if capacity > 0 {
+			data.RegRate = round2(reg / float64(capacity) * 100)
+		} else {
+			data.RegRate = round2(reg)
+		}
+		data.AttendRate = round2(float64(attends) / reg * 100)
+		data.Suggestions = []string{
+			fmt.Sprintf("该活动报名 %d 人，到场 %d 人，到场率 %.0f%%。", signups, attends, data.AttendRate),
+		}
+		if capacity > 0 && signups >= int(float64(capacity)*0.9) {
+			data.Suggestions = append(data.Suggestions, "名额接近报满，可评估增加场次。")
+		} else if capacity > 0 {
+			data.Suggestions = append(data.Suggestions, fmt.Sprintf("距报满还差 %d 人，可加强宣传。", int(capacity)-signups))
+		}
+		if data.AttendRate < 70 {
+			data.Suggestions = append(data.Suggestions, "到场率偏低，建议优化时间地点或增加到场激励。")
+		}
+		data.Report = fmt.Sprintf("%s：报名 %d 人（名额 %d），到场 %d 人，到场率 %.0f%%。", title, signups, capacity, attends, data.AttendRate)
+	} else {
+		data.Report = fmt.Sprintf("%s：暂无报名记录，可先引导报名再复盘。", title)
+	}
+	return data
+}
+
+func round2(v float64) float64 {
+	return float64(int(v*100+0.5)) / 100
 }

@@ -270,6 +270,12 @@ class ApiConfig {
   // ── 学生会 AI 功能 ──
   static const String unionEventPlan = '$apiPrefix/union/event-plan';
   static const String unionPosterGen = '$apiPrefix/union/poster-gen';
+  static const String unionRecruitment = '$apiPrefix/union/recruitment';
+  static const String unionMemberManage = '$apiPrefix/union/member-manage';
+  static const String unionQuestionnaire = '$apiPrefix/union/questionnaire';
+  static const String unionHotTopicTrack = '$apiPrefix/union/hot-topic-track';
+  static String unionActivityAnalysis(String event) =>
+      '$apiPrefix/union/activity-analysis?event=${Uri.encodeQueryComponent(event)}';
 
   // ── 学院管理员 AI 功能 ──
   static const String collegeTwinScreen = '$apiPrefix/college/twin-screen';

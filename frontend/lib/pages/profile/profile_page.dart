@@ -685,6 +685,8 @@ class _ProfilePageState extends State<ProfilePage> {
               '智能海报文案生成', '/union/poster-gen'),
           _ProfileFeature('u_act_mgmt', '学生会服务', Icons.groups_outlined, '活动报名管理',
               '查看报名热度、新建活动', '/union/activity-manage'),
+          _ProfileFeature('u_workbench', '学生会服务', Icons.workspaces_outlined, '学生会工作台',
+              '成员活跃·活动分析·招新·问卷·热点', '/union/workbench'),
         ],
         if (_canAccessAdmin(role)) ...[
           _ProfileFeature('college_twin', '管理服务', Icons.dashboard, '数字孪生大屏',

@@ -386,10 +386,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 	assistantHandler := handler.NewAssistantHandler(assistantSvc)
 
-	var unionSvc *service.UnionService
-	if llmClient != nil {
-		unionSvc = service.NewUnionService(llmClient)
-	}
+	// 学生会服务始终构建：真实数据统计（成员/活动分析）不依赖 LLM，LLM 仅用于增强解读。
+	unionSvc := service.NewUnionService(db, llmClient)
 	unionHandler := handler.NewUnionHandler(unionSvc)
 
 	// 学院/学校服务始终构建：即便无 LLM，也能返回真实聚合数据（LLM 仅用于解读增强）

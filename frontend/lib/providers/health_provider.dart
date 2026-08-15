@@ -531,4 +531,61 @@ class HealthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  // ── 学生会工作台（真实数据 + AI 增强，均为原无入口接口）──
+
+  /// 成员活跃度（真实报名/到场统计）
+  Future<Map<String, dynamic>?> fetchUnionMembers() async {
+    try {
+      final res = await _api.get(ApiConfig.unionMemberManage);
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data['data']);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 活动数据分析（真实报名/到场率）
+  Future<Map<String, dynamic>?> fetchActivityAnalysis(String event) async {
+    try {
+      final res = await _api.get(ApiConfig.unionActivityAnalysis(event));
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data['data']);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 招新助手（AI/参考方案）
+  Future<Map<String, dynamic>?> fetchUnionRecruitment(String dept) async {
+    try {
+      final res = await _api.get('${ApiConfig.unionRecruitment}?dept=${Uri.encodeQueryComponent(dept)}');
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data['data']);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 问卷生成（AI/参考）
+  Future<Map<String, dynamic>?> fetchUnionQuestionnaire(String topic) async {
+    try {
+      final res = await _api.get('${ApiConfig.unionQuestionnaire}?topic=${Uri.encodeQueryComponent(topic)}');
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data['data']);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 热点追踪
+  Future<Map<String, dynamic>?> fetchUnionHotTopics() async {
+    try {
+      final res = await _api.get(ApiConfig.unionHotTopicTrack);
+      if (res.data['code'] == 0) return Map<String, dynamic>.from(res.data['data']);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
