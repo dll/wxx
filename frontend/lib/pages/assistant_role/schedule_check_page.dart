@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
+import '../../widgets/data_src_badge.dart';
 
 /// 教辅 - 排课冲突检测
 class ScheduleCheckPage extends StatefulWidget {
@@ -54,6 +55,7 @@ class _ScheduleCheckPageState extends State<ScheduleCheckPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        DataSrcBadge(src: _result?['data_source']),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),

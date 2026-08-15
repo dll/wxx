@@ -10,6 +10,7 @@
 | 2026-08-14 | [multi-role-stickiness-2026-08-14.md](multi-role-stickiness-2026-08-14.md) | 分角色粘性增强方案：辅导员/学生会/教辅/教师/管理员 | 方案已出；辅导员谈心记录统计(交流次数/内容/效果)已实现 |
 | 2026-08-15 | [school-data-integration-2026-08-15.md](school-data-integration-2026-08-15.md) | 学校系统课表数据接入方案（阶段1/2设计与合规边界） | 阶段0课表提醒已实现；路径C限制等待办 |
 | 2026-08-15 | [role-management-2026-08-15.md](role-management-2026-08-15.md) | 角色管理增强：角色分配入口 + 职务字段 + 越权防护 | 已实现，后端/前端验证通过 |
+| 2026-08-15 | [counselor-assistant-role-audit-2026-08-15.md](counselor-assistant-role-audit-2026-08-15.md) | 辅导员/教辅角色功能审核：入口+数据真实性 | 审核完成；教辅数据来源标注已落地 |
 
 ## 说明
 

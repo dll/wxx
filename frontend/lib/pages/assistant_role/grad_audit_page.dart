@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
 import '../../utils/api_error.dart';
+import '../../widgets/data_src_badge.dart';
 
 /// 教辅 - 毕业资格审核
 class GradAuditPage extends StatefulWidget {
@@ -65,6 +66,7 @@ class _GradAuditPageState extends State<GradAuditPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        DataSrcBadge(src: _result?['data_source']),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
