@@ -90,6 +90,12 @@ class Capability {
   static const collegeTwinScreen = 'college.twin.screen';
   static const collegeDataAnalysis = 'college.data.analysis';
 
+  // ── 毕业去向 / 书记教育成果（2026-08-15）──
+  static const outcomeRecordWrite = 'outcome.record.write';
+  static const outcomeRecordRead = 'outcome.record.read';
+  static const outcomeReview = 'outcome.review';
+  static const outcomeDashboard = 'outcome.dashboard';
+
   // ── 学校管理 ──
   static const schoolAgentWrite = 'school.agent.write';
   static const schoolUserWrite = 'school.user.write';

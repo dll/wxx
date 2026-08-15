@@ -710,6 +710,15 @@ class _ProfilePageState extends State<ProfilePage> {
           _ProfileFeature('college_analysis', '管理服务', Icons.analytics, '数据分析',
               '学院数据分析报告', '/college/data-analysis'),
         ],
+        if (CapabilityUtils.has(Capability.outcomeDashboard))
+          _ProfileFeature('secretary_outcome', '管理服务', Icons.auto_graph,
+              '教育成果大屏', '书记视角：竞赛/入党/学业/毕业去向', '/secretary/education-outcome'),
+        if (CapabilityUtils.hasAny([
+              Capability.outcomeRecordWrite,
+              Capability.outcomeReview,
+            ]))
+          _ProfileFeature('outcome_manage', '教辅服务', Icons.task_alt,
+              '毕业去向登记', '学生自报/教辅录入+审核', '/secretary/outcome-manage'),
         if (CapabilityUtils.has(Capability.unionFeedbackList))
           _ProfileFeature('feedback_manage', '管理服务', Icons.feedback_outlined,
               '反馈管理', '查看和处理用户反馈', '/feedback'),

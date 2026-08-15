@@ -102,6 +102,8 @@ import '../pages/union/activity_manage_page.dart';
 import '../pages/union/union_workbench_page.dart';
 import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
+import '../pages/secretary/secretary_outcome_dashboard_page.dart';
+import '../pages/secretary/outcome_manage_page.dart';
 import '../pages/profile/model_config_page.dart';
 import '../pages/culture/anthem_page.dart';
 import '../pages/culture/radio_page.dart';
@@ -644,6 +646,12 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/college/data-analysis',
             builder: (_, __) => const DataAnalysisPage()),
+        GoRoute(
+            path: '/secretary/education-outcome',
+            builder: (_, __) => const SecretaryOutcomeDashboardPage()),
+        GoRoute(
+            path: '/secretary/outcome-manage',
+            builder: (_, __) => const OutcomeManagePage()),
       ],
     ),
   ],
