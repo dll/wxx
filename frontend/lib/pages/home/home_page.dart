@@ -13,6 +13,7 @@ import '../../providers/update_provider.dart';
 import '../../providers/ai_briefing_provider.dart';
 import '../../main.dart';
 import '../../utils/role_utils.dart';
+import '../../utils/capability_utils.dart';
 import '../../utils/storage.dart';
 import '../../utils/date_utils.dart';
 import '../../config/api_config.dart';
@@ -55,6 +56,15 @@ const _educationFeatures = [
   _FeatureCard(
       Icons.favorite_outline, '心理健康', Color(0xFFC62828), '/student/mental'),
 ];
+
+/// 角色工作台条目（能力门控后的一枚快捷卡片）
+class _WorkbenchEntry {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String route;
+  const _WorkbenchEntry(this.icon, this.label, this.color, this.route);
+}
 
 /// 首页仪表盘 — 按角色自适应布局
 class HomePage extends StatefulWidget {
@@ -376,6 +386,10 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
+            ],
+            // 角色工作台（能力门控：辅导员/教辅/学生会/书记/管理；学生/教师自动不显示）
+            if (loggedIn) ...[
+              _buildRoleWorkbench(theme),
             ],
             // 学生个性化首页
             if (isStudent && loggedIn) ...[
@@ -1177,6 +1191,140 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
+  }
+
+  /// 角色工作台 — 按能力门控为各角色展示专属工作入口(卡片区)
+  /// 学生/教师自动不显示(无对应能力)，返回空。复用 _buildKnowledgeCard 卡片样式。
+  Widget _buildRoleWorkbench(ThemeData theme) {
+    // 收集该用户有权访问的工作台入口
+    final entries = <_WorkbenchEntry>[];
+
+    // ── 辅导员工作台 ──
+    if (CapabilityUtils.has(Capability.counselorAlertRead))
+      entries.add(_WorkbenchEntry(Icons.warning_amber_rounded, '情感预警',
+          const Color(0xFFC62828), '/emotion'));
+    if (CapabilityUtils.has(Capability.counselorTalkRecord))
+      entries.add(_WorkbenchEntry(Icons.forum_outlined, '谈心记录',
+          const Color(0xFF2E7D32), '/counselor/talk-record'));
+    if (CapabilityUtils.has(Capability.counselorTwinBoard))
+      entries.add(_WorkbenchEntry(Icons.dashboard_outlined, '班级画像',
+          const Color(0xFF1565C0), '/counselor/class-profile'));
+    if (CapabilityUtils.has(Capability.counselorIdeological))
+      entries.add(_WorkbenchEntry(Icons.flag_outlined, '思想动态',
+          const Color(0xFF7B1FA2), '/counselor/ideological'));
+
+    // ── 教辅工作台 ──
+    if (CapabilityUtils.hasAny([
+          Capability.outcomeRecordWrite,
+          Capability.outcomeReview,
+        ]))
+      entries.add(_WorkbenchEntry(Icons.task_alt, '毕业去向登记',
+          const Color(0xFFE65100), '/secretary/outcome-manage'));
+    if (CapabilityUtils.has(Capability.assistantScheduleCheck))
+      entries.add(_WorkbenchEntry(Icons.calendar_month_outlined, '排课核查',
+          const Color(0xFF1565C0), '/assistant/schedule-check'));
+    if (CapabilityUtils.has(Capability.assistantGradAudit))
+      entries.add(_WorkbenchEntry(Icons.workspace_premium_outlined, '毕业审核',
+          const Color(0xFF2E7D32), '/assistant/grad-audit'));
+    if (CapabilityUtils.has(Capability.assistantExamArrange))
+      entries.add(_WorkbenchEntry(Icons.edit_calendar_outlined, '考试安排',
+          const Color(0xFF7B1FA2), '/assistant/exam-arrange'));
+    if (Storage.role == 'assistant')
+      entries.add(_WorkbenchEntry(Icons.build, '后勤服务台',
+          const Color(0xFF00695C), '/assistant/facility-workbench'));
+
+    // ── 学生会工作台 ──
+    if (CapabilityUtils.has(Capability.unionEventPlan))
+      entries.add(_WorkbenchEntry(Icons.event_available, '活动策划',
+          const Color(0xFFE65100), '/union/event-plan'));
+    if (CapabilityUtils.has(Capability.unionFeedbackList))
+      entries.add(_WorkbenchEntry(Icons.feedback_outlined, '反馈处理',
+          const Color(0xFFC62828), '/feedback'));
+    if (CapabilityUtils.hasAny([
+          Capability.unionKbSubmit,
+          Capability.unionPosterGen,
+        ]))
+      entries.add(_WorkbenchEntry(Icons.workspaces_outlined, '学生会工作台',
+          const Color(0xFF7B1FA2), '/union/workbench'));
+
+    // ── 书记 / 学院管理 工作台 ──
+    if (CapabilityUtils.has(Capability.outcomeDashboard))
+      entries.add(_WorkbenchEntry(Icons.auto_graph, '教育成果大屏',
+          const Color(0xFF1565C0), '/secretary/education-outcome'));
+    if (CapabilityUtils.has(Capability.collegeTwinScreen))
+      entries.add(_WorkbenchEntry(Icons.dashboard, '数字孪生',
+          const Color(0xFF2E7D32), '/college/twin-screen'));
+    if (CapabilityUtils.has(Capability.collegeDataAnalysis))
+      entries.add(_WorkbenchEntry(Icons.analytics, '数据分析',
+          const Color(0xFF7B1FA2), '/college/data-analysis'));
+
+    // ── 系统管理 工作台 ──
+    if (CapabilityUtils.has(Capability.systemSettingsWrite))
+      entries.add(_WorkbenchEntry(Icons.settings_outlined, '系统配置',
+          const Color(0xFF455A64), '/admin/settings'));
+    if (CapabilityUtils.has(Capability.systemAuditAll))
+      entries.add(_WorkbenchEntry(Icons.history, '审计日志',
+          const Color(0xFFC62828), '/admin/audit'));
+
+    // 无任何工作台能力(纯学生/教师/游客)→ 不显示
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    // 标题名：优先按角色定制，兜底用「工作台」
+    final title = _workbenchTitle(Storage.role);
+    // 每行 4 个，超出换行；行间加间距
+    final rowWidgets = <Widget>[];
+    for (var i = 0; i < entries.length; i += 4) {
+      final end = i + 4 > entries.length ? entries.length : i + 4;
+      final chunk = entries.sublist(i, end);
+      rowWidgets.add(Row(
+        children: [
+          for (final e in chunk)
+            _buildKnowledgeCard(
+              theme,
+              icon: e.icon,
+              label: e.label,
+              color: e.color,
+              onTap: () => context.go(e.route),
+            ),
+          for (var padIdx = chunk.length; padIdx < 4; padIdx++)
+            const Expanded(child: SizedBox.shrink()),
+        ],
+      ));
+      if (end < entries.length) rowWidgets.add(const SizedBox(height: 10));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(theme,
+            icon: Icons.workspaces_outline,
+            title: title,
+            subtitle: '日常事务 · 一站式处理'),
+        const SizedBox(height: 14),
+        ...rowWidgets,
+      ],
+    );
+  }
+
+  /// 角色工作台标题映射（兜底泛用）
+  String _workbenchTitle(String? role) {
+    switch (role) {
+      case 'counselor':
+        return '辅导员工作台';
+      case 'assistant':
+        return '教辅工作台';
+      case 'student_union':
+        return '学生会工作台';
+      case 'college_admin':
+      case 'school_admin':
+        return '书记工作台';
+      case 'sys_admin':
+        return '管理工作台';
+      case 'teacher':
+        return '教师工作台';
+      default:
+        return '工作台';
+    }
   }
 
   /// 管理专区 — 问题预案
