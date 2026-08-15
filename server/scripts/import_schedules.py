@@ -185,7 +185,11 @@ def main():
     ap.add_argument("--dry", action="store_true", help="仅统计不写库")
     ap.add_argument("--students", type=str, default="计科251,计科252,计科261,计科262,软件261,软件262,网安26,空间26,大数据26",
                     help="要导入学生课表的班级（逗号分隔）")
+    ap.add_argument("--semester", type=str, default="2026-2027-1", help="学期代码（默认 2026-2027-1）")
+    ap.add_argument("--owner", type=str, default="cs", help="学院 owner_id（默认 cs=计算机学院）")
     args = ap.parse_args()
+    semester_code = args.semester
+    owner_id = args.owner
     db = args.db or os.path.join(BASE, "server", "data", "wxx.db")
     conn = sqlite3.connect(db)
     cur = conn.cursor()
@@ -214,7 +218,7 @@ def main():
                 pwd = bcrypt_pwd(uname)
                 if not args.dry:
                     cur.execute("INSERT INTO users (username, display_name, role, owner_scope, owner_id, password_hash, status) VALUES (?,?,?,?,?,?, 'active')",
-                                (uname, name, "teacher", "college", "cs", pwd))
+                                (uname, name, "teacher", "college", owner_id, pwd))
                 report["teacher_acct_new"] += 1
         if not args.dry:
             conn.commit()
@@ -249,7 +253,7 @@ def main():
                 if not args.dry:
                     cur.execute(
                         "INSERT OR IGNORE INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, weeks_pattern, location, teacher) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                        (uid, cid, cname, "2026-2027-1", wd, sp, ep, weeks or "", loc, teacher or ""))
+                        (uid, cid, cname, semester_code, wd, sp, ep, weeks or "", loc, teacher or ""))
                 report["teacher_sched"] += 1
         zf.close()
         if not args.dry:
@@ -290,7 +294,7 @@ def main():
                 pwd = bcrypt_pwd(uname)
                 if not args.dry:
                     cur.execute("INSERT INTO users (username, display_name, role, owner_scope, owner_id, password_hash, status, class_name, major) VALUES (?,?,?,?,?,?, 'active', ?, ?)",
-                                (uname, name, "student", "college", "cs", pwd, clsname, clsname))
+                                (uname, name, "student", "college", owner_id, pwd, clsname, clsname))
                 cnt_new += 1
         wb.close()
         if not args.dry:
@@ -337,7 +341,7 @@ def main():
                     if not args.dry:
                         cur.execute(
                             "INSERT OR IGNORE INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, weeks_pattern, location, teacher) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                            (uid, cid, cname, "2026-2027-1", wd, sp, ep, weeks or "", loc or "", teacher or ""))
+                            (uid, cid, cname, semester_code, wd, sp, ep, weeks or "", loc or "", teacher or ""))
                     report["student_sched"] += 1
             print(f"  [{clsname}] 学生 {len(stu_ids)} 人，课表 {len(rows)} 节课，展开 {len(rows)*len(stu_ids)} 条")
         zf.close()
