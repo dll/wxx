@@ -213,11 +213,14 @@ jobs:
               TAR_OK=0
               for i in 1 2 3; do
                 echo "  第 $i 次 tarball 下载..."
-                if timeout 90 curl -fsSL -o /tmp/wxx-main.tar.gz https://codeload.github.com/dll/wxx/tar.gz/refs/heads/main 2>&1; then
+                rm -f /tmp/wxx-main.tar.gz
+                if timeout 120 curl -fsSL --retry 2 --retry-delay 2 -o /tmp/wxx-main.tar.gz https://codeload.github.com/dll/wxx/tar.gz/refs/heads/main 2>&1 && gzip -t /tmp/wxx-main.tar.gz 2>/dev/null; then
                   TAR_OK=1
+                  echo "  tarball 下载完成且 gzip 校验通过 ($(du -h /tmp/wxx-main.tar.gz | cut -f1))"
                   break
                 else
-                  echo "  [warn] 第 $i 次 tarball 下载失败，重试"
+                  echo "  [warn] 第 $i 次 tarball 下载/校验失败(可能截断)，重试"
+                  rm -f /tmp/wxx-main.tar.gz
                 fi
                 sleep 5
               done
