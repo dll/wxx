@@ -37,6 +37,23 @@ STUDENT_ROSTERS = [
     ("2026级新生录取数据.xlsx", 0, 1, 4),
 ]
 
+
+def discover_roster_files():
+    """自动发现 data/ 及 data/roster_templates/ 下符合《班级》学生名单.xlsx 的名单文件。
+    返回 [(班级, 文件名, 学号列, 姓名列, 班级列)]。班级从文件名《…》提取。"""
+    found = []
+    for d in [DATA, os.path.join(DATA, "roster_templates")]:
+        if not os.path.isdir(d):
+            continue
+        for fn in os.listdir(d):
+            m = re.match(r"《(.+?)》学生名单\.xlsx$", fn)
+            if m:
+                # 跳过已在显式 STUDENT_ROSTERS 中的(避免重复)
+                if any(fn == s[0] for s in STUDENT_ROSTERS):
+                    continue
+                found.append((m.group(1), os.path.join(d, fn), 0, 1, 4))
+    return found
+
 PERIOD_MAP = {1: (8, 0), 2: (8, 55), 3: (10, 0), 4: (10, 55), 5: (14, 0),
               6: (14, 55), 7: (16, 0), 8: (16, 55), 9: (19, 0), 10: (19, 55)}
 
@@ -241,10 +258,18 @@ def main():
 
     # ── 3) 学生账号：名单 ──
     print("== 3) 学生账号 ==")
-    for fn, idc, nmc, clsc in STUDENT_ROSTERS:
-        p = os.path.join(DATA, fn)
+    # 名单：显式 + 自动发现《班级》学生名单.xlsx 模板(班级取自文件名)
+    roster_files = []
+    for item in STUDENT_ROSTERS:
+        fn, idc, nmc, clsc = item
+        roster_files.append((fn, os.path.join(DATA, fn), idc, nmc, clsc, None))
+    for cls_name, tpl_path, idc, nmc, clsc in discover_roster_files():
+        roster_files.append((os.path.basename(tpl_path), tpl_path, idc, nmc, clsc, cls_name))
+    template_class_names = set(x[5] for x in roster_files if x[5])
+
+    for fn, p, idc, nmc, clsc, cls_from_name in roster_files:
         if not os.path.exists(p):
-            print(f"  缺名单: {fn}")
+            print(f"  缺名单: {os.path.basename(p)}")
             continue
         wb = openpyxl.load_workbook(p, data_only=True, read_only=True)
         ws = wb[wb.sheetnames[0]]
@@ -256,7 +281,8 @@ def main():
                 continue
             uname = str(r[idc]).strip()
             name = str(r[nmc]).strip() if len(r) > nmc else ""
-            clsname = str(r[clsc]).strip() if len(r) > clsc else ""
+            # 模板名单从文件名取班级；显式名单读班级列
+            clsname = (cls_from_name or (str(r[clsc]).strip() if len(r) > clsc else "")).strip()
             exist = cur.execute("select id from users where username=?", (uname,)).fetchone()
             if exist:
                 cnt_skip += 1
@@ -271,11 +297,17 @@ def main():
             conn.commit()
         report["student_acct_new"] += cnt_new
         report["student_acct_skip"] += cnt_skip
-        print(f"  {fn}: 新增 {cnt_new}，已存在 {cnt_skip}")
+        print(f"  {os.path.basename(p)}: 新增 {cnt_new}，已存在 {cnt_skip}（班级={cls_from_name or clsname or '—'}）")
 
-    # ── 4) 班级课表：仅导入 --students 指定班级 ──
+    # ── 4) 班级课表：仅导入 --students 指定班级 + 已建账号的模板班级 ──
     print("== 4) 班级课表 ==")
     want_classes = set(c.strip() for c in args.students.split(",") if c.strip())
+    # 自动纳入：有模板名单(已建账号)的班级、及已有 class_name 的班级
+    want_classes |= set(str(r[0]) for r in cur.execute(
+        "select distinct class_name from users where role='student' and class_name != ''"))
+    # 默认 --students 为空时，导入所有有账号的班级
+    template_has = set(x[5] for x in roster_files if x[5]) if 'roster_files' in dir() else set()
+    want_classes |= template_has
     if os.path.exists(CLASS_ZIP):
         zf = zipfile.ZipFile(CLASS_ZIP)
         for n in zf.namelist():
