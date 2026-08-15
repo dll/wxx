@@ -164,11 +164,12 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # 历史问题：appleboy/scp-action 上传完成后偶发不关闭连接 → job 挂起超时被取消。
-      # 改用与 redeploy-server-tar.yml 相同、已验证的方案：
-      # 服务器自行从 GitHub 下载 main 分支源码 tarball（公开仓库无需凭据）→ 本地编译 → 重启。
-      # 全程无 scp，无跨机二进制传输，彻底绕开 scp 挂起。
-      - name: 服务器下载源码并部署后端
+      # 后端更新按 docs/deployment.md「更新流程」标准执行：
+      #   服务器已有 /opt/wxx git 仓库 → git fetch+reset → 备份旧库 → 服务器本地 go build(fts5)
+      #   → 输出 /opt/wxx/bin/wxx-server（systemd ExecStart 指向此路径）
+      #   → systemctl restart wxx（迁移在启动时自动执行）
+      # 全程不跨机传二进制（彻底绕开 appleboy/scp-action 连接不关闭导致的挂起）。
+      - name: 服务器更新后端（git pull + 服务器编译 + 重启）
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -177,35 +178,30 @@ jobs:
           command_timeout: 480s
           script: |
             set -e
-            echo "=== 后端部署开始 $(date) ==="
-            # 1. 备份当前二进制
-            cp /opt/wxx/wxx-server /opt/wxx/wxx-server.bak.$(date +%s) 2>/dev/null || true
-            # 2. 下载 main 分支源码 tarball
-            cd /tmp
-            rm -rf wxx-main wxx-main.tar.gz
-            echo "--- 下载源码 tarball ---"
-            curl -sL -o wxx-main.tar.gz https://codeload.github.com/dll/wxx/tar.gz/refs/heads/main
-            ls -la wxx-main.tar.gz
-            tar xzf wxx-main.tar.gz
-            test -d wxx-main && echo "解压 OK" || (echo "解压失败"; exit 1)
-            # 3. 服务器本地编译（含 FTS5 tag，与正式环境一致）
+            echo "=== 后端更新开始 $(date) ==="
+            cd /opt/wxx || exit 1
+            # 1. 备份数据库（部署前）
+            sqlite3 /opt/wxx/data/wxx.db ".backup '/opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).db'" 2>/dev/null || true
+            # 2. 拉取最新源码（reset hard 到 origin/main：CI 只部署最新 main，避免服务端本地差异阻塞）
+            echo "--- git fetch + reset ---"
+            git fetch origin 2>&1 || (echo "git fetch 失败"; exit 1)
+            git reset --hard origin/main 2>&1 || (echo "git reset 失败"; exit 1)
+            # 3. 服务器本地编译（FTS5，与正式环境一致）
+            echo "--- go build -tags fts5 ---"
             export GOPROXY=https://goproxy.cn,direct
-            cd /tmp/wxx-main/server
-            echo "--- 编译 wxx-server ---"
-            go build -tags fts5 -o /tmp/wxx-server-new ./cmd/server 2>&1 | tail -5 || true
-            test -x /tmp/wxx-server-new && echo "编译完成: $(ls -la /tmp/wxx-server-new)" || (echo "编译失败"; exit 1)
-            # 4. 替换并重启
-            chmod +x /tmp/wxx-server-new
-            sudo systemctl stop wxx 2>/dev/null || true
-            sleep 1
-            sudo cp /tmp/wxx-server-new /opt/wxx/wxx-server
-            sudo systemctl start wxx 2>/dev/null || true
+            cd /opt/wxx/server
+            go build -tags fts5 -o /opt/wxx/bin/wxx-server.new ./cmd/server 2>&1 | tail -15 || true
+            test -x /opt/wxx/bin/wxx-server.new && echo "编译完成: $(ls -la /opt/wxx/bin/wxx-server.new)" || (echo "编译失败"; exit 1)
+            # 4. 替换二进制（迁移在启动时由 app.NewWithConfig 自动执行，无需单独 migrate 子命令）
+            chmod +x /opt/wxx/bin/wxx-server.new
+            mv /opt/wxx/bin/wxx-server.new /opt/wxx/bin/wxx-server
+            # 5. 重启服务
+            echo "--- 重启 wxx ---"
+            sudo systemctl restart wxx
             sleep 4
-            echo "--- 服务状态 ---"
             systemctl is-active wxx || true
             echo "--- 健康检查 ---"
-            curl -s -m 5 localhost:8080/health && echo "" || echo "health check failed (忽略)"
-            cd /tmp && rm -rf wxx-main wxx-main.tar.gz
+            curl -s -m 5 localhost:8080/health && echo "" || echo "health check failed(忽略)"
 
 
   # ── Job 3：构建 Android APK 并上传制品 ───────────────────────────────
