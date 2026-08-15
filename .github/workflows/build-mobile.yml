@@ -232,46 +232,26 @@ jobs:
           echo "$CLT_DIR/bin" >> $GITHUB_PATH
           echo "SDK 结构："; ls "$CLT_DIR/sdk" 2>/dev/null | head
 
-      - name: 配置签名（signed 目标，凭据就绪时）
+      - name: 配置签名文件（signed 目标，凭据就绪时）
         if: inputs.harmonyos_target == 'signed'
         env:
           HUAWEI_SIGNING_CERT: ${{ secrets.HUAWEI_SIGNING_CERT }}
           HUAWEI_SIGNING_P12: ${{ secrets.HUAWEI_SIGNING_P12 }}
           HUAWEI_SIGNING_PROFILE: ${{ secrets.HUAWEI_SIGNING_PROFILE }}
-          HUAWEI_SIGNING_STORE_PASSWORD: ${{ secrets.HUAWEI_SIGNING_STORE_PASSWORD }}
           HUAWEI_SIGNING_KEY_ALIAS: ${{ secrets.HUAWEI_SIGNING_KEY_ALIAS }}
           HUAWEI_SIGNING_KEY_PASSWORD: ${{ secrets.HUAWEI_SIGNING_KEY_PASSWORD }}
         run: |
-          mkdir -p frontend/harmonyos/material
-          echo "$HUAWEI_SIGNING_CERT" | base64 --decode > frontend/harmonyos/material/signing.cer
-          echo "$HUAWEI_SIGNING_P12" | base64 --decode > frontend/harmonyos/material/signing.p12
-          echo "$HUAWEI_SIGNING_PROFILE" | base64 --decode > frontend/harmonyos/material/signing.p7b
-          # 写入 build-profile.json5 的 signingConfigs（products 已引用 signingConfig: default）
-          # 注意：hvigor 5.x 对 storeFile/certpath/profile 的相对路径统一加 <工程>/material/ 前缀；
-          #       storeFile 值必须能被识别为 .p12 文件，使用绝对路径最稳妥（兼容 32 位口令要求）。
-          python3 - <<'PYEOF'
-          import json, os
-          p = "frontend/harmonyos/build-profile.json5"
-          base = os.path.join(os.getcwd(), "frontend/harmonyos/material")
-          d = json.load(open(p, encoding="utf-8"))
-          d["app"]["signingConfigs"] = [{
-              "name": "default",
-              "type": "HarmonyOS",
-              "material": {
-                  "certpath": os.path.join(base, "signing.cer"),
-                  "storePassword": os.environ["HUAWEI_SIGNING_STORE_PASSWORD"],
-                  "keyAlias": os.environ["HUAWEI_SIGNING_KEY_ALIAS"],
-                  "keyPassword": os.environ.get("HUAWEI_SIGNING_KEY_PASSWORD", os.environ["HUAWEI_SIGNING_STORE_PASSWORD"]),
-                  "profile": os.path.join(base, "signing.p7b"),
-                  "signAlg": "SHA256withECDSA",
-                  "storeFile": os.path.join(base, "signing.p12")
-              }
-          }]
-          json.dump(d, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
-          print("build-profile.json5 signingConfigs 注入完成")
-          PYEOF
+          # 仅将签名材料解码到 signing/ 目录，供后续 hap-sign-tool 手动签名。
+          # 不写入 build-profile.json5 —— hvigor 5.x 对 material 相对路径强制加 material/ 前缀，
+          # 多次验证无法解析，故改用官方 hap-sign-tool.jar 直接对 unsigned HAP 签名。
+          mkdir -p signing
+          echo "$HUAWEI_SIGNING_CERT" | base64 --decode > signing/app-cert-chain.cer
+          echo "$HUAWEI_SIGNING_P12" | base64 --decode > signing/app.p12
+          echo "$HUAWEI_SIGNING_PROFILE" | base64 --decode > signing/app.p7b
+          echo "签名材料就绪："
+          ls -la signing/
 
-      - name: 构建 HAP（用命令行工具自带 hvigorw）
+      - name: 构建 HAP（用命令行工具自带 hvigorw，产出 unsigned）
         run: |
           cd frontend/harmonyos
           export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Duser.country=CN"
@@ -281,21 +261,67 @@ jobs:
           # 而非工程 ./hvigorw wrapper（其依赖 npm 下载 hvigor，dependencies 为空会静默失败）
           command -v hvigorw || exit 1
           hvigorw -v
-          if [ "${{ inputs.harmonyos_target }}" = "signed" ]; then
-            hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
-          else
-            hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
+          # 统一构建未签名 HAP（release），签名用 hap-sign-tool 手动完成
+          hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
+
+      - name: 手动签名 HAP（signed 目标，用 hap-sign-tool.jar）
+        if: inputs.harmonyos_target == 'signed'
+        env:
+          HUAWEI_SIGNING_KEY_ALIAS: ${{ secrets.HUAWEI_SIGNING_KEY_ALIAS }}
+          HUAWEI_SIGNING_KEY_PASSWORD: ${{ secrets.HUAWEI_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -e
+          HAP_TOOL=$(find ${CLT_DIR}/sdk -name "hap-sign-tool.jar" | head -1)
+          if [ -z "$HAP_TOOL" ]; then
+            echo "未找到 hap-sign-tool.jar，SDK 结构："
+            find ${CLT_DIR}/sdk -maxdepth 4 | head -40
+            exit 1
           fi
+          echo "HAP_TOOL=$HAP_TOOL"
+          # 提取叶子发布证书（证书链最后一个，被华为 CA 签发）
+          python3 - <<'PYEOF'
+          import base64, re, os
+          data = open("signing/app-cert-chain.cer", "rb").read()
+          pems = re.findall(rb"-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", data, re.S)
+          leaf = base64.b64decode(b"".join(l.strip() for l in pems[-1].splitlines()))
+          open("signing/app-cert.cer", "wb").write(leaf)
+          print("叶子证书提取完成:", len(leaf), "bytes")
+          PYEOF
+          # 找 unsigned HAP
+          HAP=$(find frontend/harmonyos/entry/build -name "*.hap" | head -1)
+          echo "待签名 HAP: $HAP"
+          mkdir -p dist
+          # 华为官方签名工具 sign-app
+          java -jar "$HAP_TOOL" sign-app \
+            -mode localSign \
+            -keyAlias "$HUAWEI_SIGNING_KEY_ALIAS" \
+            -keyPwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
+            -appCertFile signing/app-cert.cer \
+            -profileFile signing/app.p7b \
+            -profileSigned 1 \
+            -inFile "$HAP" \
+            -signAlg SHA256withECDSA \
+            -keystoreFile signing/app.p12 \
+            -keystorePwd "$HUAWEI_SIGNING_KEY_PASSWORD" \
+            -outFile dist/app-signed.hap \
+            -compatibleVersion 12 \
+            -signCode 1
+          echo "签名完成："
+          ls -la dist/
 
       - name: 整理 HAP 制品
         run: |
           mkdir -p dist
-          find frontend/harmonyos/entry/build -name "*.hap" | while read f; do
-            cp "$f" "dist/$(basename "$f")"
-          done
-          # 若无产出，检查构建输出目录
-          ls -la frontend/harmonyos/entry/build 2>/dev/null || true
-          ls -la dist/
+          if [ "${{ inputs.harmonyos_target }}" = "signed" ]; then
+            # signed 目标已产出 app-signed.hap
+            ls -la dist/
+          else
+            find frontend/harmonyos/entry/build -name "*.hap" | while read f; do
+              cp "$f" "dist/$(basename "$f")"
+            done
+            ls -la frontend/harmonyos/entry/build 2>/dev/null || true
+            ls -la dist/
+          fi
 
       - name: 上传 HAP 制品
         uses: actions/upload-artifact@v4
