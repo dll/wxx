@@ -180,9 +180,9 @@ jobs:
       # systemd ExecStart=/opt/wxx/wxx-server；迁移在服务启动时由 app.NewWithConfig 自动执行。
       - name: 编译后端二进制(FTS5)
         run: |
-          go build -tags fts5 -o ../../wxx-server.new ./cmd/server
-          test -x ../../wxx-server.new && echo "编译产物: $(ls -la ../../wxx-server.new)" || (echo "[ERROR] 编译失败"; exit 1)
-          cd ../.. && pwd && ls -la wxx-server.new
+          mkdir -p dist
+          go build -tags fts5 -o ./dist/wxx-server.new ./cmd/server
+          test -x ./dist/wxx-server.new && echo "编译产物: $(ls -la ./dist/wxx-server.new)" || (echo "[ERROR] 编译失败"; exit 1)
         working-directory: ./server
 
       - name: 上传二进制到服务器
@@ -191,10 +191,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "wxx-server.new"
+          source: "dist/wxx-server.new"
           target: "/tmp"
-          strip_components: 0
-
+          strip_components: 1
       - name: 服务器替换重启后端
         uses: appleboy/ssh-action@v1
         with:
