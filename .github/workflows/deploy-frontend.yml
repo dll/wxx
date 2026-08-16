@@ -185,15 +185,16 @@ jobs:
           test -x ./dist/wxx-server.new && echo "编译产物: $(ls -la ./dist/wxx-server.new)" || (echo "[ERROR] 编译失败"; exit 1)
         working-directory: ./server
 
-      - name: 上传二进制到服务器
-        uses: appleboy/scp-action@v0.1.7
+      - name: 上传二进制到服务器(rsync,与前端同款可靠)
+        uses: easingthemes/ssh-deploy@v5.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "dist/wxx-server.new"
-          target: "/tmp"
-          strip_components: 1
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: "-rlgoDzvc -i --delete"
+          SOURCE: "server/dist/"
+          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.SERVER_USER }}
+          TARGET: "/tmp/wxx-dist"
+          EXCLUDE: ""
       - name: 服务器替换重启后端
         uses: appleboy/ssh-action@v1
         with:
@@ -205,29 +206,29 @@ jobs:
             set -e
             echo "=== 后端替换重启 $(date +%H:%M:%S) ==="
             # 0. 校验上传的二进制
-            test -x /tmp/wxx-server.new || { echo "[ERROR] 上传的二进制缺失"; exit 1; }
-            echo "上传产物: $(ls -la /tmp/wxx-server.new)"
+            test -x /tmp/wxx-dist/wxx-server.new || { echo "[ERROR] 上传的二进制缺失"; exit 1; }
+            echo "上传产物: $(ls -la /tmp/wxx-dist/wxx-server.new)"
             # 1. 备份数据库（部署前）——MySQL，密码从 /etc/wxx/env 提取
             echo "--- 备份 MySQL ---"
             DB_PW=$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)
             DB_NAME=$(grep '^DB_NAME=' /etc/wxx/env | cut -d= -f2-)
             mysqldump -h127.0.0.1 -uwxx -p"$DB_PW" "$DB_NAME" > "/opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).sql" 2>/dev/null && \
               echo "备份完成: $(ls -la /opt/wxx/backup/wxx-pre-$(date +%Y%m%d%H%M).sql)" || echo "[warn] MySQL 备份失败(忽略,继续)"
-            # 2. 保留回滚二进制(最近备份,上限2个)
+            # 2. 保留回滚二进制(最近备份)
             sudo cp -f /opt/wxx/wxx-server /opt/wxx/wxx-server.rollback.$(date +%Y%m%d%H%M) 2>/dev/null || true
-            sudo chmod +x /tmp/wxx-server.new
+            sudo chmod +x /tmp/wxx-dist/wxx-server.new
             # 3. 替换 + 重启
             echo "--- stop wxx ---"
             sudo systemctl stop wxx
             sleep 2
-            sudo cp /tmp/wxx-server.new /opt/wxx/wxx-server
+            sudo cp /tmp/wxx-dist/wxx-server.new /opt/wxx/wxx-server
             echo "--- start wxx ---"
             sudo systemctl start wxx
             sleep 6
             systemctl is-active wxx && echo "[OK] wxx active" || echo "[WARN] wxx 未激活"
             echo "--- 健康检查 ---"
             curl -s -m 8 localhost:8080/health && echo "" || echo "[WARN] health check failed(忽略)"
-            rm -f /tmp/wxx-server.new
+            rm -rf /tmp/wxx-dist
 
 
 
