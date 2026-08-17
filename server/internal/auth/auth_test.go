@@ -115,3 +115,37 @@ func TestIsKnownRole(t *testing.T) {
 		t.Error("hacker 不应为已知角色")
 	}
 }
+
+// TestTeacherCourseReviewCapability 教师授课关系审核能力（R3，越权边界）
+// - assistant/counselor 直接持有（可审核）
+// - college_admin 多父继承（counselor+assistant）自带到；school_admin/sys_admin 继承
+// - teacher 不授（杜绝自审）
+func TestTeacherCourseReviewCapability(t *testing.T) {
+	// 授予：assistant / counselor 均可审核
+	if !HasCapability("assistant", TeacherCourseReview) {
+		t.Error("assistant 应持有 teacher.course.review")
+	}
+	if !HasCapability("counselor", TeacherCourseReview) {
+		t.Error("counselor 应持有 teacher.course.review")
+	}
+	// 多父继承：college_admin / school_admin / sys_admin 自带到
+	if !HasCapability("college_admin", TeacherCourseReview) {
+		t.Error("college_admin 应通过多父继承持有 teacher.course.review")
+	}
+	if !HasCapability("school_admin", TeacherCourseReview) {
+		t.Error("school_admin 应继承持有 teacher.course.review")
+	}
+	if !HasCapability("sys_admin", TeacherCourseReview) {
+		t.Error("sys_admin 应继承持有 teacher.course.review")
+	}
+	// 拒绝自审：teacher 不得持有
+	if HasCapability("teacher", TeacherCourseReview) {
+		t.Error("teacher 不得持有 teacher.course.review（杜绝自审）")
+	}
+	if HasCapability("student", TeacherCourseReview) {
+		t.Error("student 不得持有 teacher.course.review")
+	}
+	if HasCapability("student_union", TeacherCourseReview) {
+		t.Error("student_union 不得持有 teacher.course.review")
+	}
+}

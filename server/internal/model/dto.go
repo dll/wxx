@@ -12,6 +12,10 @@ type AnswerCard struct {
 	Model      string   `json:"model"`      // 回答所用大模型名（如 deepseek-v4-flash）
 	Confidence float64  `json:"confidence"` // 置信度 0-1
 	Fallback   bool     `json:"fallback"`   // 是否为兜底回答
+	// Agents 参与本次回答的智能体名称列表（人类可读，如 ["政策解读","流程指引"]）。
+	// 纯增量字段，用于前端透明化展示多智能体参与情况。多 Agent 编排路径无参与者或
+	// 单 Agent/降级/兜底路径无 Agent 信息时为空（omitempty），不硬编。
+	Agents []string `json:"agents,omitempty"`
 }
 
 // Source 来源引用

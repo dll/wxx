@@ -104,6 +104,45 @@ func TestMerger_SourceDedup(t *testing.T) {
 	}
 }
 
+func TestMerger_AgentsTracking(t *testing.T) {
+	m := NewMerger()
+
+	// 空结果：无参与者 → Agents 为空
+	empty := m.Merge(nil)
+	if len(empty.Agents) != 0 {
+		t.Errorf("空结果 Agents 应为空，实际: %v", empty.Agents)
+	}
+
+	// 单 Agent：Agents 含该 Agent 名称
+	single := m.Merge([]*AgentResult{
+		{AgentName: "政策解读", Content: "内容", Confidence: 0.8},
+	})
+	if len(single.Agents) != 1 || single.Agents[0] != "政策解读" {
+		t.Errorf("单 Agent Agents 应为 [政策解读]，实际: %v", single.Agents)
+	}
+
+	// 多 Agent：Agents 含所有参与者，去重、保序
+	multi := m.Merge([]*AgentResult{
+		{AgentName: "政策解读", Content: "A", Confidence: 0.9},
+		{AgentName: "流程指引", Content: "B", Confidence: 0.7},
+		{AgentName: "政策解读", Content: "A2", Confidence: 0.8}, // 重复名应去重
+	})
+	if len(multi.Agents) != 2 {
+		t.Fatalf("多 Agent 去重后应为 2，实际: %v", multi.Agents)
+	}
+	if multi.Agents[0] != "政策解读" || multi.Agents[1] != "流程指引" {
+		t.Errorf("多 Agent Agents 顺序/内容不符，实际: %v", multi.Agents)
+	}
+
+	// 无 AgentName 的空名项应被忽略（不硬编）
+	noname := m.Merge([]*AgentResult{
+		{AgentName: "", Content: "内容", Confidence: 0.5},
+	})
+	if len(noname.Agents) != 0 {
+		t.Errorf("空 AgentName 不应计入 Agents，实际: %v", noname.Agents)
+	}
+}
+
 func TestMerger_EmptyContentFiltered(t *testing.T) {
 	m := NewMerger()
 	input := []*AgentResult{

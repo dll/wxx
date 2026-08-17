@@ -276,3 +276,25 @@ func (h *SecretaryOutcomeHandler) CollabDashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": data})
 }
+
+// NurtureKPI 育人成效 KPI 指标卡（D5-1 功能补齐，书记/学院视角）。
+// 对齐既有书记大屏范围语义：school_admin 全校（owner_id 空）；college_admin 本院（owner_id=角色归属）。
+// 复用既有能力 outcome.dashboard 门控（与 party-dashboard 相同，不新增能力）。
+// GET /api/v1/college/nurture-kpi  (outcome.dashboard)
+func (h *SecretaryOutcomeHandler) NurtureKPI(c *gin.Context) {
+	ownerID := c.Query("owner_id")
+	if ownerID == "" {
+		if u := middleware.GetUserContext(c); u != nil && u.Role == "college_admin" && u.OwnerScope == "college" {
+			ownerID = u.OwnerID
+		}
+	}
+	kpis, err := h.svc.GetNurtureKPI(c.Request.Context(), ownerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	if kpis == nil {
+		kpis = []map[string]interface{}{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "scope": ownerID, "list": kpis})
+}

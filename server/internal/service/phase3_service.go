@@ -9,11 +9,19 @@ import (
 // Phase3Service 阶段三数据底座服务（导入 + 教辅真实数据）
 type Phase3Service struct {
 	repo *repository.DataImportRepo
+	// TeacherCourseRepo 成绩强校验判据访问层（R3，可为暂空）；
+	// ImportTeacherGrades 写库前用它校验该教师-课程-学期授课关系已 approved。
+	tcRepo *repository.TeacherCourseRepo
 }
 
 // NewPhase3Service 创建阶段三服务
 func NewPhase3Service(repo *repository.DataImportRepo) *Phase3Service {
 	return &Phase3Service{repo: repo}
+}
+
+// SetTeacherCourseRepo 注入教师授课关系访问层（R3 成绩强校验接线）
+func (s *Phase3Service) SetTeacherCourseRepo(r *repository.TeacherCourseRepo) {
+	s.tcRepo = r
 }
 
 // ImportResult 导入结果
@@ -44,6 +52,100 @@ func (s *Phase3Service) ImportGrades(grades []*repository.GradeRow) *ImportResul
 		}
 	}
 	return res
+}
+
+// ImportTeacherGrades 教师自主录入成绩（方案 A）
+// 教师在前端声明授课关系与成绩，后端不校验 teacher→course 硬关联（该关联尚无数据），
+// 但强制：
+//  1. created_by=当前教师 user_id（审计可追溯谁的声明）
+//  2. 每条记录 target 必须是 role='student' 的学生（不能对教师/管理员等写成绩，防捞非学生越权）
+// 幂等复用 UpsertGrade。
+/**
+ * ImportTeacherGrades 教师自主录入成绩（方案 A 升级版，R3 强校验）
+ *
+ * 教师在前端申报授课关系并经教辅/教务审核确认后，才能录入该课程成绩。
+ * 写库前逐条强校验 teacher_courses 状态：
+ *   - status=='approved'  → 放行写入
+ *   - status=='pending'   → 拒绝（提示待审核）
+ *   - status=='rejected'  → 拒绝（提示联系教辅）
+ *   - 无申报             → 拒绝（提示先申报）
+ * 此即停用方案A「声明即授权」：不再凭前端声明即写库，approved 唯一来源为教辅真实审核操作。
+ *
+ * 既有校验全部保留：
+ *  1. created_by=当前教师 user_id（审计可追溯谁的声明）
+ *  2. 每条记录 target 必须是 role='student' 的学生（防捞非学生越权）
+ *  3. 0-100 分 + passed 一致性校验
+ * 幂等复用 UpsertGrade；单条失败仅记入 Errors，不整批回滚；历史已录成绩不回溯。
+ */
+func (s *Phase3Service) ImportTeacherGrades(grades []*repository.GradeRow, creatorID int64) *ImportResult {
+	res := &ImportResult{Total: len(grades)}
+	for _, g := range grades {
+		if g.UserID == "" || g.CourseID == "" {
+			res.Errors = append(res.Errors, "学号/课程ID不能为空")
+			continue
+		}
+		// 成绩范围校验（防误录/恶意污染学生端与毕业审核）
+		if g.Score < 0 || g.Score > 100 {
+			res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s 成绩 %.2f 超出 0-100 范围，拒绝写入", g.UserID, g.CourseID, g.Score))
+			continue
+		}
+		// passed 与成绩一致性校验（60 分为及格线；不一致视为误录/恶意数据，拒绝）
+		if (g.Score >= 60) != g.Passed {
+			res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s 成绩 %.2f 与通过标记不一致（>=60 应已通过），拒绝写入", g.UserID, g.CourseID, g.Score))
+			continue
+		}
+		// 校验 target 为学生（防写教师/管理员等非学生）
+		role, err := s.repo.GetUserRoleByUserID(g.UserID)
+		if err != nil {
+			res.Errors = append(res.Errors, fmt.Sprintf("学号 %s 不存在: %v", g.UserID, err))
+			continue
+		}
+		if role != "student" {
+			res.Errors = append(res.Errors, fmt.Sprintf("学号 %s 角色=%s，非学生，拒绝写入", g.UserID, role))
+			continue
+		}
+		g.CreatedBy = creatorID
+		g.UpdatedBy = creatorID // R1：记录最后写入/修改人（审计可追溯）
+
+		// R3 强校验：写库前查 teacher_courses 授课关系状态，仅 approved 放行。
+		// （tcRepo 生产恒由 app.go 注入；为防御 nil 并保持旧测试可显式关停，缺位时跳过并用错误口径暴露）
+		if s.tcRepo != nil {
+			exists, status, err := s.tcRepo.GetTeacherCourseStatus(creatorID, g.CourseID, g.Semester)
+			if err != nil {
+				res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s 授课关系校验失败: %v", g.UserID, g.CourseID, err))
+				continue
+			}
+			if !exists {
+				res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s(%s) 学期 %s 尚无授课关系申报，请先在「我的授课」申报，待教辅审核通过后再录入", g.UserID, g.CourseID, g.CourseName, g.Semester))
+				continue
+			}
+			if status != repository.CourseStatusApproved {
+				if status == repository.CourseStatusPending {
+					res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s(%s) 学期 %s 授课申报待审核，确认后方可录入成绩", g.UserID, g.CourseID, g.CourseName, g.Semester))
+				} else {
+					res.Errors = append(res.Errors, fmt.Sprintf("学号 %s/%s(%s) 学期 %s 授课申报未被确认（%s），请联系教辅", g.UserID, g.CourseID, g.CourseName, g.Semester, status))
+				}
+				continue
+			}
+		}
+
+		created, err := s.repo.UpsertGrade(g)
+		if err != nil {
+			res.Errors = append(res.Errors, fmt.Sprintf("%s/%s: %v", g.UserID, g.CourseID, err))
+			continue
+		}
+		if created {
+			res.Created++
+		} else {
+			res.Updated++
+		}
+	}
+	return res
+}
+
+// ListTeacherGrades 查询教师本人声明录入的成绩记录（读取边界=created_by）
+func (s *Phase3Service) ListTeacherGrades(creatorID int64) ([]*repository.ListedGrade, error) {
+	return s.repo.ListGradesByCreator(creatorID)
 }
 
 // ImportSchedules 批量导入课表（幂等）

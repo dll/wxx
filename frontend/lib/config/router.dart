@@ -90,6 +90,10 @@ import '../pages/teacher/reflection_page.dart';
 import '../pages/teacher/style_dist_page.dart';
 import '../pages/teacher/community_qa_page.dart';
 import '../pages/teacher/party_activity_register_page.dart';
+import '../pages/teacher/teacher_grade_entry_page.dart';
+import '../pages/teacher/teacher_course_apply_page.dart';
+import '../pages/teacher/teacher_homework_page.dart';
+import '../pages/teacher/teacher_homework_page.dart';
 // ── 教辅/学生会/学院管理员 AI 功能页面 ──
 import '../pages/assistant_role/schedule_check_page.dart';
 import '../pages/assistant_role/grad_audit_page.dart';
@@ -98,6 +102,7 @@ import '../pages/assistant_role/teaching_calendar_page.dart';
 import '../pages/assistant_role/student_info_page.dart';
 import '../pages/assistant_role/notification_draft_page.dart';
 import '../pages/assistant_role/facility_workbench_page.dart';
+import '../pages/assistant_role/teacher_course_review_page.dart';
 import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
 import '../pages/union/activity_manage_page.dart';
@@ -106,6 +111,10 @@ import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
 import '../pages/secretary/secretary_outcome_dashboard_page.dart';
 import '../pages/secretary/outcome_manage_page.dart';
+import '../pages/secretary/party_dashboard_page.dart';
+import '../pages/secretary/collab_dashboard_page.dart';
+import '../pages/secretary/gov_ticket_manage_page.dart';
+import '../pages/secretary/gov_ticket_mine_page.dart';
 import '../pages/profile/model_config_page.dart';
 import '../pages/culture/anthem_page.dart';
 import '../pages/culture/radio_page.dart';
@@ -615,6 +624,22 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/teacher/party-register',
             builder: (_, __) => const PartyActivityRegisterPage()),
+        // ── 教师成绩录入（P0-1，2026-08-17，方案A：教师自主声明授课）──
+        GoRoute(
+            path: '/teacher/grades-entry',
+            builder: (_, __) => const TeacherGradeEntryPage()),
+        // ── 教师授课关系申报（R3，2026-08-17 越权边界升级）──
+        GoRoute(
+            path: '/teacher/course-apply',
+            builder: (_, __) => const TeacherCourseApplyPage()),
+        // ── 教师作业信息发布+成绩统计（P2 轻量版，2026-08-17）──
+        GoRoute(
+            path: '/teacher/homework',
+            builder: (_, __) => const TeacherHomeworkPage()),
+        // ── 教师作业信息发布+成绩统计（2026-08-17，P2 轻量版，teacher.grade.write）──
+        GoRoute(
+            path: '/teacher/homework',
+            builder: (_, __) => const TeacherHomeworkPage()),
         // ── 教辅/学生会/学院管理员 AI 功能路由 ──
         GoRoute(
             path: '/assistant/schedule-check',
@@ -637,6 +662,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/assistant/facility-workbench',
             builder: (_, __) => const FacilityWorkbenchPage()),
+        // ── 教师授课申报审核（R3 补 H，2026-08-17）：教辅/教务审核 + 待审角标（teacher.course.review）──
+        GoRoute(
+            path: '/assistant/teacher-course-review',
+            builder: (_, __) => const TeacherCourseReviewPage()),
         GoRoute(
             path: '/union/event-plan',
             builder: (_, __) => const EventPlanPage()),
@@ -658,9 +687,23 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/secretary/education-outcome',
             builder: (_, __) => const SecretaryOutcomeDashboardPage()),
+        // 书记 party/collab 专项可视化深链（D1-1 功能补齐，2026-08-16）
+        GoRoute(
+            path: '/secretary/party-dashboard',
+            builder: (_, __) => const PartyDashboardPage()),
+        GoRoute(
+            path: '/secretary/collab-dashboard',
+            builder: (_, __) => const CollabDashboardPage()),
         GoRoute(
             path: '/secretary/outcome-manage',
             builder: (_, __) => const OutcomeManagePage()),
+        // 督办工单（D5-3「洞察→工单」治理回环，2026-08-16）
+        GoRoute(
+            path: '/secretary/ticket-manage',
+            builder: (_, __) => const GovTicketManagePage()),
+        GoRoute(
+            path: '/secretary/ticket-mine',
+            builder: (_, __) => const GovTicketMinePage()),
       ],
     ),
   ],

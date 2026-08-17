@@ -713,6 +713,13 @@ class _ProfilePageState extends State<ProfilePage> {
         if (CapabilityUtils.has(Capability.outcomeDashboard))
           _ProfileFeature('secretary_outcome', '管理服务', Icons.auto_graph,
               '教育成果大屏', '书记视角：竞赛/入党/学业/毕业去向', '/secretary/education-outcome'),
+        // 书记党建育人 / 协同育人专项深链（D1-1 功能补齐，2026-08-16）
+        if (CapabilityUtils.has(Capability.outcomeDashboard))
+          _ProfileFeature('secretary_party', '管理服务', Icons.flag, '党建育人专项',
+              '书记视角：入党/党课/学习育人可视化', '/secretary/party-dashboard'),
+        if (CapabilityUtils.has(Capability.collabDashboard))
+          _ProfileFeature('secretary_collab', '管理服务', Icons.groups, '协同育人专项',
+              '书记视角：教师/教辅育人动作总览', '/secretary/collab-dashboard'),
         if (CapabilityUtils.hasAny([
               Capability.outcomeRecordWrite,
               Capability.outcomeReview,

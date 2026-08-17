@@ -217,3 +217,7 @@ signing/
 *.cer
 *.p7b
 
+
+# OpenClaw 运行数据/备份（非项目源码，不入库）
+.openclaw/
+

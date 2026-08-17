@@ -25,6 +25,8 @@ func setupDataImportTestDB(t *testing.T) *DataImportRepo {
 			grade_level TEXT DEFAULT '',
 			passed INTEGER NOT NULL DEFAULT 0,
 			credits_earned REAL NOT NULL DEFAULT 0,
+			created_by INTEGER NOT NULL DEFAULT 0,
+			updated_by INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 			UNIQUE(user_id, course_id, semester, grade_type)
@@ -67,7 +69,9 @@ func setupDataImportTestDB(t *testing.T) *DataImportRepo {
 			display_name TEXT NOT NULL DEFAULT ''
 		);
 	`)
-	_, _ = db.Exec(`INSERT OR IGNORE INTO users (username, role, display_name) VALUES ('stu_g1','student','张三')`)
+	_, _ = db.Exec(`DELETE FROM users; INSERT INTO users (id, username, role, display_name) VALUES (1,'stu_g1','student','张三')`)
+	_, _ = db.Exec(`INSERT INTO users (id, username, role, display_name) VALUES (2,'stu_g2','student','李四')`)
+	_, _ = db.Exec(`INSERT INTO users (id, username, role, display_name) VALUES (3,'tea_g1','teacher','王老师')`)
 	return NewDataImportRepo(db)
 }
 
@@ -122,5 +126,52 @@ func TestDataImportRepo_Exams(t *testing.T) {
 	}
 	if len(list) != 1 || list[0]["course_name"] != "数据结构" || list[0]["location"] != "信息楼301" {
 		t.Fatalf("考试安排不符: %+v", list)
+	}
+}
+
+// TestDataImportRepo_GetUserRoleByUserID 查询用户角色
+func TestDataImportRepo_GetUserRoleByUserID(t *testing.T) {
+	r := setupDataImportTestDB(t)
+
+	role, err := r.GetUserRoleByUserID("1")
+	if err != nil || role != "student" {
+		t.Fatalf("学号 1 应为 student，实际 role=%q err=%v", role, err)
+	}
+	role, err = r.GetUserRoleByUserID("3")
+	if err != nil || role != "teacher" {
+		t.Fatalf("学号 3 应为 teacher，实际 role=%q err=%v", role, err)
+	}
+	if _, err := r.GetUserRoleByUserID("999"); err == nil {
+		t.Fatalf("不存在的学号应报错")
+	}
+}
+
+// TestDataImportRepo_GradesByCreator 教师录入成绩审计：created_by 记录 + 读取边界
+func TestDataImportRepo_GradesByCreator(t *testing.T) {
+	r := setupDataImportTestDB(t)
+
+	// 教师 3 录入学生 1 的成绩
+	g := &GradeRow{UserID: "1", CourseID: "CS101", CourseName: "数据结构", Semester: "2025-2026-2",
+		Score: 88, GPA: 3.5, Passed: true, Credits: 4, CreatedBy: 3}
+	created, err := r.UpsertGrade(g)
+	if err != nil || !created {
+		t.Fatalf("教师写成绩应新增 created=%v err=%v", created, err)
+	}
+	// 同一教师重复写入 → 幂等更新，不新增
+	g.Score = 90
+	created, err = r.UpsertGrade(g)
+	if err != nil || created {
+		t.Fatalf("教师二次写同一学生成绩应为更新 created=%v err=%v", created, err)
+	}
+
+	// 读取边界：教师 3 能看自己的声明
+	mine, err := r.ListGradesByCreator(3)
+	if err != nil || len(mine) != 1 || mine[0].Score != 90 || mine[0].Name != "张三" {
+		t.Fatalf("教师 3 应看到 1 条声明成绩，实际=%v err=%v", mine, err)
+	}
+	// 教师 4（未录入）应看不到
+	other, err := r.ListGradesByCreator(4)
+	if err != nil || len(other) != 0 {
+		t.Fatalf("教师 4 应看不到任何声明，实际=%v err=%v", other, err)
 	}
 }

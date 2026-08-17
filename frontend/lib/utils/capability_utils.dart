@@ -78,6 +78,10 @@ class Capability {
   static const teacherReflection = 'teacher.reflection';
   static const teacherStyleDist = 'teacher.style.dist';
   static const teacherCommunityQa = 'teacher.community.qa';
+  // 教师录入所授班级成绩（2026-08-17，P0-1）：教师自主声明授课，审计 created_by
+  static const teacherGradeWrite = 'teacher.grade.write';
+  // 教辅/教务审核教师授课申报（2026-08-17，R3 越权边界升级；不授 teacher 杜绝自审）
+  static const teacherCourseReview = 'teacher.course.review';
 
   // ── 教辅能力 ──
   static const assistantScheduleCheck = 'assistant.schedule.check';
@@ -100,6 +104,10 @@ class Capability {
   static const partyRecordWrite = 'party.record.write';
   static const partyRecordRead = 'party.record.read';
   static const collabDashboard = 'college.collab.dashboard';
+
+  // ── 督办工单（2026-08-16，D5-3「洞察→工单」治理回环）──
+  static const govTicketManage = 'college.ticket.manage';       // 书记：创建/分派/督办
+  static const govTicketAssignee = 'college.ticket.assignee';   // 责任人：查看/推进本人分派
 
   // ── 学校管理 ──
   static const schoolAgentWrite = 'school.agent.write';

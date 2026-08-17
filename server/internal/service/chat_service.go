@@ -129,84 +129,163 @@ func (s *ChatService) SetTokenStatsService(svc *TokenStatsService) {
 	s.tokenStatsSvc = svc
 }
 
-// Ask 问答主链路
-// 1. 创建/获取会话 → 2. 搜索知识库 → 3. 拼装上下文 → 4. 调 LLM → 5. 构造 AnswerCard
-// 当 Temporal 已配置时，通过工作流引擎执行（获得重试/可观测性）
+// Ask 问答主链路（编排层）
+// 仅负责按固定顺序调用各阶段私有步骤函数：
+// askCheckCaches → askCheckQuota → (Temporal 分支) → askSync（会话/过滤/编排/检索/拼装/LLM/卡片）
+// 行为与被拆分前的单一 Ask 完全一致：执行顺序、缓存命中语义、配额计数、Temporal 分支、兜底分支均不变。
 func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessionID string, question string, agentID string) (*model.AnswerCard, string, error) {
 	traceID := uuid.New().String()
 
-	// │ ❶ 缓存检查 ── 入学/离校等固定流程问题命中缓存即返回
-	if agentID == "" && sessionID == "" && isProcessCacheableQuestion(question) {
-		if card := s.cacheGet(question); card != nil {
-			log.Printf("问答缓存命中 [trace=%s] question_hash=%s", traceID, cacheKeyForQuestion(question))
-			return card, "", nil
-		}
-		// │ ❷ FAQ 持久化缓存 ── 在已有 FAQ 资源中按 BM25 搜索，命中即跳过 LLM
-		if card := s.faqLookup(question, userCtx); card != nil {
-			log.Printf("FAQ 命中 [trace=%s] question=%q", traceID, truncateContent(question, 60))
-			return card, "", nil
-		}
+	// │ ❶ 缓存检查 ── 入学/离校等固定流程问题命中缓存即返回（内存缓存 + FAQ 持久化缓存）
+	if card := s.askCheckCaches(agentID, sessionID, question, userCtx, traceID); card != nil {
+		return card, "", nil
 	}
 
 	// │ ❸ 配额检查 ── 真正调用 LLM 前检查用户日/月配额
-	if s.tokenStatsSvc != nil {
-		if ok, msg := s.tokenStatsSvc.CheckAndIncrementQuota(userCtx.UserID); !ok {
-			log.Printf("配额超限 [user=%d] %s", userCtx.UserID, msg)
-			return s.buildQuotaExceededAnswer(traceID, msg), sessionID, nil
-		}
+	if card, sid, done := s.askCheckQuota(userCtx, sessionID, traceID); done {
+		return card, sid, nil
 	}
 
-	// 如果 Temporal 已启用，走工作流
+	// │ ⓿ Temporal 分支 ── 若已启用则走工作流引擎（失败时降级到直接调用链路，行为不变）
 	if s.temporalClient != nil {
 		return s.askViaTemporal(ctx, userCtx, sessionID, question, agentID, traceID)
 	}
 
-	// ── 原有同步链路（不变）──
+	// ── 原有同步链路（行为不变，拆为 askSync 编排）──
+	return s.askSync(ctx, userCtx, sessionID, question, agentID, traceID)
+}
 
-	// ── 1. 会话管理 ──
-	if sessionID == "" {
-		sessionID = uuid.New().String()
-		err := s.sessionRepo.Create(&model.Session{
-			SessionID: sessionID,
-			UserID:    userCtx.UserID,
-			Title:     defaultSessionTitle(question),
-		})
-		if err != nil {
-			return nil, "", fmt.Errorf("创建会话失败: %w", err)
+// askCheckCaches 缓存检查（步 ❶）：仅对固定流程类问题检查内存问答缓存，未命中再查 FAQ 持久化缓存。
+// 返回非 nil 的 AnswerCard 表示命中，调用方应直接返回该结果。
+func (s *ChatService) askCheckCaches(agentID, sessionID, question string, userCtx *model.UserContext, traceID string) *model.AnswerCard {
+	if agentID == "" && sessionID == "" && isProcessCacheableQuestion(question) {
+		if card := s.cacheGet(question); card != nil {
+			log.Printf("问答缓存命中 [trace=%s] question_hash=%s", traceID, cacheKeyForQuestion(question))
+			return card
 		}
-	} else {
-		// 验证会话属于当前用户
-		session, err := s.sessionRepo.GetBySessionID(sessionID)
-		if err != nil {
-			return nil, "", fmt.Errorf("查询会话失败: %w", err)
+		// ❷ FAQ 持久化缓存 ── 在已有 FAQ 资源中按 BM25 搜索，命中即跳过 LLM
+		if card := s.faqLookup(question, userCtx); card != nil {
+			log.Printf("FAQ 命中 [trace=%s] question=%q", traceID, truncateContent(question, 60))
+			return card
 		}
-		if session == nil || session.UserID != userCtx.UserID {
-			return nil, "", fmt.Errorf("会话不存在或无权访问")
-		}
-		_ = s.sessionRepo.Touch(sessionID)
+	}
+	return nil
+}
+
+// askCheckQuota 配额检查（步 ❸）：超限时返回兜底回答并标记 done；未超限或未启用配额服务时不做额外处理。
+// 注意：配额自增（CheckAndIncrementQuota）语义与拆分前一致，仅在 tokenStatsSvc 非 nil 时触发。
+func (s *ChatService) askCheckQuota(userCtx *model.UserContext, sessionID, traceID string) (*model.AnswerCard, string, bool) {
+	if s.tokenStatsSvc == nil {
+		return nil, sessionID, false
+	}
+	if ok, msg := s.tokenStatsSvc.CheckAndIncrementQuota(userCtx.UserID); !ok {
+		log.Printf("配额超限 [user=%d] %s", userCtx.UserID, msg)
+		return s.buildQuotaExceededAnswer(traceID, msg), sessionID, true
+	}
+	return nil, sessionID, false
+}
+
+// askSync 同步主链路编排：会话管理 → 保存用户消息 → 内容过滤 → 多智能体 → 检索 → 相关性预检
+// → 空结果兜底 → 拼装/调 LLM/构造卡片。执行顺序与拆分前 Ask 内核完全一致。
+func (s *ChatService) askSync(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
+	// ── 1. 会话管理（创建或校验归属 + 刷新）──
+	sessionID, err := s.ensureSession(userCtx, sessionID, question)
+	if err != nil {
+		return nil, "", err
 	}
 
 	// 保存用户消息
+	s.saveUserMessage(sessionID, question, traceID)
+
+	// │ 内容安全过滤 —— 用户输入检查（必须在 LLM 调用和多智能体编排之前）
+	if category, blocked := s.filterUserInput(question, traceID); blocked {
+		return s.buildBlockedAnswer(traceID, category), sessionID, nil
+	}
+
+	// ── 2. 多智能体协同编排（agentID 为空时启用）──
+	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID)
+
+	// ── 3. 结构化优先检索（MED-KB1）＋ 3.5 相关性预检 ──
+	searchResults := s.retrieveWithRelevance(userCtx, question, traceID)
+
+	// ── MED-KB2：检索 + 多智能体均无结果时，跳过 LLM 调用 ──
+	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0
+	if len(searchResults) == 0 && !hasAgentResult {
+		log.Printf("检索结果为空且无多智能体结果，跳过 LLM [trace=%s]", traceID)
+		return s.buildEmptyResultAnswer(traceID), sessionID, nil
+	}
+
+	// ── 4~6. 拼装上下文 → 调 LLM → 构造 AnswerCard（含兜底与缓存/FAQ 写入）──
+	return s.askGenerateAndAssemble(ctx, userCtx, sessionID, question, agentID, searchResults, multiAgentResult, traceID)
+}
+
+// ensureSession 会话管理（步 1）：无会话则创建（默认标题取问题前 30 字符），有则校验归属并刷新。
+func (s *ChatService) ensureSession(userCtx *model.UserContext, sessionID, question string) (string, error) {
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+		if err := s.sessionRepo.Create(&model.Session{
+			SessionID: sessionID,
+			UserID:    userCtx.UserID,
+			Title:     defaultSessionTitle(question),
+		}); err != nil {
+			return "", fmt.Errorf("创建会话失败: %w", err)
+		}
+		return sessionID, nil
+	}
+	// 验证会话属于当前用户
+	session, err := s.sessionRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return "", fmt.Errorf("查询会话失败: %w", err)
+	}
+	if session == nil || session.UserID != userCtx.UserID {
+		return "", fmt.Errorf("会话不存在或无权访问")
+	}
+	_ = s.sessionRepo.Touch(sessionID)
+	return sessionID, nil
+}
+
+// saveUserMessage 将用户本轮问题落库为 user 角色消息（忽略错误，与拆分前一致）。
+func (s *ChatService) saveUserMessage(sessionID, question, traceID string) {
 	_ = s.messageRepo.Create(&model.Message{
 		SessionID: sessionID,
 		Role:      "user",
 		Content:   question,
 		TraceID:   traceID,
 	})
+}
 
-	// │ 内容安全过滤 —— 用户输入检查（必须在 LLM 调用和多智能体编排之前）
+// saveAssistantMessage 将助手回复落库为 assistant 角色消息（忽略错误，与拆分前一致）。
+func (s *ChatService) saveAssistantMessage(sessionID, content, traceID string) {
+	_ = s.messageRepo.Create(&model.Message{
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   content,
+		TraceID:   traceID,
+	})
+}
+
+// filterUserInput 用户输入内容安全过滤（必须在 LLM 调用与多智能体编排之前）。返回 true+分类表示需拦截。
+func (s *ChatService) filterUserInput(question, traceID string) (string, bool) {
 	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
 		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
-		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+		return fr.Category, true
 	}
+	return "", false
+}
 
-	// ── 2. 多智能体协同编排（agentID 为空时启用）──
-	var multiAgentResult *agent.MergedResult
+// runAgents 多智能体协同编排（步 2）：agentID 为空且注入编排器时执行，否则返回 nil（行为一致）。
+func (s *ChatService) runAgents(ctx context.Context, userCtx *model.UserContext, question, agentID string) *agent.MergedResult {
 	if agentID == "" && s.orchestrator != nil {
-		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
+		multiAgentResult, _ := s.orchestrator.Execute(ctx, question, userCtx)
+		return multiAgentResult
 	}
+	return nil
+}
 
-	// ── 3. 结构化优先检索（MED-KB1：先查结构化字段，再回退 FTS） ──
+// retrieveWithRelevance 检索（步 3）＋ 相关性预检（步 3.5）：结构化优先（≥3 条跳过 FTS），否则并入 FTS
+// 结果并去重，最后过滤低相关性结果（MED-KB1 + CE-02）。
+func (s *ChatService) retrieveWithRelevance(userCtx *model.UserContext, question, traceID string) []*repository.SearchResult {
+	// 结构化优先检索（MED-KB1：先查结构化字段，再回退 FTS）
 	structuredResults, err := s.kbRepo.SearchStructured(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
 	if err != nil {
 		log.Printf("结构化检索失败 [trace=%s]: %v", traceID, err)
@@ -229,27 +308,29 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 
 	// ── 3.5 相关性预检 ──
 	// 对检索结果做相关性打分，过滤掉低质量结果，避免误导 LLM
-	searchResults = filterLowRelevanceResults(searchResults, question)
+	return filterLowRelevanceResults(searchResults, question)
+}
 
-	// ── MED-KB2：检索 + 多智能体均无结果时，跳过 LLM 调用 ──
-	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0
-	if len(searchResults) == 0 && !hasAgentResult {
-		log.Printf("检索结果为空且无多智能体结果，跳过 LLM [trace=%s]", traceID)
-		return s.buildEmptyResultAnswer(traceID), sessionID, nil
+// hasProcessResult 判断检索结果中是否存在流程类（Process）资源，用于决定是否跳过 FAQ 持久化缓存写入。
+func hasProcessResult(results []*repository.SearchResult) bool {
+	for _, r := range results {
+		if r.Resource.ResourceType == "Process" {
+			return true
+		}
 	}
+	return false
+}
 
+// askGenerateAndAssemble 尾部阶段（步 4~6）：拼装 LLM 上下文 → 调 LLM → 构造 AnswerCard，
+// 并完成助手消息落库、词元统计、缓存写入与 FAQ 持久化写入。所有兜底分支与拆分前完全一致。
+func (s *ChatService) askGenerateAndAssemble(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID string, searchResults []*repository.SearchResult, multiAgentResult *agent.MergedResult, traceID string) (*model.AnswerCard, string, error) {
 	// ── 4. 拼装 LLM 上下文 ──
 	// 发送给 LLM 前对用户问题进行 PII 脱敏
 	sanitizedQuestion := util.SanitizeForLLM(question, 2000)
 	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, multiAgentResult)
 	if s.llmClient == nil {
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
-		_ = s.messageRepo.Create(&model.Message{
-			SessionID: sessionID,
-			Role:      "assistant",
-			Content:   card.Conclusion,
-			TraceID:   traceID,
-		})
+		s.saveAssistantMessage(sessionID, card.Conclusion, traceID)
 		return card, sessionID, nil
 	}
 
@@ -283,13 +364,8 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 	// ── 6. 构造 AnswerCard ──
 	card := s.buildAnswerCard(llmContent, searchResults, traceID, multiAgentResult)
 
-	// 保存助手回复
-	_ = s.messageRepo.Create(&model.Message{
-		SessionID: sessionID,
-		Role:      "assistant",
-		Content:   llmResp.Content,
-		TraceID:   traceID,
-	})
+	// 保存助手回复（原文落库，脱敏仅用于模型上下文）
+	s.saveAssistantMessage(sessionID, llmResp.Content, traceID)
 
 	// 记录词元使用
 	if s.tokenStatsSvc != nil {
@@ -301,14 +377,7 @@ func (s *ChatService) Ask(ctx context.Context, userCtx *model.UserContext, sessi
 
 	// │ FAQ 持久化缓存写入 ── 仅在有引用且非 agent/多智能体路径时入库
 	// 排除流程类问题：流程类由结构化端点保证确定性，缓存会绕过最新 process_steps 数据
-	hasProcessResult := false
-	for _, r := range searchResults {
-		if r.Resource.ResourceType == "Process" {
-			hasProcessResult = true
-			break
-		}
-	}
-	if agentID == "" && multiAgentResult == nil && len(card.Sources) > 0 && !hasProcessResult {
+	if agentID == "" && multiAgentResult == nil && len(card.Sources) > 0 && !hasProcessResult(searchResults) {
 		go s.faqStore(question, card, userCtx.Role)
 	}
 
@@ -575,6 +644,11 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		TraceID:    traceID,
 		Confidence: 0.8, // 默认置信度
 		Fallback:   false,
+	}
+	// 标注参与本次回答的智能体（D4-3：透明化多智能体参与）。数据来源为多 Agent 编排的
+	// 汇聚结果（merger.Merge 收集的实际参与者名），无 Agent 信息路径保持为空，不硬编。
+	if multiAgentResult != nil && len(multiAgentResult.Agents) > 0 {
+		card.Agents = multiAgentResult.Agents
 	}
 	// 标注回答所用大模型（如 deepseek-v4-flash），供前端展示来源可信度
 	if s.llmClient != nil {

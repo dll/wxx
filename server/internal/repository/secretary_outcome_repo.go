@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -735,4 +736,411 @@ func (r *SecretaryOutcomeRepo) CollabDashboard(ownerID string) (map[string]inter
 		res["data_source"] = "real"
 	}
 	return res, nil
+}
+
+// ══════════════════════════════════════════════════════════════
+// 育人成效 KPI 指标卡（D5-1 功能补齐，2026-08-16）
+// 书记/学院视角：把党建/协同育人/教育成果大屏的聚合视图升级为量化 KPI 指标卡。
+// 诚实边界（铁律）：
+//   - data_source=real         → 数值来自真实表聚合（users/party_progress/party_study_records/
+//     talk_records/facility_records/course_schedules/
+//     health_activity_signups/student_points/graduation_outcome/
+//     competition_registrations/student_grades），不造数。
+//   - data_source=not_available → 岗位职责应有但当前无数据源/无登记表的指标，value=null，
+//     绝不伪造数字，供前端渲染「上传支撑材料到知识库」入口（upload_target）。
+//
+// scope 参数：ownerID!=空 → 本院（按 users.owner_id 精确匹配）；空 → 全校（学校书记）。
+func (r *SecretaryOutcomeRepo) GetNurtureKPI(ownerID string) []map[string]interface{} {
+	kpi := make([]map[string]interface{}, 0, 16)
+
+	// 复用既有真实聚合做底座（同 ownerID 范围语义，避免重复 SQL 且保证行为一致）
+	party, _ := r.PartyDashboard(ownerID)
+	collab, _ := r.CollabDashboard(ownerID)
+	outcome := map[string]interface{}{}
+	if os, err := r.OutcomeStats(ownerID); err == nil {
+		outcome = os
+	}
+	// 第二课堂真实聚合（报名/到场/积分，owner 范围）——直接 SQL，属真实表
+	sc := r.secondClassKPI(ownerID)
+
+	// ---------- ① 学生基数 ----------
+	stuTotal := numOf(collab, "students_total")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.student_total", "label": "在校学生数",
+		"value": stuTotal, "unit": "人",
+		"data_source": "real", "source_desc": "users 学生账号按归属聚合（真实用户）",
+	})
+
+	// ---------- ② 党建育人（真实表） ----------
+	members := intMapOf(party, "members")
+	memberCnt := float64(members["member"] + members["probation"])
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.party_member", "label": "党员数（正式+预备）",
+		"value": memberCnt, "unit": "人",
+		"data_source": "real", "source_desc": "party_progress 真实登记（status member/probation）",
+	})
+	stageTotal := numOf(party, "stage_total")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.party_applicant", "label": "入党申请人数",
+		"value": stageTotal, "unit": "人",
+		"data_source": "real", "source_desc": "party_progress current_stage 真实登记",
+	})
+	studyCount := numOf(party, "study_records")
+	studyHours := numOf(party, "study_hours")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.party_study", "label": "党课/党建学习人次",
+		"value": studyCount, "unit": "人次",
+		"data_source": "real", "source_desc": "party_study_records 真实学习记录（时长 " + itoa(int(studyHours)) + " 小时）",
+	})
+
+	// ---------- ③ 协同育人（真实表动作量） ----------
+	talkTotal := numOf(collab, "talk_records")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.talk_total", "label": "谈心谈话记录数",
+		"value": talkTotal, "unit": "条",
+		"data_source": "real", "source_desc": "talk_records 辅导员谈心记录（真实）",
+	})
+	facilityTotal := numOf(collab, "facility_records")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.facility", "label": "后勤育人服务条数",
+		"value": facilityTotal, "unit": "条",
+		"data_source": "real", "source_desc": "facility_records 教辅后勤服务记录（真实）",
+	})
+	partyReg := numOf(collab, "party_registrations")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.party_activity", "label": "党课/活动组织登记",
+		"value": partyReg, "unit": "条",
+		"data_source": "real", "source_desc": "party_study_records(created_by 非空) 组织侧登记（真实）",
+	})
+	courseTotal := numOf(collab, "course_schedules")
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.course", "label": "教学排课节次",
+		"value": courseTotal, "unit": "节",
+		"data_source": "real", "source_desc": "course_schedules 排课表（真实，按教师归属学院）",
+	})
+
+	// ---------- ④ 第二课堂（真实参与/积分） ----------
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.second_class", "label": "二课活动参与人次",
+		"value": sc["attend_total"], "unit": "人次",
+		"data_source": "real", "source_desc": "health_activity_signups 到场记录（真实）",
+	})
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.second_class_points", "label": "二课积分合计",
+		"value": sc["point_total"], "unit": "分",
+		"data_source": "real", "source_desc": "student_points 积分记录（真实）",
+	})
+
+	// ---------- ⑤ 毕业去向落实（真实，仅 approved 计入；无记录则 not_available） ----------
+	if src := strOf(outcome, "data_source"); src == "real" {
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.employment_rate", "label": "毕业去向落实率",
+			"value": numOf(outcome, "employment_rate"), "unit": "%",
+			"data_source": "real", "source_desc": "graduation_outcome(approved) 真实登记（就业+灵活+创业/总数）",
+		})
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.postgrad_rate", "label": "升学率（考研/出国）",
+			"value": numOf(outcome, "postgrad_rate"), "unit": "%",
+			"data_source": "real", "source_desc": "graduation_outcome(approved) 真实登记（升学/总数）",
+		})
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.outcome_total", "label": "毕业去向已登记数",
+			"value": numOf(outcome, "total"), "unit": "人",
+			"data_source": "real", "source_desc": "graduation_outcome(approved) 真实登记",
+		})
+	} else {
+		// 诚实：无已审核去向数据 → not_available + 上传入口，绝不伪造
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.employment_rate", "label": "毕业去向落实率",
+			"value": nil, "unit": "%",
+			"data_source":   "not_available",
+			"source_desc":   "graduation_outcome 尚无 approved 记录（需教辅录入并经审核后计入）",
+			"upload_target": "kb", "upload_hint": "上传毕业去向汇总/就业名单等支撑材料到知识库补料",
+		})
+	}
+
+	// ---------- ⑥ 学业成效（真实通过率） ----------
+	ac := map[string]interface{}{}
+	if edu, err := r.EducationOutcomeDashboard(ownerID); err == nil {
+		ac = edu
+	}
+	awardTotal := 0
+	if comp := mapOf(ac, "competition"); comp != nil {
+		awardTotal = intOf(comp, "total_awards")
+	}
+	kpi = append(kpi, map[string]interface{}{
+		"key": "nurture.award", "label": "学科竞赛获奖数",
+		"value": float64(awardTotal), "unit": "项",
+		"data_source": "real", "source_desc": "competition_registrations(status=awarded) 真实获奖",
+	})
+	if aca := mapOf(ac, "academic"); aca != nil {
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.academic_pass", "label": "课程通过率",
+			"value": numOf(aca, "pass_rate"), "unit": "%",
+			"data_source": "real", "source_desc": "student_grades 真实成绩（通过/总数）",
+		})
+	} else {
+		kpi = append(kpi, map[string]interface{}{
+			"key": "nurture.academic_pass", "label": "课程通过率",
+			"value": nil, "unit": "%",
+			"data_source":   "not_available",
+			"source_desc":   "student_grades 无成绩记录（需导入真实成绩后统计）",
+			"upload_target": "kb", "upload_hint": "上传成绩单/学业通过率汇总支撑材料到知识库补料",
+		})
+	}
+
+	// ---------- ⑦ 职责应有但无数据源 → not_available + 上传入口（绝不伪造） ----------
+	kpi = append(kpi, notAvailableCard(
+		"nurture.intervention_total", "干预执行次数", "人次",
+		"干预方案目前由 AI 生成（GenerateIntervention）仅返回文本，未落任何统计表，无法统计真实干预执行次数。",
+	))
+	kpi = append(kpi, notAvailableCard(
+		"nurture.second_class_pass_rate", "二课达标率", "%",
+		"第二课堂有真实参与/积分，但「达标」标准阈值在系统内无配置，无法给出达标判定，故不展示比率。",
+	))
+	// ---------- 学生成长度对比（纵向先留痕，P1-2 A 路径动态判断） ----------
+	// 有足够纵向历史（双端采样 ≥1 名学生）→ data_source=trend（真实趋势差分）；
+	// 否则 → 仍 not_available，source_desc 诚实说明「数据积累中，需累计满 N 周」。
+	kpi = append(kpi, r.growthTrendCard(ownerID))
+	kpi = append(kpi, notAvailableCard(
+		"nurture.employment_target", "就业目标达成率", "%",
+		"缺少既定就业目标值配置（系统仅有实际去向率），无目标基准无法判定达成率。",
+	))
+
+	return kpi
+}
+
+// growthTrendWindowWeeks 成长归因纵向窗口周数 N（基准口径，供前后端提示「需累计满 N 周」）。
+// 取 pm-check-nurture-wiring.md 建议值（§五.3 / §十一.2：默认 4 周，可配）；
+// 写成常量便于后续改为 config/settings 可读。
+const growthTrendWindowWeeks = 4
+
+// growthTrendCard 生成「学生成长度对比（纵向）」KPI 卡：动态判断。
+//   - 有 ≥1 名学生具备双端历史（样本数>0）→ data_source=trend + 五维平均变化 + sample_count + window_weeks；
+//     仅报趋势/相关性（delta 升降方向与幅度），绝不表述因果（「因为…所以…」）。
+//   - 否则 → 沿用 not_available 卡，value=nil，source_desc 诚实提示「纵向基准积累中，需累计满 N 周」。
+func (r *SecretaryOutcomeRepo) growthTrendCard(ownerID string) map[string]interface{} {
+	label := "学生成长度对比（横向/纵向）"
+	notAvail := notAvailableCard(
+		"nurture.growth_trend", label, "-",
+		fmt.Sprintf("纵向基准积累中：需连续记录满 %d 周历史快照后生成成长归因。系统已开始对数字孪生快照做历史留痕（snapshot_history），当前采样天数不足，暂无法给出趋势。", growthTrendWindowWeeks))
+
+	gt, err := r.getGrowthTrend(ownerID, growthTrendWindowWeeks)
+	if err != nil || gt == nil || !gt.HasData || gt.SampleCount <= 0 {
+		// 无足够双端历史 / 查询失败：诚实回落 not_available，绝不凭空给 trend 数值
+		return notAvail
+	}
+
+	return map[string]interface{}{
+		"key": "nurture.growth_trend", "label": label, "unit": "-",
+		"data_source":  "trend",
+		"value": map[string]interface{}{
+			"academic":    gt.Academic,
+			"ability":     gt.Ability,
+			"ideological": gt.Ideological,
+			"emotional":   gt.Emotional,
+			"social":      gt.Social,
+		},
+		"sample_count": gt.SampleCount,
+		"window_weeks": gt.WindowWeeks,
+		"source_desc": fmt.Sprintf(
+			"基于 %d 名具备 %d 周纵向历史的学生，最近相对更早的快照五维平均变化（仅趋势/相关性，不作因果）。",
+			gt.SampleCount, gt.WindowWeeks),
+	}
+}
+
+// getGrowthTrend 从 snapshot_history 按 owner 范围聚合近 windowWeeks 周的学生成长趋势。
+// 语义与 TwinRepo.GetGrowthTrend 一致（纵向差分，仅趋势/相关性）：对窗口内具备双端
+// （≥2 个不同采样日）快照的学生，取最早 vs 最近五维 delta 均值。ownerID 为空=全校，
+// 非空=本院（越权红线：历史查询必须带 owner_id 收窄）。
+func (r *SecretaryOutcomeRepo) getGrowthTrend(ownerID string, windowWeeks int) (*GrowthTrend, error) {
+	if windowWeeks < 1 {
+		windowWeeks = growthTrendWindowWeeks
+	}
+	cutoff := time.Now().AddDate(0, 0, -windowWeeks*7).Format("2006-01-02")
+
+	cond := ` AND owner_scope = 'college'`
+	args := []interface{}{}
+	if ownerID != "" {
+		cond += ` AND owner_id = ?`
+		args = append(args, ownerID)
+	}
+	cond += ` AND computed_at >= ?`
+	args = append(args, cutoff)
+
+	rows, err := r.db.Query(`SELECT user_id,
+		academic_score, ability_score, ideological_score, emotional_score, social_score, computed_at
+		FROM snapshot_history WHERE 1=1`+cond+
+		` ORDER BY user_id ASC, computed_at ASC`, args...) 
+	if err != nil {
+		return nil, fmt.Errorf("查询快照历史失败: %w", err)
+	}
+	defer rows.Close()
+
+	type histRec struct {
+		ac, ab, id, em, so float64
+		computedAt         string
+	}
+	byUser := map[int64][]histRec{}
+	for rows.Next() {
+		var uid int64
+		rec := histRec{}
+		if err := rows.Scan(&uid, &rec.ac, &rec.ab, &rec.id, &rec.em, &rec.so, &rec.computedAt); err != nil {
+			return nil, err
+		}
+		byUser[uid] = append(byUser[uid], rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	gt := &GrowthTrend{WindowWeeks: windowWeeks}
+	var academic, ability, ideological, emotional, social float64
+	for _, recs := range byUser {
+		if len(recs) < 2 {
+			continue // 仅单端（一天一条），无两端对比
+		}
+		first, last := recs[0], recs[len(recs)-1]
+		if first.computedAt == last.computedAt {
+			continue
+		}
+		academic += last.ac - first.ac
+		ability += last.ab - first.ab
+		ideological += last.id - first.id
+		emotional += last.em - first.em
+		social += last.so - first.so
+		gt.SampleCount++
+	}
+	if gt.SampleCount > 0 {
+		gt.HasData = true
+		n := float64(gt.SampleCount)
+		gt.Academic = academic / n
+		gt.Ability = ability / n
+		gt.Ideological = ideological / n
+		gt.Emotional = emotional / n
+		gt.Social = social / n
+	}
+	return gt, nil
+}
+
+// secondClassKPI 第二课堂真实聚合（按 owner 范围下学生）——真实表，不造数。
+func (r *SecretaryOutcomeRepo) secondClassKPI(ownerID string) map[string]interface{} {
+	res := map[string]interface{}{"attend_total": 0, "point_total": 0}
+	// 学生主体范围（users.owner_id）
+	where := ` WHERE u.role='student'`
+	args := []interface{}{}
+	if ownerID != "" {
+		where += ` AND u.owner_id = ?`
+		args = append(args, ownerID)
+	}
+	// 到场人次
+	var attend int
+	err := r.db.QueryRow(
+		`SELECT COALESCE(SUM(h.attended),0) FROM health_activity_signups h JOIN users u ON u.id=h.user_id`+where,
+		args...).Scan(&attend)
+	if err == nil {
+		res["attend_total"] = float64(attend)
+	}
+	// 积分合计
+	var points int
+	err = r.db.QueryRow(
+		`SELECT COALESCE(SUM(sp.points),0) FROM student_points sp JOIN users u ON u.id=sp.user_id`+where,
+		args...).Scan(&points)
+	if err == nil {
+		res["point_total"] = float64(points)
+	}
+	return res
+}
+
+// notAvailableCard 生成「职责应有但无数据源」的 KPI 卡，value 恒为 null，绝不返回伪数字。
+func notAvailableCard(key, label, unit, desc string) map[string]interface{} {
+	return map[string]interface{}{
+		"key": key, "label": label, "value": nil, "unit": unit,
+		"data_source": "not_available", "source_desc": desc,
+		"upload_target": "kb", "upload_hint": "上传支撑材料到知识库补料，补充后转为真实数据",
+	}
+}
+
+// ---- 以下为 GetNurtureKPI 使用的小助手（map/整形/浮点读取，nil 安全） ----
+
+func numOf(m map[string]interface{}, k string) float64 {
+	if m == nil {
+		return 0
+	}
+	if v, ok := m[k]; ok {
+		switch t := v.(type) {
+		case float64:
+			return t
+		case int:
+			return float64(t)
+		case int64:
+			return float64(t)
+		case float32:
+			return float64(t)
+		}
+	}
+	return 0
+}
+
+func intOf(m map[string]interface{}, k string) int {
+	return int(numOf(m, k))
+}
+
+func mapOf(m map[string]interface{}, k string) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	if v, ok := m[k]; ok {
+		if mp, ok2 := v.(map[string]interface{}); ok2 {
+			return mp
+		}
+	}
+	return nil
+}
+
+// intMapOf 读取 map[string]int（或 map[string]interface{}）字段，nil 安全。
+// 既有聚合（如 PartyDashboard.members 为 map[string]int）返回该类型，故需兼容。
+func intMapOf(m map[string]interface{}, k string) map[string]int {
+	res := map[string]int{}
+	if m == nil {
+		return res
+	}
+	v, ok := m[k]
+	if !ok {
+		return res
+	}
+	switch t := v.(type) {
+	case map[string]int:
+		res = t
+	case map[string]interface{}:
+		for kk, vv := range t {
+			switch n := vv.(type) {
+			case int:
+				res[kk] = n
+			case int64:
+				res[kk] = int(n)
+			case float64:
+				res[kk] = int(n)
+			case float32:
+				res[kk] = int(n)
+			}
+		}
+	}
+	return res
+}
+
+func strOf(m map[string]interface{}, k string) string {
+	if m == nil {
+		return ""
+	}
+	if v, ok := m[k]; ok {
+		if s, ok2 := v.(string); ok2 {
+			return s
+		}
+	}
+	return ""
+}
+
+func itoa(n int) string {
+	return strconv.Itoa(n)
 }

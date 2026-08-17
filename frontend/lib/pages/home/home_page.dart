@@ -79,6 +79,8 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _studentHomeData;
   bool _studentHomeLoading = false;
   String? _studentHomeError;
+  // 教师授课申报待审角标（R3 补 H）：教辅/教务可见
+  int _teacherCoursePending = 0;
 
   @override
   void initState() {
@@ -139,6 +141,10 @@ class _HomePageState extends State<HomePage> {
     context.read<SessionProvider>().fetchSessions();
     // 加载未读通知数量
     context.read<NotificationProvider>().fetchUnreadCount();
+    // R3 补 H：教辅/教务持有审核能力时拉取待审角标
+    if (CapabilityUtils.has(Capability.teacherCourseReview)) {
+      _loadTeacherCoursePending();
+    }
     // 学生角色加载个性化首页数据 + 数字人形象
     if (role == 'student' || role == 'student_union') {
       _loadStudentHome();
@@ -202,6 +208,22 @@ class _HomePageState extends State<HomePage> {
           SnackBar(content: Text('操作失败：${e.toString()}')),
         );
       }
+    }
+  }
+
+  /// 加载教辅/教务授课申报待审角标（R3 补 H）；失败静默，角标保持 0 / 不显示
+  Future<void> _loadTeacherCoursePending() async {
+    if (!CapabilityUtils.has(Capability.teacherCourseReview)) return;
+    try {
+      final res =
+          await ApiService().get(ApiConfig.teacherCoursesPendingCount);
+      final pending =
+          res.data is Map ? (res.data['pending'] ?? 0) : 0;
+      if (!mounted) return;
+      setState(() =>
+          _teacherCoursePending = pending is num ? pending.toInt() : 0);
+    } catch (_) {
+      // 静默：角标拉取失败不影响首页；审核页内仍有诚实空态
     }
   }
 
@@ -1245,10 +1267,38 @@ class _HomePageState extends State<HomePage> {
       entries.add(_WorkbenchEntry(Icons.build, '后勤服务台',
           const Color(0xFF00695C), '/assistant/facility-workbench'));
 
+    // ── 教师授课申报审核（R3 补 H，2026-08-17）：教辅/教务审核 + 待审角标（teacher.course.review）──
+    // 带红色角标卡：展示 pending-count，无权限不显示入口
+    if (CapabilityUtils.has(Capability.teacherCourseReview))
+      entries.add(_WorkbenchEntry(
+          Icons.fact_check_outlined,
+          _teacherCoursePending > 0
+              ? '授课申报审核·$_teacherCoursePending'
+              : '授课申报审核',
+          const Color(0xFFE65100), '/assistant/teacher-course-review'));
+
     // ── 党课/活动登记（蓝图第3块，2026-08-16）：教师/教辅登记 → 书记党建看板 ──
     if (CapabilityUtils.has(Capability.partyRecordWrite))
       entries.add(_WorkbenchEntry(Icons.flag, '党课/活动登记',
           const Color(0xFFC62828), '/teacher/party-register'));
+
+    // ── 教师成绩录入（P0-1，2026-08-17，方案A：教师自主声明授课）──
+    // 门控 teacher.grade.write：教师录入所授班级真实成绩
+    if (CapabilityUtils.has(Capability.teacherGradeWrite))
+      entries.add(_WorkbenchEntry(Icons.grade_outlined, '成绩录入',
+          const Color(0xFF1565C0), '/teacher/grades-entry'));
+
+    // ── 教师作业信息发布+成绩统计（2026-08-17，P2 轻量版）：门控 teacher.grade.write
+    // 蔚小芯侧重教育非教学：作业仅信息发布+成绩统计，不做学生提交/批改/内容流转
+    if (CapabilityUtils.has(Capability.teacherGradeWrite))
+      entries.add(_WorkbenchEntry(Icons.assignment_outlined, '作业发布',
+          const Color(0xFF00695C), '/teacher/homework'));
+
+    // ── 教师作业信息发布+成绩统计（P2 轻量版，2026-08-17）：门控 teacher.grade.write ──
+    // 作业仅信息发布+成绩统计，不做学生提交/批改；发布前强校验 approved 授课关系。
+    if (CapabilityUtils.has(Capability.teacherGradeWrite))
+      entries.add(_WorkbenchEntry(Icons.assignment_outlined, '作业发布',
+          const Color(0xFF2E7D32), '/teacher/homework'));
 
     // ── 学生会工作台 ──
     if (CapabilityUtils.has(Capability.unionEventPlan))
@@ -1268,6 +1318,13 @@ class _HomePageState extends State<HomePage> {
     if (CapabilityUtils.has(Capability.outcomeDashboard))
       entries.add(_WorkbenchEntry(Icons.auto_graph, '教育成果大屏',
           const Color(0xFF1565C0), '/secretary/education-outcome'));
+    // 书记党建育人 / 协同育人专项可视化深链（D1-1 功能补齐，2026-08-16）
+    if (CapabilityUtils.has(Capability.outcomeDashboard))
+      entries.add(_WorkbenchEntry(Icons.flag, '党建育人专项',
+          const Color(0xFFC62828), '/secretary/party-dashboard'));
+    if (CapabilityUtils.has(Capability.collabDashboard))
+      entries.add(_WorkbenchEntry(Icons.groups, '协同育人专项',
+          const Color(0xFF00695C), '/secretary/collab-dashboard'));
     if (CapabilityUtils.has(Capability.collegeTwinScreen))
       entries.add(_WorkbenchEntry(Icons.dashboard, '数字孪生',
           const Color(0xFF2E7D32), '/college/twin-screen'));

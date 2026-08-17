@@ -13,6 +13,7 @@ type MergedResult struct {
 	Sources    []model.Source // 去重合并后的来源列表
 	Confidence float64        // 综合置信度
 	AgentCount int            // 参与协同的 Agent 数量
+	Agents     []string       // 实际参与本回答的 Agent 名称（人类可读，如 "政策解读"/"流程指引"），用于前端透明化展示
 }
 
 // ResultMerger 多 Agent 结果汇聚器
@@ -31,6 +32,7 @@ func (m *ResultMerger) Merge(results []*AgentResult) *MergedResult {
 			Content:    "抱歉，当前无法处理您的问题。",
 			Confidence: 0,
 			Sources:    []model.Source{},
+			Agents:     []string{},
 		}
 	}
 
@@ -41,18 +43,41 @@ func (m *ResultMerger) Merge(results []*AgentResult) *MergedResult {
 		if sources == nil {
 			sources = []model.Source{}
 		}
+		// 空 AgentName 不计入参与列表（不硬编）
+		agents := []string{}
+		if r.AgentName != "" {
+			agents = []string{r.AgentName}
+		}
 		return &MergedResult{
 			Content:    r.Content,
 			Sources:    sources,
 			Confidence: r.Confidence,
 			AgentCount: 1,
+			Agents:     agents,
 		}
 	}
 
 	// 多 Agent 结果汇聚
+	agentSet := make(map[string]bool)
+	var agentNames []string
+	for _, r := range results {
+		if r.AgentName == "" {
+			continue
+		}
+		if agentSet[r.AgentName] {
+			continue
+		}
+		agentSet[r.AgentName] = true
+		agentNames = append(agentNames, r.AgentName)
+	}
+	if agentNames == nil {
+		agentNames = []string{}
+	}
+
 	merged := &MergedResult{
 		AgentCount: len(results),
 		Sources:    []model.Source{},
+		Agents:     agentNames,
 	}
 
 	// 合并内容（按 Agent 名称分段）

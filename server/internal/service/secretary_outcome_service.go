@@ -98,3 +98,12 @@ func (s *SecretaryOutcomeService) DeletePartyRecord(ctx context.Context, id, opI
 func (s *SecretaryOutcomeService) CollabDashboard(ctx context.Context, ownerID string) (map[string]interface{}, error) {
 	return s.repo.CollabDashboard(ownerID)
 }
+
+// GetNurtureKPI 育人成效 KPI 指标卡（D5-1 功能补齐，书记/学院视角）。
+// ownerID!=空 → 本院；空 → 全校。
+// 诚实边界：能真实算出的指标 data_source=real 并返回数值；
+// 岗位应有但无数据源的指标 data_source=not_available 且 value=null，绝不伪造数字。
+// 前端据此渲染「上传支撑材料到知识库」入口（upload_target=kb）。
+func (s *SecretaryOutcomeService) GetNurtureKPI(ctx context.Context, ownerID string) ([]map[string]interface{}, error) {
+	return s.repo.GetNurtureKPI(ownerID), nil
+}

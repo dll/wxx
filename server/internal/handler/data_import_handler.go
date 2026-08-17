@@ -94,3 +94,58 @@ func (h *DataImportHandler) ImportMySchedule(c *gin.Context) {
 	res := h.phase3.ImportSchedules(req.Schedules)
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "导入成功(仅本人课表)", "data": res})
 }
+
+// ImportTeacherGrades 教师自助录入所授班级成绩（方案 A：教师自主声明授课关系）
+// POST /api/v1/teacher/grades/import  （能力门控 TeacherGradeWrite）
+// 教师在前端选定课程 + 学生学号集合 + 真实成绩，本接口校验：
+//   - 每条记录 target 必须为 role='student' 的学生（不得对教师/管理员等写成绩）
+//   - created_by 强制写当前教师 user_id（审计可追溯谁的声明）
+// 幂等沿用 UpsertGrade。
+func (h *DataImportHandler) ImportTeacherGrades(c *gin.Context) {
+	if h.phase3 == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "数据服务未就绪"})
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil || userCtx.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+	var req struct {
+		Grades []*repository.GradeRow `json:"grades"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.Grades) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误：需要 grades 数组"})
+		return
+	}
+	if len(req.Grades) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "单次最多导入 2000 条"})
+		return
+	}
+	res := h.phase3.ImportTeacherGrades(req.Grades, userCtx.UserID)
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "教师成绩录入完成", "data": res})
+}
+
+// ListMyTeacherGrades 教师查看自己声明录入的成绩记录（读取边界=created_by）
+// GET /api/v1/teacher/grades/mine   （能力门控 TeacherGradeWrite）
+func (h *DataImportHandler) ListMyTeacherGrades(c *gin.Context) {
+	if h.phase3 == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "数据服务未就绪"})
+		return
+	}
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil || userCtx.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未登录"})
+		return
+	}
+	list, err := h.phase3.ListTeacherGrades(userCtx.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+		return
+	}
+	// 诚实空态：无数据时直接返回空数组，不填假成绩
+	if list == nil {
+		list = []*repository.ListedGrade{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": list})
+}

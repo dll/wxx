@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/secretary_provider.dart';
 import '../../widgets/data_src_badge.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/secretary_dashboard_sections.dart';
 
 /// 书记教育成果大屏（school_admin 全校 / college_admin 本院）
 ///
@@ -26,13 +28,24 @@ class _SecretaryOutcomeDashboardPageState
       context.read<SecretaryProvider>().fetchDashboard();
       context.read<SecretaryProvider>().fetchPartyDashboard();
       context.read<SecretaryProvider>().fetchCollabDashboard();
+      context.read<SecretaryProvider>().fetchNurtureKPI();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('教育成果大屏')),
+      appBar: AppBar(
+        title: const Text('教育成果大屏'),
+        actions: [
+          IconButton(
+            tooltip: '治理督办工单',
+            icon: const Icon(Icons.assignment_late_outlined),
+            onPressed: () =>
+                GoRouter.of(context).go('/secretary/ticket-manage'),
+          ),
+        ],
+      ),
       body: Consumer<SecretaryProvider>(
         builder: (_, provider, __) {
           if (provider.dashboardLoading && provider.dashboard == null) {
@@ -51,17 +64,21 @@ class _SecretaryOutcomeDashboardPageState
               await provider.fetchDashboard();
               await provider.fetchPartyDashboard();
               await provider.fetchCollabDashboard();
+              await provider.fetchNurtureKPI();
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 _LifecycleHeader(college: d['college'] as String? ?? '全校'),
                 const SizedBox(height: 12),
+                _buildKPICards(provider.nurtureKPIs),
+                const SizedBox(height: 12),
                 _buildCompetition(d['competition']),
                 const SizedBox(height: 12),
-                _buildParty(provider.partyDashboard ?? d['party']),
+                PartyDashboardSection(
+                    party: provider.partyDashboard ?? d['party']),
                 const SizedBox(height: 12),
-                _buildCollab(provider.collabDashboard),
+                CollabDashboardSection(collab: provider.collabDashboard),
                 const SizedBox(height: 12),
                 _buildAcademic(d['academic']),
                 const SizedBox(height: 12),
@@ -92,6 +109,199 @@ class _SecretaryOutcomeDashboardPageState
             const Icon(Icons.auto_graph, color: Colors.indigo),
           ],
         ),
+      ),
+    );
+  }
+
+  // 育人成效 KPI 指标卡（D5-1 功能补齐，2026-08-16）。
+  // 每项：{ key, label, value, unit, data_source(real/trend/not_available), source_desc, upload_target, upload_hint }。
+  // real → 显示真实数值；trend → 五维纵向趋势条（Δ箭头+样本量）；
+  // not_available → 显示「数据待补充」+ 上传支撑材料入口（绝不伪造数字）。
+  // 特殊（P1-2 诚实修正）：key==nurture.growth_trend 的 not_available 靠时间积累而非补料，
+  // 隐藏「上传材料/生成工单」两入口，只显「数据积累中，需满 N 周」提示。
+  Widget _buildKPICards(List<Map<String, dynamic>> kpis) {
+    if (kpis.isEmpty) return const SizedBox.shrink();
+    return _SectionCard(
+      title: '育人成效指标',
+      icon: Icons.insights,
+      src: '',
+      children: [
+        for (final k in kpis)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${k['label'] ?? ''}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(_kpiSourceDesc(k['source_desc']),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (k['data_source'] == 'real')
+                  Text(
+                    '${k['value'] ?? '-'}${k['unit'] ?? ''}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.indigo.shade700),
+                  )
+                else if (k['data_source'] == 'trend')
+                  // 真实纵向趋势：五维 Δ 箭头 + 样本量（仅趋势/相关性，不作因果）
+                  _buildTrendValues(k)
+                else if (k['key'] == 'nurture.growth_trend')
+                  // growth_trend 靠纵向时间积累而非补料：诚实提示，不给补料/工单入口
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('数据积累中，需满 4 周',
+                          style: TextStyle(
+                              color: Colors.orange, fontSize: 12)),
+                      const SizedBox(height: 2),
+                      Text('系统已开始对数字孪生快照做历史留痕，\n连续记录满 4 周后生成成长趋势。',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600)),
+                    ],
+                  )
+                else
+                  // not_available：数据待补充 + 上传支撑材料（复用 kb 上传心智，不伪造数字）
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('数据待补充',
+                          style: TextStyle(
+                              color: Colors.orange, fontSize: 12)),
+                      const SizedBox(height: 2),
+                      InkWell(
+                        onTap: () => _uploadNurtureMaterial(k),
+                        child: const Text('上传材料到知识库',
+                            style: TextStyle(
+                                color: Colors.indigo,
+                                fontSize: 12,
+                                decoration: TextDecoration.underline)),
+                      ),
+                      const SizedBox(height: 2),
+                      InkWell(
+                        onTap: () => _createSupplementTicket(k),
+                        child: const Text('生成补料督办工单',
+                            style: TextStyle(
+                                color: Colors.deepOrange,
+                                fontSize: 12,
+                                decoration: TextDecoration.underline)),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  // trend 卡的 value 为五维 Δ map；渲染五根横向趋势条（Δ箭头 + 样本量）。
+  // sample_count==0 时后端已回落 not_available，此处只处理真实有数据的情况。
+  Widget _buildTrendValues(Map<String, dynamic> k) {
+    final val = k['value'] as Map<String, dynamic>?;
+    final sample = (k['sample_count'] as int?) ?? 0;
+    const dims = {
+      'academic': '学业',
+      'ability': '能力',
+      'ideological': '思想',
+      'emotional': '情感',
+      'social': '社交',
+    };
+    final rows = <Widget>[];
+    dims.forEach((key, name) {
+      final delta = (val?[key] as num?)?.toDouble() ?? 0.0;
+      rows.add(Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(name, style: const TextStyle(fontSize: 11)),
+            const SizedBox(width: 4),
+            if (delta.abs() < 1e-6)
+              const Text('→', style: TextStyle(fontSize: 12, color: Colors.grey))
+            else if (delta > 0)
+              Text('↑${delta.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold))
+            else
+              Text('↓${delta.abs().toStringAsFixed(1)}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ));
+    });
+    rows.add(Text('基于 $sample 名有历史学生样本',
+        style: TextStyle(fontSize: 10, color: Colors.grey.shade600)));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: rows,
+    );
+  }
+
+  String _kpiSourceDesc(dynamic srcDesc) {
+    final s = srcDesc as String? ?? '';
+    return s.isEmpty ? '数据来源：以真实登记表为准' : s;
+  }
+
+  // not_available KPI 的上传支撑材料入口：按 upload_target 跳转（kb 上传心智）。
+  void _uploadNurtureMaterial(Map<String, dynamic> kpi) {
+    final target = kpi['upload_target'] as String? ?? _kpiUploadTarget();
+    // 暂以知识库上传为落地（复用 kb/upload 心智）
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('请上传「${kpi['label'] ?? '该指标'}」的支撑材料到知识库，审核通过后转为真实数据'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    debugPrint('[D5-1] nurture KPI upload target: $target');
+  }
+
+  String _kpiUploadTarget() => '/api/v1/kb/upload';
+
+  // D5-3「洞察→工单」：从 not_available 补料 KPI 生成督办工单（D5-1 联动）。
+  void _createSupplementTicket(Map<String, dynamic> kpi) {
+    final key = kpi['key'] as String? ?? '';
+    if (key.isEmpty) return;
+    final prov = context.read<SecretaryProvider>();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('生成补料督办工单'),
+        content: Text('确定生成督办工单「${kpi['label'] ?? ''}」，催办上传支撑材料到知识库？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final result = await prov.createTicketFromKPI(kpiKey: key);
+              if (!ctx.mounted) return;
+              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                content: Text(result.ok
+                    ? '已生成补料督办工单：${kpi['label']}'
+                    : '生成失败：${result.msg}'),
+              ));
+            },
+            child: const Text('生成'),
+          ),
+        ],
       ),
     );
   }
@@ -143,79 +353,6 @@ class _SecretaryOutcomeDashboardPageState
                   ],
                 ),
               )),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildParty(dynamic party) {
-    if (party is! Map) return const SizedBox.shrink();    final members = (party['members'] as Map?)?.cast<String, dynamic>() ?? {};
-    final stage = (party['stage_distribution'] as Map?)?.cast<String, dynamic>() ?? {};
-    final studyByType = (party['study_by_type'] as Map?)?.cast<String, dynamic>() ?? {};
-    final stageTotal = (party['stage_total'] as num?)?.toInt() ?? 0;
-    final studyCount = (party['study_records'] as num?)?.toInt() ?? 0;
-    final studyHours = (party['study_hours'] as num?)?.toInt() ?? 0;
-    // 阶段中文名
-    const stageNames = {
-      'applicant': '申请入党',
-      'activist': '入党积极分子',
-      'development': '发展对象',
-      'probation': '预备党员',
-      'member': '正式党员',
-    };
-    return _SectionCard(
-      title: '党建育人（思想政治）',
-      icon: Icons.flag,
-      src: '${party['data_source']}',
-      children: [
-        _StatRow(label: '入党申请总人数', value: '$stageTotal'),
-        _StatRow(label: '正式党员', value: '${members['member'] ?? 0}'),
-        _StatRow(label: '预备党员', value: '${members['probation'] ?? 0}'),
-        if (stage.isNotEmpty)
-          _ChipRow(items: {
-            for (final e in stage.entries)
-              stageNames[e.key] ?? e.key: '${e.value}',
-          }),
-        _StatRow(label: '党课/学习记录', value: '$studyCount 人次'),
-        _StatRow(label: '学习时长', value: '$studyHours 小时'),
-        if (studyByType.isNotEmpty)
-          _ChipRow(items: {
-            for (final e in studyByType.entries)
-              e.key: '${e.value['count'] ?? 0} 人次',
-          }),
-      ],
-    );
-  }
-
-  // 协同育人总览（蓝图第2块，2026-08-16）：书记视角教师/教辅育人动作汇总
-  Widget _buildCollab(dynamic col) {
-    if (col is! Map) return const SizedBox.shrink();
-    final src = '${col['data_source']}';
-    final roleSum = (col['by_role'] as Map?)?.cast<String, dynamic>() ?? {};
-    const roleNames = {
-      'counselor': '辅导员',
-      'teacher': '教师',
-      'assistant': '教辅',
-      'student_union': '学生会',
-      'college_admin': '学院管理员',
-    };
-    return _SectionCard(
-      title: '协同育人总览（教师/教辅付出）',
-      icon: Icons.groups,
-      src: src,
-      children: [
-        _StatRow(label: '本院学生数', value: '${col['students_total'] ?? 0}'),
-        _StatRow(label: '谈心记录', value: '${col['talk_records'] ?? 0}'),
-        _StatRow(label: '后勤服务', value: '${col['facility_records'] ?? 0}'),
-        _StatRow(label: '党课/活动登记', value: '${col['party_registrations'] ?? 0}'),
-        _StatRow(label: '教学课表节次', value: '${col['course_schedules'] ?? 0}'),
-        if (roleSum.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          const Text('育人动作按角色',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          _ChipRow(items: {
-            for (final e in roleSum.entries) roleNames[e.key] ?? e.key: '${e.value}',
-          }),
         ],
       ],
     );

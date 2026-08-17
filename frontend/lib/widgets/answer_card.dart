@@ -52,6 +52,13 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
               if (widget.card.conclusion.isNotEmpty)
                 _buildConclusionWithCitations(theme),
 
+              // 参与智能体（D4-3 透明分层展示）：仅当后端下发了 agents 列表时显示，
+              // 缺失/为空则整行隐藏，不影响既有布局与交互。
+              if (widget.card.agents.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _buildAgentsSection(theme),
+              ],
+
               // 步骤清单
               if (widget.card.steps.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -331,6 +338,36 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// 参与智能体标签行（D4-3 透明分层展示）
+  Widget _buildAgentsSection(ThemeData theme) {
+    // 去重 + 去除空项，避免重复/空标签
+    final agents = <String>[];
+    for (final a in widget.card.agents) {
+      final name = a.trim();
+      if (name.isEmpty || agents.contains(name)) continue;
+      agents.add(name);
+    }
+    if (agents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _buildSection(
+      context,
+      icon: Icons.groups_outlined,
+      title: '参与智能体（${agents.length}）',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: agents.map((name) {
+          return Chip(
+            avatar: const Icon(Icons.smart_toy_outlined, size: 16),
+            label: Text(name, style: const TextStyle(fontSize: 12)),
+            visualDensity: VisualDensity.compact,
+          );
+        }).toList(),
       ),
     );
   }

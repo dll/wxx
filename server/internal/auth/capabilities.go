@@ -129,6 +129,8 @@ const (
 	TeacherReflection    Capability = "teacher.reflection"     // 教学反思
 	TeacherStyleDist     Capability = "teacher.style.dist"     // 学生学习风格分布
 	TeacherCommunityQA   Capability = "teacher.community.qa"   // 社区专业答疑
+	TeacherGradeWrite    Capability = "teacher.grade.write"    // 教师录入所授班级成绩（方案A：教师自主声明授课，审计 created_by）
+	TeacherCourseReview  Capability = "teacher.course.review"  // 教辅/教务审核教师授课申报（R3，不授 teacher 杜绝自审）
 )
 
 // 教辅能力
@@ -171,6 +173,11 @@ const (
 	CollegeGraduationRead  Capability = "college.graduation.read"  // 毕设选题管理查看
 	CollegeGraduationWrite Capability = "college.graduation.write" // 毕设选题管理操作
 	CollegeForecast        Capability = "college.forecast"         // 问题预案
+
+	// 督办工单（2026-08-16，D5-3「洞察→工单」治理回环）
+	// 学院/学校书记可创建、分派、督办；辅导员/教辅/党群可查看并推进分派给本人的工单
+	GovTicketManage   Capability = "college.ticket.manage"   // 督办工单管理（书记：创建/分派/总览/关闭）
+	GovTicketAssignee Capability = "college.ticket.assignee" // 督办工单责任人（查看/推进本人分派）
 )
 
 // 学校管理能力
@@ -283,6 +290,10 @@ var roles = map[string]*roleNode{
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 			// 党课/活动登记（2026-08-16）
 			PartyRecordWrite, PartyRecordRead,
+			// 督办工单责任人（2026-08-16，D5-3）
+			GovTicketAssignee,
+			// 教师授课关系审核（2026-08-17，R3）：辅导员不含自行审核（teacher 不授），教辅共享
+			TeacherCourseReview,
 		},
 	},
 	"teacher": {
@@ -293,11 +304,15 @@ var roles = map[string]*roleNode{
 			TeacherHeatmapRead, TeacherClassInteract,
 			TeacherDailyOverview, TeacherGrading,
 			TeacherReflection, TeacherStyleDist, TeacherCommunityQA,
+			// 教师录入所授班级成绩（2026-08-17，P0-1）：教师自主声明授课关系，审计 created_by
+			TeacherGradeWrite,
 			CounselorTokenSubordinates,
 			// 毕业去向（教师教辅可录入+审核，2026-08-15）
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 			// 党课/活动登记（2026-08-16）
 			PartyRecordWrite, PartyRecordRead,
+			// 督办工单责任人（2026-08-16，D5-3）
+			GovTicketAssignee,
 		},
 	},
 	"assistant": {
@@ -310,6 +325,10 @@ var roles = map[string]*roleNode{
 			OutcomeRecordWrite, OutcomeRecordRead, OutcomeReview,
 			// 党课/活动登记（2026-08-16）
 			PartyRecordWrite, PartyRecordRead,
+			// 督办工单责任人（2026-08-16，D5-3）
+			GovTicketAssignee,
+			// 教师授课关系审核（2026-08-17，R3）：教务可审核
+			TeacherCourseReview,
 		},
 	},
 	"college_admin": {
@@ -324,6 +343,8 @@ var roles = map[string]*roleNode{
 			OutcomeDashboard,
 			// 协同育人总览（书记：本院），2026-08-16
 			CollabDashboard,
+			// 督办工单管理（书记建单/分派/督办，2026-08-16，D5-3）
+			GovTicketManage,
 		},
 	},
 	"school_admin": {

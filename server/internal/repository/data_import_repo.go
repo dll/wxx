@@ -18,6 +18,9 @@ func NewDataImportRepo(db *sql.DB) *DataImportRepo {
 }
 
 // GradeRow 成绩导入行
+// CreatedBy 记录成绩首声明人（教师录入时=教师 user_id；管理端导入默认 0）。
+// UpdatedBy 记录最后写入/修改人（新增于 R1，审计可追溯）。
+// 幂等键仍为 user_id+course_id+semester+grade_type='final'，CreatedBy/UpdatedBy 仅作审计追溯。
 type GradeRow struct {
 	UserID     string  `json:"user_id"`
 	CourseID   string  `json:"course_id"`
@@ -27,6 +30,8 @@ type GradeRow struct {
 	GPA        float64 `json:"gpa"`
 	Passed     bool    `json:"passed"`
 	Credits    float64 `json:"credits"`
+	CreatedBy  int64   `json:"created_by"`
+	UpdatedBy  int64   `json:"updated_by"`
 }
 
 // UpsertGrade 按 UNIQUE(user_id, course_id, semester, grade_type='final') 幂等写入
@@ -46,18 +51,71 @@ func (r *DataImportRepo) UpsertGrade(g *GradeRow) (bool, error) {
 	}
 
 	stmt := `
-		INSERT INTO student_grades (user_id, course_id, course_name, semester, grade_type, score, gpa, grade_level, passed, credits_earned)
-		VALUES (?, ?, ?, ?, 'final', ?, ?, ?, ?, ?)
+		INSERT INTO student_grades (user_id, course_id, course_name, semester, grade_type, score, gpa, grade_level, passed, credits_earned, created_by, updated_by)
+		VALUES (?, ?, ?, ?, 'final', ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, course_id, semester, grade_type) DO UPDATE SET
 			course_name=excluded.course_name, score=excluded.score, gpa=excluded.gpa,
 			grade_level=excluded.grade_level, passed=excluded.passed, credits_earned=excluded.credits_earned,
+			created_by=excluded.created_by, updated_by=excluded.updated_by,
 			updated_at=CURRENT_TIMESTAMP`
 	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
-		g.UserID, g.CourseID, g.CourseName, g.Semester, g.Score, g.GPA, gradeLevel, passed, g.Credits)
+		g.UserID, g.CourseID, g.CourseName, g.Semester, g.Score, g.GPA, gradeLevel, passed, g.Credits, g.CreatedBy, g.UpdatedBy)
 	if err != nil {
 		return false, fmt.Errorf("成绩写入失败: %w", err)
 	}
 	return exists == 0, nil
+}
+
+// GetUserRoleByUserID 查询用户角色（成绩写入时校验 target 为学生，防捞非学生）
+func (r *DataImportRepo) GetUserRoleByUserID(userID string) (string, error) {
+	var role string
+	err := r.db.QueryRow(`SELECT role FROM users WHERE CAST(id AS TEXT) = ?`, userID).Scan(&role)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
+}
+
+// ListedGrade 已录入成绩记录（教师端查看本人声明）
+type ListedGrade struct {
+	UserID     string  `json:"user_id"`
+	Username   string  `json:"username"`
+	Name       string  `json:"name"`
+	CourseID   string  `json:"course_id"`
+	CourseName string  `json:"course_name"`
+	Semester   string  `json:"semester"`
+	Score      float64 `json:"score"`
+	GPA        float64 `json:"gpa"`
+	Passed     bool    `json:"passed"`
+	Credits    float64 `json:"credits"`
+}
+
+// ListGradesByCreator 查询指定声明人（教师）录入的成绩记录，读取边界=created_by
+func (r *DataImportRepo) ListGradesByCreator(creatorID int64) ([]*ListedGrade, error) {
+	rows, err := r.db.Query(`
+		SELECT g.user_id, COALESCE(u.username,''), COALESCE(u.display_name,''),
+		       g.course_id, g.course_name, g.semester, g.score, g.gpa,
+		       g.passed, g.credits_earned
+		FROM student_grades g
+		LEFT JOIN users u ON CAST(g.user_id AS INTEGER) = u.id
+		WHERE g.created_by = ?
+		ORDER BY g.semester DESC, g.course_id`, creatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*ListedGrade
+	for rows.Next() {
+		g := &ListedGrade{}
+		var passed int
+		if err := rows.Scan(&g.UserID, &g.Username, &g.Name, &g.CourseID, &g.CourseName,
+			&g.Semester, &g.Score, &g.GPA, &passed, &g.Credits); err != nil {
+			return nil, err
+		}
+		g.Passed = passed == 1
+		list = append(list, g)
+	}
+	return list, rows.Err()
 }
 
 // gradeLevelOf 分数分档

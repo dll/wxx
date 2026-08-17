@@ -261,6 +261,25 @@ class ApiConfig {
   // ── 教师社区功能 ──
   static const String teacherCommunityQA = '$apiPrefix/teacher/community-qa';
 
+  // ── 教师录入所授班级成绩（2026-08-17，P0-1，方案A：教师自主声明授课）──
+  static const String teacherGradesImport = '$apiPrefix/teacher/grades/import';
+  static const String teacherGradesMine = '$apiPrefix/teacher/grades/mine';
+
+  // ── 教师授课关系申报+教辅审核（2026-08-17，R3 越权边界升级）──
+  static const String teacherCourseApply = '$apiPrefix/teacher/courses/apply'; // 教师申报（teacher.grade.write）
+  static const String teacherCoursesMine = '$apiPrefix/teacher/courses/mine';   // 教师查本人申报
+  static const String teacherCoursesPending = '$apiPrefix/assistant/courses/pending';       // 教辅待审列表
+  static const String teacherCoursesReview = '$apiPrefix/assistant/courses/review';         // 教辅审核（/review/:id）
+  static const String teacherCoursesPendingCount = '$apiPrefix/assistant/courses/pending-count'; // 待审角标
+
+  // ── 教师作业信息发布+成绩统计（只读）（2026-08-17，P2 轻量版，teacher.grade.write）──
+  static const String teacherHomework = '$apiPrefix/teacher/homework';            // 发布作业信息（POST teacher.grade.write）
+  static String teacherHomeworkItem(int id) => '$apiPrefix/teacher/homework/$id'; // 编辑/下架（PUT/DELETE teacher.grade.write）
+  static const String teacherHomeworkMine = '$apiPrefix/teacher/homework/mine';   // 我的作业清单（GET teacher.grade.write）
+  static const String teacherHomeworkCourses = '$apiPrefix/teacher/homework/courses'; // 本人 approved 授课课程（发布下拉数据源）
+  static String teacherHomeworkGradeStats(String courseId) =>
+      '$apiPrefix/teacher/homework/$courseId/grade-stats'; // 课程成绩统计（GET，?semester=）
+
   // ── 教辅 AI 功能 ──
   static const String assistantScheduleCheck =
       '$apiPrefix/assistant/schedule-check';

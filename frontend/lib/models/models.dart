@@ -14,6 +14,7 @@ class AnswerCard {
   final String model; // 回答所用大模型名（如 deepseek-v4-flash）
   final double confidence;
   final bool fallback;
+  final List<String> agents; // 参与本次回答的智能体名称列表（D4-3，不足时为空）
 
   AnswerCard({
     required this.conclusion,
@@ -27,6 +28,7 @@ class AnswerCard {
     this.model = '',
     this.confidence = 0,
     this.fallback = false,
+    this.agents = const [],
   });
 
   factory AnswerCard.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,7 @@ class AnswerCard {
       model: json['model'] ?? '',
       confidence: (json['confidence'] ?? 0).toDouble(),
       fallback: json['fallback'] ?? false,
+      agents: List<String>.from(json['agents'] ?? []),
     );
   }
 }
