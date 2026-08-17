@@ -197,7 +197,9 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
     final dataSource = (d['data_source'] ?? 'not_available').toString();
     final sampleCount = (d['sample_count'] as num?)?.toInt() ?? 0;
     final scoreValue = d['score'] is num ? (d['score'] as num).toDouble() : null;
-    final hasScore = scoreValue != null && scoreValue > 0;
+    // 诚实二态（M1 fix）：score==null 才是「无样本/数据积累中」；
+    // score==0.0 是「有样本但均值恰为 0」的真实 0 分，应渲染 0.0 + real badge（后端 REAL NOT NULL DEFAULT 0）。
+    final hasScore = scoreValue != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),

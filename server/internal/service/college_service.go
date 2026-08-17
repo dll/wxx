@@ -42,10 +42,13 @@ type collegeMetrics struct {
 
 // aggregateCollegeMetrics 按学院归属聚合真实指标：学生数、风险数、健康度
 //
+// 【健康度口径锁定窗口 - 有意修复】
+// 健康度口径由「最近 500 条快照求均值」改为「全部有快照学生聚合（按 user 去重取最新快照）」。
+// 旧的 ListSnapshotsByScope(..., 500) 500 上限在院学生 >500 时会静默漏样本，导致全院健康度失真。
+// 此处已改用 AggregateSnapshotsByScope（SQL AVG 聚合，无 limit 上限），口径窗口已锁定为全量有快照学生。
+//
 // 健康度口径（与既有行为一致）：先每人算五维均分再平均。因每人快照五维齐全，
-// 该值 = (学业均值+能力均值+思想均值+情感均值+社交均值)/5，可由 SQL 聚合 AVG 直线得到；
-// 改用 AggregateSnapshotsByScope 后不再受 ListSnapshotsByScope(...,500) 的 500 上限限制，
-// 修复合院学生 >500 时静默漏样本导致均值失真。
+// 该值 = (学业均值+能力均值+思想均值+情感均值+社交均值)/5，可由 SQL 聚合 AVG 直线得到。
 func (s *CollegeService) aggregateCollegeMetrics(ownerID string) collegeMetrics {
 	m := collegeMetrics{}
 	if s.userRepo != nil {
