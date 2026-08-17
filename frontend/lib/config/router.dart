@@ -93,7 +93,6 @@ import '../pages/teacher/party_activity_register_page.dart';
 import '../pages/teacher/teacher_grade_entry_page.dart';
 import '../pages/teacher/teacher_course_apply_page.dart';
 import '../pages/teacher/teacher_homework_page.dart';
-import '../pages/teacher/teacher_homework_page.dart';
 // ── 教辅/学生会/学院管理员 AI 功能页面 ──
 import '../pages/assistant_role/schedule_check_page.dart';
 import '../pages/assistant_role/grad_audit_page.dart';

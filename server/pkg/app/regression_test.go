@@ -30,9 +30,10 @@ import (
 // 1. 路由注册完整性（与拆分前备份 app.go.bak.orig 比对）
 // ─────────────────────────────────────────────────────────────
 
-// TestRouteRegistrationCount 校验拆分后路由注册计数为 467 处
+// TestRouteRegistrationCount 校验拆分后路由注册计数为 478 处
 //（465 = 454 + 督办工单 D5-3 新增 11 处；+2 = 教师成绩录入 P0-1 新增 2 处；
-//  +5 = 教师授课关系申报+审核 R3 新增 5 处：teacher 2 + assistant 3）。
+//  +5 = 教师授课关系申报+审核 R3 新增 5 处：teacher 2 + assistant 3；
+//  +6 = 教师作业信息发布+成绩统计 P2 新增 6 处：teacher POST/PUT/DELETE/mine/courses/grade-stats）。
 // 含全套 GET/POST/PUT/DELETE/PATCH 路由方法。
 // 注：拆分前备份文件 app.go.bak.orig 已删除，故不再与备份比对（路由一致性在
 // qa 阶段已通过 数量/集合/顺序 三维对比验证，且拆分的 9 个函数逐字节保留）。
@@ -53,8 +54,8 @@ func TestRouteRegistrationCount(t *testing.T) {
 
 	t.Logf("当前 routes.go 路由注册调用数: %d", total)
 
-	if total != 472 {
-		t.Errorf("routes.go 路由注册数 = %d, 期望 472（467 + 教师授课关系申报/审核 R3 新增 5 处）", total)
+	if total != 478 {
+		t.Errorf("routes.go 路由注册数 = %d, 期望 478（472 + 教师作业 P2 新增 6 处）", total)
 	}
 }
 
