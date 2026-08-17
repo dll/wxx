@@ -77,6 +77,7 @@ func NewTestDB(t *testing.T) *sql.DB {
 		"074_student_profile_fields.sql",
 		"075_must_change_password.sql",
 		"076_user_ai_key.sql",
+		"091_student_profile_snapshot_history.sql",
 	} {
 		p := resolveMigrationPath(t, m)
 		c, err := os.ReadFile(p)

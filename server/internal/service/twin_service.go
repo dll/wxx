@@ -187,13 +187,22 @@ func (s *TwinService) GetDigitalTwin(ctx context.Context, userID int64) (*TwinRe
 	// 落快照（失败不阻断返回，仅影响看板聚合）
 	gapJSON, _ := json.Marshal(gaps)
 	adviceJSON, _ := json.Marshal(advice)
-	_ = s.repo.UpsertSnapshot(&repository.TwinSnapshot{
+	snapshot := &repository.TwinSnapshot{
 		UserID: userID, OwnerScope: ownerScope, OwnerID: ownerID,
 		College: college, Major: major, ClassName: className,
 		AcademicScore: dims[0].Score, AbilityScore: dims[1].Score,
 		IdeologicalScore: dims[2].Score, EmotionalScore: dims[3].Score, SocialScore: dims[4].Score,
 		AIInterpretation: interpretation, GapAnalysis: string(gapJSON), StageAdvice: string(adviceJSON),
-	})
+		ComputedAt: result.ComputedAt,
+	}
+	// 主快照：每学生最近一行（UpsertSnapshot 按 user_id 覆盖，语义不变）
+	_ = s.repo.UpsertSnapshot(snapshot)
+	// 历史留痕（P1-2）：同一份五维+归属追加到 snapshot_history（按天去抖，一天一条）。
+	// 失败仅告警不阻断主流程；与主快照写入解耦，不影响 GetDigitalTwin 返回。
+	if err := s.repo.InsertSnapshotHistory(snapshot); err != nil {
+		// 不引入日志框架依赖，静默降级与主快照一致（历史描腾不影响本次画像返回）
+		_ = err
+	}
 
 	return result, nil
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	dbutil "github.com/dll/wxx/server/internal/db"
 )
@@ -221,6 +222,146 @@ func (r *TwinRepo) UpsertSnapshot(s *TwinSnapshot) error {
 		return fmt.Errorf("写入数字孪生快照失败: %w", err)
 	}
 	return nil
+}
+
+// ─────────────────────────────────────────────────────────────
+// 快照历史留痕（P1-2 A 路径，2026-08-17）
+//
+// student_profile_snapshot 按 user_id UNIQUE、每次覆盖，无历史版本。
+// snapshot_history（迁移 091）为独立的**纯追加历史表**：按 (user_id, computed_at)
+// 每天最多一条，存五维分数（不含 AI 长文本），供纵向趋势/归因（P1-2 growth_trend、
+// P1-1 Trends）共用底座。主快照表行为一字不改。
+// -------------------------------------------------------------------------
+
+// InsertSnapshotHistory 把一次快照追加为一天一条的历史采样（幂等去抖：
+// 同 (user_id, computed_at) 已存在则忽略，保持首条）。
+//
+// computed_at 业务侧通常为 RFC3339 实时时间；此处归一化为「当天日期 YYYY-MM-DD 00:00:00」
+// 以契合 UNIQUE(user_id, computed_at) 的按天去抖语义（同一学生当日多次重算只留一条）。
+// 失败返回 error，由调用方决定是否告警（不阻断主流程）。
+func (r *TwinRepo) InsertSnapshotHistory(s *TwinSnapshot) error {
+	day := dayKey(s.ComputedAt)
+	stmt := dbutil.InsertIgnore(dbutil.DriverOf(r.db)) + ` snapshot_history (
+		user_id, owner_scope, owner_id, college, major, class_name,
+		academic_score, ability_score, ideological_score, emotional_score, social_score,
+		computed_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.Exec(stmt,
+		s.UserID, s.OwnerScope, s.OwnerID, s.College, s.Major, s.ClassName,
+		s.AcademicScore, s.AbilityScore, s.IdeologicalScore, s.EmotionalScore, s.SocialScore,
+		day)
+	if err != nil {
+		return fmt.Errorf("写入快照历史失败: %w", err)
+	}
+	return nil
+}
+
+// dayKey 把 RFC3339 或任意含日期前缀的时间串归一化为「YYYY-MM-DD 00:00:00」，
+// 用于按天去抖。非日期串原样返回（不额外报错，由 UNIQUE 约束兜底）。
+func dayKey(s string) string {
+	if len(s) >= 10 {
+		// 截取前 10 位日期（YYYY-MM-DD），附加 00:00:00 保持 datetime 可比较语义
+		if s[4] == '-' && s[7] == '-' {
+			return s[:10] + " 00:00:00"
+		}
+	}
+	return s
+}
+
+// GrowthTrend 某 owner 范围内学生的成长趋势（纵向差分，仅报趋势/相关性，不作因果）。
+//
+// 语义：对窗口内具备「两端数据」（至少两个不同采样日）的每个学生，
+// 取最早日期 vs 最近日期的五维差值 delta = latest - earliest，然后跨样本求平均。
+// 只对同时有「最早」与「最新」两端快照的学生计入（跳过只有单端的）。
+// 各维 delta >0 表示该维度均值上升，<0 表示下降——仅表达「变化/趋势」。
+type GrowthTrend struct {
+	HasData     bool    // 是否有 ≥1 名具备纵向两端数据的学生
+	SampleCount int     // 参与差分的学生数（有端到端历史）
+	WindowWeeks int     // 窗口周数
+	Academic    float64 // 学业平均变化（latest-earliest 均值）
+	Ability     float64 // 能力平均变化
+	Ideological float64 // 思想平均变化
+	Emotional   float64 // 情感平均变化
+	Social      float64 // 社交平均变化
+}
+
+// GetGrowthTrend 按 owner 范围（owner_scope='college' + owner_id）聚合近 weeks 周的
+// 学生成长趋势。ownerID 为空表示全校（school_admin）；非空表示本院（越权红线：
+// 历史查询必须带 owner_id 收窄，绝不跨院读全表）。
+//
+// 无历史 / 无两端样本时返回 HasData=false 且各维 delta=0，调用方据此回落 not_available
+// （诚实边界：绝不凭空给趋势数值）。
+func (r *TwinRepo) GetGrowthTrend(ownerID string, weeks int) (*GrowthTrend, error) {
+	if weeks < 1 {
+		weeks = 1
+	}
+	cutoff := time.Now().AddDate(0, 0, -weeks*7).Format("2006-01-02")
+
+	cond := ` AND owner_scope = 'college'`
+	args := []interface{}{}
+	if ownerID != "" {
+		cond += ` AND owner_id = ?`
+		args = append(args, ownerID)
+	}
+	cond += ` AND computed_at >= ?`
+	args = append(args, cutoff)
+
+	rows, err := r.db.Query(`SELECT user_id,
+		academic_score, ability_score, ideological_score, emotional_score, social_score, computed_at
+		FROM snapshot_history WHERE 1=1`+cond+
+		` ORDER BY user_id ASC, computed_at ASC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("查询快照历史失败: %w", err)
+	}
+	defer rows.Close()
+
+	type histRec struct {
+		ac, ab, id, em, so float64
+		computedAt         string
+	}
+	byUser := map[int64][]histRec{}
+	for rows.Next() {
+		var uid int64
+		rec := histRec{}
+		if err := rows.Scan(&uid, &rec.ac, &rec.ab, &rec.id, &rec.em, &rec.so, &rec.computedAt); err != nil {
+			return nil, err
+		}
+		byUser[uid] = append(byUser[uid], rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	gt := &GrowthTrend{WindowWeeks: weeks}
+	// 对每个有 ≥2 个不同采样日的学生，用最早 vs 最新差分
+	var academic, ability, ideological, emotional, social float64
+	for _, recs := range byUser {
+		if len(recs) < 2 {
+			continue // 只有单端（一天一条），无两端对比，跳过
+		}
+		first, last := recs[0], recs[len(recs)-1]
+		// 最早/最新日期若相同（极端同天多行，理论上被 UNIQUE 排除），跳过避免除零
+		if first.computedAt == last.computedAt {
+			continue
+		}
+		academic += last.ac - first.ac
+		ability += last.ab - first.ab
+		ideological += last.id - first.id
+		emotional += last.em - first.em
+		social += last.so - first.so
+		gt.SampleCount++
+	}
+
+	if gt.SampleCount > 0 {
+		gt.HasData = true
+		n := float64(gt.SampleCount)
+		gt.Academic = academic / n
+		gt.Ability = ability / n
+		gt.Ideological = ideological / n
+		gt.Emotional = emotional / n
+		gt.Social = social / n
+	}
+	return gt, nil
 }
 
 // GetClassBasis 计算班级平均 GPA 与规模，供课程学情看板的匿名百分位
