@@ -41,6 +41,11 @@ type collegeMetrics struct {
 }
 
 // aggregateCollegeMetrics 按学院归属聚合真实指标：学生数、风险数、健康度
+//
+// 健康度口径（与既有行为一致）：先每人算五维均分再平均。因每人快照五维齐全，
+// 该值 = (学业均值+能力均值+思想均值+情感均值+社交均值)/5，可由 SQL 聚合 AVG 直线得到；
+// 改用 AggregateSnapshotsByScope 后不再受 ListSnapshotsByScope(...,500) 的 500 上限限制，
+// 修复合院学生 >500 时静默漏样本导致均值失真。
 func (s *CollegeService) aggregateCollegeMetrics(ownerID string) collegeMetrics {
 	m := collegeMetrics{}
 	if s.userRepo != nil {
@@ -56,17 +61,106 @@ func (s *CollegeService) aggregateCollegeMetrics(ownerID string) collegeMetrics 
 		}
 	}
 	if s.twinRepo != nil {
-		if snaps, err := s.twinRepo.ListSnapshotsByScope("college", ownerID, "", "", 500); err == nil && len(snaps) > 0 {
-			var sum float64
-			for _, sp := range snaps {
-				sum += (sp.AcademicScore + sp.AbilityScore + sp.IdeologicalScore + sp.EmotionalScore + sp.SocialScore) / 5.0
-			}
-			m.HealthScore = sum / float64(len(snaps))
+		if agg, err := s.twinRepo.AggregateSnapshotsByScope("college", ownerID, "", "", ""); err == nil && agg != nil && agg.Overall.Count > 0 {
+			o := agg.Overall
+			m.HealthScore = (o.Academic + o.Ability + o.Ideological + o.Emotional + o.Social) / 5.0
 			m.HasData = true
 		}
 	}
 	return m
 }
+
+// FiveDimEntry 单个维度在学院层面的聚合结果。
+// Score:=nil 表示该维 0 样本（data_source=not_available），绝不硬编码均值。
+type FiveDimEntry struct {
+	Key         string   `json:"key"`          // academic|ability|ideological|emotional|social
+	Name        string   `json:"name"`         // 学业|能力|思想|情感|社交
+	Score       *float64 `json:"score"`        // 院级均值；0 样本 → null
+	Level       string   `json:"level"`        // 优秀/良好/待提升/数据积累中（沿用 scoreLevel 口径）
+	SampleCount int      `json:"sample_count"` // 该维参与聚合的快照数
+	DataSource  string   `json:"data_source"`  // real | not_available
+}
+
+// CollegeFiveDim 学院五维全院聚合结果。
+type CollegeFiveDim struct {
+	SampleCount int            `json:"sample_count"`        // 全院参与聚合的快照数
+	Dimensions  []FiveDimEntry `json:"dimensions"`         // 5 维
+	TrendNote   string         `json:"trend_note,omitempty"` // 趋势说明（无历史快照→数据积累中）
+}
+
+// fiveDimDefs 五维元数据（顺序固定，供前端雷达主轴排序）
+var fiveDimDefs = []struct {
+	Key  string
+	Name string
+}{
+	{"academic", "学业"},
+	{"ability", "能力"},
+	{"ideological", "思想"},
+	{"emotional", "情感"},
+	{"social", "社交"},
+}
+
+// aggregateCollegeFiveDim 按学院归属聚合五维均值 + 各维样本数。
+// SQL AVG 聚合天然无 limit 上限；返回各维 score 与 sample_count。
+// 整体无快照时返回 (nil, nil)（调用方按 0 样本渲染「数据积累中」）。
+func (s *CollegeService) aggregateCollegeFiveDim(ownerID, major, className string) *CollegeFiveDim {
+	if s.twinRepo == nil {
+		return nil
+	}
+	agg, err := s.twinRepo.AggregateSnapshotsByScope("college", ownerID, major, className, "")
+	if err != nil || agg == nil || agg.Overall.Count == 0 {
+		return nil
+	}
+	o := agg.Overall
+	dims := make([]FiveDimEntry, 0, len(fiveDimDefs))
+	// 各维均值按真实快照数平均；整体 sample_count 为该分组快照数。
+	dimVals := map[string]float64{
+		"academic": o.Academic, "ability": o.Ability, "ideological": o.Ideological,
+		"emotional": o.Emotional, "social": o.Social,
+	}
+	for _, d := range fiveDimDefs {
+		v := dimVals[d.Key]
+		score := roundTo1(v)
+		entry := FiveDimEntry{
+			Key: d.Key, Name: d.Name, SampleCount: o.Count, DataSource: "real",
+			Score: &score, Level: scoreLevel(score),
+		}
+		dims = append(dims, entry)
+	}
+	return &CollegeFiveDim{
+		SampleCount: o.Count,
+		Dimensions:  dims,
+		TrendNote:   "趋势数据积累中（暂无可对比的历史快照）",
+	}
+}
+
+// buildDepartments 按专业（major）填充学院大屏 departments 下钻条目。
+// 每专业含样本数与五维均值；仅列有快照的 major，不编造不存在的专业。
+func (s *CollegeService) buildDepartments(ownerID, className string) []map[string]interface{} {
+	if s.twinRepo == nil {
+		return []map[string]interface{}{}
+	}
+	agg, err := s.twinRepo.AggregateSnapshotsByScope("college", ownerID, "", className, "major")
+	if err != nil || agg == nil || len(agg.ByGroup) == 0 {
+		return []map[string]interface{}{}
+	}
+	out := make([]map[string]interface{}, 0, len(agg.ByGroup))
+	for major, g := range agg.ByGroup {
+		entry := map[string]interface{}{
+			"name":         major,
+			"sample_count": g.Count,
+			"academic":     roundTo1(g.Academic),
+			"ability":      roundTo1(g.Ability),
+			"ideological":  roundTo1(g.Ideological),
+			"emotional":    roundTo1(g.Emotional),
+			"social":       roundTo1(g.Social),
+			"data_source":  "real",
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
 
 // TwinScreenData 学院数字孪生大屏数据
 type TwinScreenData struct {
@@ -75,11 +169,14 @@ type TwinScreenData struct {
 	Overview    map[string]interface{}   `json:"overview"`
 	Departments []map[string]interface{} `json:"departments"`
 	Trends      map[string][]float64     `json:"trends"`
+	FiveDim     *CollegeFiveDim          `json:"five_dim"` // 五维全院聚合；无快照→nil
 	AIInsight   string                   `json:"ai_insight"`
 	DataSource  string                   `json:"data_source"`
 }
 
-func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ownerID string) *TwinScreenData {
+// GenerateTwinScreen 生成学院数字孪生大屏数据。
+// major/className 为可选下钻过滤：传空则统计全院（行为与旧版一致）。
+func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ownerID, major, className string) *TwinScreenData {
 	if collegeName == "" {
 		collegeName = "计算机学院"
 	}
@@ -92,6 +189,7 @@ func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ow
 	data := &TwinScreenData{
 		College:   collegeName,
 		UpdatedAt: time.Now().Format("2006-01-02 15:04"),
+		Trends:    map[string][]float64{},
 	}
 
 	if m.HasData {
@@ -106,23 +204,38 @@ func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ow
 			"risk_students":  m.RiskStudents,
 			"active_rate":    roundTo2(activeRate),
 		}
-		data.Departments = []map[string]interface{}{}
-		data.Trends = map[string][]float64{}
 		data.DataSource = "real"
 	} else {
 		// 兜底：无任何真实数据时给占位并明确标注
 		data.Overview = map[string]interface{}{
 			"total_students": 0, "health_score": 0.0, "risk_students": 0, "active_rate": 0.0,
 		}
-		data.Departments = []map[string]interface{}{}
-		data.Trends = map[string][]float64{}
 		data.DataSource = "fallback"
 	}
 
-	// LLM 解读（基于真实指标）
+	// 五维全院聚合（仅基于归属本院快照，绝不跨院读取）
+	data.FiveDim = s.aggregateCollegeFiveDim(ownerID, major, className)
+	// 按 major 下钻填充 departments（P1 直接按 major；无快照→如实空）
+	data.Departments = s.buildDepartments(ownerID, className)
+	// 趋势：当前快照表按 user_id 唯一、无历史版本 → 如实空 map（trend_note 已诚实标注）
+
+	// LLM 解读（基于真实指标；无快照/无 LLM 时走现有规则降级）
 	if s.llmClient != nil && m.HasData {
-		prompt := fmt.Sprintf("你是学院管理顾问。%s全院%d名学生，风险关注%d人，健康度%.1f分。请用30字解读当前状态。",
+		prompt := fmt.Sprintf("你是学院管理顾问。%s全院%d名学生，风险关注%d人，健康度%.1f分。",
 			collegeName, m.TotalStudents, m.RiskStudents, m.HealthScore)
+		// 注入五维均值（仅真实数字，绝不编造）：增强解读依据，又不改动既有数字口径
+		if data.FiveDim != nil && len(data.FiveDim.Dimensions) > 0 {
+			var dimParts []string
+			for _, d := range data.FiveDim.Dimensions {
+				if d.Score != nil {
+					dimParts = append(dimParts, fmt.Sprintf("%s%.1f分", d.Name, *d.Score))
+				}
+			}
+			if len(dimParts) > 0 {
+				prompt += "五维均值：" + strings.Join(dimParts, ",") + "。"
+			}
+		}
+		prompt += "请用30字解读当前状态（仅依据上述真实数字，不编造）。"
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 150,

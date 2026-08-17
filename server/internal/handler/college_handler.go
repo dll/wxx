@@ -26,11 +26,14 @@ func NewCollegeHandler(svc *service.CollegeService) *CollegeHandler {
 }
 
 // TwinScreen 学院数字孪生大屏
+// 支持可选 major/class query 参数做下钻；不带则统计全院（行为不变）。
 func (h *CollegeHandler) TwinScreen(c *gin.Context) {
 	college := c.Query("college")
+	major := c.Query("major")
+	class := c.Query("class")
 
 	if h.svc != nil {
-		data := h.svc.GenerateTwinScreen(c.Request.Context(), college, collegeOwnerID(c))
+		data := h.svc.GenerateTwinScreen(c.Request.Context(), college, collegeOwnerID(c), major, class)
 		if data != nil {
 			c.JSON(http.StatusOK, data)
 			return

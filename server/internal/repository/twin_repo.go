@@ -282,30 +282,42 @@ func (r *TwinRepo) ListCourseGrades(userID int64) ([]*CourseGrade, error) {
 	return list, rows.Err()
 }
 
-// ListSnapshotsByScope 按归属聚合快照（辅导员看板/学院大屏复用）
-func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className string, limit int) ([]*TwinSnapshot, error) {
-	query := `
-		SELECT user_id, owner_scope, owner_id, college, major, class_name,
-		       academic_score, ability_score, ideological_score, emotional_score, social_score,
-		       ai_interpretation, gap_analysis, stage_advice, computed_at
-		FROM student_profile_snapshot WHERE 1=1`
+// snapshotScopeConds 组装快照范围过滤 SQL 条件（ListSnapshotsByScope 与聚合共用，保证口径一致）。
+// major 为可选专业过滤维度（学院大屏下钻用）。
+func snapshotScopeConds(ownerScope, ownerID, college, major, className string) (string, []interface{}) {
+	cond := ""
 	var args []interface{}
 	if ownerScope != "" {
-		query += " AND owner_scope = ?"
+		cond += " AND owner_scope = ?"
 		args = append(args, ownerScope)
 	}
 	if ownerID != "" {
-		query += " AND owner_id = ?"
+		cond += " AND owner_id = ?"
 		args = append(args, ownerID)
 	}
 	if college != "" {
-		query += " AND college = ?"
+		cond += " AND college = ?"
 		args = append(args, college)
 	}
+	if major != "" {
+		cond += " AND major = ?"
+		args = append(args, major)
+	}
 	if className != "" {
-		query += " AND class_name = ?"
+		cond += " AND class_name = ?"
 		args = append(args, className)
 	}
+	return cond, args
+}
+
+// ListSnapshotsByScope 按归属聚合快照（辅导员看板/学院大屏复用）
+func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className string, limit int) ([]*TwinSnapshot, error) {
+	cond, args := snapshotScopeConds(ownerScope, ownerID, college, "", className)
+	query := `
+		SELECT user_id, owner_scope, owner_id, college, major, class_name,
+	       academic_score, ability_score, ideological_score, emotional_score, social_score,
+	       ai_interpretation, gap_analysis, stage_advice, computed_at
+		FROM student_profile_snapshot WHERE 1=1` + cond
 	query += " ORDER BY computed_at DESC"
 	if limit > 0 {
 		query += " LIMIT ?"
@@ -329,6 +341,101 @@ func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className 
 		list = append(list, s)
 	}
 	return list, rows.Err()
+}
+
+// ScopeDimAgg 单一分组（某个 major/class 或全院整体）下的五维聚合值。
+// Count 为该分组参与聚合的快照数（≥1），作为诚实样本标注；
+// 各维 AVG 仅对全部有快照学生求均值，与健康度（先每人五维均分再平均）口径无关。
+type ScopeDimAgg struct {
+	Academic    float64 // 学业均值
+	Ability     float64 // 能力均值
+	Ideological float64 // 思想均值
+	Emotional   float64 // 情感均值
+	Social      float64 // 社交均值
+	Count       int     // 参与聚合的快照数
+}
+
+// AggregateSnapshotsByScope 对指定归属范围内全部快照做 SQL AVG/COUNT 聚合（无 LIMIT 上限）。
+//
+// 相比 ListSnapshotsByScope(..., 500) 在内存求和，本方法用 SQL 聚合天然覆盖全量样本，
+// 修复合院学生 >500 时静默漏样本导致均值失真的缺陷。
+//
+// scopeCond: 过滤条件（ownerScope/ownerID/major/className 任一为空则跳过该维度，
+//             与 ListSnapshotsByScope 的口径一致）。
+// groupBy:  ""    → 只返回 Overall（整体）；
+//           major → 额外返回 ByGroup（按 major 分组）；class → 按 class_name 分组。
+//
+// returns: 无快照时 Overall.Count=0 且五维均值=0，调用方按维度 sample_count==0 判定 not_available。
+func (r *TwinRepo) AggregateSnapshotsByScope(ownerScope, ownerID, major, className, groupBy string) (*SnapshotScopeAgg, error) {
+	cond, args := snapshotScopeConds(ownerScope, ownerID, "", major, className)
+	result := &SnapshotScopeAgg{
+		Overall: ScopeDimAgg{},
+	}
+
+	// 整体聚合（COALESCE 保证空集 AVG=NULL 时不扫描报错，均值回落 0）
+	q := `SELECT
+			COUNT(*),
+			COALESCE(AVG(academic_score),0), COALESCE(AVG(ability_score),0), COALESCE(AVG(ideological_score),0),
+			COALESCE(AVG(emotional_score),0), COALESCE(AVG(social_score),0)
+		FROM student_profile_snapshot WHERE 1=1` + cond
+	if err := r.db.QueryRow(q, args...).Scan(
+		&result.Overall.Count,
+		&result.Overall.Academic, &result.Overall.Ability, &result.Overall.Ideological,
+		&result.Overall.Emotional, &result.Overall.Social); err != nil {
+		return nil, fmt.Errorf("聚合全院快照失败: %w", err)
+	}
+
+	// 分组聚合（按 major 或 class）
+	if groupBy != "" && result.Overall.Count > 0 {
+		groupCol := ""
+		switch groupBy {
+		case "major":
+			groupCol = "major"
+		case "class":
+			groupCol = "class_name"
+		}
+		if groupCol != "" {
+			rows, err := r.db.Query(`SELECT `+groupCol+`,
+				COUNT(*),
+				COALESCE(AVG(academic_score),0), COALESCE(AVG(ability_score),0), COALESCE(AVG(ideological_score),0),
+				COALESCE(AVG(emotional_score),0), COALESCE(AVG(social_score),0)
+			FROM student_profile_snapshot WHERE 1=1`+cond+
+				` GROUP BY `+groupCol+` ORDER BY COUNT(*) DESC`, args...)
+			if err != nil {
+				return nil, fmt.Errorf("聚合全院快照(按 %s)失败: %w", groupCol, err)
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var key string
+				agg := ScopeDimAgg{}
+				if err := rows.Scan(&key, &agg.Count,
+					&agg.Academic, &agg.Ability, &agg.Ideological,
+					&agg.Emotional, &agg.Social); err != nil {
+					return nil, err
+				}
+				if key == "" {
+					continue
+				}
+				if result.ByGroup == nil {
+					result.ByGroup = map[string]ScopeDimAgg{}
+				}
+				result.ByGroup[key] = agg
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// SnapshotScopeAgg 快照按 scope 聚合成品
+//
+// ByGroup 在 groupBy=major / class 时按对应维度填充；否则为 nil。
+type SnapshotScopeAgg struct {
+	Overall ScopeDimAgg
+	ByGroup map[string]ScopeDimAgg
 }
 
 // ─────────────────────────────────────────────────────────────
