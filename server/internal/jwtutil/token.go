@@ -2,6 +2,7 @@ package jwtutil
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
@@ -20,6 +21,7 @@ type CustomClaims struct {
 	Consented    bool   `json:"consented"`
 	TokenVersion int    `json:"tv"`
 	Status       string `json:"status"` // 账号状态：active/pending/rejected/disabled，用于中间件即时校验
+	Grade        int    `json:"grade"`  // 学生年级（1~4，按入学年份推导；非学生/未知为 0）
 	jwt.RegisteredClaims
 }
 
@@ -40,6 +42,7 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		Consented:    user.Consented == 1,
 		TokenVersion: user.TokenVersion,
 		Status:       user.Status, // 写入状态，中间件据此拦截 pending/rejected
+		Grade:        ResolveGrade(user.EnrollmentYear),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(cfg.JWTExpireHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -49,4 +52,21 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(cfg.JWTSecret))
+}
+
+// ResolveGrade 由入学年份推导当前年级（1~4，越界按 4 处理；解析失败/未提供返回 0）。
+// 例：2026 入学，2026 学年为大一(1)，2029 为大四(4)。
+func ResolveGrade(enrollmentYear string) int {
+	y, err := strconv.Atoi(enrollmentYear)
+	if err != nil || y <= 0 {
+		return 0
+	}
+	g := time.Now().Year() - y + 1
+	if g < 1 {
+		return 1 // 未来入学年份保守视为大一
+	}
+	if g > 4 {
+		return 4
+	}
+	return g
 }

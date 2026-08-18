@@ -23,6 +23,7 @@ import '../../widgets/consent_dialog.dart';
 import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
+import '../../widgets/student_interest_pick_dialog.dart';
 import '../teacher/daily_overview_page.dart';
 
 // ── 学生专区卡片配置 ──
@@ -31,19 +32,34 @@ class _FeatureCard {
   final String label;
   final Color color;
   final String route;
-  const _FeatureCard(this.icon, this.label, this.color, this.route);
+
+  /// 年级优先级（1~4 年级分别给 0~5 的权重，越小越靠前；无值视为 6）
+  final List<int> gradePriority;
+
+  /// 兴趣标签：与「关注内容」匹配，命中则整体提前
+  final String interestKey;
+
+  const _FeatureCard(this.icon, this.label, this.color, this.route,
+      {this.gradePriority = const [], this.interestKey = ''});
 }
 
+// 学生专区卡片（含年级优先级 + 兴趣标签，供首页按年级/关注内容定制排序）
 const _studentFeatures = [
   _FeatureCard(Icons.school_outlined, '新生指南', Color(0xFF00695C),
-      '/student/freshmen-guide'),
-  _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation'),
+      '/student/freshmen-guide',
+      gradePriority: [1, 9, 9, 9], interestKey: '校园生活'),
+  _FeatureCard(Icons.topic_outlined, '毕设选题', Color(0xFF1565C0), '/graduation',
+      gradePriority: [9, 9, 2, 1], interestKey: '竞赛科研'),
   _FeatureCard(
-      Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition'),
-  _FeatureCard(Icons.calendar_today, '大学规划', Color(0xFF2E7D32), '/plan'),
+      Icons.emoji_events_outlined, '学科竞赛', Color(0xFFE65100), '/competition',
+      gradePriority: [9, 1, 1, 3], interestKey: '竞赛科研'),
+  _FeatureCard(Icons.calendar_today, '大学规划', Color(0xFF2E7D32), '/plan',
+      gradePriority: [4, 4, 3, 2], interestKey: '职业就业'),
   _FeatureCard(
-      Icons.flag_outlined, '入党教育', Color(0xFFC62828), '/party-education'),
-  _FeatureCard(Icons.groups_outlined, '社团生活', Color(0xFF7B1FA2), '/club'),
+      Icons.flag_outlined, '入党教育', Color(0xFFC62828), '/party-education',
+      gradePriority: [3, 2, 2, 9], interestKey: '思想政治'),
+  _FeatureCard(Icons.groups_outlined, '社团生活', Color(0xFF7B1FA2), '/club',
+      gradePriority: [2, 3, 9, 9], interestKey: '校园生活'),
 ];
 
 const _educationFeatures = [
@@ -91,15 +107,46 @@ class _HomePageState extends State<HomePage> {
       _checkConsent();
       _checkAppUpdate();
       _maybeShowOnboarding();
+      _maybeShowInterestPick();
     });
   }
 
-  /// 首次登录的学生，弹出新生应用内引导（仅一次，可跳过）
+  /// 未采集「关注内容」的学生，弹出多选兴趣页（仅首次，可跳过）——
+  /// 用于按关注内容定制首页学生专区排序。
+  void _maybeShowInterestPick() {
+    if (!Storage.isLoggedIn) return;
+    final role = Storage.role;
+    final isStudent = role == 'student' || role == 'student_union';
+    if (!isStudent) return;
+    if (Storage.studentInterestsCollected) return;
+    // 首次新生引导未完成时，先完成引导再采集兴趣，避免连续弹窗
+    if (!Storage.freshmanGuideSeen) return;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _showInterestPickDialog();
+    });
+  }
+
+  /// 关注内容多选对话框（学业/竞赛/就业/思政/心理/校园生活）
+  Future<void> _showInterestPickDialog() async {
+    final result = await pickupStudentInterests(context);
+    if (result != null) {
+      await Storage.setStudentInterests(result);
+      if (mounted) setState(() {}); // 刷新学生专区排序
+    }
+  }
+
+  /// 首次登录的学生，弹出大一新生应用内引导（仅一次，可跳过）
+  /// 仅对大一新生自动弹出应用内引导（硬门控：年级=1 且未看过）。
+  /// 老生/其他年级不自动弹窗、不写入 freshmanGuideSeen 数据；
+  /// 想了解时仍可从学生专区「新生指南」等入口主动进入引导页。
   void _maybeShowOnboarding() {
     if (!Storage.isLoggedIn) return;
     final role = Storage.role;
     final isStudent = role == 'student' || role == 'student_union';
     if (!isStudent) return;
+    // 年级硬门控：仅大一（grade == 1）自动弹窗。
+    if (Storage.grade != 1) return;
     if (Storage.freshmanGuideSeen) return;
     // 让首页先渲染完，再轻量弹出，避免打扰正在进行的操作
     Future.delayed(const Duration(milliseconds: 600), () {
@@ -1150,17 +1197,18 @@ class _HomePageState extends State<HomePage> {
 
   /// 学生专区 — 毕设选题/学科竞赛/大学规划/入党教育/社团生活
   Widget _buildStudentFeatures(ThemeData theme) {
+    final ordered = _orderedStudentFeatures();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(theme,
             icon: Icons.school_outlined,
             title: '学生专区',
-            subtitle: '成长 · 竞赛 · 规划 · 组织'),
+            subtitle: _studentSubtitle()),
         const SizedBox(height: 14),
         Row(
           children: [
-            for (final f in _studentFeatures.take(3))
+            for (final f in ordered.take(3))
               _buildKnowledgeCard(
                 theme,
                 icon: f.icon,
@@ -1173,7 +1221,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 10),
         Row(
           children: [
-            for (final f in _studentFeatures.skip(3))
+            for (final f in ordered.skip(3))
               _buildKnowledgeCard(
                 theme,
                 icon: f.icon,
@@ -1187,6 +1235,51 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
+  }
+
+  /// 学生专区按「年级 + 关注内容」定制排序：
+  /// 1) 主键：当前年级的优先级（越小越靠前）
+  /// 2) 次键：命中「关注内容」的卡片整体提前（同年级档次内优先）
+  /// 3) 兜底：保持原有声明顺序
+  List<_FeatureCard> _orderedStudentFeatures() {
+    final g = Storage.grade; // 0=未知年级，仍按兴趣/声明顺序
+    final interests = Storage.studentInterests.toSet();
+    final list = List.of(_studentFeatures);
+    list.sort((a, b) {
+      final ap = _cardGradePriority(a, g);
+      final bp = _cardGradePriority(b, g);
+      if (ap != bp) return ap.compareTo(bp);
+      // 年级档次相同，命中关注内容的优先
+      final ai = interests.contains(a.interestKey) ? 0 : 1;
+      final bi = interests.contains(b.interestKey) ? 0 : 1;
+      if (ai != bi) return ai.compareTo(bi);
+      return _studentFeatures.indexOf(a).compareTo(_studentFeatures.indexOf(b));
+    });
+    return list;
+  }
+
+  int _cardGradePriority(_FeatureCard f, int grade) {
+    if (grade >= 1 && grade <= 4 && f.gradePriority.length >= grade) {
+      final v = f.gradePriority[grade - 1];
+      if (v >= 0) return v;
+    }
+    return 9; // 未知年级或未配置：排到较后，但仍按兴趣/声明排序
+  }
+
+  /// 学生专区副标题：展示年级阶段的定制说明
+  String _studentSubtitle() {
+    final g = Storage.grade;
+    final phase = switch (g) {
+      1 => '大一 · 报到 · 适应',
+      2 => '大二 · 打基础 · 拓能力',
+      3 => '大三 · 定方向 · 深专业',
+      4 => '大四 · 毕业 · 就业',
+      _ => '成长 · 竞赛 · 规划 · 组织',
+    };
+    if (Storage.studentInterestsCollected && Storage.studentInterests.isNotEmpty) {
+      return '$phase · 已按关注定制';
+    }
+    return phase;
   }
 
   /// 教育三大模块 — 就业/学业/学习计划/心理

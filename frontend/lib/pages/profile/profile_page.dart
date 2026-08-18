@@ -13,6 +13,7 @@ import '../../utils/role_utils.dart';
 import '../../utils/storage.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/personal_detail_dialog.dart';
+import '../../widgets/student_interest_pick_dialog.dart';
 
 class _ProfileFeature {
   final String key;
@@ -187,6 +188,13 @@ class _ProfilePageState extends State<ProfilePage> {
         _buildGradeThemeToggle(context),
 
         const SizedBox(height: 16),
+
+        // 我的关注（学生：定制首页学生专区排序，可随时修改）
+        if (profile?.role == 'student' ||
+            profile?.role == 'student_union') ...[
+          _studentInterestsCard(theme),
+          const SizedBox(height: 16),
+        ],
 
         // 数字人形象显示开关（可系统设置）
         _buildAvatarToggle(context),
@@ -1166,6 +1174,34 @@ class _ProfilePageState extends State<ProfilePage> {
         value: enabled,
         onChanged: (v) async {
           themeNotifier.setGradeThemeEnabled(v);
+        },
+      ),
+    );
+  }
+
+  /// 我的关注入口卡片
+  Widget _studentInterestsCard(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.interests_outlined, color: Color(0xFF1565C0)),
+        title: const Text('我的关注'),
+        subtitle: Text(
+          Storage.studentInterests.isEmpty
+              ? '设置你关心的内容，首页按关注优先展示'
+              : '已选择：${Storage.studentInterests.join('、')}',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          final result = await pickupStudentInterests(context);
+          if (result != null) {
+            await Storage.setStudentInterests(result);
+            if (context.mounted) setState(() {});
+          }
         },
       ),
     );

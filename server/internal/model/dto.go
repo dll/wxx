@@ -70,6 +70,7 @@ type UserContext struct {
 	Consented    bool   // 是否已同意隐私政策与用户协议
 	TokenVersion int    // JWT 令牌版本，用于令牌吊销比对
 	Status       string // 账号状态（active/pending/rejected/disabled），中间件注入，供服务层复核
+	Grade        int    // 学生年级（1~4，按入学年份推导；非学生/未知为 0）
 }
 
 // ── 知识导出 DTO ──

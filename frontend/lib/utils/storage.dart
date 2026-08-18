@@ -18,6 +18,7 @@ class Storage {
   static const String _keyShowAvatar = 'show_avatar';
   static const String _keyGradeThemeEnabled = 'grade_theme_enabled';
   static const String _keyEnrollmentYear = 'enrollment_year';
+  static const String _keyStudentInterests = 'student_interests'; // 学生关注内容（逗号分隔的多选兴趣）
 
   // ── 反馈草稿 ──
   static const String _keyFeedbackDraft = 'feedback_draft';
@@ -134,6 +135,34 @@ class Storage {
   static int? get enrollmentYear => _prefs.getInt(_keyEnrollmentYear);
   static Future<void> setEnrollmentYear(int v) =>
       _prefs.setInt(_keyEnrollmentYear, v);
+
+  // ── 学生关注内容（兴趣，逗号分隔）──
+  static List<String> get studentInterests {
+    final raw = _prefs.getString(_keyStudentInterests) ?? '';
+    if (raw.isEmpty) return const [];
+    return raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  static bool get studentInterestsCollected =>
+      _prefs.getString(_keyStudentInterests) != null;
+
+  static Future<void> setStudentInterests(List<String> interests) =>
+      _prefs.setString(_keyStudentInterests, interests.join(','));
+
+  static Future<void> clearStudentInterests() =>
+      _prefs.remove(_keyStudentInterests);
+
+  /// 当前学生年级（1~4）：由入学年份推导；未知返回 0。
+  static int get grade {
+    final y = enrollmentYear;
+    if (y == null || y <= 0) return 0;
+    final g = DateTime.now().year - y + 1;
+    return g.clamp(1, 4);
+  }
 
   // ── 反馈草稿（提交失败/关闭时保存，下次打开恢复）──
   static String get feedbackDraft => _prefs.getString(_keyFeedbackDraft) ?? '';

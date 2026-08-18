@@ -132,6 +132,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			DisplayName:  claims.DisplayName,
 			TokenVersion: claims.TokenVersion,
 			Status:       claims.Status,
+			Grade:        claims.Grade,
 		}
 		c.Set(contextKeyUser, userCtx)
 
