@@ -353,80 +353,53 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 智能体选择器 — 带标题的卡片式横向选择条，显著可见
+  /// 智能体选择器 — 紧凑单行横向 chips，贴合输入区上方的消息流，避免高大堆叠
   Widget _buildAgentSelector(ChatProvider chat, ThemeData theme) {
     if (chat.agents.isEmpty) return const SizedBox.shrink();
 
     final agents = chat.agents;
     return Container(
       color: theme.colorScheme.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: Row(
-              children: [
-                Icon(Icons.smart_toy_outlined,
-                    size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
-                Text(
-                  '智能体',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    chat.selectedAgent == null
-                        ? '点击选择，或直接提问自动匹配'
-                        : '当前：${chat.selectedAgent!.name}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: chat.selectedAgent == null
-                          ? theme.colorScheme.outline
-                          : _agentColor(chat.selectedAgent!.agentType),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 56,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-              itemCount: agents.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  final selected = chat.selectedAgentId == null;
+          Icon(Icons.smart_toy_outlined,
+              size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          // 智能体 chips 单行横向滚动，高度紧凑
+          Expanded(
+            child: SizedBox(
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: agents.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final selected = chat.selectedAgentId == null;
+                    return _buildAgentOption(
+                      theme,
+                      icon: Icons.auto_awesome,
+                      label: '默认',
+                      color: theme.colorScheme.primary,
+                      selected: selected,
+                      onTap: () => chat.selectAgent(null),
+                    );
+                  }
+                  final agent = agents[index - 1];
+                  final selected =
+                      chat.selectedAgentId == agent.agentId;
                   return _buildAgentOption(
                     theme,
-                    icon: Icons.auto_awesome,
-                    label: '默认',
-                    color: theme.colorScheme.primary,
+                    icon: _agentIcon(agent.agentType),
+                    label: agent.name,
+                    color: _agentColor(agent.agentType),
                     selected: selected,
-                    onTap: () => chat.selectAgent(null),
+                    onTap: () =>
+                        chat.selectAgent(selected ? null : agent.agentId),
                   );
-                }
-                final agent = agents[index - 1];
-                final selected = chat.selectedAgentId == agent.agentId;
-                return _buildAgentOption(
-                  theme,
-                  icon: _agentIcon(agent.agentType),
-                  label: agent.name,
-                  color: _agentColor(agent.agentType),
-                  selected: selected,
-                  onTap: () =>
-                      chat.selectAgent(selected ? null : agent.agentId),
-                );
-              },
+                },
+              ),
             ),
           ),
         ],
