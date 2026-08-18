@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/voice/voice_service.dart';
 import '../utils/api_error.dart';
 import '../utils/chat_stream.dart';
+import '../utils/storage.dart';
 
 /// 对话状态管理
 class ChatProvider extends ChangeNotifier {
@@ -254,10 +255,20 @@ class ChatProvider extends ChangeNotifier {
       final resp = await _api.get(ApiConfig.agentsActive);
       if (resp.data['code'] == 0) {
         final list = resp.data['data'] as List? ?? [];
+        // admin-decision 智能体仅对管理类角色可见（硬门控）
+        final role = Storage.role ?? '';
+        final isMgmt = const [
+          'counselor',
+          'college_admin',
+          'school_admin',
+          'sys_admin',
+        ].contains(role);
         _agents = list
             .whereType<Map>()
             .map((e) => Agent.fromJson(Map<String, dynamic>.from(e)))
-            .where((a) => a.isActive)
+            .where((a) =>
+                a.isActive &&
+                (a.agentId != 'admin-decision' || isMgmt))
             .toList();
       }
     } catch (_) {
