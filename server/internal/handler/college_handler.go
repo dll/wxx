@@ -77,7 +77,7 @@ func (h *CollegeHandler) DataAnalysis(c *gin.Context) {
 func (h *CollegeHandler) DecisionAdvice(c *gin.Context) {
 	topic := c.Query("topic")
 	if h.svc != nil {
-		data := h.svc.GenerateDecisionAdvice(c.Request.Context(), topic)
+		data := h.svc.GenerateDecisionAdvice(c.Request.Context(), topic, collegeOwnerID(c))
 		if data != nil {
 			c.JSON(http.StatusOK, data)
 			return

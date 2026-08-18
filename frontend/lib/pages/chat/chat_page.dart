@@ -16,6 +16,7 @@ import '../../services/voice/voice_navigator.dart';
 import '../../services/voice/web_speech_recognizer.dart';
 import '../../utils/feedback_report.dart';
 import '../../utils/screenshot_capture.dart';
+import '../../utils/storage.dart';
 import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
 import '../../widgets/feedback_screenshot.dart';
@@ -543,6 +544,9 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
               const SizedBox(height: 24),
+              // 角色专属推荐提问（按当前登录角色差异化）
+              _buildRoleSuggestions(theme),
+              const SizedBox(height: 16),
               // 5 个智能体：各配典型提问示例
               for (final group in _agentExampleGroups) ...[
                 _buildAgentExampleGroup(theme, group),
@@ -613,6 +617,76 @@ class _ChatPageState extends State<ChatPage> {
       ],
     ),
   ];
+
+  /// 按当前登录角色返回专属推荐提问题（差异化空态引导）
+  List<String> _roleQuestions(String role) {
+    switch (role) {
+      case 'counselor':
+        return ['今日需要重点关注哪个学生？', '本月班级学情有什么变化？', '帮我生成一次谈心谈话记录'];      case 'teacher':
+        return ['帮我备一节《数据结构》教案', '这门课的知识点覆盖如何？', '班级作业完成情况如何？'];
+      case 'assistant':
+        return ['检查这学期的排课冲突', '审核毕业资格需要哪些材料？', '怎么安排期末考试更合理？'];
+      case 'college_admin':
+      case 'school_admin':
+      case 'sys_admin':
+        return ['分析一下本学院学情趋势', '这门课的教学质量怎么样？', '给一条本学期的管理决策建议'];
+      case 'student_union':
+        return ['帮我策划一个科技文化节活动', '生成一张活动海报文案', '分析上次活动的报名情况'];
+      default: // student 或未登录
+        return ['入党要经过哪些流程？', '这门课挂科了怎么补考？', '想考研，大二该准备什么？'];
+    }
+  }
+
+  /// 角色专属推荐提问区块：标题 + 可点击 chips（点击即作为问题发送）
+  Widget _buildRoleSuggestions(ThemeData theme) {
+    final role = Storage.role ?? '';
+    final questions = _roleQuestions(role);
+    if (questions.isEmpty) return const SizedBox.shrink();
+
+    final roleLabel = switch (role) {
+      'counselor' => '辅导员 · 为你推荐',
+      'teacher' => '教师 · 为你推荐',
+      'assistant' => '教辅 · 为你推荐',
+      'college_admin' => '学院管理员 · 为你推荐',
+      'school_admin' => '学校管理员 · 为你推荐',
+      'sys_admin' => '系统管理员 · 为你推荐',
+      'student_union' => '学生会 · 为你推荐',
+      _ => '为你推荐',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.auto_awesome, size: 15, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Text(roleLabel,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                )),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final q in questions)
+              ActionChip(
+                label: Text(q, style: const TextStyle(fontSize: 12)),
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  final chat = context.read<ChatProvider>();
+                  chat.ask(q);
+                },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 
   Widget _buildAgentExampleGroup(ThemeData theme, _AgentExampleGroup group) {
     final chat = context.read<ChatProvider>();

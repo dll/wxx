@@ -315,7 +315,7 @@ type DecisionAdviceData struct {
 	DataSource  string                   `json:"data_source"`
 }
 
-func (s *CollegeService) GenerateDecisionAdvice(ctx context.Context, topic string) *DecisionAdviceData {
+func (s *CollegeService) GenerateDecisionAdvice(ctx context.Context, topic, ownerID string) *DecisionAdviceData {
 	if topic == "" {
 		topic = "学院管理决策"
 	}
@@ -326,16 +326,30 @@ func (s *CollegeService) GenerateDecisionAdvice(ctx context.Context, topic strin
 		DataSource:  "fallback",
 	}
 
-	// 决策建议不臆造具体百分比，交由 LLM 基于问题给定性建议；无 LLM 则返回空建议
+	// 决策建议不臆造百分比：优先注入真实聚合指标，由 LLM 据实定性地给建议
 	if s.llmClient != nil {
-		prompt := fmt.Sprintf("你是高校管理顾问。关于「%s」，请给出2条数据驱动的定性决策建议和主要风险，每条不超过30字，不得编造具体数字。", topic)
+		m := s.aggregateCollegeMetrics(ownerID)
+		var prompt string
+		if m.HasData {
+			prompt = fmt.Sprintf(
+				"你是高校管理顾问。关于「%s」，已掌握以下真实数据：学生总数=%d，心理风险学生数=%d，五维健康均分=%.1f。请给出2条数据驱动的定性决策建议和主要风险，每条不超过30字；只基于已给数据，不得再编造其他数字。",
+				topic, m.TotalStudents, m.RiskStudents, m.HealthScore)
+		} else {
+			prompt = fmt.Sprintf(
+				"你是高校管理顾问。关于「%s」，暂无真实聚合数据，请给出2条通用的定性管理决策建议和主要风险，每条不超过30字，并说明缺少数据支撑。",
+				topic)
+		}
 		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
 			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
 			Temperature: 0.3, MaxTokens: 300,
 		})
 		if err == nil && resp != nil && resp.Content != "" {
 			data.AIAdvice = strings.TrimSpace(resp.Content)
-			data.DataSource = "ai"
+			if m.HasData {
+				data.DataSource = "ai+real"
+			} else {
+				data.DataSource = "ai"
+			}
 		}
 	}
 
