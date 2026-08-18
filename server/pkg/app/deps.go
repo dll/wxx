@@ -23,6 +23,7 @@ type deps struct {
 	sessionH          *handler.SessionHandler
 	chatH             *handler.ChatHandler
 	kbH               *handler.KBHandler
+	kgH               *handler.KnowledgeGovernanceHandler
 	voiceH            *handler.VoiceHandler
 	emotionH          *handler.EmotionHandler
 	agentH            *handler.AgentHandler

@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../config/api_config.dart';
 import '../../models/models.dart';
 import '../../providers/knowledge_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/capability_utils.dart';
 import '../../utils/web_export.dart';
 import '../../widgets/error_view.dart';
@@ -73,6 +75,12 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
       appBar: AppBar(
         title: const Text('知识治理'),
         actions: [
+          if (canReview)
+            IconButton(
+              icon: const Icon(Icons.fact_check_outlined),
+              tooltip: '智能体审计',
+              onPressed: () => _showGovernanceAuditDialog(),
+            ),
           if (canWrite)
             IconButton(
               icon: const Icon(Icons.add),
@@ -739,6 +747,17 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── 智能体审计 ──
+
+  /// 知识治理智能体审计：调用 /kb/governance，展示确定性检查 + LLM 准确性审计报告
+  Future<void> _showGovernanceAuditDialog() async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const _GovernanceAuditDialog(),
     );
   }
 
@@ -1916,5 +1935,250 @@ extension on KnowledgeCard {
       'retired': '已下架'
     };
     return map[status] ?? (status.isEmpty ? '未知' : status);
+  }
+}
+
+/// 知识治理智能体审计弹窗
+/// 调用 /kb/governance?with_llm=1，展示确定性检查发现 + LLM 准确性审计发现。
+class _GovernanceAuditDialog extends StatefulWidget {
+  const _GovernanceAuditDialog();
+
+  @override
+  State<_GovernanceAuditDialog> createState() => _GovernanceAuditDialogState();
+}
+
+class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _run();
+  }
+
+  Future<void> _run() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final resp = await ApiService().get(
+        '${ApiConfig.kbGovernance}?with_llm=1',
+      );
+      setState(() {
+        _data = (resp.data as Map?)?['data'] as Map<String, dynamic>?;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '审计失败：$e';
+        _loading = false;
+      });
+    }
+  }
+
+  Color _levelColor(String level) {
+    switch (level) {
+      case 'critical':
+        return const Color(0xFFC62828);
+      case 'warning':
+        return const Color(0xFFE65100);
+      default:
+        return const Color(0xFF2E7D32);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 8, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.fact_check_outlined, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text('知识治理 · 智能体审计',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            if (_loading)
+              const Expanded(
+                child: Center(
+                    child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('智能体正在审计知识库，请稍候…'),
+                  ],
+                )),
+              )
+            else if (_error != null)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(_error!,
+                        style: TextStyle(color: theme.colorScheme.error)),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: _buildReport(theme),
+              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '智能体只给建议与报告，不自动改写知识内容；确需修改请在列表中人工编辑。',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReport(ThemeData theme) {
+    final summary =
+        (_data?['summary'] as Map?) ?? const <String, dynamic>{};
+    final issues =
+        ((_data?['issues'] as List?) ?? const []) as List;
+    final ds = (_data?['data_source'] as String?) ?? 'real';
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      children: [
+        // 统计概览
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              _stat('扫描资源', '${summary['scanned'] ?? 0}'),
+              _stat('确定性发现', '${summary['determined'] ?? 0}'),
+              _stat('LLM 审计', '${summary['llm_checked'] ?? 0} 条'),
+              _stat('LLM 风险', '${summary['llm_findings'] ?? 0}'),
+              _stat('数据源', ds == 'real' ? '真实' : ds),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (issues.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('未发现问题，知识库质量良好。',
+                style: TextStyle(color: Colors.green)),
+          )
+        else
+          ...issues.map((it) => _issueTile(theme, it as Map)),
+      ],
+    );
+  }
+
+  Widget _stat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: const TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w800)),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _issueTile(ThemeData theme, Map it) {
+    final level = (it['level'] as String?) ?? 'info';
+    final category = (it['category'] as String?) ?? '';
+    final title = (it['title'] as String?) ?? '';
+    final message = (it['message'] as String?) ?? '';
+    final rid = (it['resource_id'] as String?) ?? '';
+    final color = _levelColor(level);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            level == 'critical'
+                ? Icons.error_outline
+                : (level == 'warning'
+                    ? Icons.warning_amber_rounded
+                    : Icons.info_outline),
+            size: 18,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_categoryLabel(category)}${title.isNotEmpty ? ' · $title' : ''}${rid.isNotEmpty ? ' (${rid})' : ''}',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: color),
+                ),
+                const SizedBox(height: 3),
+                Text(message, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _categoryLabel(String cat) {
+    const map = {
+      'missing_field': '字段缺失',
+      'duplicate': '疑似重复',
+      'short_content': '正文过短',
+      'no_tags': '缺标签',
+      'expired': '已失效',
+      'accuracy_risk': '准确性风险',
+      'audit': '提示',
+    };
+    return map[cat] ?? cat;
   }
 }

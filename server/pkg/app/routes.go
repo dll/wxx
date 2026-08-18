@@ -258,6 +258,9 @@ func setupRouter(d *deps) *gin.Engine {
 				kb.POST("/batch/delete", auth.RequireCapability(auth.CounselorKBWrite), d.kbH.BatchDelete)
 				kb.POST("/batch/refine", auth.RequireCapability(auth.CounselorKBWrite), d.kbH.BatchRefine)
 
+				// 知识治理智能体（counselor.kb.review）：确定性检查 + LLM 准确性审计报告
+				kb.GET("/governance", auth.RequireCapability(auth.CounselorKBReview), d.kgH.GovernanceRun)
+
 				// 知识审核（counselor.kb.review）
 				kb.POST("/resources/:id/approve", auth.RequireCapability(auth.CounselorKBReview), d.kbH.ApproveResource)
 				kb.POST("/resources/:id/reject", auth.RequireCapability(auth.CounselorKBReview), d.kbH.RejectResource)

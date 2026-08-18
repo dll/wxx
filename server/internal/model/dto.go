@@ -415,6 +415,49 @@ type KBRefineResponse struct {
 	Data    *KBRefineResult `json:"data"`
 }
 
+// ── 知识治理智能体 ──
+
+// KGIssue 单条治理发现（确定性检查或 LLM 审计均可产出）
+type KGIssue struct {
+	ResourceID string `json:"resource_id,omitempty"` // 关联资源 ID（空 = 全局性问题）
+	Title      string `json:"title,omitempty"`       // 资源标题（便于定位）
+	Category   string `json:"category"`              // missing_field / duplicate / short_content / no_tags / expired / accuracy_risk / stale / audit
+	Level      string `json:"level"`                 // info / warning / critical
+	Message    string `json:"message"`
+}
+
+// KGLLMFindings LLM 审计单条资源的返回项
+// 由知识治理智能体按严格 JSON 约束返回
+type KGLLMFindings struct {
+	Risk      string   `json:"risk"`      // high / medium / low / none
+	Reasons   []string `json:"reasons"`   // 判定理由
+	Suggest   string   `json:"suggest"`   // 优化建议
+	Confidence float64 `json:"confidence"` // 0~1 置信度
+}
+
+// KGSummary 治理统计汇总
+type KGSummary struct {
+	Scanned     int `json:"scanned"`      // 扫描资源总数
+	Determined  int `json:"determined"`   // 确定性检查发现条目数
+	LLMChecked  int `json:"llm_checked"`  // 经 LLM 审计的资源数
+	LLMFindings int `json:"llm_findings"` // LLM 发现的高/中风险条数
+}
+
+// KnowledgeGovernanceResult 知识治理审计报告
+type KnowledgeGovernanceResult struct {
+	GeneratedAt string      `json:"generated_at"`
+	Summary     KGSummary  `json:"summary"`
+	Issues      []*KGIssue  `json:"issues"`        // 全部发现（确定性 + LLM）
+	DataSource  string      `json:"data_source"`  // real / degraded
+}
+
+// KnowledgeGovernanceResponse 治理接口响应
+type KnowledgeGovernanceResponse struct {
+	Code    int                         `json:"code"`
+	Message string                      `json:"message"`
+	Data    *KnowledgeGovernanceResult `json:"data"`
+}
+
 // ── 回答导出 DTO ──
 
 // ExportAnswerRequest 回答卡片导出请求

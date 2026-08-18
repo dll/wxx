@@ -116,6 +116,7 @@ class ApiConfig {
   static const String kbBatchRetire = '$apiPrefix/kb/batch/retire';
   static const String kbBatchDelete = '$apiPrefix/kb/batch/delete';
   static const String kbBatchRefine = '$apiPrefix/kb/batch/refine';
+  static const String kbGovernance = '$apiPrefix/kb/governance';
   static String kbResource(String id) => '$apiPrefix/kb/resources/$id';
   static String kbApprove(String id) => '$apiPrefix/kb/resources/$id/approve';
   static String kbReject(String id) => '$apiPrefix/kb/resources/$id/reject';

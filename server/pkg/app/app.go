@@ -273,6 +273,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
 	kbHandler := handler.NewKBHandler(kbSvc)
 
+	kgSvc := service.NewKnowledgeGovernanceService(kbRepo)
+	kgSvc.SetLLMClient(llmClient)
+	kgHandler := handler.NewKnowledgeGovernanceHandler(kgSvc)
+
 	chatHandler := handler.NewChatHandler(chatSvc)
 	chatHandler.SetMetricsService(chatMetricsSvc)
 	if emotionSvc != nil {
@@ -458,6 +462,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		sessionH:          sessionHandler,
 		chatH:             chatHandler,
 		kbH:               kbHandler,
+		kgH:               kgHandler,
 		voiceH:            voiceHandler,
 		emotionH:          emotionHandler,
 		agentH:            agentHandler,
