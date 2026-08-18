@@ -354,14 +354,10 @@ type TeacherEfficiencyData struct {
 func (s *CollegeService) AnalyzeTeacherEfficiency(ctx context.Context, teacherName string) *TeacherEfficiencyData {
 	return &TeacherEfficiencyData{
 		TeacherName: teacherName,
-		Scores:      map[string]float64{"教学": 88.0, "学情": 82.5, "评教": 4.3, "互动": 78.0},
-		Rankings: []map[string]interface{}{
-			{"rank": 1, "name": "张教授", "score": 92.0},
-			{"rank": 2, "name": "李副教授", "score": 88.5},
-			{"rank": 3, "name": "王讲师", "score": 85.0},
-		},
-		Suggestions: []string{"建议增加课堂互动环节", "可参考张教授的教学方法"},
-		DataSource:  "reference",
+		Scores:      map[string]float64{},
+		Rankings:    []map[string]interface{}{},
+		Suggestions: []string{"暂无真实学情/评教聚合数据，教师效能分析暂不可用。"},
+		DataSource:  "real", // 诚实空：未接真实评教与学情聚合时不再编造教师排名
 	}
 }
 
@@ -378,11 +374,11 @@ type CourseQualityData struct {
 func (s *CollegeService) EvaluateCourseQuality(ctx context.Context, courseName string) *CourseQualityData {
 	return &CourseQualityData{
 		CourseName: courseName,
-		Grade:      "B",
-		Metrics:    map[string]float64{"pass_rate": 0.88, "avg_score": 76.5, "feedback": 4.0, "coverage": 0.85},
-		Strengths:  []string{"知识点覆盖较全", "实验环节设计合理"},
-		Warnings:   []string{"不及格率偏高(12%)", "学生反馈难度偏大"},
-		DataSource: "reference",
+		Grade:      "",
+		Metrics:    map[string]float64{},
+		Strengths:  []string{},
+		Warnings:   []string{"暂无真实成绩与评教聚合数据，课程质量评估暂不可用。"},
+		DataSource: "real", // 诚实空：未接真实成绩/评教聚合时不再编造课程评级
 	}
 }
 

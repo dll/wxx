@@ -409,14 +409,10 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 	}
 
 	return &DailyOverview{
-		Date:           today,
-		Greeting:       greeting,
-		CourseName:     "数据结构",
-		ClassName:      "计科221",
-		StudentCount:   42,
-		LastReflection: "上次课程学生对递归的理解较好，但动态规划部分还需加强练习。",
-		KeyKnowledge:   []string{"二叉树遍历算法", "树的递归定义", "遍历的非递归实现"},
-		DataSource:     "reference",
+		Date:        today,
+		Greeting:    greeting,
+		DataSource:  "real", // 诚实：未接入授课关系时不报假课程
+		KeyKnowledge: []string{},
 	}
 }
 
@@ -613,35 +609,14 @@ type HeatmapData struct {
 }
 
 func (s *TeacherService) GenerateHeatmap(ctx context.Context, courseName string) *HeatmapData {
-	if courseName == "" {
-		courseName = "数据结构"
-	}
 	data := &HeatmapData{
-		CourseName: courseName,
-		Points: []map[string]interface{}{
-			{"name": "线性表", "mastery": 0.88},
-			{"name": "栈与队列", "mastery": 0.82},
-			{"name": "二叉树", "mastery": 0.65},
-			{"name": "图", "mastery": 0.45},
-			{"name": "排序", "mastery": 0.72},
-			{"name": "查找", "mastery": 0.58},
-		},
-		WeakTopFive:   []string{"图的最短路径", "AVL树旋转", "B树插入删除", "哈希冲突处理", "堆排序"},
-		TotalStudents: 45, AnomalyCount: 5,
-		// 示例学情热力图：缺少逐知识点掌握度数据表，数据为教学演示样例
-		DataSource: "reference",
-	}
-
-	if s.llmClient != nil {
-		prompt := fmt.Sprintf("课程%s，知识点掌握：图0.45/二叉树0.65/排序0.72。请用40字分析学情要点。", courseName)
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 200,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			data.AIAnalysis = strings.TrimSpace(resp.Content)
-			data.DataSource = "reference+ai"
-		}
+		CourseName:    courseName,
+		Points:        []map[string]interface{}{},
+		WeakTopFive:   []string{},
+		TotalStudents: 0,
+		AnomalyCount:  0,
+		// 诚实空：未接入逐知识点掌握度数据表时不编造演示样例
+		DataSource: "real",
 	}
 
 	return data

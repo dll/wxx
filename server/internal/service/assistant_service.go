@@ -82,32 +82,12 @@ func (s *AssistantService) CheckSchedule(ctx context.Context) *ScheduleCheckResu
 	}
 
 	result := &ScheduleCheckResult{
-		TotalCourses: 48,
-		Conflicts: []*ScheduleConflict{
-			{Type: "教师冲突", Description: "张教授周一上午同时排了计科2301和计科2302的课", Detail: "信息楼301 vs 信息楼201，同一时段", Severity: "high"},
-			{Type: "教室冲突", Description: "信息楼301周三下午被两门课程同时预定", Detail: "数据结构 vs 操作系统，请协调调整", Severity: "high"},
-			{Type: "逻辑冲突", Description: "高等数学(一)安排了高等数学(二)为前置课程", Detail: "应先修(一)再修(二)，但当前安排在同学期", Severity: "medium"},
-		},
-		DataSource: "reference",
+		TotalCourses:   0,
+		Conflicts:      []*ScheduleConflict{},
+		ConflictsFound: 0,
+		Summary:        "暂无排课数据或未接入课表，无法执行冲突检测。",
+		DataSource:     "real", // 诚实空：无真实数据不编造样例
 	}
-	result.ConflictsFound = len(result.Conflicts)
-	result.Summary = fmt.Sprintf("共检测%d门课程，发现%d处冲突（高优先级%d处）。", result.TotalCourses, result.ConflictsFound, 2)
-
-	if s.llmClient != nil {
-		prompt := "你是教务排课专家。请分析以下冲突并给出优化建议（50字以内）：\n"
-		for _, c := range result.Conflicts {
-			prompt += fmt.Sprintf("- [%s] %s: %s\n", c.Severity, c.Type, c.Description)
-		}
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 200,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			result.Summary += "\nAI建议：" + strings.TrimSpace(resp.Content)
-			result.DataSource = "ai"
-		}
-	}
-
 	return result
 }
 
@@ -158,18 +138,15 @@ func (s *AssistantService) AuditGraduation(ctx context.Context, studentID string
 	}
 
 	result := &GraduationAuditResult{
-		StudentName:     "示例学生",
-		TotalCredits:    168,
-		RequiredCredits: 175,
-		PassedItems:     []string{"公共必修课(40学分)", "专业必修课(60学分)", "专业选修课(30学分)", "毕业论文(10学分)", "大学英语四级(425+)"},
-		PendingItems:    []string{"公共选修课差2学分", "创新创业学分差2分", "志愿服务时长差10小时"},
+		StudentName:     "",
+		TotalCredits:    0,
+		RequiredCredits: 0,
+		PassedItems:     []string{},
+		PendingItems:    []string{},
 		CanGraduate:     false,
-		DataSource:      "reference",
+		Summary:         "暂无成绩数据或未接入成绩单，无法执行毕业资格审核。",
+		DataSource:      "real", // 诚实空：无真实成绩不编造示例
 	}
-
-	remaining := result.RequiredCredits - result.TotalCredits
-	result.Summary = fmt.Sprintf("总学分%d/必修%d，尚差%.0f学分。%d项未达标需修补。",
-		int(result.TotalCredits), int(result.RequiredCredits), remaining, len(result.PendingItems))
 
 	return result
 }
@@ -212,15 +189,12 @@ func (s *AssistantService) ArrangeExams(ctx context.Context, semester string) *E
 	}
 
 	return &ExamArrangement{
-		TotalExams:        12,
-		TotalRooms:        8,
-		TotalInvigilators: 24,
-		Schedule: []map[string]interface{}{
-			{"course": "数据结构", "date": "2026-06-15", "time": "08:30-10:30", "room": "信息楼301", "invigilators": []string{"张老师", "李老师"}, "students": 45},
-			{"course": "操作系统", "date": "2026-06-16", "time": "08:30-10:30", "room": "信息楼201", "invigilators": []string{"王老师", "赵老师"}, "students": 42},
-		},
-		Conflicts:  []string{},
-		DataSource: "reference",
+		TotalExams:        0,
+		TotalRooms:        0,
+		TotalInvigilators: 0,
+		Schedule:          []map[string]interface{}{},
+		Conflicts:         []string{},
+		DataSource:        "real", // 诚实空：无真实考场数据不编造样例
 	}
 }
 
