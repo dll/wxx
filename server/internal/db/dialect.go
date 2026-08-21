@@ -74,13 +74,16 @@ var longLongTextColumns = map[string]bool{
 // keyTextColumns 虽然语义上可能是文本，但参与 UNIQUE/键约束、需保留默认值的列，
 // 不能留在 longTextColumns 中（MySQL TEXT 不能作键）。这些列按短文本转 VARCHAR(255)。
 var keyTextColumns = map[string]bool{
-	"code": true,
+	"code":  true,
+	"title": true, // homework 等迁移将 title 放入复合 UNIQUE，MySQL 必须使用可索引类型
 }
 
 var (
 	// 时间列：SQLite `TEXT DEFAULT (datetime('now'))` / `datetime('now','localtime')`
 	// → MySQL `DATETIME DEFAULT CURRENT_TIMESTAMP`
 	timeColRe = regexp.MustCompile(`(?i)\b([a-z_][a-z0-9_]*)\s+TEXT(\s+NOT\s+NULL)?\s+DEFAULT\s+\(datetime\('now'(,\s*'localtime')?\)\)`)
+	// SQLite 迁移也可能直接写 `TEXT [NOT NULL] DEFAULT CURRENT_TIMESTAMP`。
+	currentTimeColRe = regexp.MustCompile(`(?i)\b([a-z_][a-z0-9_]*)\s+TEXT(\s+NOT\s+NULL)?\s+DEFAULT\s+CURRENT_TIMESTAMP`)
 	// datetime('now','localtime') 表达式 → CURRENT_TIMESTAMP
 	nowLocalRe = regexp.MustCompile(`(?i)datetime\('now'\s*,\s*'localtime'\)`)
 	// datetime('now', '+N unit') 表达式 → DATE_ADD(NOW(), INTERVAL N UNIT)
@@ -101,7 +104,8 @@ var (
 	blobDefaultRe = regexp.MustCompile(`(?i)\b([a-z_][a-z0-9_]*)\s+BLOB(\s+NOT\s+NULL)?\s+DEFAULT\s+('[^']*'|"[^"]*"|\w+|\d+)`)
 	// CREATE [UNIQUE] INDEX IF NOT EXISTS → MySQL 8 不支持 IF NOT EXISTS，去掉该子句
 	// （重复索引报错由 execSQL 的 "Duplicate key name" 容错跳过）
-	createIndexRe = regexp.MustCompile(`(?i)^\s*CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s+ON\s+([a-z_][a-z0-9_]*)\s*(.*)`)
+	// 使用多行模式：splitSQL 保留语句前的迁移注释，CREATE INDEX 不一定处于整个字符串开头。
+	createIndexRe = regexp.MustCompile(`(?im)^\s*CREATE\s+(UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s+ON\s+([a-z_][a-z0-9_]*)\s*(.*)`)
 	// INSERT OR IGNORE → INSERT IGNORE
 	insertOrIgnoreRe = regexp.MustCompile(`(?i)INSERT\s+OR\s+IGNORE`)
 	// SQLite PRAGMA 语句（MySQL 无对应物，跳过）
@@ -151,8 +155,9 @@ func ToMySQL(stmt string) string {
 	// 必须最先执行：否则后续 TEXT 默认值/键列处理因列名前有双引号而无法匹配。
 	s := doubleQuoteIdentRe.ReplaceAllString(stmt, "${1}`${2}`")
 
-	// 1. 时间列：TEXT DEFAULT (CURRENT_TIMESTAMP) → DATETIME DEFAULT CURRENT_TIMESTAMP
+	// 1. 时间列：SQLite TEXT 时间默认值 → MySQL DATETIME。
 	s = timeColRe.ReplaceAllString(s, "${1} DATETIME${2} DEFAULT CURRENT_TIMESTAMP")
+	s = currentTimeColRe.ReplaceAllString(s, "${1} DATETIME${2} DEFAULT CURRENT_TIMESTAMP")
 
 	// 2. 主键自增
 	s = pkAutoRe.ReplaceAllString(s, "BIGINT PRIMARY KEY AUTO_INCREMENT")

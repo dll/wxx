@@ -751,10 +751,10 @@ List<_NavItem> _navItemsForRole(String? role) => [
         '/enrollment',
       ),
       const _NavItem(
-          'vOPC', Icons.rocket_launch_outlined, Icons.rocket_launch, '/vopc'),
-      const _NavItem(
           '服务', Icons.grid_view_outlined, Icons.grid_view, '/services'),
       const _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
+      const _NavItem(
+          'vOPC', Icons.rocket_launch_outlined, Icons.rocket_launch, '/vopc'),
     ];
 
 /// 主页面外壳 — 响应式布局 + 磨砂玻璃导航

@@ -28,70 +28,82 @@ class _VopcPageState extends State<VopcPage> {
   Widget build(BuildContext context) {
     final p = context.watch<VopcProvider>();
     final canCreate = CapabilityUtils.has(Capability.vopcProjectCreate);
+    final pending = p.invitations.where((e) => e['status'] == 'pending').length;
     return Scaffold(
-        appBar: AppBar(title: const Text('vOPC 虚拟创业')),
-        floatingActionButton: canCreate
-            ? FloatingActionButton.extended(
-                onPressed: _create,
-                icon: const Icon(Icons.add),
-                label: const Text('创建草稿'))
-            : null,
-        body: RefreshIndicator(
-            onRefresh: _start,
-            child: ListView(padding: const EdgeInsets.all(20), children: [
-              Text('项目孵化工作台', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              const Text('从真实问题到可运行成果，由服务端门禁保障每一步。'),
+      appBar: AppBar(
+        title: const Text('vOPC 虚拟创业'),
+        actions: [
+          IconButton(
+            tooltip: '刷新',
+            onPressed: p.loading ? null : _start,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: _create,
+              icon: const Icon(Icons.add),
+              label: const Text('创建项目'),
+            )
+          : null,
+      body: RefreshIndicator(
+        onRefresh: _start,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
+          children: [
+            _VopcHero(
+              title: '项目孵化工作台',
+              subtitle: '把真实问题变成可验证、可协作、可交付的成果。',
+              projectCount: p.projects.length,
+              pendingCount: pending,
+            ),
+            const SizedBox(height: 20),
+            if (pending > 0) ...[
+              const _SectionHeader(
+                title: '待处理邀请',
+                subtitle: '加入团队，协作推进项目',
+                icon: Icons.mark_email_unread_outlined,
+              ),
+              ...p.invitations
+                  .where((e) => e['status'] == 'pending')
+                  .map((e) => _InvitationCard(
+                        invitation: e,
+                        onDecline: () => p.respondInvitation(
+                            (e['id'] as num).toInt(), 'decline'),
+                        onAccept: () => p
+                            .respondInvitation(
+                                (e['id'] as num).toInt(), 'accept')
+                            .then((ok) {
+                          if (ok) p.loadProjects();
+                        }),
+                      )),
               const SizedBox(height: 20),
-              if (p.invitations.any((e) => e['status'] == 'pending')) ...[
-                Text('待处理邀请', style: Theme.of(context).textTheme.titleLarge),
-                ...p.invitations
-                    .where((e) => e['status'] == 'pending')
-                    .map((e) => Card(
-                            child: ListTile(
-                          leading: const Icon(Icons.mark_email_unread_outlined),
-                          title: Text(e['project_name']?.toString() ?? '项目邀请'),
-                          subtitle:
-                              Text('${e['project_role']} · ${e['message']}'),
-                          trailing: Wrap(children: [
-                            TextButton(
-                                onPressed: () => p.respondInvitation(
-                                    (e['id'] as num).toInt(), 'decline'),
-                                child: const Text('拒绝')),
-                            FilledButton(
-                                onPressed: () => p
-                                        .respondInvitation(
-                                            (e['id'] as num).toInt(), 'accept')
-                                        .then((ok) {
-                                      if (ok) p.loadProjects();
-                                    }),
-                                child: const Text('加入')),
-                          ]),
-                        ))),
-                const SizedBox(height: 16),
-              ],
-              if (p.loading) const LinearProgressIndicator(),
-              if (!p.loading && p.error != null)
-                _ErrorCard(
-                    message: p.error!, code: p.statusCode, onRetry: _start),
-              if (!p.loading && p.error == null && p.projects.isEmpty)
-                const Card(
-                    child: Padding(
-                        padding: EdgeInsets.all(28),
-                        child: Column(children: [
-                          Icon(Icons.rocket_launch_outlined, size: 48),
-                          SizedBox(height: 12),
-                          Text('还没有项目，从一个真实问题开始。')
-                        ]))),
-              ...p.projects.map((e) => Card(
-                  child: ListTile(
-                      leading: const Icon(Icons.rocket_launch_outlined),
-                      title: Text(e.name),
-                      subtitle:
-                          Text('${e.stage} · ${e.status} · ${e.riskLevel}'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/vopc/projects/${e.id}'))))
-            ])));
+            ],
+            if (p.loading) const LinearProgressIndicator(),
+            if (!p.loading && p.error != null)
+              _ErrorCard(
+                  message: p.error!, code: p.statusCode, onRetry: _start),
+            if (!p.loading && p.error == null) ...[
+              _SectionHeader(
+                title: '我的项目',
+                subtitle: p.projects.isEmpty
+                    ? '还没有项目，从一个真实问题开始'
+                    : '${p.projects.length} 个项目持续孵化中',
+                icon: Icons.rocket_launch_outlined,
+              ),
+              if (p.projects.isEmpty)
+                const _EmptyVopcCard()
+              else
+                ...p.projects.map((e) => _ProjectCard(
+                      project: e,
+                      onTap: () => context.push('/vopc/projects/${e.id}'),
+                    )),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _create() async {
@@ -136,6 +148,233 @@ class _VopcPageState extends State<VopcPage> {
   }
 }
 
+class _VopcHero extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final int projectCount;
+  final int pendingCount;
+  const _VopcHero(
+      {required this.title,
+      required this.subtitle,
+      required this.projectCount,
+      required this.pendingCount});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [
+          colors.primary,
+          Color.alphaBlend(colors.tertiary.withOpacity(.35), colors.primary)
+        ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.16),
+                  borderRadius: BorderRadius.circular(15)),
+              child:
+                  const Icon(Icons.rocket_launch_rounded, color: Colors.white)),
+          const SizedBox(width: 14),
+          Expanded(
+              child: Text(title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                      color: Colors.white, fontWeight: FontWeight.w800))),
+        ]),
+        const SizedBox(height: 12),
+        Text(subtitle,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: Colors.white.withOpacity(.88))),
+        const SizedBox(height: 20),
+        Row(children: [
+          _HeroMetric(label: '我的项目', value: '$projectCount'),
+          const SizedBox(width: 28),
+          _HeroMetric(label: '待处理邀请', value: '$pendingCount')
+        ]),
+      ]),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  const _HeroMetric({required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(width: 7),
+        Text(label,
+            style:
+                TextStyle(color: Colors.white.withOpacity(.82), fontSize: 12))
+      ]);
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  const _SectionHeader(
+      {required this.title, required this.subtitle, required this.icon});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 19, color: theme.colorScheme.primary)),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            Text(subtitle,
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: theme.colorScheme.outline))
+          ]),
+        ]));
+  }
+}
+
+class _InvitationCard extends StatelessWidget {
+  final Map<String, dynamic> invitation;
+  final VoidCallback onDecline;
+  final VoidCallback onAccept;
+  const _InvitationCard(
+      {required this.invitation,
+      required this.onDecline,
+      required this.onAccept});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.mail_outline_rounded,
+                    color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(
+                        invitation['project_name']?.toString() ?? '项目邀请',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700))),
+                _MetaChip(invitation['project_role']?.toString() ?? '成员')
+              ]),
+              if ((invitation['message']?.toString() ?? '').isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(invitation['message'].toString(),
+                    style: theme.textTheme.bodySmall)
+              ],
+              Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(spacing: 4, children: [
+                    TextButton(onPressed: onDecline, child: const Text('拒绝')),
+                    FilledButton.tonal(
+                        onPressed: onAccept, child: const Text('接受邀请'))
+                  ])),
+            ])));
+  }
+}
+
+class _ProjectCard extends StatelessWidget {
+  final VopcProject project;
+  final VoidCallback onTap;
+  const _ProjectCard({required this.project, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+                color: theme.colorScheme.outlineVariant.withOpacity(.55))),
+        child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(children: [
+                  Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(.1),
+                          borderRadius: BorderRadius.circular(14)),
+                      child: Icon(Icons.rocket_launch_outlined,
+                          color: theme.colorScheme.primary)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(project.name,
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        Text(
+                            project.summary.isEmpty
+                                ? '尚未填写项目摘要'
+                                : project.summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant)),
+                        const SizedBox(height: 10),
+                        Wrap(spacing: 6, runSpacing: 6, children: [
+                          _MetaChip(project.stage),
+                          _MetaChip(project.status),
+                          _MetaChip(project.riskLevel)
+                        ])
+                      ])),
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right, color: theme.colorScheme.outline),
+                ]))));
+  }
+}
+
+class _EmptyVopcCard extends StatelessWidget {
+  const _EmptyVopcCard();
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(children: [
+              Icon(Icons.lightbulb_outline_rounded,
+                  size: 46, color: theme.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text('还没有项目',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 5),
+              Text('从一个真实问题开始，逐步验证你的想法。', style: theme.textTheme.bodySmall)
+            ])));
+  }
+}
+
 class VopcProjectPage extends StatefulWidget {
   final int projectId;
   const VopcProjectPage({super.key, required this.projectId});
@@ -155,6 +394,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
   Widget build(BuildContext context) {
     final p = context.watch<VopcProvider>();
     final canManage = CapabilityUtils.has(Capability.vopcProjectManage);
+    final theme = Theme.of(context);
     return Scaffold(
         appBar: AppBar(title: const Text('项目工作台')),
         floatingActionButton:
