@@ -20,17 +20,14 @@ class _VopcPageState extends State<VopcPage> {
 
   Future<void> _start() async {
     final p = context.read<VopcProvider>();
-    if (await p.checkAccess()) {
-      await p.loadProjects();
-      await p.loadInvitations();
-    }
+    await p.loadProjects();
+    await p.loadInvitations();
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<VopcProvider>();
-    final canCreate =
-        p.allowed && CapabilityUtils.has(Capability.vopcProjectCreate);
+    final canCreate = CapabilityUtils.has(Capability.vopcProjectCreate);
     return Scaffold(
         appBar: AppBar(title: const Text('vOPC 虚拟创业')),
         floatingActionButton: canCreate
@@ -40,7 +37,7 @@ class _VopcPageState extends State<VopcPage> {
                 label: const Text('创建草稿'))
             : null,
         body: RefreshIndicator(
-            onRefresh: () => p.allowed ? p.loadProjects() : _start(),
+            onRefresh: _start,
             child: ListView(padding: const EdgeInsets.all(20), children: [
               Text('项目孵化工作台', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),

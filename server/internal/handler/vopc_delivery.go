@@ -90,16 +90,16 @@ func (h *VOPCHandler) InviteMember(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
 		return
 	}
-	var status, scope, ownerID string
-	if err = tx.QueryRow(`SELECT status,owner_scope,owner_id FROM users WHERE id=?`, in.UserID).Scan(&status, &scope, &ownerID); errors.Is(err, sql.ErrNoRows) {
-		c.JSON(422, gin.H{"code": 422, "message": "受邀用户不存在或不符合学院准入"})
+	var status string
+	if err = tx.QueryRow(`SELECT status FROM users WHERE id=?`, in.UserID).Scan(&status); errors.Is(err, sql.ErrNoRows) {
+		c.JSON(422, gin.H{"code": 422, "message": "受邀用户不存在"})
 		return
 	} else if err != nil {
 		serverError(c, "邀请失败")
 		return
 	}
-	if status != "active" || scope != "college" || !strings.EqualFold(ownerID, h.collegeID) {
-		c.JSON(422, gin.H{"code": 422, "message": "仅可邀请计算机学院已授权用户"})
+	if status != "active" {
+		c.JSON(422, gin.H{"code": 422, "message": "仅可邀请正常状态的系统用户"})
 		return
 	}
 	var n int

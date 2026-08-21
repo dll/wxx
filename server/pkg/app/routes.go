@@ -129,9 +129,9 @@ func setupRouter(d *deps) *gin.Engine {
 		secured.Use(middleware.JWTAuth(d.cfg))
 		secured.Use(middleware.EnsureUserExists(d.userRepo))
 		{
-			// vOPC：JWT、能力、计算机学院归属三层准入。
+			// vOPC：所有已登录系统用户均可进入和查看；具体写操作、项目关系
+			// 与评审动作在各路由继续执行能力和业务策略校验。
 			vopc := secured.Group("/vopc")
-			vopc.Use(auth.RequireCapability(auth.VOPCRead), handler.CollegeAccess(d.cfg.VOPCCollegeID))
 			{
 				vopc.GET("/access", d.vopcH.AccessStatus)
 				vopc.GET("/projects", d.vopcH.ListProjects)
