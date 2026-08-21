@@ -188,6 +188,16 @@ const (
 	SchoolKBSyncExport Capability = "school.kb.sync.export" // 知识库全量/增量同步导出（学校级运维，区别于 self.export.self 导出本人回答）
 )
 
+// vOPC 项目孵化能力
+const (
+	VOPCRead            Capability = "vopc.read"
+	VOPCProjectCreate   Capability = "vopc.project.create"
+	VOPCProjectManage   Capability = "vopc.project.manage"
+	VOPCProjectJoin     Capability = "vopc.project.join"
+	VOPCMilestoneReview Capability = "vopc.milestone.review"
+	VOPCAudit           Capability = "vopc.audit"
+)
+
 // 系统管理能力
 const (
 	SystemSettingsWrite Capability = "system.settings.write" // 全局配置
@@ -255,6 +265,7 @@ var roles = map[string]*roleNode{
 			SelfAIBriefingRead,
 			// 毕业去向登记（2026-08-15）：学生可自报，待教辅审核
 			OutcomeRecordWrite, OutcomeRecordRead,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
 		},
 	},
 	"student_union": {
@@ -294,6 +305,7 @@ var roles = map[string]*roleNode{
 			GovTicketAssignee,
 			// 教师授课关系审核（2026-08-17，R3）：辅导员不含自行审核（teacher 不授），教辅共享
 			TeacherCourseReview,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
 		},
 	},
 	"teacher": {
@@ -313,6 +325,7 @@ var roles = map[string]*roleNode{
 			PartyRecordWrite, PartyRecordRead,
 			// 督办工单责任人（2026-08-16，D5-3）
 			GovTicketAssignee,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
 		},
 	},
 	"assistant": {
@@ -345,6 +358,7 @@ var roles = map[string]*roleNode{
 			CollabDashboard,
 			// 督办工单管理（书记建单/分派/督办，2026-08-16，D5-3）
 			GovTicketManage,
+			VOPCRead, VOPCProjectCreate, VOPCProjectJoin, VOPCProjectManage, VOPCMilestoneReview, VOPCAudit,
 		},
 	},
 	"school_admin": {

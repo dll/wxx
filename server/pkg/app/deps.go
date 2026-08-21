@@ -68,4 +68,5 @@ type deps struct {
 	twinPortraitH     *handler.TwinPortraitHandler
 	portalCredH       *handler.PortalCredentialHandler
 	portalProxyH      *handler.PortalProxyHandler
+	vopcH             *handler.VOPCHandler
 }

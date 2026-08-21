@@ -218,52 +218,87 @@ func isDuplicateIndexError(err error) bool {
 		strings.Contains(lower, "already exists")
 }
 
-// splitSQL 按分号分割 SQL 语句，正确处理触发器复合语句与行尾注释（`; -- 注释`）
+// splitSQL 按 SQL 词法分割语句。分号出现在字符串或标识符引用中时不能结束语句。
 func splitSQL(content string) []string {
 	var statements []string
 	var current strings.Builder
 	inTrigger := false
-
-	for _, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "--") {
+	inSingle, inDouble, inBacktick, inLineComment := false, false, false, false
+	for i := 0; i < len(content); i++ {
+		ch := content[i]
+		if inLineComment {
+			if ch == '\n' {
+				current.WriteByte(ch)
+				inLineComment = false
+			}
 			continue
 		}
-
-		upper := strings.ToUpper(trimmed)
-		if strings.Contains(upper, "CREATE TRIGGER") {
+		if !inSingle && !inDouble && !inBacktick && ch == '-' && i+1 < len(content) && content[i+1] == '-' {
+			inLineComment = true
+			current.WriteString("--")
+			i++
+			continue
+		}
+		if !inTrigger && !inSingle && !inDouble && !inBacktick && isCreateTriggerStatement(current.String()) {
 			inTrigger = true
 		}
-
-		// 语句结束判定基于"去掉行尾注释后的内容"：
-		// 例如 `ALTER TABLE ... DEFAULT '[]';  -- JSON 数组` 应以 `;` 结束语句。
-		base := trimmed
-		if idx := strings.LastIndex(base, ";"); idx >= 0 {
-			after := strings.TrimSpace(base[idx+1:])
-			if after == "" || strings.HasPrefix(after, "--") {
-				base = base[:idx+1]
+		if ch == '\'' && !inDouble && !inBacktick {
+			if inSingle && i+1 < len(content) && content[i+1] == '\'' {
+				current.WriteString("''")
+				i++
+				continue
 			}
+			inSingle = !inSingle
+		} else if ch == '"' && !inSingle && !inBacktick {
+			if inDouble && i+1 < len(content) && content[i+1] == '"' {
+				current.WriteString(`""`)
+				i++
+				continue
+			}
+			inDouble = !inDouble
+		} else if ch == '`' && !inSingle && !inDouble {
+			if inBacktick && i+1 < len(content) && content[i+1] == '`' {
+				current.WriteString("``")
+				i++
+				continue
+			}
+			inBacktick = !inBacktick
 		}
-
-		current.WriteString(line)
-		current.WriteString("\n")
-
-		if inTrigger && strings.HasSuffix(trimmed, "END;") {
+		current.WriteByte(ch)
+		if ch == ';' && !inSingle && !inDouble && !inBacktick && !inTrigger {
+			statements = append(statements, current.String())
+			current.Reset()
+		}
+		// Trigger bodies contain semicolons; END; is the statement terminator.
+		if inTrigger && !inSingle && !inDouble && strings.HasSuffix(strings.TrimSpace(current.String()), "END;") {
 			statements = append(statements, current.String())
 			current.Reset()
 			inTrigger = false
-			continue
-		}
-
-		if !inTrigger && strings.HasSuffix(base, ";") {
-			statements = append(statements, current.String())
-			current.Reset()
 		}
 	}
 
 	if remaining := strings.TrimSpace(current.String()); remaining != "" {
-		statements = append(statements, remaining)
+		for _, line := range strings.Split(remaining, "\n") {
+			if text := strings.TrimSpace(line); text != "" && !strings.HasPrefix(text, "--") {
+				statements = append(statements, remaining)
+				break
+			}
+		}
 	}
 
 	return statements
+}
+
+func isCreateTriggerStatement(statement string) bool {
+	var sqlText strings.Builder
+	for _, line := range strings.Split(statement, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "--") {
+			continue
+		}
+		sqlText.WriteString(trimmed)
+		sqlText.WriteByte(' ')
+	}
+	upper := strings.ToUpper(strings.TrimSpace(sqlText.String()))
+	return upper == "CREATE TRIGGER" || strings.HasPrefix(upper, "CREATE TRIGGER ")
 }

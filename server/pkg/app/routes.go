@@ -129,6 +129,35 @@ func setupRouter(d *deps) *gin.Engine {
 		secured.Use(middleware.JWTAuth(d.cfg))
 		secured.Use(middleware.EnsureUserExists(d.userRepo))
 		{
+			// vOPC：JWT、能力、计算机学院归属三层准入。
+			vopc := secured.Group("/vopc")
+			vopc.Use(auth.RequireCapability(auth.VOPCRead), handler.CollegeAccess(d.cfg.VOPCCollegeID))
+			{
+				vopc.GET("/access", d.vopcH.AccessStatus)
+				vopc.GET("/projects", d.vopcH.ListProjects)
+				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
+				vopc.GET("/projects/:id", d.vopcH.GetProject)
+				vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
+				vopc.GET("/projects/:id/decisions", d.vopcH.ListDecisions)
+				vopc.POST("/projects/:id/decisions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateDecision)
+				vopc.PUT("/projects/:id/decisions/:decisionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ActDecision)
+				vopc.GET("/projects/:id/members", d.vopcH.ListMembers)
+				vopc.POST("/projects/:id/members", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.InviteMember)
+				vopc.GET("/invitations", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.ListMyInvitations)
+				vopc.POST("/invitations/:invitationId/respond", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.RespondInvitation)
+				vopc.GET("/projects/:id/artifacts", d.vopcH.ListArtifacts)
+				vopc.POST("/projects/:id/artifacts", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifact)
+				vopc.GET("/projects/:id/artifacts/:artifactId/versions", d.vopcH.ListArtifactVersions)
+				vopc.POST("/projects/:id/artifacts/:artifactId/versions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifactVersion)
+				vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
+				vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
+				vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)
+				vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
+				vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
+				vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
+				vopc.POST("/projects/:id/milestones/:stage/advance", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.AdvanceMilestone)
+			}
+
 			// ── AI 对话（self.chat）──
 			// 安全修复 SEC-02：对话为主要 PII 输入入口，要求已同意隐私政策/用户协议方可访问
 			secured.POST("/chat", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), d.chatH.Ask)

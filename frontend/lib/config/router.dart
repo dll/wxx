@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
+import '../utils/capability_utils.dart';
 import '../widgets/fab_menu.dart';
 import '../pages/consent/consent_page.dart';
 import '../pages/login/login_page.dart';
@@ -148,6 +149,7 @@ import '../pages/student/health/health_page.dart';
 import '../pages/student/mental/mood_diary_page.dart';
 import '../pages/apps/app_center_page.dart';
 import '../pages/services/service_center_page.dart';
+import '../pages/vopc/vopc_page.dart';
 import '../pages/ai_briefings/ai_briefings_page.dart';
 import '../pages/ai_briefings/ai_briefing_admin_page.dart';
 import '../utils/screenshot_capture.dart';
@@ -192,6 +194,11 @@ final GoRouter appRouter = GoRouter(
     // 已登录 → 不需要看登录页
     if (loggedIn && isLoginPage) return '/home';
     if (loggedIn && isConsentPage && firstLaunchDone) return '/home';
+
+    if (state.matchedLocation.startsWith('/vopc') &&
+        !CapabilityUtils.has(Capability.vopcRead)) {
+      return '/home';
+    }
 
     return null;
   },
@@ -263,6 +270,18 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/services',
           builder: (context, state) => const ServiceCenterPage(),
+        ),
+        GoRoute(
+          path: '/vopc',
+          builder: (context, state) => const VopcPage(),
+        ),
+        GoRoute(
+          path: '/vopc/projects/:id',
+          builder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '');
+            if (id == null || id <= 0) return const VopcPage();
+            return VopcProjectPage(projectId: id);
+          },
         ),
         GoRoute(
           path: '/ai-briefings',
@@ -734,6 +753,9 @@ List<_NavItem> _navItemsForRole(String? role) => [
         Icons.assignment,
         '/enrollment',
       ),
+      if (CapabilityUtils.has(Capability.vopcRead))
+        const _NavItem(
+            'vOPC', Icons.rocket_launch_outlined, Icons.rocket_launch, '/vopc'),
       const _NavItem(
           '服务', Icons.grid_view_outlined, Icons.grid_view, '/services'),
       const _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),

@@ -106,8 +106,8 @@ class Capability {
   static const collabDashboard = 'college.collab.dashboard';
 
   // ── 督办工单（2026-08-16，D5-3「洞察→工单」治理回环）──
-  static const govTicketManage = 'college.ticket.manage';       // 书记：创建/分派/督办
-  static const govTicketAssignee = 'college.ticket.assignee';   // 责任人：查看/推进本人分派
+  static const govTicketManage = 'college.ticket.manage'; // 书记：创建/分派/督办
+  static const govTicketAssignee = 'college.ticket.assignee'; // 责任人：查看/推进本人分派
 
   // ── 学校管理 ──
   static const schoolAgentWrite = 'school.agent.write';
@@ -118,6 +118,13 @@ class Capability {
   static const systemSettingsWrite = 'system.settings.write';
   static const systemAuditAll = 'system.audit.all';
   static const systemPasswordReset = 'system.password.reset';
+
+  static const vopcRead = 'vopc.read';
+  static const vopcProjectCreate = 'vopc.project.create';
+  static const vopcProjectManage = 'vopc.project.manage';
+  static const vopcProjectJoin = 'vopc.project.join';
+  static const vopcMilestoneReview = 'vopc.milestone.review';
+  static const vopcAudit = 'vopc.audit';
 }
 
 /// 能力判断工具（前端单一来源，由 Storage 持有当前用户能力清单）

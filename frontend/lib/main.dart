@@ -13,6 +13,7 @@ import 'providers/knowledge_provider.dart';
 import 'providers/emotion_provider.dart';
 import 'providers/agent_provider.dart';
 import 'providers/home_provider.dart';
+import 'providers/vopc_provider.dart';
 import 'providers/admin_provider.dart';
 import 'providers/feedback_provider.dart';
 import 'providers/bookmark_provider.dart';
@@ -219,6 +220,7 @@ class _WxxAppState extends State<WxxApp> {
         }),
         ChangeNotifierProvider(create: (_) => AgentProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => VopcProvider()),
         ChangeNotifierProvider(create: (_) {
           final p = AdminProvider();
           sessionResetCallbacks.add(p.reset);

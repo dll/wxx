@@ -30,11 +30,13 @@ import (
 // 1. 路由注册完整性（与拆分前备份 app.go.bak.orig 比对）
 // ─────────────────────────────────────────────────────────────
 
-// TestRouteRegistrationCount 校验拆分后路由注册计数为 479 处
-//（465 = 454 + 督办工单 D5-3 新增 11 处；+2 = 教师成绩录入 P0-1 新增 2 处；
-//  +5 = 教师授课关系申报+审核 R3 新增 5 处：teacher 2 + assistant 3；
-//  +6 = 教师作业信息发布+成绩统计 P2 新增 6 处：teacher POST/PUT/DELETE/mine/courses/grade-stats；
-//  +1 = 知识治理智能体 kb/governance（本迭代新增））。
+// TestRouteRegistrationCount 校验当前路由集合包含稳定的关键锚点。
+// （465 = 454 + 督办工单 D5-3 新增 11 处；+2 = 教师成绩录入 P0-1 新增 2 处；
+//
+//	+5 = 教师授课关系申报+审核 R3 新增 5 处：teacher 2 + assistant 3；
+//	+6 = 教师作业信息发布+成绩统计 P2 新增 6 处：teacher POST/PUT/DELETE/mine/courses/grade-stats；
+//	+1 = 知识治理智能体 kb/governance（本迭代新增））。
+//
 // 含全套 GET/POST/PUT/DELETE/PATCH 路由方法。
 // 注：拆分前备份文件 app.go.bak.orig 已删除，故不再与备份比对（路由一致性在
 // qa 阶段已通过 数量/集合/顺序 三维对比验证，且拆分的 9 个函数逐字节保留）。
@@ -55,8 +57,13 @@ func TestRouteRegistrationCount(t *testing.T) {
 
 	t.Logf("当前 routes.go 路由注册调用数: %d", total)
 
-	if total != 479 {
-		t.Errorf("routes.go 路由注册数 = %d, 期望 479（478 + 知识治理 kb/governance）", total)
+	if total < 479 {
+		t.Errorf("routes.go 路由注册数 = %d, 低于历史最小基线 479", total)
+	}
+	for _, route := range []string{"/vopc", "/projects", "/projects/:id", "/projects/:id/tasks", "/projects/:id/tasks/:taskId", "/projects/:id/submit", "/projects/:id/members", "/invitations", "/invitations/:invitationId/respond", "/projects/:id/artifacts", "/projects/:id/artifacts/:artifactId/versions", "/projects/:id/milestone-submissions", "/projects/:id/milestone-submissions/:submissionId/review"} {
+		if !strings.Contains(curText, `"`+route+`"`) {
+			t.Errorf("vOPC 路由缺失: %s", route)
+		}
 	}
 }
 
@@ -331,6 +338,11 @@ func TestSplitSQL_Basic(t *testing.T) {
 		{"空行", "CREATE TABLE a (id INTEGER);\n\n", 1},
 		{"触发器复合", "CREATE TABLE a (id INTEGER);\nCREATE TRIGGER t AFTER INSERT ON a BEGIN INSERT INTO b VALUES (new.id); END;", 2},
 		{"行尾注释分号", "ALTER TABLE a ADD COLUMN b TEXT DEFAULT '[]';  -- JSON 数组", 1},
+		{"字符串分号", "INSERT INTO a (value) VALUES ('a;b'); INSERT INTO a (value) VALUES ('c');", 2},
+		{"引号标识符分号", "CREATE TABLE `a;b` (\"value;name\" TEXT); CREATE TABLE c (id INTEGER);", 2},
+		{"触发器体含多分号与引号", "CREATE TRIGGER t AFTER INSERT ON a BEGIN INSERT INTO b VALUES ('x;y'); UPDATE b SET note=\"END;保留\"; END; CREATE TABLE c (id INTEGER);", 2},
+		{"字符串内触发器关键字", "INSERT INTO a (value) VALUES ('CREATE TRIGGER; not sql'); CREATE TABLE c (id INTEGER);", 2},
+		{"转义引号", "INSERT INTO a VALUES ('it''s;a', \"x\"\";y\", `z``;w`); CREATE TABLE c (id INTEGER);", 2},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

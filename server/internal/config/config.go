@@ -31,11 +31,12 @@ type Config struct {
 	DBDriver string
 
 	// MySQL（DB_DRIVER=mysql 时生效）
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	DBHost        string
+	DBPort        string
+	DBUser        string
+	DBPassword    string
+	DBName        string
+	VOPCCollegeID string // vOPC 学院权威标识，兼容现有 cs 默认值
 
 	// Redis 缓存（可选；REDIS_ADDR 非空时启用）
 	RedisAddr string // e.g. "localhost:6379"
@@ -146,12 +147,13 @@ func Load() *Config {
 
 		SQLitePath: envOr("DB_PATH", envOr("SQLITE_PATH", "./data/wxx.db")),
 
-		DBDriver:   envOr("DB_DRIVER", ""),
-		DBHost:     envOr("DB_HOST", "localhost"),
-		DBPort:     envOr("DB_PORT", "3306"),
-		DBUser:     envOr("DB_USER", "root"),
-		DBPassword: envOr("DB_PASSWORD", ""),
-		DBName:     envOr("DB_NAME", "wxx"),
+		DBDriver:      envOr("DB_DRIVER", ""),
+		DBHost:        envOr("DB_HOST", "localhost"),
+		DBPort:        envOr("DB_PORT", "3306"),
+		DBUser:        envOr("DB_USER", "root"),
+		DBPassword:    envOr("DB_PASSWORD", ""),
+		DBName:        envOr("DB_NAME", "wxx"),
+		VOPCCollegeID: envOr("VOPC_COLLEGE_ID", "cs"),
 
 		RedisAddr: envOr("REDIS_ADDR", ""),
 		RedisPass: envOr("REDIS_PASS", ""),

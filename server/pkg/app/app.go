@@ -341,6 +341,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 学校门户会话代理（持凭证登录后代理校内页面；凭证仅内存态解密）
 	portalProxySvc := service.NewPortalProxyService(portalCredRepo)
 	portalProxyHandler := handler.NewPortalProxyHandler(portalProxySvc)
+	vopcHandler := handler.NewVOPCHandler(db, cfg.VOPCCollegeID)
 	portalCredHandler.SetProxyService(portalProxySvc)
 
 	// 打卡服务（S1 学生核心功能）
@@ -507,6 +508,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		twinPortraitH:     twinPortraitHandler,
 		portalCredH:       portalCredHandler,
 		portalProxyH:      portalProxyHandler,
+		vopcH:             vopcHandler,
 	})
 
 	// ── 6. 数据保留清理（9.2 合规基线）──
