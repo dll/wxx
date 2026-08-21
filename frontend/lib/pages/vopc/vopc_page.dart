@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../providers/vopc_provider.dart';
 import '../../utils/capability_utils.dart';
 
@@ -27,7 +28,6 @@ class _VopcPageState extends State<VopcPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<VopcProvider>();
-    final canCreate = CapabilityUtils.has(Capability.vopcProjectCreate);
     final pending = p.invitations.where((e) => e['status'] == 'pending').length;
     return Scaffold(
       appBar: AppBar(
@@ -40,13 +40,11 @@ class _VopcPageState extends State<VopcPage> {
           ),
         ],
       ),
-      floatingActionButton: canCreate
-          ? FloatingActionButton.extended(
-              onPressed: _create,
-              icon: const Icon(Icons.add),
-              label: const Text('创建项目'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _create,
+        icon: const Icon(Icons.add),
+        label: const Text('创建项目'),
+      ),
       body: RefreshIndicator(
         onRefresh: _start,
         child: ListView(
@@ -107,44 +105,130 @@ class _VopcPageState extends State<VopcPage> {
   }
 
   Future<void> _create() async {
-    final name = TextEditingController();
-    final summary = TextEditingController();
-    final ok = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-                title: const Text('创建项目草稿'),
-                content: SizedBox(
-                    width: 420,
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      TextField(
-                          controller: name,
-                          decoration:
-                              const InputDecoration(labelText: '项目名称 *')),
-                      TextField(
-                          controller: summary,
-                          decoration: const InputDecoration(labelText: '项目摘要'))
-                    ])),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(c, false),
-                      child: const Text('取消')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(c, true),
-                      child: const Text('创建'))
-                ]));
-    if (ok == true && mounted) {
-      final id = await context.read<VopcProvider>().createProject({
-        'name': name.text.trim(),
-        'summary': summary.text.trim(),
-        'project_type': '自由探索项目',
-        'project_source': 'self_proposed',
-        'risk_level': 'R0',
-        'data_type': '公开数据'
-      });
-      if (id != null && mounted) context.push('/vopc/projects/$id');
+    final data = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const _CreateProjectDialog(),
+    );
+    if (data == null || !mounted) return;
+    final id = await context.read<VopcProvider>().createProject(data);
+    if (!mounted) return;
+    if (id != null) {
+      context.push('/vopc/projects/$id');
+    } else {
+      final message = context.read<VopcProvider>().error ?? '项目创建失败';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     }
-    name.dispose();
-    summary.dispose();
+  }
+}
+
+class _CreateProjectDialog extends StatefulWidget {
+  const _CreateProjectDialog();
+  @override
+  State<_CreateProjectDialog> createState() => _CreateProjectDialogState();
+}
+
+class _CreateProjectDialogState extends State<_CreateProjectDialog> {
+  final formKey = GlobalKey<FormState>();
+  final name = TextEditingController();
+  final summary = TextEditingController();
+  final problem = TextEditingController();
+  final target = TextEditingController();
+  final outcome = TextEditingController();
+  final validation = TextEditingController();
+  final product = TextEditingController();
+  final cycle = TextEditingController();
+  final acceptance = TextEditingController();
+
+  @override
+  void dispose() {
+    for (final c in [
+      name,
+      summary,
+      problem,
+      target,
+      outcome,
+      validation,
+      product,
+      cycle,
+      acceptance
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('创建项目'),
+        content: SizedBox(
+          width: 560,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('填写完整后即可创建并提交立项；也可以先保存为 S0 草稿。',
+                        style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 14),
+                    _field(name, '项目名称 *', required: true),
+                    _field(summary, '项目摘要'),
+                    _field(problem, '要解决的真实问题'),
+                    _field(target, '目标用户'),
+                    _field(outcome, '预期成果'),
+                    _field(validation, '验证计划'),
+                    _field(product, '产品/成果形态'),
+                    _field(cycle, '项目周期'),
+                    _field(acceptance, '验收标准'),
+                  ]),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('保存草稿'),
+          ),
+        ],
+      );
+
+  Widget _field(TextEditingController controller, String label,
+          {bool required = false}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextFormField(
+          controller: controller,
+          minLines: 1,
+          maxLines: label == '项目名称 *' || label == '项目周期' ? 1 : 3,
+          validator: required
+              ? (v) => (v?.trim().isEmpty ?? true) ? '请填写项目名称' : null
+              : null,
+          decoration:
+              InputDecoration(labelText: label, alignLabelWithHint: true),
+        ),
+      );
+
+  void _save() {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+    Navigator.pop(context, {
+      'name': name.text.trim(),
+      'summary': summary.text.trim(),
+      'problem_statement': problem.text.trim(),
+      'target_users': target.text.trim(),
+      'expected_outcome': outcome.text.trim(),
+      'validation_plan': validation.text.trim(),
+      'product_form': product.text.trim(),
+      'project_cycle': cycle.text.trim(),
+      'acceptance_criteria': acceptance.text.trim(),
+      'project_type': '自由探索项目',
+      'project_source': 'self_proposed',
+      'risk_level': 'R0',
+      'data_type': '公开数据',
+    });
   }
 }
 
@@ -393,10 +477,23 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<VopcProvider>();
-    final canManage = CapabilityUtils.has(Capability.vopcProjectManage);
-    final theme = Theme.of(context);
+    final currentUserId = context.watch<AuthProvider>().profile?.id;
+    final detail = p.detail;
+    final canManage = detail != null &&
+        (detail.ownerUserId == currentUserId ||
+            CapabilityUtils.has(Capability.vopcProjectManage));
     return Scaffold(
-        appBar: AppBar(title: const Text('项目工作台')),
+        appBar: AppBar(
+          title: const Text('项目工作台'),
+          actions: [
+            IconButton(
+              tooltip: '刷新',
+              onPressed:
+                  p.loading ? null : () => p.loadDetail(widget.projectId),
+              icon: const Icon(Icons.refresh),
+            )
+          ],
+        ),
         floatingActionButton:
             canManage && p.detail != null && _canCreateTask(p.detail!)
                 ? FloatingActionButton.extended(
@@ -422,12 +519,52 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                             ? '尚未填写摘要'
                             : p.detail!.summary),
                         const SizedBox(height: 20),
-                        Wrap(spacing: 8, children: [
+                        Wrap(spacing: 8, runSpacing: 8, children: [
                           Chip(label: Text(p.detail!.stage)),
                           Chip(label: Text(p.detail!.status)),
                           Chip(label: Text(p.detail!.projectType)),
                           Chip(label: Text(p.detail!.riskLevel))
                         ]),
+                        if (canManage && detail.stage != 'S9') ...[
+                          const SizedBox(height: 16),
+                          Card(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer
+                                .withOpacity(.42),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(children: [
+                                Expanded(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Text(
+                                          detail.stage == 'S0'
+                                              ? '下一步：提交立项'
+                                              : '下一步：推进到 S${(int.tryParse(detail.stage.substring(1)) ?? 0) + 1}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w700)),
+                                      const SizedBox(height: 4),
+                                      Text(detail.stage == 'S0'
+                                          ? '提交前需填写完整项目资料。'
+                                          : '需要提交本阶段门禁证据，系统将按顺序推进。'),
+                                    ])),
+                                const SizedBox(width: 12),
+                                FilledButton.icon(
+                                    onPressed: _advanceProject,
+                                    icon: const Icon(Icons.arrow_forward),
+                                    label: Text(detail.stage == 'S0'
+                                        ? '提交立项'
+                                        : '推进阶段')),
+                              ]),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         _buildDecisions(context, p, canManage),
                         const SizedBox(height: 24),
@@ -439,6 +576,82 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                         const SizedBox(height: 24),
                         _buildTasks(context, p, canManage),
                       ]));
+  }
+
+  Future<void> _advanceProject() async {
+    final p = context.read<VopcProvider>();
+    final project = p.detail;
+    if (project == null) return;
+    var evidence = '';
+    var reviewNote = '';
+    if (project.stage != 'S0') {
+      final evidenceController = TextEditingController();
+      final noteController = TextEditingController();
+      final data = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text('推进 ${project.stage} 阶段'),
+          content: SizedBox(
+            width: 480,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                  controller: evidenceController,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                      labelText: '门禁证据 *', hintText: '填写本阶段已完成的成果、验证记录或材料链接')),
+              const SizedBox(height: 12),
+              TextField(
+                  controller: noteController,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: '补充说明')),
+            ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c), child: const Text('取消')),
+            FilledButton(
+                onPressed: () {
+                  if (evidenceController.text.trim().isEmpty) return;
+                  Navigator.pop(c, {
+                    'evidence': evidenceController.text.trim(),
+                    'review_note': noteController.text.trim()
+                  });
+                },
+                child: const Text('确认推进')),
+          ],
+        ),
+      );
+      evidenceController.dispose();
+      noteController.dispose();
+      if (data == null) return;
+      evidence = data['evidence'] ?? '';
+      reviewNote = data['review_note'] ?? '';
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('提交项目立项'),
+          content: const Text(
+              '系统将检查项目摘要、问题、目标用户、预期成果、验证计划、产品形态、周期和验收标准。信息不完整时会提示需要补充的字段。'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('确认提交')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    final ok = await p.advanceProject(widget.projectId, project.stage,
+        evidence: evidence, reviewNote: reviewNote);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '项目阶段已更新' : (p.error ?? '阶段推进失败'))));
   }
 
   bool _canCreateTask(VopcProject project) {

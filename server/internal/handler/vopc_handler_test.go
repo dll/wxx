@@ -68,7 +68,7 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.Use(middleware.JWTAuth(cfg))
 	g.GET("/access", h.AccessStatus)
 	g.GET("/projects", h.ListProjects)
-	g.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), h.CreateProject)
+	g.POST("/projects", h.CreateProject)
 	g.GET("/projects/:id", h.GetProject)
 	g.GET("/projects/:id/tasks", h.ListTasks)
 	g.GET("/projects/:id/decisions", h.ListDecisions)

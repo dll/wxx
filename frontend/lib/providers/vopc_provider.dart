@@ -35,6 +35,14 @@ class VopcProject {
   final String status;
   final String projectType;
   final String riskLevel;
+  final String problem;
+  final String targetUsers;
+  final String expectedOutcome;
+  final String validationPlan;
+  final String productForm;
+  final String projectCycle;
+  final String acceptanceCriteria;
+  final int ownerUserId;
 
   const VopcProject(
       {required this.id,
@@ -43,7 +51,15 @@ class VopcProject {
       required this.stage,
       required this.status,
       required this.projectType,
-      required this.riskLevel});
+      required this.riskLevel,
+      this.problem = '',
+      this.targetUsers = '',
+      this.expectedOutcome = '',
+      this.validationPlan = '',
+      this.productForm = '',
+      this.projectCycle = '',
+      this.acceptanceCriteria = '',
+      this.ownerUserId = 0});
 
   factory VopcProject.fromJson(Map<String, dynamic> json) => VopcProject(
       id: (json['id'] as num).toInt(),
@@ -52,7 +68,15 @@ class VopcProject {
       stage: json['stage'] ?? '',
       status: json['status'] ?? '',
       projectType: json['project_type'] ?? '',
-      riskLevel: json['risk_level'] ?? '');
+      riskLevel: json['risk_level'] ?? '',
+      problem: json['problem_statement'] ?? '',
+      targetUsers: json['target_users'] ?? '',
+      expectedOutcome: json['expected_outcome'] ?? '',
+      validationPlan: json['validation_plan'] ?? '',
+      productForm: json['product_form'] ?? '',
+      projectCycle: json['project_cycle'] ?? '',
+      acceptanceCriteria: json['acceptance_criteria'] ?? '',
+      ownerUserId: (json['owner_user_id'] as num?)?.toInt() ?? 0);
 }
 
 class VopcDecision {
@@ -233,6 +257,29 @@ class VopcProvider extends ChangeNotifier {
       _setError(e, '项目创建失败');
       notifyListeners();
       return null;
+    }
+  }
+
+  Future<bool> advanceProject(int projectId, String currentStage,
+      {String evidence = '', String reviewNote = ''}) async {
+    error = null;
+    statusCode = null;
+    notifyListeners();
+    try {
+      final current = int.tryParse(currentStage.replaceFirst('S', '')) ?? -1;
+      if (current < 0 || current >= 9) return false;
+      final path = current == 0
+          ? ApiConfig.vopcProjectSubmit(projectId)
+          : ApiConfig.vopcProjectAdvance(projectId, 'S${current + 1}');
+      await _api
+          .post(path, data: {'evidence': evidence, 'review_note': reviewNote});
+      await loadDetail(projectId);
+      await loadProjects();
+      return true;
+    } catch (e) {
+      _setError(e, '项目阶段推进失败');
+      notifyListeners();
+      return false;
     }
   }
 

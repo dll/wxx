@@ -135,7 +135,7 @@ func setupRouter(d *deps) *gin.Engine {
 			{
 				vopc.GET("/access", d.vopcH.AccessStatus)
 				vopc.GET("/projects", d.vopcH.ListProjects)
-				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
+				vopc.POST("/projects", d.vopcH.CreateProject)
 				vopc.GET("/projects/:id", d.vopcH.GetProject)
 				vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
 				vopc.GET("/projects/:id/decisions", d.vopcH.ListDecisions)

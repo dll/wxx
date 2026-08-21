@@ -202,6 +202,10 @@ class ApiConfig {
       '$apiPrefix/vopc/projects/$id/milestone-submissions';
   static String vopcMilestoneReview(int projectId, int submissionId) =>
       '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/review';
+  static String vopcProjectSubmit(int id) =>
+      '$apiPrefix/vopc/projects/$id/submit';
+  static String vopcProjectAdvance(int id, String stage) =>
+      '$apiPrefix/vopc/projects/$id/milestones/$stage/advance';
 
   // ── AI 模型配置 ──
   static const String modelConfig = '$apiPrefix/user/model-config';
