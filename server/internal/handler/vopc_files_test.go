@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -182,6 +183,38 @@ func TestVOPCFileDownloadAuthorization(t *testing.T) {
 	}
 	if got := request(r, "GET", base+"/files/..%2F..", owner, nil).Code; got != 404 {
 		t.Fatalf("路径注入下载 got %d, want 404", got)
+	}
+}
+
+func TestVOPCFileDownloadScanFailed(t *testing.T) {
+	db := vopcTestDB(t)
+	r := vopcFilesRouter(t, db)
+	owner := token(t, 1, "student", "college", "cs", "active")
+	w := request(r, "POST", "/api/v1/vopc/projects", owner, validProject())
+	var out struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
+	up := uploadFile(r, base+"/files", owner, "draft.pdf", "application/pdf", []byte("maybe-malicious"))
+	if up.Code != 201 {
+		t.Fatalf("upload got %d %s", up.Code, up.Body.String())
+	}
+	var f struct {
+		Data struct {
+			Key string `json:"object_key"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(up.Body.Bytes(), &f)
+	if _, err := db.Exec(`UPDATE vopc_files SET storage_status='scan_failed' WHERE object_key=?`, f.Data.Key); err != nil {
+		t.Fatal(err)
+	}
+	dl := base + "/files/" + f.Data.Key
+	// 未被标记时 owner 可下载（200），标记风险后必须 409，且不泄漏正文。
+	if got := request(r, "GET", dl, owner, nil).Code; got != http.StatusConflict {
+		t.Fatalf("scan_failed 下载 got %d, want 409", got)
 	}
 }
 

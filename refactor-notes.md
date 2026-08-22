@@ -254,3 +254,10 @@
 - artifact_version_id 关联位已建模，但上传端点尚未自动把受控文件显式绑定到某个成果版本（需产品定义上传是否同时建成果）；当前由 CreateArtifactVersion 以 storage_ref 反向引用 key 完成闭环。
 - 大小上限 20 MB、MIME 白名单为当前服务器硬编码常量；如需按学院/项目类型差异化，建议下沉为配置。
 - 未部署、未 commit、未 push（leader 统一）。
+
+## 2026-08-22 私有文件下载补丁（scan_failed 拦截）
+
+- server/internal/handler/vopc_files.go：DownloadFile 在读取 storage_status 后，若为 scan_failed 返回 409「文件已被标记为风险，禁止下载」，与里程碑成果版本门禁（scan_failed 不可用）保持一致；未授权仍走既有 404，不泄露状态。
+- server/internal/handler/vopc_files_test.go：新增 TestVOPCFileDownloadScanFailed（上传后 UPDATE storage_status='scan_failed'，断言下载 409）。
+- 验证：go vet ./internal/handler/ 通过；go test ./internal/handler -count=1（全量 handler）通过；go test ./internal/db -run TestToMySQLVOPCMigrations 通过；go test ./pkg/app -count=1 通过；git diff --check 通过。
+- 不变式：仍无真实云存储/病毒扫描器，scan_failed 由将来接真实扫描器时写入；当前 pending/ready/scan_ok 均可下载，scan_failed 显式拒绝。

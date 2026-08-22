@@ -306,6 +306,11 @@ func (h *VOPCHandler) DownloadFile(c *gin.Context) {
 		serverError(c, "文件下载失败")
 		return
 	}
+	// 受控文件若被外部扫描标记为风险（scan_failed），一律禁止下载，与里程碑版本门禁保持一致。
+	if storageStatus == "scan_failed" {
+		c.JSON(http.StatusConflict, gin.H{"code": 409, "message": "文件已被标记为风险，禁止下载"})
+		return
+	}
 	tx.Rollback()
 
 	dir, err := h.resolveUploadDir(id)
