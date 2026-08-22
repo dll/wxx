@@ -53,12 +53,76 @@ func CollegeAccess(collegeID ...string) gin.HandlerFunc {
 	}
 	return func(c *gin.Context) {
 		u := middleware.GetUserContext(c)
-		if u == nil || u.Status != "active" || u.OwnerScope != "college" || !strings.EqualFold(u.OwnerID, id) {
+		if u == nil || u.Status != "active" || u.Role == "guest" || u.OwnerScope != "college" || !strings.EqualFold(u.OwnerID, id) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅计算机学院已授权用户可使用 vOPC"})
 			return
 		}
 		c.Next()
 	}
+}
+
+// UpdateProject saves an editable S0 draft. Once submitted, baseline changes
+// must go through the milestone/change process rather than silently mutating it.
+func (h *VOPCHandler) UpdateProject(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	var in projectInput
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "请求 JSON 格式错误"})
+		return
+	}
+	if msg, code := in.normalizeAndValidate(false); code != 0 {
+		c.JSON(code, gin.H{"code": code, "message": msg})
+		return
+	}
+	u := middleware.GetUserContext(c)
+	tx, err := h.db.Begin()
+	if err != nil {
+		serverError(c, "草稿保存失败")
+		return
+	}
+	done := false
+	defer func() {
+		if !done {
+			_ = tx.Rollback()
+		}
+	}()
+	var owner int64
+	var stage, status string
+	if tx.QueryRow(`SELECT owner_user_id,stage,status FROM vopc_projects WHERE id=?`, id).Scan(&owner, &stage, &status) != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
+		return
+	}
+	allowed, e := projectPolicy(tx, id, u.UserID, owner, "manage")
+	if e != nil || !allowed {
+		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
+		return
+	}
+	if stage != "S0" || status != "draft" {
+		c.JSON(409, gin.H{"code": 409, "message": "仅 S0 草稿可直接编辑，已提交项目请走变更评审"})
+		return
+	}
+	res, err := tx.Exec(`UPDATE vopc_projects SET name=?,summary=?,problem_statement=?,target_users=?,expected_outcome=?,validation_plan=?,project_type=?,project_source=?,product_form=?,project_cycle=?,acceptance_criteria=?,mentor_needs=?,resource_needs=?,risk_level=?,data_type=?,real_user_trial=?,external_publish=?,funds_involved=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage='S0' AND status='draft'`, in.Name, in.Summary, in.Problem, in.Target, in.Outcome, in.Validation, in.Type, in.Source, in.ProductForm, in.Cycle, in.Acceptance, in.MentorNeeds, in.ResourceNeeds, in.Risk, in.DataType, in.RealTrial, in.ExternalPublish, in.FundsInvolved, id)
+	if err != nil {
+		serverError(c, "草稿保存失败")
+		return
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		c.JSON(409, gin.H{"code": 409, "message": "草稿已变化，请刷新重试"})
+		return
+	}
+	if writeEvent(tx, id, u.UserID, "project.draft_updated", "S0/draft", "S0/draft", "更新并补齐项目草稿") != nil {
+		serverError(c, "草稿审计写入失败")
+		return
+	}
+	if tx.Commit() != nil {
+		serverError(c, "草稿保存失败")
+		return
+	}
+	done = true
+	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": id, "risk_level": in.Risk}})
 }
 
 func (h *VOPCHandler) AccessStatus(c *gin.Context) {
@@ -263,7 +327,13 @@ func (h *VOPCHandler) GetProject(c *gin.Context) {
 		serverError(c, "项目读取失败")
 		return
 	}
-	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": pid, "name": p.Name, "summary": p.Summary, "problem_statement": p.Problem, "target_users": p.Target, "expected_outcome": p.Outcome, "validation_plan": p.Validation, "project_type": p.Type, "project_source": p.Source, "product_form": p.ProductForm, "project_cycle": p.Cycle, "acceptance_criteria": p.Acceptance, "mentor_needs": p.MentorNeeds, "resource_needs": p.ResourceNeeds, "stage": stage, "status": status, "visibility": visibility, "risk_level": p.Risk, "data_type": p.DataType, "real_user_trial": p.RealTrial, "external_publish": p.ExternalPublish, "funds_involved": p.FundsInvolved, "owner_user_id": owner, "created_at": created, "updated_at": updated}})
+	canManage := u.UserID == owner
+	if !canManage {
+		var role string
+		_ = h.db.QueryRow(`SELECT project_role FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'`, id, u.UserID).Scan(&role)
+		canManage = role == "co_owner" || role == "platform_operator"
+	}
+	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": pid, "name": p.Name, "summary": p.Summary, "problem_statement": p.Problem, "target_users": p.Target, "expected_outcome": p.Outcome, "validation_plan": p.Validation, "project_type": p.Type, "project_source": p.Source, "product_form": p.ProductForm, "project_cycle": p.Cycle, "acceptance_criteria": p.Acceptance, "mentor_needs": p.MentorNeeds, "resource_needs": p.ResourceNeeds, "stage": stage, "status": status, "visibility": visibility, "risk_level": p.Risk, "data_type": p.DataType, "real_user_trial": p.RealTrial, "external_publish": p.ExternalPublish, "funds_involved": p.FundsInvolved, "owner_user_id": owner, "can_manage": canManage, "created_at": created, "updated_at": updated}})
 }
 
 type taskInput struct {
@@ -555,38 +625,19 @@ func nullableString(value string) any {
 	return value
 }
 
-func (h *VOPCHandler) SubmitProject(c *gin.Context) { h.transition(c, 0) }
-func (h *VOPCHandler) AdvanceMilestone(c *gin.Context) {
-	n, err := strconv.Atoi(strings.TrimPrefix(strings.ToUpper(c.Param("stage")), "S"))
-	if err != nil || n < 1 || n > 9 {
-		c.JSON(400, gin.H{"code": 400, "message": "目标阶段无效"})
-		return
-	}
-	h.transition(c, n)
-}
-
-func (h *VOPCHandler) transition(c *gin.Context, target int) {
+func (h *VOPCHandler) SubmitProject(c *gin.Context) {
 	id, ok := projectID(c)
 	if !ok {
 		return
 	}
 	u := middleware.GetUserContext(c)
-	var body struct {
-		Evidence   string `json:"evidence"`
-		ReviewNote string `json:"review_note"`
-	}
-	_ = c.ShouldBindJSON(&body)
 	tx, err := h.db.Begin()
 	if err != nil {
 		serverError(c, "状态更新失败")
 		return
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
+	defer tx.Rollback()
+
 	var owner int64
 	var stage, status string
 	var in projectInput
@@ -608,54 +659,30 @@ func (h *VOPCHandler) transition(c *gin.Context, target int) {
 		c.JSON(409, gin.H{"code": 409, "message": "当前治理状态禁止推进"})
 		return
 	}
-	current, _ := strconv.Atoi(strings.TrimPrefix(stage, "S"))
-	expected := current + 1
-	if target == 0 {
-		target = 1
-	}
-	if target != expected {
-		c.JSON(409, gin.H{"code": 409, "message": "只能按 S0-S9 顺序推进，禁止重复或跳阶段"})
+	if stage != "S0" || status != "draft" {
+		c.JSON(409, gin.H{"code": 409, "message": "立项提交仅适用于 S0 草稿，后续阶段必须通过正式里程碑评审推进"})
 		return
 	}
-	if target == 1 {
-		if msg, code := in.normalizeAndValidate(true); code != 0 {
-			c.JSON(code, gin.H{"code": code, "message": msg})
-			return
-		}
-	} else if strings.TrimSpace(body.Evidence) == "" {
-		c.JSON(422, gin.H{"code": 422, "message": "推进阶段必须提交门禁证据"})
+	if msg, code := in.normalizeAndValidate(true); code != 0 {
+		c.JSON(code, gin.H{"code": code, "message": msg})
 		return
 	}
-	if in.Source == "client_requirement" && (target == 3 || target == 6 || target == 7) && utf8.RuneCountInString(body.Evidence) < 10 {
-		c.JSON(422, gin.H{"code": 422, "message": "甲方项目关键门禁需提供甲方确认/测试/上线审批证据"})
-		return
-	}
-	if target == 9 && in.RealTrial && !strings.Contains(body.Evidence, "用户") {
-		c.JSON(422, gin.H{"code": 422, "message": "真实用户试点项目必须提供用户验证证据"})
-		return
-	}
+
 	before := stage + "/" + status
-	nextStage := fmt.Sprintf("S%d", target)
-	nextStatus := stageStatuses[target]
-	res, err := tx.Exec(`UPDATE vopc_projects SET stage=?,status=?,submitted_at=CASE WHEN ?='S1' THEN CURRENT_TIMESTAMP ELSE submitted_at END,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage=? AND status=?`, nextStage, nextStatus, nextStage, id, stage, status)
+	res, err := tx.Exec(`UPDATE vopc_projects SET stage='S1',status=?,submitted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage='S0' AND status='draft'`, stageStatuses[1], id)
 	if err != nil {
 		serverError(c, "状态更新失败")
 		return
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		serverError(c, "状态更新失败")
-		return
-	}
-	if n != 1 {
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
 		c.JSON(409, gin.H{"code": 409, "message": "项目状态已变化，请刷新后重试"})
 		return
 	}
-	if err = execOne(tx, `UPDATE vopc_milestones SET status='passed',review_note=? WHERE project_id=? AND stage=?`, strings.TrimSpace(body.Evidence+"\n"+body.ReviewNote), id, stage); err != nil {
+	if err = execOne(tx, `UPDATE vopc_milestones SET status='passed',review_note=? WHERE project_id=? AND stage='S0'`, "立项资料校验通过", id); err != nil {
 		serverError(c, "里程碑更新失败")
 		return
 	}
-	if err = writeEvent(tx, id, u.UserID, "project.stage_changed", before, nextStage+"/"+nextStatus, body.Evidence); err != nil {
+	if err = writeEvent(tx, id, u.UserID, "project.stage_changed", before, "S1/"+stageStatuses[1], "提交立项"); err != nil {
 		serverError(c, "状态审计写入失败")
 		return
 	}
@@ -663,8 +690,7 @@ func (h *VOPCHandler) transition(c *gin.Context, target int) {
 		serverError(c, "状态更新失败")
 		return
 	}
-	committed = true
-	c.JSON(200, gin.H{"code": 0, "data": gin.H{"stage": nextStage, "status": nextStatus}})
+	c.JSON(200, gin.H{"code": 0, "data": gin.H{"stage": "S1", "status": stageStatuses[1]}})
 }
 
 // projectPolicy is the project-level authorization boundary. Global

@@ -129,14 +129,15 @@ func setupRouter(d *deps) *gin.Engine {
 		secured.Use(middleware.JWTAuth(d.cfg))
 		secured.Use(middleware.EnsureUserExists(d.userRepo))
 		{
-			// vOPC：所有已登录系统用户均可进入和查看；具体写操作、项目关系
-			// 与评审动作在各路由继续执行能力和业务策略校验。
+			// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
 			vopc := secured.Group("/vopc")
+			vopc.Use(handler.CollegeAccess(d.cfg.VOPCCollegeID))
 			{
 				vopc.GET("/access", d.vopcH.AccessStatus)
 				vopc.GET("/projects", d.vopcH.ListProjects)
-				vopc.POST("/projects", d.vopcH.CreateProject)
+				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
 				vopc.GET("/projects/:id", d.vopcH.GetProject)
+				vopc.PUT("/projects/:id", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateProject)
 				vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
 				vopc.GET("/projects/:id/decisions", d.vopcH.ListDecisions)
 				vopc.POST("/projects/:id/decisions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateDecision)
@@ -155,7 +156,6 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
 				vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
 				vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
-				vopc.POST("/projects/:id/milestones/:stage/advance", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.AdvanceMilestone)
 			}
 
 			// ── AI 对话（self.chat）──

@@ -194,8 +194,13 @@ const (
 	VOPCProjectCreate   Capability = "vopc.project.create"
 	VOPCProjectManage   Capability = "vopc.project.manage"
 	VOPCProjectJoin     Capability = "vopc.project.join"
+	VOPCMentorReview    Capability = "vopc.mentor.review"
 	VOPCMilestoneReview Capability = "vopc.milestone.review"
+	VOPCResourceOffer   Capability = "vopc.resource.offer"
+	VOPCPublishRequest  Capability = "vopc.publish.request"
 	VOPCAudit           Capability = "vopc.audit"
+	VOPCRiskManage      Capability = "vopc.risk.manage"
+	VOPCAnalyticsRead   Capability = "vopc.analytics.read"
 )
 
 // 系统管理能力
@@ -265,7 +270,7 @@ var roles = map[string]*roleNode{
 			SelfAIBriefingRead,
 			// 毕业去向登记（2026-08-15）：学生可自报，待教辅审核
 			OutcomeRecordWrite, OutcomeRecordRead,
-			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin, VOPCResourceOffer, VOPCPublishRequest,
 		},
 	},
 	"student_union": {
@@ -305,7 +310,7 @@ var roles = map[string]*roleNode{
 			GovTicketAssignee,
 			// 教师授课关系审核（2026-08-17，R3）：辅导员不含自行审核（teacher 不授），教辅共享
 			TeacherCourseReview,
-			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin, VOPCMentorReview, VOPCResourceOffer, VOPCPublishRequest,
 		},
 	},
 	"teacher": {
@@ -325,7 +330,7 @@ var roles = map[string]*roleNode{
 			PartyRecordWrite, PartyRecordRead,
 			// 督办工单责任人（2026-08-16，D5-3）
 			GovTicketAssignee,
-			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin, VOPCMentorReview, VOPCResourceOffer, VOPCPublishRequest,
 		},
 	},
 	"assistant": {
@@ -342,6 +347,7 @@ var roles = map[string]*roleNode{
 			GovTicketAssignee,
 			// 教师授课关系审核（2026-08-17，R3）：教务可审核
 			TeacherCourseReview,
+			VOPCRead, VOPCProjectCreate, VOPCProjectManage, VOPCProjectJoin, VOPCMentorReview, VOPCResourceOffer, VOPCPublishRequest,
 		},
 	},
 	"college_admin": {
@@ -358,7 +364,7 @@ var roles = map[string]*roleNode{
 			CollabDashboard,
 			// 督办工单管理（书记建单/分派/督办，2026-08-16，D5-3）
 			GovTicketManage,
-			VOPCRead, VOPCProjectCreate, VOPCProjectJoin, VOPCProjectManage, VOPCMilestoneReview, VOPCAudit,
+			VOPCRead, VOPCProjectCreate, VOPCProjectJoin, VOPCProjectManage, VOPCMentorReview, VOPCMilestoneReview, VOPCResourceOffer, VOPCPublishRequest, VOPCAudit, VOPCRiskManage, VOPCAnalyticsRead,
 		},
 	},
 	"school_admin": {
