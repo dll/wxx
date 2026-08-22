@@ -132,3 +132,26 @@
 - 新增 owner 邀请 platform_operator、普通成员越级评审、重复/失效/跨阶段版本，以及邀请后变外院/guest/inactive 时接受失败且 invitation/member/event 原子一致的负向测试。
 
 边界：本轮仅收紧已有协作/成果元数据和里程碑事务门禁；**AI 真实执行与上下文隔离、私有文件上传/鉴权下载、风险审批/冻结/申诉、S9 后结项复盘等域仍未实现，继续是 NO-GO 阻断项，不能写成完成。**
+
+## vOPC 结项状态机 + 风险治理最小闭环 + 测试修复（2026-08-22）
+
+- **结项与异常状态机（迁移 101）**：新增 vopc_close_records 审计表、vopc_projects 增加 completed_at/closed_at 可空列；S9 里程碑通过后项目进入 closeable（不再直接 completed），必须由项目管理角色发起 close 才落为 completed。合法流转 close(closeable→completed)/pause/resume/pivot(回到 S0 草案并复位里程碑)/terminate(需失败证据)/archive(仅 completed/terminated)；所有动作在单事务内写记录与事件，失败整体回滚。resume 从 pause 记录恢复 previous_status，历史丢失回退 pending_review。
+- **风险治理最小闭环（迁移 102）**：新增 vopc_risks / vopc_risk_approvals / vopc_freeze_records / vopc_risk_appeals 四张表。风险创建后 open；R2/R3 项目里程碑推进要求同等级风险双人（两名不同审批人）approve 才解除拦截；冻结/解冻与审批只允许项目内 platform_operator 角色；申诉由主理人发起、平台治理角色裁定（upheld/dismissed），全部审计入 vopc_events。仅服务端可治理元数据，不接入外部审批系统、不涉及真实资金/合同。
+- **权限边界**：freeze/approve/resolve 路由挂 vopc.risk.manage capability（college_admin 具备、student 不具备），并在 handler 内二次校验 platform_operator 成员身份；重复审批、非 open 审批、非 pending 裁定、重复冻结均返回 409，无治理成员关系返回 403。
+- **测试修复**：清理 vopc_governance_test.go 中无法编译的占用占位（非法签名 createProjectAt、nil 返回的 w2()、bytesBuffer 接口、未使用的 appeal 结构体）；新增结项状态机、pivot 复位、R2 双人审批 gate、freeze/申诉端到端测试；vopcTestDB 迁移列表补入 101/102。migration_vopc_test.go 纳入 101/102 的 SQLite→MySQL 方言静态回归。
+- **验证（通过）**：gofmt；go vet ./internal/handler/；go test ./internal/handler -run 'Test.*(VOPC|Close|Risk|Freeze|Appeal|Pivot|Governance)' -count=1；go test ./internal/db -run TestToMySQLVOPCMigrations -count=1；go test ./pkg/app -count=1；git diff --check。未部署、未 commit、未 push。
+- **[blocked]** 仍缺：R1/R2 立项审批实体与工作台、rubric/条件通过/豁免、AI 真实执行与上下文隔离、私有文件上传/鉴权下载、甲方审批（S2/S5/S6）等域，本轮未伪造。整体仍禁止上线验收。
+
+## QA 第三轮回归 B3：R3 独立专项审批通道（2026-08-22）
+
+- **背景**：QA-report 第三轮唯一实质缺口 B3——R3 风险与 R2 共用同一双人审批门槛，未实现 PRD 13.1 的独立专项通道，且 R3 风险可由任意 manager 创建。
+- **PRD 13.1 口径选择（明确记录）**：PRD 13.1 对 R3 表述为「禁止或专项审批 → 默认禁止，按学校制度专项审批」。本批选择**专项审批**口径，而非纯禁止：任务要求实现可执行的最小专项通道（创建限制 + 双人专项审批 + 拒绝路径 + 里程碑门禁），纯「禁止」会把 R3 风险完全惰性化、与要求的审批流矛盾。落地为「默认禁止推进，专项审批通过后放行」。
+- **实现（server/internal/handler/vopc_risk.go）**：
+  - 新增 `risk_governance` 专项角色（R3 治理），与 `platform_operator`（R2 一般治理）分离，互不越权；两者均不开放项目侧自助授予（与 platform_operator 一致）。
+  - `isSpecialRiskGovernance` 判定函数；`CreateRisk` 对 R3 改用 `readableProject` 边界 + 专项角色二次校验（避免把 risk_governance 放大为完整项目管理权），普通 manager 创建 R3 返回 403；R0/R1/R2 维持既有 `manageableProject` 语义。
+  - `ApproveRisk` 按风险等级分流：R3 走 `risk_governance` 专项通道（专项权限 + 两名不同审批人 approve → approved；任一 reject → rejected）；R2 及以下走 `platform_operator` 双人审批（不退化）。
+  - `milestoneAdvanceAllowed` 升级：项目为 R3 时需专项审批通过的 R3 风险；**即使项目本体是 R0/R1/R2，只要挂有未专项审批的 R3 风险也一律阻断里程碑**（“禁止推进”落地）。R2 门禁保持原语义。
+- **不改迁移**：`risk_governance` 是 `vopc_project_members.project_role` 的既有字符串值，无 DDL 变化；未新增 103，不触碰 101/102 或历史迁移。SQLite/MySQL 方言兼容不受影响。
+- **测试（vopc_governance_test.go 新增 TestVOPCR3SpecialGovernanceChannel）**：普通 manager 创建 R3 被拒(403)、platform_operator 越权创建被拒(403)、专项角色创建成功(201)、R3 缺专项审批时里程碑被拦(409)、单人专项审批仍 open 且里程碑仍拦、双专项审批后放行(201)、任一专项 reject 即 rejected 且里程碑再拦。既有 R2 双人审批 gate 测试继续通过，确认 R2 语义不退化。
+- **未扩展/仍阻断**：本批未伪造外部审批/模型/对象存储；试点审批、发布审批、文件外发等其他 R3 相关联的域仍缺 schema/运行环境，继续 [blocked]。里程碑门禁为本批实际落地的最小门禁点。
+- **验证（全部通过）**：gofmt -w；go vet ./internal/handler/；go test ./internal/handler -run 'Test.*(VOPC|Close|Risk|Freeze|Appeal|Pivot|Governance|R3)' -count=1；go test ./internal/db -run TestToMySQLVOPCMigrations -count=1；go test ./pkg/app -count=1；go test ./... -count=1；git diff --check。未部署、未 commit、未 push（leader 统一提交）。

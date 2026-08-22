@@ -174,3 +174,166 @@
 - **P0：结项/终止/暂停/转向/复盘及完整审计查询仍缺失**。
 
 本轮未修改业务源码，未部署、未 commit、未 push；仅更新本报告。
+
+## 2026-08-22 第三轮严格回归（结项/异常状态机 + 风险治理最小闭环）
+
+### 本轮结论
+**NO-GO（P0 仍阻断）**。本轮专项针对“S9 结项与异常状态机 + 风险治理最小闭环”验证，新增能力方向正确且获得自动化证据支持；但整体仍不能上线验收。剩余 P0 至少包括：AI 真实执行与上下文隔离、里程碑量表/条件通过/豁免/甲方 S2-S5-S6 结构化证据、私有文件上传/鉴权下载、R3 专项审批未与 R2 区分、生产同构（MySQL/Turso）真库验证、全仓 Flutter analyze 既有 lint 门禁。
+
+### 一、逐项 PASS/FAIL 判定
+
+#### A. 结项/异常状态机
+
+| 编号 | 验收点 | 结果 | 证据 |
+|---|---|---|---|
+| A1 | S9 里程碑 pass 后不再直接 completed，进入可结项状态 | **PASS** | `vopc_handler.go` 将 `stageStatuses[9]` 由 `completed` 改为 `closeable`；`ReviewMilestone` 在 target==9 时以 `stageStatuses[9]`（closeable）作为 `nextStatus`。`completedLike = {completed, closeable}` 使 closeable 下任务/决策/里程碑均被拦截。 |
+| A2 | close/retrospective 理由、失败证据、风险处置、成果包要点、人类结项决策缺一不可 | **PASS（有边界）** | `closeInput.normalizeAndValidate`：reason 必填≤4000；close 强制 `human_decision`+`outcome_package`；terminate 强制 `failure_evidence`；pivot 强制 `human_decision`。**边界**：A2 点名的“风险处置”未作为独立必填字段落到结项闭环——`close` 仅校验 human_decision/outcome_package，风险处置未在 close 时强校验“已无未处置风险”或关联风险记录（风险处置在 `vopc_risks`/`vopc_risk_appeals` 独立闭环，未与结项强制串联）。 |
+| A3 | pause/resume/pivot/terminate/archive 合法流转，理由/证据/权限/审计正确，非法流转被拒 | **PASS** | `closeTransition` 状态机 + `CloseProject` 单事务写 `vopc_close_records`+`vopc_events`。自动化：`TestVOPCCloseStateMachine` 覆盖非管理 404、非法动作 422、draft-close 409、pause→resume、terminate 缺证据 422、terminate→archive、terminated 禁止 close/pivot 409；`TestVOPCPivotResetsProject` 覆盖 pivot 回 S0/draft 并复位 9 个里程碑。权限由 `projectPolicy(…,"manage")` 收敛到 owner/co_owner/platform_operator。 |
+| A4 | 迁移 101 SQLite/MySQL 方言兼容、幂等、建表正确 | **PASS（静态转换 + 幂等，无真 MySQL）** | `101_vopc_close_state_machine.sql` 建 `vopc_close_records` 表 + `completed_at`/`closed_at` 可空列 + 索引。`TestToMySQLVOPCMigrations` 纳入 101，断言无 AUTOINCREMENT/`INDEX IF NOT EXISTS` 残留，且 `INTEGER PRIMARY KEY AUTOINCREMENT`→`BIGINT PRIMARY KEY AUTO_INCREMENT`。`TestRunMigrationsIdempotent`/`TestRunMigrationsCreatesSchema` 通过（`_migrations` filename 去重；`isDuplicateColumnError`/`isDuplicateIndexError` 容错）。**边界**：无真实 MySQL 实例 DDL/业务 SQL 实跑。 |
+
+#### B. 风险治理最小闭环
+
+| 编号 | 验收点 | 结果 | 证据 |
+|---|---|---|---|
+| B1 | risk/approval/freeze/appeal 四实体表（迁移 102） | **PASS** | `102_vopc_risk_governance.sql` 建 `vopc_risks`/`vopc_risk_approvals`/`vopc_freeze_records`/`vopc_risk_appeals` 四表 + 三索引。 |
+| B2 | R2 未审批（含未双人审批）不得推进里程碑 | **PASS** | `milestoneAdvanceAllowed` 在 `SubmitMilestone` 内对 R2/R3 项目校验“存在一条同 `risk_level` 且 `status='approved'` 的风险”。`TestVOPCRiskGovernanceAndGate` 覆盖：R2 未审批提交 S2→409；单人 approve 后仍 `open`；同人重复审批→409；第二人 approve→`approved` 后提交 S2→201。 |
+| B3 | R3 专项权限 + 双人审批放行 | **FAIL（语义缺口）** | 当前 R3 与 R2 共用同一 `milestoneAdvanceAllowed`/同一条 `VOPCRiskManage` 能力+`platform_operator` 成员门禁，仅以 `risk_level` 字符串区分；**未实现 PRD 13.1 的“R3 禁止或专项审批——默认禁止，按学校制度专项审批”的独立专项通道**。R3 风险可由任意 project manager 通过 `CreateRisk` 创建，审批门槛与 R2 完全一致（双人 approve），无更高权限/线下专项审批实体。这是本轮最实质的语义缺口。 |
+| B4 | 创建风险、审批、冻结/解冻、申诉 API 与审计 | **PASS** | `CreateRisk`/`ListRisks`/`ApproveRisk`/`FreezeProject`/`CreateRiskAppeal`/`ResolveRiskAppeal` 全部落库并 `writeEvent` 审计；路由挂 `VOPCProjectManage`（create/appeal）或 `VOPCRiskManage`（approve/freeze/resolve）。`TestVOPCRiskFreezeAndAppeal` 覆盖 owner 冻结 403、admin 冻结 200、冻结后 submit 409、申诉 201、owner 裁定 403、admin 裁定 200、解冻→pending_review。 |
+| B5 | 迁移 102 方言兼容/幂等 | **PASS（静态 + 幂等，无真 MySQL）** | `TestToMySQLVOPCMigrations` 纳入 102，同 A4 断言；幂等测试通过。**边界**：无真 MySQL/Turso 实跑。 |
+
+#### C. 回归不退化
+
+| 验收点 | 结果 | 证据 |
+|---|---|---|
+| 既有 vOPC 学院准入/S0 草稿/里程碑版本门禁/邀请/任务/决策测试 | **PASS** | `go test ./internal/handler` 全部 PASS，含 `TestVOPCAccessHTTPMatrix`、`TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute`、`TestVOPCTaskLifecycleAuthorizationAndAudit`、`TestVOPCInvitation…` 等。 |
+| 路由计数一致 | **PASS** | `TestRouteRegistrationCount`（静态计数下限 479）、`TestKeyRoutesReachable` 均 PASS。**注**：计数测试的 vOPC 路由锚点列表尚未显式补充 7 条新增治理/结项路由（close/close-records/risks×2/freeze/risk-appeals×2），当前仅靠“总计数下限”兜底，建议后续将 7 条新路由加入锚点断言。 |
+
+#### D. 全量门禁
+
+| 命令 | exit code | 结果 |
+|---|---|---|
+| `go build ./...` | 0 | PASS |
+| `go vet ./...` | 0 | PASS |
+| `go test ./... -count=1` | 0 | PASS（全包，含 handler/repository/service/app） |
+| `flutter test` | 0 | PASS（14 tests） |
+| vOPC 定向 `flutter analyze` | 0 | PASS（No issues found，6 items） |
+| `git diff --check` | 0 | PASS |
+
+（全仓 `flutter analyze` 仍为既有 lint/info 非零门禁，本轮未重跑，沿用上轮结论 268 条既有 info 级提示，不计入本轮定向 PASS。）
+
+### 二、命令与逐项 exit code（本次实跑）
+
+- `go build ./...` → exit 0
+- `go vet ./...` → exit 0
+- `go test ./... -count=1` → exit 0（`ok` 全包，无 FAIL）
+- `go test ./internal/handler -run 'Test.*(VOPC|Close|Risk|Freeze|Appeal|Pivot|Governance|StateMachine)' -count=1 -v` → exit 0（TestVOPCCloseStateMachine / TestVOPCPivotResetsProject / TestVOPCRiskGovernanceAndGate / TestVOPCRiskFreezeAndAppeal 均 PASS）
+- `go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 -v` → exit 0（097–102 六项 PASS）
+- `go test ./pkg/app -run 'Test(RouteRegistrationCount|KeyRoutesReachable|RunMigrationsCreatesSchema|RunMigrationsIdempotent)' -count=1` → exit 0（迁移幂等/建表通过；日志“成功执行 99 个迁移文件”与 `server/migrations/*.sql` 实为 99 个文件一致，101/102 已被 `go:embed migrations/*.sql` 收录执行）
+- `flutter test` → exit 0（14 tests passed）
+- `flutter analyze <vOPC 定向 6 文件>` → exit 0（No issues found）
+- `git diff --check` → exit 0
+
+### 三、语义缺口与可接受性判定
+
+1. **“审批不存在 risk id 返回 404 而非 403”——可接受（并推荐保持）**。`ApproveRisk` 对不存在的风险返回 404“风险不存在或无权操作”，对存在风险但非治理角色返回 403。这是 fail-closed 且不泄露风险存在性的正确姿势；且路由层 `VOPCRiskManage` 能力门控使非治理用户（student）在进入 handler 前已被 403 拦截。结论：**该语义可接受，不构成缺陷**。
+
+2. **R3 专项审批缺口（B3）——不可接受，P0**。R3 与 R2 共用双人审批门槛，未实现 PRD 13.1 的专项审批/默认禁止通道；R3 风险可由任意 manager 创建。建议后续落地独立 R3 专项权限与线下审批录入实体。
+
+3. **结项风险处置未强校验（A2 边界）——建议项，非本轮 P0**。`close` 未强制校验“项目已无未处置风险/申诉”，风险闭环与结项闭环未强制串联。PRD 未将“结项时风险清零”列为硬门槛，故记建议，不阻断。
+
+4. **项目级 vs 风险级 risk_level 分离——提示项**。`milestoneAdvanceAllowed` 以 `vopc_projects.risk_level`（创建时自动升级 R2/R3）为闸，要求存在同等级 `approved` 风险；`CreateRisk` 的风险级 `risk_level` 可独立填 R0–R3。若项目 auto-promote 为 R3 但只登记了 R2 风险，即使 R2 已批准仍无法推进门槛——语义自洽，但需文档说明该“同等级匹配”约束。
+
+### 四、剩余 P0 排序
+
+1. R3 专项审批未实现（默认禁止 + 专项通道 + 线下录入实体缺失）。
+2. AI 任务真实执行、项目上下文隔离、版本化产出、四人审阅、Token/成本/重试仍缺失。
+3. 里程碑评分量表/条件通过/豁免/甲方 S2-S5-S6 结构化证据仍缺失（结构化版本元数据门禁≠完整阶段验收）。
+4. 成果私有文件上传/鉴权下载及字段级隔离仍缺失。
+5. 生产同构（真实 MySQL/Turso 升级/并发/备份恢复）与真机/WebView/P95 未验证；全仓 `flutter analyze` 既有 lint 门禁未治理。
+6. （新）`TestRouteRegistrationCount` 未将 7 条新增 vOPC 结项/风险治理路由纳入锚点断言（测试覆盖补强，非功能缺陷）。
+
+### 五、最终判定
+
+**NO-GO。**
+
+本轮结项/异常状态机（A）与风险治理最小闭环（B，除 R3 专项）的代码与自动化证据方向正确、质量合格，A1–A4、B1、B2、B4、B5、C、D 全部通过，整体未回归退化，路由计数一致。但由于 R3 专项审批通道缺失（B3）以及上轮已明确的 AI 闭环、完整里程碑业务门禁、私有文件安全、生产同构验证等 P0 阻断项仍存在，**不得上线、部署或宣称 vOPC PRD v1.0 P0 验收完成**。
+
+本轮仅更新本报告（含本追加章节），未修改业务源码、未新增迁移、未部署、未 commit、未 push。
+---
+
+## 2026-08-22 第四轮严格回归（R3 独立专项审批通道 + A/B/C/D 全量复核）
+
+- 测试日期：2026-08-22 10:02–10:12（Asia/Shanghai）
+- 基准：docs/wxx-vopc-prd-v1.0.md、pm-checklist.md、refactor-notes.md、audit-report.md
+- 审查对象：当前未提交工作树（新增 vopc_close.go / vopc_risk.go / vopc_governance_test.go / 101_*.sql / 102_*.sql，及改动 vopc_handler.go / vopc_delivery.go / vopc_decisions.go / routes.go / vopc_handler_test.go / migration_vopc_test.go）
+- 运行环境：go 1.x（server 全包）、Windows/pwsh
+
+### 本轮结论
+
+第三轮报告标记的「R3 专项审批未实现（B3）」在本轮已落地并通过自动化验证。A/B/C/D 四项逐项复核全部 PASS，无新增回归、无新增 P0 阻断。**本轮相对第三轮的唯一实质变更是 R3 独立专项通道实现**，其余 A/B/D 结论维持第三轮判定。
+
+### 一、逐项 PASS/FAIL 判定（证据）
+
+**A. 结项与异常状态机 — PASS**
+- close/pause/resume/pivot/terminate/archive 合法流转：TestVOPCCloseStateMachine（含 pause→paused、resume→pending_review、terminate 需失败证据 422、terminated 后 close/pivot 409、archive 200）全通过。
+- 权限：非管理角色 close → 404（test 断言 on-manager close got 404）on-manager close got 404）。
+- 必填校验：terminate 缺失败证据 422、close 缺 human_decision/outcome_package 422（closeInput.normalizeAndValidate）。
+- 非法流转：draft 直接 close → 409（draft close got 409）。
+- pivot 里程碑重置：TestVOPCPivotResetsProject 断言 stage=S0/status=draft，且非 S0 里程碑 esets=9（9 个非 S0 里程碑复位 pending）。
+- S9 pass 不再直接 completed：TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute 断言 S9 后 status=closeable，再 close → completed。
+- close/retro 事件审计：writeEvent 与 vopc_close_records 同事务写入（CloseProject 单 tx、defer Rollback）。
+- 方言兼容：101 仅 DDL（AUTOINCREMENT、CURRENT_TIMESTAMP、IF NOT EXISTS、ADD COLUMN），TestToMySQLVOPCMigrations PASS。
+
+**B. 风险治理最小闭环 — PASS**
+- 风险创建：TestVOPCRiskGovernanceAndGate 201；未加入项目的平台角色审批 → 404（pprove without membership got 404）。
+- R2 双人 gate：单人 approve→风险仍 open、同审批人重复 409、第二人 approve→approved、审批后里程碑 201；未审批里程碑 409（R2 unapproved milestone got 409）。
+- freeze/unfreeze 权限：TestVOPCRiskFreezeAndAppeal owner 冻结 403、admin 冻结 200→risk_frozen、冻结后 submit 409、admin 解冻→pending_review。
+- 申诉/resolve 权限与原子性：owner resolve 403，admin resolve 200（单 tx + RowsAffected 校验）。
+- 方言兼容：102 仅 DDL，TestToMySQLVOPCMigrations PASS。
+
+**C. R3 独立专项通道 — PASS（本轮新增）**
+- 普通 manager 创建 R3 → 403（owner create R3 got 403）。
+- platform_operator 创建 R3 → 403、platform_operator 审批 R3 → 403（代码 isSpecialRiskGovernance 分流）。
+- 专项角色（risk_governance）创建 R3 → 201。
+- 缺专项审批里程碑 → 409；单人专项 approve → open 且里程碑仍 409；双人专项 approve → approved 且里程碑 201。
+- 任一专项 reject → rejected，后续里程碑 409（ejected R3 milestone got 409）。
+- R2 语义不退化：R2 仍走 platform_operator 双人审批（TestVOPCRiskGovernanceAndGate 稳定通过）。
+
+**D. 既有闭环不回归 — PASS**
+- 学院准入、S0 草稿、成果版本门禁、任务、决策、邀请、正式里程碑评审、迁移 097-100 全量通过。
+- go test ./... -count=1 全包 PASS；历史迁移 097-100 文件与 git 基线无 diff（未误改）。
+
+### 二、命令与逐项 exit code（本次实跑）
+
+| 门禁 | 结果 | exit code |
+|---|---|---|
+| go build ./... | PASS | 0 |
+| go vet ./... | PASS | 0 |
+| go test ./... -count=1 | PASS | 0 |
+| go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 | PASS | 0 |
+| go test ./pkg/app -run 'Test(KeyRoutesReachable\|RouteRegistrationCount\|RunMigrationsCreatesSchema\|RunMigrationsIdempotent)' -count=1 | PASS | 0 |
+| git diff --check | PASS | 0 |
+| go test ./internal/handler -run 'TestVOPC(CloseStateMachine\|PivotResetsProject\|RiskGovernanceAndGate\|RiskFreezeAndAppeal\|R3SpecialGovernanceChannel\|S0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute)' -count=1 -v | PASS | 0（6/6 用例 PASS）|
+
+- 前端：本批为纯后端改动，flutter 未涉及，记「未涉及」。
+
+### 三、残留/垃圾与安全核查
+
+- 无 createProjectAt/ytesBuffer 等占位残留；ytes.Buffer 仅出现在既有测试 helper（request 序列化 json body）与上传/语音测试，均为合法使用。
+- 无伪成功：close/approve/freeze/resolve 均走真实事务 + RowsAffected/committed 标志 + defer Rollback，任一步失败回滚。
+- 事务与审计原子：vopc_close_records / vopc_risks / vopc_risk_approvals / vopc_freeze_records / vopc_risk_appeals 与对应 writeEvent 同事务。
+- 历史迁移 097-100 未改动；101/102 为新增，方言兼容通过。
+
+### 四、语义缺口（提示/建议项，非本轮阻断）
+
+1. 结项未强制校验“项目已无未处置风险/申诉”（同第三轮建议项）。
+2. 项目级 vs 风险级 risk_level 的“同等级匹配”约束仍待文档说明。
+3. TestRouteRegistrationCount 锚点断言仍未将 7 条新增 vOPC 结项/风险治理路由计数纳入（测试覆盖补强，非功能缺陷）。
+
+### 五、最终判定
+
+**NO-GO。**（维持整体 NO-GO，非因本轮本批功能缺陷）
+
+本轮 A/B/C/D 全部 PASS，R3 专项通道（第三轮 P0）已实现；相对前轮无新增回归、无新增 P0 阻断。整体仍维持 NO-GO 的原因是上轮及更早已明确的、非本批范围的 P0 阻断项仍未消除：AI 虚拟员工闭环、里程碑完整业务门禁（评分量表/条件通过/豁免/甲方结构化证据）、私有文件安全与字段级隔离、生产同构（真实 MySQL/Turso 并发/备份恢复）、前端入口三层校验、flutter analyze 既有 lint 门禁等。
+
+本轮仅更新本报告（追加本章节），未修改业务源码、未新增迁移、未部署、未 commit、未 push。
