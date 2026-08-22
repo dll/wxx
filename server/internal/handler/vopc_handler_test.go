@@ -100,6 +100,7 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), h.FreezeProject)
 	g.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), h.CreateRiskAppeal)
 	g.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), h.ResolveRiskAppeal)
+	g.POST("/projects/:id/governance-roles", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCAudit), h.GrantGovernanceRole)
 	return r
 }
 

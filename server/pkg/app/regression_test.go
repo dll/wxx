@@ -60,7 +60,7 @@ func TestRouteRegistrationCount(t *testing.T) {
 	if total < 479 {
 		t.Errorf("routes.go 路由注册数 = %d, 低于历史最小基线 479", total)
 	}
-	for _, route := range []string{"/vopc", "/projects", "/projects/:id", "/projects/:id/tasks", "/projects/:id/tasks/:taskId", "/projects/:id/submit", "/projects/:id/members", "/invitations", "/invitations/:invitationId/respond", "/projects/:id/artifacts", "/projects/:id/artifacts/:artifactId/versions", "/projects/:id/milestone-submissions", "/projects/:id/milestone-submissions/:submissionId/review", "/projects/:id/files", "/projects/:id/files/:key"} {
+	for _, route := range []string{"/vopc", "/projects", "/projects/:id", "/projects/:id/tasks", "/projects/:id/tasks/:taskId", "/projects/:id/submit", "/projects/:id/members", "/invitations", "/invitations/:invitationId/respond", "/projects/:id/artifacts", "/projects/:id/artifacts/:artifactId/versions", "/projects/:id/milestone-submissions", "/projects/:id/milestone-submissions/:submissionId/review", "/projects/:id/files", "/projects/:id/files/:key", "/projects/:id/close", "/projects/:id/close-records", "/projects/:id/risks", "/projects/:id/risks/:riskId/approve", "/projects/:id/freeze", "/projects/:id/risk-appeals", "/projects/:id/risk-appeals/:appealId/resolve", "/projects/:id/governance-roles"} {
 		if !strings.Contains(curText, `"`+route+`"`) {
 			t.Errorf("vOPC 路由缺失: %s", route)
 		}

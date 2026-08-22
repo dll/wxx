@@ -171,6 +171,9 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.FreezeProject)
 				vopc.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRiskAppeal)
 				vopc.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ResolveRiskAppeal)
+
+				// 治理角色受控授予/撤销：仅平台治理系统角色（college_admin/school_admin/sys_admin）可调用。
+				vopc.POST("/projects/:id/governance-roles", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCAudit), d.vopcH.GrantGovernanceRole)
 			}
 
 			// ── AI 对话（self.chat）──

@@ -481,3 +481,82 @@
 **整体项目维持 NO-GO（历史 P0 阻断，非本批功能缺陷）**：此前已明确的 P0 阻断（真实 AI 执行、私有文件/字段级隔离、rubric/条件通过与审批、真实 MySQL/Turso 同构、前端三层校验等）仍未消除，本轮未触碰。
 
 本轮仅追加 qa-report.md 本章节；未改源码/测试/迁移，未部署、未 commit、未 push。
+
+---
+
+## vOPC 残留小项收紧回归（第三批：platform_operator provisioning + TOCTOU 回滚断言 + 新路由锚点）
+
+> 日期 2026-08-22。基准 HEAD=bc5ae4b。范围：本批未提交工作树的严格回归，逐项验证 vOPC 残留小项（对照 docs/wxx-vopc-prd-v1.0.md、pm-checklist.md、refactor-notes.md、qa-report.md、audit-report.md）。
+> 说明：本批仅追加本 qa-report.md 章节，未改源码/测试/迁移，未部署、未 commit、未 push。
+
+### 改动文件（git status 实测）
+
+- 新增：server/internal/handler/vopc_governance.go（GrantGovernanceRole 端点）
+- 修改：server/internal/handler/vopc_governance_test.go（删直插 helper、改真实端点、新增 provisioning 测试、TOCTOU 补强）
+- 修改：server/internal/handler/vopc_handler_test.go（vopcRouter 增加 governance-roles 路由 +1 行）
+- 修改：server/pkg/app/routes.go（vopc 组增加 governance-roles 路由）
+- 修改：server/pkg/app/regression_test.go（路由锚点清单补齐）
+- 修改：refactor-notes.md（本批变更记录）
+- 迁移：无新增（git ls-files --others / status 均无 .sql；097-103 未改）
+
+### 逐项验证
+
+#### 1. platform_operator provisioning API（GrantGovernanceRole / POST /projects/:id/governance-roles）— PASS
+
+- 证据（vopc_governance.go + TestVOPCGovernanceRoleProvisioning 全 PASS，exit 0）：
+  - 仅治理角色可授予：路由层 RequireAnyCapability(vopc.risk.manage, vopc.audit) 拦普通 manager/owner（无此能力）→ 403；handler 内以 DB users.role 为权威判据（非 JWT 自证），非治理系统角色（student）→ 403。二者均被测试覆盖为 403。
+  - 仅允许 platform_operator：in.ProjectRole != "platform_operator" → 422（防写入 owner/co_owner 提权），测试断言非 platform_operator 授予 → 422。
+  - fail-closed + 审计 + 事务原子：grant 走 writeEvent(tx, ... "governance_role.granted" ...), revoke 走 ... "governance_role.revoked" ...，均在单事务 	x；失败 defer tx.Rollback()（committed 标记），无伪成功。测试断言 granted/revoked 审计事件计数 =1。
+  - grant 拒绝覆盖 owner/既有角色：目标已是 active 成员 → 409；目标为项目 owner → 409。revoke 仅当当前角色恰为 platform_operator，否则 409。测试覆盖重复授予 409、撤销非成员 409。
+  - 直插残留核查：Select-String 全 handler 目录确认 ddPlatformOperator 已删除；测试中所有 INSERT INTO vopc_project_members 均插 reviewer/member/tc.role，无一处直插 platform_operator；唯一 platform_operator 写入在生产源码 vopc_governance.go 的 INSERT（端点本体，正确）。10 处调用点均改走 grantPlatformOperator(r, projectID, asToken, userID) 真实端点。
+  - 依赖确认：platformGovernanceRoles（vopc_risk.go）、writeEvent（vopc_handler.go）、itoa（vopc_risk.go）、RequireAnyCapability（auth/middleware.go）、GetUserContext（middleware/jwt.go）均存在，go build/vet 通过。
+
+#### 2. 里程碑 TOCTOU 回滚断言 — PASS
+
+- 证据（TestVOPCMilestoneGateTOCTOU 全 PASS）：新增真实 DB 查询断言，非空/伪：
+  - 409 后 opc_projects.status 未推进（!= company_formed）、stage 仍 S1；
+  - opc_milestone_submissions.status 仍 pending；
+  - opc_milestone_reviews 对该 submission 计数 =0（无泄漏）；
+  - opc_events 中 action='milestone.reviewed' 计数 =0（无审计误写）。
+  - 断言均为真实 db.QueryRow(...).Scan(...) + 	.Fatalf 比较，非恒真。
+
+#### 3. 路由锚点（TestRouteRegistrationCount 存在性断言）— PASS
+
+- 证据：regression_test.go 以 os.ReadFile("routes.go") 读源码静态断言；/projects/:id/governance-roles 已列入锚点清单，routes.go 中该字符串字面量真实存在（diff 可见）。锚点用 strings.Contains(curText, "..."+route+"...")，缺失即 	.Errorf，非恒真。
+- 同时补齐 close/close-records/risks/risks/:riskId/approve/freeze/risk-appeals/resolve 等治理/结项路由锚点；计数基线仍动态（total < 479 下限），未破坏既有断言。
+
+#### 4. 不回归 — PASS
+
+- go test ./... -count=1 全量 PASS（handler 109s / repository 124s / service 180s / app 84s 等全部 ok）。
+- 既有结项/风险/R3、私有文件/scan_failed、学院准入、S0、成果门禁、任务/决策/邀请、正式里程碑均绿。
+- 迁移 097-103 方言：TestToMySQLVOPCMigrations -count=1 七方言全 PASS（无 diff）。
+- app 路由幂等：RunMigrationsIdempotent / RunMigrationsCreatesSchema / KeyRoutesReachable / RouteRegistrationCount 4/4 PASS。
+
+### 门禁命令与 exit code（server/ 下，本次实跑）
+
+| 门禁 | 结果 | exit code |
+|---|---|---|
+| go test ./... -count=1 | PASS | 0 |
+| go vet ./... | PASS | 0 |
+| go build ./... | PASS | 0 |
+| go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 | PASS | 0（097-103 全 PASS）|
+| go test ./pkg/app -run 'Test(KeyRoutesReachable\|RouteRegistrationCount\|RunMigrationsCreatesSchema\|RunMigrationsIdempotent)' -count=1 | PASS | 0（4/4）|
+| git diff --check | PASS | 0 |
+
+### 三项残留核查
+
+1. **platform_operator 直插残留**：已清零。ddPlatformOperator(db.Exec) helper 删除，全部改走真实端点；测试无任何直插 platform_operator 语句。
+2. **TOCTOU 回滚断言真实性**：真实且非伪，四条 DB 断言（submission pending / reviews=0 / milestone.reviewed event=0 / status 未推进）均实跑通过。
+3. **路由锚点恒真风险**：无。锚点读真实 routes.go 源码做 Contains 断言，缺失即失败。
+
+### 残留阻断项（仅记录，未修）
+
+- 无新增阻塞缺陷：五大门禁全绿，四项功能验证全 PASS。
+- 保留历史 [blocked] P0（非本批功能缺陷）：真实 AI 执行/上下文隔离、私有文件/字段级隔离、rubric/条件通过与审批、真实 MySQL/Turso 同构、前端三层校验、云对象存储/真实病毒扫描。
+- 产品语义边界（非缺陷，记录）：platform_operator 授予的目标当前为「学院任意 active 非 guest 用户」（由治理角色裁量），未要求目标本身也是治理系统角色——这是 R2/R3 分组语义所需，如需 platform_operator 仅授治理角色需再收紧目标校验。
+
+### 最终判定
+
+**GO（针对本批 vOPC 残留小项范围）**：platform_operator provisioning、TOCTOU 回滚断言、路由锚点、不回归全部 PASS，有真实正/负向测试，无占位/伪成功，未改历史迁移。
+
+**整体项目维持 NO-GO（历史 P0 阻断，非本批功能缺陷）**：既有 P0 阻断未消除，本批未触碰。

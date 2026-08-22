@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strconv"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 // helper: 在当前测试中追加一名 college_admin 用户，用于双人审批。
@@ -15,11 +17,15 @@ func addCollegeAdmin(t *testing.T, db *sql.DB, id int) {
 	}
 }
 
-// addPlatformOperator 把用户以 platform_operator 项目角色加入项目。
-func addPlatformOperator(t *testing.T, db *sql.DB, projectID, userID int64) {
+// grantPlatformOperator 通过真实治理角色授予端点把用户设为项目 platform_operator 成员。
+// 不再用 db.Exec 直插 vopc_project_members 自证（对应 audit M-B1：治理角色必须经真实端点可达）。
+// asToken 必须是治理系统角色（college_admin/school_admin/sys_admin）令牌，作为授予的调用方。
+func grantPlatformOperator(t *testing.T, r *gin.Engine, projectID int64, asToken string, userID int64) {
 	t.Helper()
-	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, projectID, userID, "platform_operator"); err != nil {
-		t.Fatal(err)
+	path := fmtPath("/api/v1/vopc/projects/%d/governance-roles", projectID)
+	w := request(r, "POST", path, asToken, map[string]any{"action": "grant", "user_id": userID, "project_role": "platform_operator"})
+	if w.Code != 200 {
+		t.Fatalf("grant platform_operator to user %d: got %d %s", userID, w.Code, w.Body.String())
 	}
 }
 
@@ -139,7 +145,6 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 	admin := token(t, 4, "college_admin", "college", "cs", "active")
 	addCollegeAdmin(t, db, 6)
 	admin2 := token(t, 6, "college_admin", "college", "cs", "active")
-
 	// R2 项目（个人数据）。
 	proj := validProject()
 	proj["data_type"] = "个人数据"
@@ -169,8 +174,8 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &risk)
-	addPlatformOperator(t, db, out.Data.ID, 4)
-	addPlatformOperator(t, db, out.Data.ID, 6)
+	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
+	grantPlatformOperator(t, r, out.Data.ID, admin, 6)
 
 	// 提交立项进入 S1，再向 S2 提交里程碑被 R2 门禁拦截。
 	// 先提交立项。
@@ -236,7 +241,7 @@ func TestVOPCRiskFreezeAndAppeal(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &out)
 	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
-	addPlatformOperator(t, db, out.Data.ID, 4)
+	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
 	// 普通成员无法冻结（走治理角色校验）。
 	if got := request(r, "POST", base+"/freeze", owner, map[string]any{"action": "freeze", "reason": "违规"}).Code; got != 403 {
 		t.Fatalf("owner freeze got %d", got)
@@ -284,7 +289,7 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	db := vopcTestDB(t)
 	r := vopcRouter(db)
 	owner := token(t, 1, "student", "college", "cs", "active")
-	// op 是治理系统角色（college_admin），经 addPlatformOperator 成为项目 platform_operator 成员，
+	// op 是治理系统角色（college_admin），经 grantPlatformOperator 真实端点成为项目 platform_operator 成员，
 	// 即 R3 专项审批人（platform_operator + 治理系统角色），生产可达。
 	op := token(t, 4, "college_admin", "college", "cs", "active")
 	// plainOp 是普通系统角色（student）却挂着 platform_operator 项目角色，不应能越权 R3。
@@ -312,14 +317,14 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	}
 
 	// 2) 非治理系统角色的 platform_operator（student 挂着平台运营者项目角色）越权创建 R3 → 403。
-	addPlatformOperator(t, db, out.Data.ID, 2)
+	grantPlatformOperator(t, r, out.Data.ID, op, 2)
 	if got := request(r, "POST", base+"/risks", plainOp, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"}).Code; got != 403 {
 		t.Fatalf("non-governance platform_operator create R3 got %d, want 403", got)
 	}
 
 	// 3) 治理系统角色 + platform_operator（真实可授）可创建 R3 风险。
-	addPlatformOperator(t, db, out.Data.ID, 4)
-	addPlatformOperator(t, db, out.Data.ID, 8)
+	grantPlatformOperator(t, r, out.Data.ID, op, 4)
+	grantPlatformOperator(t, r, out.Data.ID, op, 8)
 	w = request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
 	if w.Code != 201 {
 		t.Fatalf("gov create R3 %d %s", w.Code, w.Body.String())
@@ -464,7 +469,7 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 	// 提交后、评审前：治理角色（用户 7 = college_admin + platform_operator）登记一条 R3 风险。
 	addCollegeAdmin(t, db, 7)
 	gov := token(t, 7, "college_admin", "college", "cs", "active")
-	addPlatformOperator(t, db, out.Data.ID, 7)
+	grantPlatformOperator(t, r, out.Data.ID, reviewer, 7)
 	rw := request(r, "POST", base+"/risks", gov, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
 	if rw.Code != 201 {
 		t.Fatalf("gov create R3 %d %s", rw.Code, rw.Body.String())
@@ -475,10 +480,29 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 		t.Fatalf("TOCTOU pass got %d, want 409", got)
 	}
 	// 项目阶段不应推进到 S2。
-	var stage string
-	_ = db.QueryRow(`SELECT stage FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage)
+	var stage, status string
+	_ = db.QueryRow(`SELECT stage,status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage, &status)
 	if stage != "S1" {
 		t.Fatalf("stage=%s want S1 (未推进)", stage)
+	}
+	if status == "company_formed" {
+		t.Fatalf("status=%s 不应被推进", status)
+	}
+	// H-B1 全量回滚断言：submission 应仍为 pending，评审记录未落库，无伪造审计误写。
+	var subStatus string
+	_ = db.QueryRow(`SELECT status FROM vopc_milestone_submissions WHERE id=?`, sub.Data.ID).Scan(&subStatus)
+	if subStatus != "pending" {
+		t.Fatalf("submission status=%s want pending (应全量回滚)", subStatus)
+	}
+	var reviewCount int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_milestone_reviews WHERE submission_id=?`, sub.Data.ID).Scan(&reviewCount)
+	if reviewCount != 0 {
+		t.Fatalf("milestone review leaked %d, want 0 (应回滚)", reviewCount)
+	}
+	var eventCount int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_events WHERE project_id=? AND action='milestone.reviewed'`, out.Data.ID).Scan(&eventCount)
+	if eventCount != 0 {
+		t.Fatalf("milestone.reviewed event leaked %d, want 0 (无审计误写)", eventCount)
 	}
 }
 
@@ -511,7 +535,7 @@ func TestVOPCFreezeBlocksBusinessWrites(t *testing.T) {
 	_ = json.Unmarshal(aw.Body.Bytes(), &art)
 
 	// 治理角色冻结项目。
-	addPlatformOperator(t, db, out.Data.ID, 4)
+	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
 	if got := request(r, "POST", base+"/freeze", admin, map[string]any{"action": "freeze", "reason": "风险处置"}).Code; got != 200 {
 		t.Fatalf("freeze got %d", got)
 	}
@@ -552,5 +576,83 @@ func TestVOPCFreezeBlocksBusinessWrites(t *testing.T) {
 	// 申诉（remedy 路径）仍应可用：冻结后主理人可申诉。
 	if got := request(r, "POST", base+"/risk-appeals", owner, map[string]any{"reason": "处置过当"}).Code; got != 201 {
 		t.Fatalf("frozen appeal got %d, want 201", got)
+	}
+}
+
+// TestVOPCGovernanceRoleProvisioning 验证 platform_operator 治理角色的受控授予/撤销端点。
+// 覆盖：普通 manager（owner）不可授予（403）、非治理系统角色不可授予（403）、非 platform_operator 角色拒绝（422）、
+// 治理系统角色可授予（200）并撤销（200）、重复授予/对非 platform_operator 撤销均 409。
+func TestVOPCGovernanceRoleProvisioning(t *testing.T) {
+	db := vopcTestDB(t)
+	r := vopcRouter(db)
+	owner := token(t, 1, "student", "college", "cs", "active")
+	op := token(t, 4, "college_admin", "college", "cs", "active")
+	student := token(t, 2, "student", "college", "cs", "active")
+
+	w := request(r, "POST", "/api/v1/vopc/projects", owner, validProject())
+	if w.Code != 201 {
+		t.Fatalf("create %d %s", w.Code, w.Body.String())
+	}
+	var out struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	path := fmtPath("/api/v1/vopc/projects/%d/governance-roles", out.Data.ID)
+
+	// 1) owner（普通 manager）授予 → 403（路由层 vopc.audit/risk.manage 能力拦截）。
+	if got := request(r, "POST", path, owner, map[string]any{"action": "grant", "user_id": 4, "project_role": "platform_operator"}).Code; got != 403 {
+		t.Fatalf("owner grant got %d, want 403", got)
+	}
+
+	// 2) 非治理系统角色（student）授予 → 403。
+	if got := request(r, "POST", path, student, map[string]any{"action": "grant", "user_id": 4, "project_role": "platform_operator"}).Code; got != 403 {
+		t.Fatalf("student grant got %d, want 403", got)
+	}
+
+	// 3) 非 platform_operator 角色 → 422（fail-closed：防写入 owner/co_owner 提权）。
+	if got := request(r, "POST", path, op, map[string]any{"action": "grant", "user_id": 4, "project_role": "owner"}).Code; got != 422 {
+		t.Fatalf("non-platform_operator grant got %d, want 422", got)
+	}
+
+	// 4) 治理系统角色授予 platform_operator → 200。
+	if got := request(r, "POST", path, op, map[string]any{"action": "grant", "user_id": 4, "project_role": "platform_operator"}).Code; got != 200 {
+		t.Fatalf("gov grant got %d, want 200", got)
+	}
+	var role string
+	_ = db.QueryRow(`SELECT project_role FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'`, out.Data.ID, 4).Scan(&role)
+	if role != "platform_operator" {
+		t.Fatalf("member role=%s want platform_operator", role)
+	}
+	var grantEvent int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_events WHERE project_id=? AND action='governance_role.granted'`, out.Data.ID).Scan(&grantEvent)
+	if grantEvent != 1 {
+		t.Fatalf("grant event=%d want 1", grantEvent)
+	}
+
+	// 5) 重复授予已存在的 platform_operator 成员 → 409。
+	if got := request(r, "POST", path, op, map[string]any{"action": "grant", "user_id": 4, "project_role": "platform_operator"}).Code; got != 409 {
+		t.Fatalf("duplicate grant got %d, want 409", got)
+	}
+
+	// 6) 撤销非 platform_operator 成员（owner 本人 or 普通用户）→ 409。
+	if got := request(r, "POST", path, op, map[string]any{"action": "revoke", "user_id": 1, "project_role": "platform_operator"}).Code; got != 409 {
+		t.Fatalf("revoke non-member got %d, want 409", got)
+	}
+
+	// 7) 治理系统角色撤销 platform_operator → 200。
+	if got := request(r, "POST", path, op, map[string]any{"action": "revoke", "user_id": 4, "project_role": "platform_operator"}).Code; got != 200 {
+		t.Fatalf("gov revoke got %d, want 200", got)
+	}
+	var cnt int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_project_members WHERE project_id=? AND user_id=? AND project_role='platform_operator' AND status='active'`, out.Data.ID, 4).Scan(&cnt)
+	if cnt != 0 {
+		t.Fatalf("after revoke platform_operator count=%d want 0", cnt)
+	}
+	var revokeEvent int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_events WHERE project_id=? AND action='governance_role.revoked'`, out.Data.ID).Scan(&revokeEvent)
+	if revokeEvent != 1 {
+		t.Fatalf("revoke event=%d want 1", revokeEvent)
 	}
 }

@@ -261,3 +261,45 @@
 - server/internal/handler/vopc_files_test.go：新增 TestVOPCFileDownloadScanFailed（上传后 UPDATE storage_status='scan_failed'，断言下载 409）。
 - 验证：go vet ./internal/handler/ 通过；go test ./internal/handler -count=1（全量 handler）通过；go test ./internal/db -run TestToMySQLVOPCMigrations 通过；go test ./pkg/app -count=1 通过；git diff --check 通过。
 - 不变式：仍无真实云存储/病毒扫描器，scan_failed 由将来接真实扫描器时写入；当前 pending/ready/scan_ok 均可下载，scan_failed 显式拒绝。
+
+## 本批：vOPC 残留小项收紧（platform_operator provisioning + 里程碑 TOCTOU 回滚断言 + 新路由锚点）（2026-08-22 第三批）
+
+> 基准 HEAD=bc5ae4b 干净。对应 docs/wxx-vopc-sar-v1.0.md 第 3/5/6 节与 audit-report.md 附录 C.5 残留项（C.5.1/C.5.2/C.5.3）。
+> 三项均为纯数据/代码改动，不接云/模型/对象存储；未新增迁移、未改历史迁移 101-103 语义。
+
+### 1. platform_operator 项目角色 provisioning API（audit M-B1 残留 / C.5.3）
+
+- 新增端点 POST /api/v1/vopc/projects/:id/governance-roles（server/internal/handler/vopc_governance.go 的 GrantGovernanceRole），生产可达的受控授予/撤销，取代测试 db.Exec 直插 vopc_project_members 自证。
+- 权限 fail-closed：路由层 RequireAnyCapability(vopc.risk.manage, vopc.audit)（college_admin/school_admin/sys_admin 具备，student 不具备），且在 handler 内以数据库 users.role 为权威判据二次校验调用者为治理系统角色（非 JWT 自证），非治理角色一律 403。
+- 仅允许授予/撤销 platform_operator 这一治理角色，其余任何 project_role 一律 422，防借本端点写入 owner/co_owner 提权。
+- grant：目标用户须为计算机学院 active、非 guest；目标用户已是 active 成员或为项目 owner 时拒绝（409），不覆盖既有角色（防把 owner/co_owner 降级或普通成员被动提权）。revoke：仅当当前成员角色恰为 platform_operator 时移除该关系，否则 409。
+- 授予/撤销均在单事务内 writeEvent（action=governance_role.granted / governance_role.revoked），失败整体回滚，无伪成功。
+- 未新增迁移：platform_operator 是 vopc_project_members.project_role 既有字符串值，无 DDL/种子需求。
+
+### 2. 里程碑 TOCTOU 回滚断言（audit C.5.1）
+
+- 在既有 TestVOPCMilestoneGateTOCTOU（vopc_governance_test.go）补强：风险门禁复核拦截 409 后，除断言项目 stage 仍 S1、status 未推进外，新增断言 submission.status 仍为 pending、vopc_milestone_reviews 无泄漏评审记录（=0）、vopc_events 无 milestone.reviewed 审计误写（=0），固化 H-B1 全量回滚原子性。ReviewMilestone 代码本次未改动（上一批 H-B1 修复已封死时序绕过），仅补测试断言。
+
+### 3. 新路由纳入 TestRouteRegistrationCount 锚点（audit C.5.2）
+
+- pkg/app/regression_test.go 的 TestRouteRegistrationCount 路由存在性清单补齐治理/结项相关 vOPC 路由：/projects/:id/close、/projects/:id/close-records、/projects/:id/risks、/projects/:id/risks/:riskId/approve、/projects/:id/freeze、/projects/:id/risk-appeals、/projects/:id/risk-appeals/:appealId/resolve、/projects/:id/governance-roles。计数为动态（total < 479 下限）保持不破坏其他断言，新增 route 以存在性断言方式被覆盖。
+
+### 测试改动
+
+- vopc_governance_test.go：删除直插 addPlatformOperator（db.Exec）helper，改为 grantPlatformOperator(r, projectID, asToken, userID) 经真实端点授予；10 处既有调用点均改走真实端点（调用方为 college_admin 治理角色）。新增 TestVOPCGovernanceRoleProvisioning（owner 403 / student 403 / 非 platform_operator 422 / 治理角色 200 + 审计事件 / 重复授予 409 / 撤销非成员 409 / 撤销 200 + 审计事件）。
+
+### 验证（全部通过，真实 exit 0）
+
+- gofmt -w 相关文件；go vet ./internal/handler/ 通过。
+- go test ./internal/handler -run "Test.*(VOPC|Governance|Milestone|Risk|File|Close)" -count=1 通过。
+- go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 通过。
+- go test ./pkg/app -count=1 通过（含 TestRouteRegistrationCount / KeyRoutesReachable / RunMigrations*）。
+- go test ./... -count=1 全仓通过。
+- git diff --check 通过。
+
+### 边界 / 残留 / 建议下一批
+
+- platform_operator 授予的目标用户范围当前为「计算机学院任意 active 非 guest 用户」（由治理系统角色裁量），未要求目标本身也是治理系统角色——这是 R2（任意 platform_operator 即风险管理者）与 R3（platform_operator 与治理系统角色）分组语义所需，非缺陷；若产品要求 platform_operator 仅授治理角色，需再收紧目标校验。
+- 本端点不改变 R2/R3 能力双端同步；未引入新 capability（复用既有 vopc.audit / vopc.risk.manage）。
+- 仍 [blocked] 的 P0 不变：AI 真实执行/上下文隔离、rubric/条件通过/豁免/甲方审批、真实 MySQL/Turso、前端三层校验、云对象存储/真实病毒扫描。
+- 未部署、未 commit、未 push（leader 统一提交）。
