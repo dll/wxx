@@ -150,6 +150,9 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.POST("/projects/:id/artifacts", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifact)
 				vopc.GET("/projects/:id/artifacts/:artifactId/versions", d.vopcH.ListArtifactVersions)
 				vopc.POST("/projects/:id/artifacts/:artifactId/versions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifactVersion)
+				// vOPC 私有文件受控上传与鉴权下载：上传限项目写权限，下载走项目读权限 + 学院准入复检。
+				vopc.POST("/projects/:id/files", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UploadFile)
+				vopc.GET("/projects/:id/files/:key", d.vopcH.DownloadFile)
 				vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
 				vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
 				vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)

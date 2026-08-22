@@ -342,6 +342,9 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	portalProxySvc := service.NewPortalProxyService(portalCredRepo)
 	portalProxyHandler := handler.NewPortalProxyHandler(portalProxySvc)
 	vopcHandler := handler.NewVOPCHandler(db, cfg.VOPCCollegeID)
+	if dir := strings.TrimSpace(cfg.VOPCUploadDir); dir != "" {
+		vopcHandler.SetUploadDir(dir)
+	}
 	portalCredHandler.SetProxyService(portalProxySvc)
 
 	// 打卡服务（S1 学生核心功能）

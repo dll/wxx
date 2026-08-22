@@ -39,7 +39,7 @@ func vopcTestDB(t *testing.T) *sql.DB {
 	if _, err = db.Exec(string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql"} {
+	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql", "103_vopc_private_files.sql"} {
 		migration, readErr := os.ReadFile("../../migrations/" + name)
 		if readErr != nil {
 			t.Fatal(readErr)
@@ -84,6 +84,8 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.POST("/projects/:id/artifacts", auth.RequireCapability(auth.VOPCProjectManage), h.CreateArtifact)
 	g.GET("/projects/:id/artifacts/:artifactId/versions", h.ListArtifactVersions)
 	g.POST("/projects/:id/artifacts/:artifactId/versions", auth.RequireCapability(auth.VOPCProjectManage), h.CreateArtifactVersion)
+	g.POST("/projects/:id/files", auth.RequireCapability(auth.VOPCProjectManage), h.UploadFile)
+	g.GET("/projects/:id/files/:key", h.DownloadFile)
 	g.GET("/projects/:id/milestone-submissions", h.ListMilestoneSubmissions)
 	g.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), h.SubmitMilestone)
 	g.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), h.ReviewMilestone)

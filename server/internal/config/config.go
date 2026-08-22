@@ -37,6 +37,7 @@ type Config struct {
 	DBPassword    string
 	DBName        string
 	VOPCCollegeID string // vOPC 学院权威标识，兼容现有 cs 默认值
+	VOPCUploadDir string // vOPC 私有文件受控存储根目录（默认 .uploads/vopc）
 
 	// Redis 缓存（可选；REDIS_ADDR 非空时启用）
 	RedisAddr string // e.g. "localhost:6379"
@@ -154,6 +155,7 @@ func Load() *Config {
 		DBPassword:    envOr("DB_PASSWORD", ""),
 		DBName:        envOr("DB_NAME", "wxx"),
 		VOPCCollegeID: envOr("VOPC_COLLEGE_ID", "cs"),
+		VOPCUploadDir: envOr("VOPC_UPLOAD_DIR", ".uploads/vopc"),
 
 		RedisAddr: envOr("REDIS_ADDR", ""),
 		RedisPass: envOr("REDIS_PASS", ""),

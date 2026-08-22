@@ -45,6 +45,7 @@ func setOf(values ...string) map[string]bool {
 type VOPCHandler struct {
 	db        *sql.DB
 	collegeID string
+	uploadDir string // 私有文件受控存储根目录（默认 .uploads/vopc）
 }
 
 func NewVOPCHandler(db *sql.DB, collegeID ...string) *VOPCHandler {
@@ -52,7 +53,7 @@ func NewVOPCHandler(db *sql.DB, collegeID ...string) *VOPCHandler {
 	if len(collegeID) > 0 && strings.TrimSpace(collegeID[0]) != "" {
 		id = strings.TrimSpace(collegeID[0])
 	}
-	return &VOPCHandler{db: db, collegeID: id}
+	return &VOPCHandler{db: db, collegeID: id, uploadDir: ".uploads/vopc"}
 }
 
 func CollegeAccess(collegeID ...string) gin.HandlerFunc {

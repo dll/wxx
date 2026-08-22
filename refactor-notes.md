@@ -198,3 +198,59 @@
 - H-B2 的口径已确定为“治理冻结/不可写状态拦截全部业务写（成果/版本/风险/结构性流转）”，但**申诉/裁定/解冻等治理 remedy 动作为有意豁免**；若后续要“全量写拦截”需另行设计冻结态下申诉的替代入口。
 - R2/R3“一般治理（platform_operator）”的项目角色授予本身仍依赖平台治理侧数据分配（无自助 API），本轮与历史一致未新增该授予端点；R3 专项通道现已与 R2 同源可达，不再是独立不可授能力。
 - 上一轮 P0 剩余（AI 真实执行/私有文件/rubric/条件通过/甲方与发布审批/真实 MySQL-Turso）继续 [blocked]，本轮未触碰。
+
+---
+
+## 本批：vOPC 私有文件受控上传与鉴权下载闭环（最大 P0）
+
+> 基准 HEAD=a239d9a 干净。唯一产品基准 `docs/wxx-vopc-prd-v1.0.md`，核对清单 `pm-checklist.md` / `qa-report.md` / `audit-report.md`。
+> 落地原则：严格在既有代码库能力内，本地受控文件存储 + 数据库对象 key；不引入云对象存储 SDK，不伪造外部存储/模型，事务 + 审计原子，不泄露真实磁盘路径，object_key 不可猜。
+
+### 存储模型（新迁移 `103_vopc_private_files.sql`）
+
+- 新表 `vopc_files`：`project_id`、`uploader_user_id`、`object_key`（32 字节加密安全随机 hex，不可猜、非对文件名直接存储）、`file_name`（仅展示用，落盘不用）、`mime_type`、`size_bytes`、`checksum`（SHA-256）、`storage_status`（pending/ready/scan_ok/scan_failed）、`artifact_version_id`（可空，受控文件与成果版本关联位）、`created_at`。
+- 仅新增一张表，不改历史迁移、不改既有 artifact/version 门禁列定义；`UNIQUE(project_id, object_key)` + 三条索引。
+- 数据库只存 object_key 与元数据，不存磁盘绝对路径；磁盘落盘于 `.uploads/vopc/{project_id}/{object_key}`，通过 `VOPC_UPLOAD_DIR`（默认 `.uploads/vopc`）可配置，生产由 `.gitignore` 保护。
+- 方言：SQLite/MySQL 兼容，走既有 `ToMySQL` 转换器；迁移测试已把 103 纳入 `TestToMySQLVOPCMigrations`。
+
+### 端点
+
+- `POST /api/v1/vopc/projects/:id/files`（`vopc.project.manage` + 学院准入）：项目写权限 + 大小（20 MB）+ MIME 白名单（不信任扩展名，multipart 头声明优先、扩展名兜底，均不在白名单即 415）+ 落盘受控目录 + 不可猜 object_key。返回 object_key/checksum/元数据，**不返回可猜 URL / 磁盘路径**。
+- `GET /api/v1/vopc/projects/:id/files/:key`（读权限）：服务端流式返回，下载前复核学院准入 + 项目成员/角色 + 字段权限（OwnerScope/owner_id/role/status 二次复核，防令牌伪造旁路），未授权一律 404；不暴露真实磁盘路径；返回 X-Checksum-Sha256、Content-Disposition（RFC 5987 filename*）、nosniff。
+- object_key 校验：严格 64 位 hex；下载路径注入（..）在 key 校验层即 404。
+
+### 受控文件与成果版本/里程碑门禁
+
+- 二选一落地为「file 作为独立 artifact 类型 + source_kind=storage_ref 引受控文件 key」：
+  - artifactTypes 新增 file；sourceKinds 已含 storage_ref（历史已有）。
+  - CreateArtifactVersion：当 source_kind=storage_ref 时，source_ref 必须是本项目的 object_key（64 hex）且对应 vopc_files.storage_status != scan_failed，否则 422，确保里程碑证据指向真实受控文件；仍保留既有 validSHA256(checksum) 门禁。
+  - milestoneArtifactTypes 的文档型阶段（S2/S3/S5/S9）新增 file，受控文件可充当文档型交付证据；其余既有门禁（intended_stage/status/checksum/类型）不变，不破坏既有里程碑测试。
+
+### 鉴权三层边界（与既有 vOPC 一致）
+
+学院准入（CollegeAccess）→ 系统 capability（vopc.project.manage）→ 项目角色（projectPolicy read/manage）；上传走 manage，下载走 read + 字段复核。
+
+### 测试（全部通过）
+
+- vopc_files_test.go 新增：
+  - TestVOPCFileUploadPermissionMatrix：非成员 404 / 外院 403 / 未登录 401 / owner 201。
+  - TestVOPCFileUploadRejectsSizeTypeAndInjection：超限 413、危险类型 415、路径注入文件名净化、object_key 64 hex 不可猜。
+  - TestVOPCFileDownloadAuthorization：owner/member 可下、非成员 404、路径注入下载 404。
+  - TestVOPCFileMilestoneGateIntegration：storage_ref 引受控 key 201、非法/不存在 key 422、file 类型里程碑 201。
+- go test ./internal/handler -run 'Test.*(VOPC|File|Upload|Download|Milestone)' -count=1 通过；全量 handler 通过。
+- go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 通过（103 方言测试）。
+- go test ./pkg/app -count=1 通过；go test ./... -count=1 全仓通过。
+- gofmt -w 相关文件、go vet ./internal/handler/、git diff --check 均通过。
+
+### [blocked]（真实外部能力，未伪造）
+
+- 云对象存储（OSS/S3/签名 URL）：需要真实云凭据与 SDK，本批以本地受控目录替代，storage_status 默认 pending 表示「已落盘但未经外部扫描确认」。
+- 病毒扫描：scan_ok/scan_failed 状态机已建模，但真实反病毒扫描依赖外部服务凭据，本批不接入；下载当前在 pending/ready 即放行。
+- 签名 URL / 静态资源鉴权：鉴权下载走服务端流式，不生成签名 URL。
+
+### 仍在边界 / 建议下一批
+
+- storage_status 从 pending → scan_ok 的推进目前无真实扫描器；建议下一批接入真实扫描（需凭据）或在扫描缺失时对高风险 MIME 做「先隔离后放行」的保守策略。
+- artifact_version_id 关联位已建模，但上传端点尚未自动把受控文件显式绑定到某个成果版本（需产品定义上传是否同时建成果）；当前由 CreateArtifactVersion 以 storage_ref 反向引用 key 完成闭环。
+- 大小上限 20 MB、MIME 白名单为当前服务器硬编码常量；如需按学院/项目类型差异化，建议下沉为配置。
+- 未部署、未 commit、未 push（leader 统一）。

@@ -17,13 +17,14 @@ import (
 // platform_operator is a platform-governance role and must never be granted by
 // a normal project invitation, including invitations created by owners.
 var projectRoles = setOf("co_owner", "member", "mentor", "reviewer")
-var artifactTypes = setOf("document", "image", "archive", "repository", "dataset", "link", "other")
+var artifactTypes = setOf("document", "image", "archive", "repository", "dataset", "link", "file", "other")
 var sourceKinds = setOf("link", "repository", "storage_ref", "dataset_ref")
 
+// file 类型作为受控私有文件，可充当需文档型交付的阶段证据（与 document 等价）。
 var milestoneArtifactTypes = map[string]map[string]bool{
-	"S2": setOf("document"), "S3": setOf("document"), "S4": setOf("repository"),
-	"S5": setOf("document"), "S6": setOf("dataset"), "S7": setOf("repository"),
-	"S8": setOf("archive"), "S9": setOf("document"),
+	"S2": setOf("document", "file"), "S3": setOf("document", "file"), "S4": setOf("repository"),
+	"S5": setOf("document", "file"), "S6": setOf("dataset"), "S7": setOf("repository"),
+	"S8": setOf("archive"), "S9": setOf("document", "file"),
 }
 
 func (h *VOPCHandler) ListMembers(c *gin.Context) {
@@ -405,6 +406,24 @@ func (h *VOPCHandler) CreateArtifactVersion(c *gin.Context) {
 	if tx.QueryRow(`SELECT COUNT(*) FROM vopc_artifacts WHERE id=? AND project_id=?`, aid, id).Scan(&n) != nil || n != 1 {
 		c.JSON(404, gin.H{"code": 404, "message": "成果不存在或无权操作"})
 		return
+	}
+	// 受控文件引用：source_kind=storage_ref 时，source_ref 必须是本项目的受控私有文件 object_key，
+	// 且文件已落盘（storage_status 不能为 scan_failed），否则拒绝，确保里程碑证据指向真实受控文件。
+	if in.SourceKind == "storage_ref" {
+		if !validObjectKey(in.SourceRef) {
+			c.JSON(422, gin.H{"code": 422, "message": "受控文件引用 key 无效"})
+			return
+		}
+		var fstatus string
+		err := tx.QueryRow(`SELECT storage_status FROM vopc_files WHERE project_id=? AND object_key=?`, id, in.SourceRef).Scan(&fstatus)
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && fstatus == "scan_failed") {
+			c.JSON(422, gin.H{"code": 422, "message": "受控文件引用不存在或不可用"})
+			return
+		}
+		if err != nil {
+			serverError(c, "版本创建失败")
+			return
+		}
 	}
 	res, err := tx.Exec(`INSERT INTO vopc_artifact_versions(artifact_id,version,source_kind,source_ref,checksum,release_notes,status,intended_stage,created_by) VALUES(?,?,?,?,?,?,'active',?,?)`, aid, in.Version, in.SourceKind, in.SourceRef, in.Checksum, strings.TrimSpace(in.Notes), in.Stage, u.UserID)
 	if err != nil {
