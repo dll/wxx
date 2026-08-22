@@ -23,14 +23,6 @@ func addPlatformOperator(t *testing.T, db *sql.DB, projectID, userID int64) {
 	}
 }
 
-// addRiskGovernance 把用户以 risk_governance（R3 专项审批）项目角色加入项目。
-func addRiskGovernance(t *testing.T, db *sql.DB, projectID, userID int64) {
-	t.Helper()
-	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, projectID, userID, "risk_governance"); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestVOPCCloseStateMachine(t *testing.T) {
 	db := vopcTestDB(t)
 	r := vopcRouter(db)
@@ -285,16 +277,20 @@ func TestVOPCRiskFreezeAndAppeal(t *testing.T) {
 }
 
 // TestVOPCR3SpecialGovernanceChannel 验证 B3：R3 独立专项审批通道。
-// 覆盖：普通 manager 创建 R3 被拒、platform_operator 越权审批 R3 被拒、
-// 专项角色可创建 R3、R3 缺专项审批时里程碑被拦、双专项审批后放行、任一 reject 即拒绝。
+// 覆盖：普通 manager 创建 R3 被拒、非治理系统角色的 platform_operator 越权创建 R3 被拒、
+// 治理系统角色 + platform_operator（真实可授）可创建 R3、R3 缺专项审批时里程碑被拦、
+// 双专项审批后放行、任一 reject 即拒绝。
 func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	db := vopcTestDB(t)
 	r := vopcRouter(db)
 	owner := token(t, 1, "student", "college", "cs", "active")
+	// op 是治理系统角色（college_admin），经 addPlatformOperator 成为项目 platform_operator 成员，
+	// 即 R3 专项审批人（platform_operator + 治理系统角色），生产可达。
 	op := token(t, 4, "college_admin", "college", "cs", "active")
+	// plainOp 是普通系统角色（student）却挂着 platform_operator 项目角色，不应能越权 R3。
+	plainOp := token(t, 2, "student", "college", "cs", "active")
 	addCollegeAdmin(t, db, 7)
 	addCollegeAdmin(t, db, 8)
-	gov1 := token(t, 7, "college_admin", "college", "cs", "active")
 	gov2 := token(t, 8, "college_admin", "college", "cs", "active")
 
 	// R0 项目（公开数据，不触发 R2/R3 自动升档），用于隔离 R3 门禁。
@@ -315,16 +311,16 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 		t.Fatalf("owner create R3 got %d, want 403", got)
 	}
 
-	// 2) platform_operator（一般治理）不能创建 R3，也不能审批 R3。
-	addPlatformOperator(t, db, out.Data.ID, 4)
-	if got := request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"}).Code; got != 403 {
-		t.Fatalf("platform_operator create R3 got %d, want 403", got)
+	// 2) 非治理系统角色的 platform_operator（student 挂着平台运营者项目角色）越权创建 R3 → 403。
+	addPlatformOperator(t, db, out.Data.ID, 2)
+	if got := request(r, "POST", base+"/risks", plainOp, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"}).Code; got != 403 {
+		t.Fatalf("non-governance platform_operator create R3 got %d, want 403", got)
 	}
 
-	// 3) 专项角色（risk_governance）可创建 R3 风险。
-	addRiskGovernance(t, db, out.Data.ID, 7)
-	addRiskGovernance(t, db, out.Data.ID, 8)
-	w = request(r, "POST", base+"/risks", gov1, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
+	// 3) 治理系统角色 + platform_operator（真实可授）可创建 R3 风险。
+	addPlatformOperator(t, db, out.Data.ID, 4)
+	addPlatformOperator(t, db, out.Data.ID, 8)
+	w = request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
 	if w.Code != 201 {
 		t.Fatalf("gov create R3 %d %s", w.Code, w.Body.String())
 	}
@@ -358,9 +354,9 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 		t.Fatalf("R3 unapproved milestone got %d, want 409", got)
 	}
 
-	// 4) 单人专项审批 → 仍 open（未达双人）。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", gov1, map[string]any{"decision": "approve", "reason": "初步通过"}).Code; got != 200 {
-		t.Fatalf("gov1 single approve got %d", got)
+	// 4) 单人专项审批（op）→ 仍 open（未达双人）。
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", op, map[string]any{"decision": "approve", "reason": "初步通过"}).Code; got != 200 {
+		t.Fatalf("op single approve got %d", got)
 	}
 	var rstatus string
 	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk.Data.ID).Scan(&rstatus)
@@ -371,7 +367,7 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
 		t.Fatalf("R3 single-approved milestone got %d, want 409", got)
 	}
-	// 第二专项审批 → approved，里程碑放行。
+	// 第二专项审批（gov2）→ approved，里程碑放行。
 	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", gov2, map[string]any{"decision": "approve", "reason": "专项复核通过"}).Code; got != 200 {
 		t.Fatalf("gov2 approve got %d", got)
 	}
@@ -384,7 +380,7 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	}
 
 	// 5) 任一专项 reject 即拒绝：另建 R3 风险用专项角色 reject → rejected，里程碑被拦。
-	w = request(r, "POST", base+"/risks", gov1, map[string]any{"risk_level": "R3", "title": "医疗诊断风险", "description": "涉及医疗"})
+	w = request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "医疗诊断风险", "description": "涉及医疗"})
 	if w.Code != 201 {
 		t.Fatalf("gov create R3-2 %d %s", w.Code, w.Body.String())
 	}
@@ -394,7 +390,7 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &risk2)
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk2.Data.ID, 10)+"/approve", gov1, map[string]any{"decision": "reject", "reason": "禁止推进"}).Code; got != 200 {
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk2.Data.ID, 10)+"/approve", op, map[string]any{"decision": "reject", "reason": "禁止推进"}).Code; got != 200 {
 		t.Fatalf("gov reject R3 got %d", got)
 	}
 	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk2.Data.ID).Scan(&rstatus)
@@ -404,5 +400,157 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	// 存在未通过专项审批的 R3 风险仍阻断里程碑。
 	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S3", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
 		t.Fatalf("rejected R3 milestone got %d, want 409", got)
+	}
+}
+
+// TestVOPCMilestoneGateTOCTOU 验证 H-B1：提交里程碑后、评审前登记 R2/R3 风险，
+// reviewer 直接 pass 必须被风险门禁复核拦截（修复原 TOCTOU 绕过）。
+func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
+	db := vopcTestDB(t)
+	r := vopcRouter(db)
+	owner := token(t, 1, "student", "college", "cs", "active")
+	reviewer := token(t, 4, "college_admin", "college", "cs", "active")
+
+	// R0 项目（公开数据，无自动升档），隔离风险门禁。
+	w := request(r, "POST", "/api/v1/vopc/projects", owner, validProject())
+	if w.Code != 201 {
+		t.Fatalf("create R0 %d %s", w.Code, w.Body.String())
+	}
+	var out struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
+
+	// 指定 reviewer（用户 4 作为 reviewer 成员）。
+	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, out.Data.ID, 4, "reviewer"); err != nil {
+		t.Fatal(err)
+	}
+
+	// 提交立项进入 S1。
+	if got := request(r, "POST", base+"/submit", owner, nil).Code; got != 200 {
+		t.Fatalf("submit got %d", got)
+	}
+	// 创造成果版本用于里程碑。
+	aw := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "章程", "artifact_type": "document", "visibility": "private"})
+	var art struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(aw.Body.Bytes(), &art)
+	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"})
+	var ver struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(vw.Body.Bytes(), &ver)
+
+	// 提交 S2 里程碑（此时无 R3 风险，门禁通过）。
+	sw := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4})
+	if sw.Code != 201 {
+		t.Fatalf("submit milestone got %d %s", sw.Code, sw.Body.String())
+	}
+	var sub struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(sw.Body.Bytes(), &sub)
+
+	// 提交后、评审前：治理角色（用户 7 = college_admin + platform_operator）登记一条 R3 风险。
+	addCollegeAdmin(t, db, 7)
+	gov := token(t, 7, "college_admin", "college", "cs", "active")
+	addPlatformOperator(t, db, out.Data.ID, 7)
+	rw := request(r, "POST", base+"/risks", gov, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
+	if rw.Code != 201 {
+		t.Fatalf("gov create R3 %d %s", rw.Code, rw.Body.String())
+	}
+
+	// reviewer 直接 pass：必须被风险门禁复核拦住（409），而不是推进到 S2。
+	if got := request(r, "POST", base+"/milestone-submissions/"+strconv.FormatInt(sub.Data.ID, 10)+"/review", reviewer, map[string]any{"result": "pass", "note": "直接通过"}).Code; got != 409 {
+		t.Fatalf("TOCTOU pass got %d, want 409", got)
+	}
+	// 项目阶段不应推进到 S2。
+	var stage string
+	_ = db.QueryRow(`SELECT stage FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage)
+	if stage != "S1" {
+		t.Fatalf("stage=%s want S1 (未推进)", stage)
+	}
+}
+
+// TestVOPCFreezeBlocksBusinessWrites 验证 H-B2：risk_frozen 项目应拒绝成果/版本/风险登记与结构性流转。
+func TestVOPCFreezeBlocksBusinessWrites(t *testing.T) {
+	db := vopcTestDB(t)
+	r := vopcRouter(db)
+	owner := token(t, 1, "student", "college", "cs", "active")
+	admin := token(t, 4, "college_admin", "college", "cs", "active")
+
+	w := request(r, "POST", "/api/v1/vopc/projects", owner, validProject())
+	if w.Code != 201 {
+		t.Fatalf("create %d %s", w.Code, w.Body.String())
+	}
+	var out struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
+
+	// 冻结前：先造一个成果用于后续版本冻结测试（成果已在冻结前创建）。
+	aw := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "预建成果", "artifact_type": "document", "visibility": "private"})
+	var art struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(aw.Body.Bytes(), &art)
+
+	// 治理角色冻结项目。
+	addPlatformOperator(t, db, out.Data.ID, 4)
+	if got := request(r, "POST", base+"/freeze", admin, map[string]any{"action": "freeze", "reason": "风险处置"}).Code; got != 200 {
+		t.Fatalf("freeze got %d", got)
+	}
+
+	// 冻结后：创建成果应被拒（409）且不落库。
+	if got := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "冻结后成果", "artifact_type": "document", "visibility": "private"}).Code; got != 409 {
+		t.Fatalf("frozen CreateArtifact got %d, want 409", got)
+	}
+	var frozenArtifacts int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_artifacts WHERE project_id=? AND name='冻结后成果'`, out.Data.ID).Scan(&frozenArtifacts)
+	if frozenArtifacts != 0 {
+		t.Fatalf("frozen artifact leaked %d", frozenArtifacts)
+	}
+
+	// 冻结后：为首个成果新增版本应被拒（409）。
+	if got := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"}).Code; got != 409 {
+		t.Fatalf("frozen CreateArtifactVersion got %d, want 409", got)
+	}
+
+	// 冻结后：登记风险（R0 等普通风险）应被拒（409）。
+	if got := request(r, "POST", base+"/risks", owner, map[string]any{"risk_level": "R1", "title": "冻结后风险", "description": "x"}).Code; got != 409 {
+		t.Fatalf("frozen CreateRisk got %d, want 409", got)
+	}
+	var frozenRisks int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_risks WHERE project_id=? AND title='冻结后风险'`, out.Data.ID).Scan(&frozenRisks)
+	if frozenRisks != 0 {
+		t.Fatalf("frozen risk leaked %d", frozenRisks)
+	}
+
+	// 冻结后：项目主理人不能 pivot/terminate 绕过治理冻结。
+	if got := request(r, "POST", base+"/close", owner, map[string]any{"action": "pivot", "reason": "绕过", "human_decision": "x"}).Code; got != 409 {
+		t.Fatalf("frozen pivot got %d, want 409", got)
+	}
+	if got := request(r, "POST", base+"/close", owner, map[string]any{"action": "terminate", "reason": "绕过", "failure_evidence": "证据"}).Code; got != 409 {
+		t.Fatalf("frozen terminate got %d, want 409", got)
+	}
+
+	// 申诉（remedy 路径）仍应可用：冻结后主理人可申诉。
+	if got := request(r, "POST", base+"/risk-appeals", owner, map[string]any{"reason": "处置过当"}).Code; got != 201 {
+		t.Fatalf("frozen appeal got %d, want 201", got)
 	}
 }

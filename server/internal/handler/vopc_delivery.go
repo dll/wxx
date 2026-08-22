@@ -303,6 +303,10 @@ func (h *VOPCHandler) CreateArtifact(c *gin.Context) {
 	}
 	defer tx.Rollback()
 	_ = owner
+	if blocked, msg := projectBlockedForWrite(tx, id); blocked {
+		c.JSON(409, gin.H{"code": 409, "message": msg})
+		return
+	}
 	res, err := tx.Exec(`INSERT INTO vopc_artifacts(project_id,name,artifact_type,description,visibility,license,created_by) VALUES(?,?,?,?,?,?,?)`, id, in.Name, in.Type, strings.TrimSpace(in.Description), in.Visibility, strings.TrimSpace(in.License), u.UserID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -393,6 +397,10 @@ func (h *VOPCHandler) CreateArtifactVersion(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback()
+	if blocked, msg := projectBlockedForWrite(tx, id); blocked {
+		c.JSON(409, gin.H{"code": 409, "message": msg})
+		return
+	}
 	var n int
 	if tx.QueryRow(`SELECT COUNT(*) FROM vopc_artifacts WHERE id=? AND project_id=?`, aid, id).Scan(&n) != nil || n != 1 {
 		c.JSON(404, gin.H{"code": 404, "message": "成果不存在或无权操作"})
@@ -657,6 +665,12 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	if next == "passed" {
+		// H-B1 修复：提交后、评审前可能新登记了 R2/R3 风险或项目被升档，
+		// 推进落地前必须复检风险门禁，封死 SubmitMilestone 通过后的 TOCTOU 绕过。
+		if allowed, msg, code := milestoneAdvanceAllowed(tx, id); !allowed {
+			c.JSON(code, gin.H{"code": code, "message": msg})
+			return
+		}
 		cur, _ := strconv.Atoi(strings.TrimPrefix(current, "S"))
 		target, _ := strconv.Atoi(strings.TrimPrefix(stage, "S"))
 		if target != cur+1 {
@@ -741,6 +755,20 @@ func (h *VOPCHandler) manageableProject(c *gin.Context, id int64) (*sql.Tx, int6
 }
 
 var _ = http.StatusOK
+
+// projectBlockedForWrite 统一拦截治理冻结及不可写状态下的业务写操作，返回 (是否拦截, 文案)。
+// blockedStatuses = {paused, risk_frozen, terminated, archived}：这些状态下不应产生新的成果/版本/风险等业务写。
+// 注：申诉（CreateRiskAppeal）是冻结后的 remedy 路径，有意不加拦截。
+func projectBlockedForWrite(tx *sql.Tx, id int64) (bool, string) {
+	var status string
+	if err := tx.QueryRow(`SELECT status FROM vopc_projects WHERE id=?`, id).Scan(&status); err != nil {
+		return true, "项目状态读取失败"
+	}
+	if blockedStatuses[status] || completedLike[status] {
+		return true, "当前项目治理状态禁止写操作"
+	}
+	return false, ""
+}
 
 func validSHA256(value string) bool {
 	if len(value) != 64 {

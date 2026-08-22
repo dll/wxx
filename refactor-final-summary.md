@@ -12,7 +12,7 @@
 
 # **NO-GO**
 
-本轮已关闭学院准入、S0 草稿、旧文本直推、基础成果版本门禁等一批真实问题，并对复审后新增的安全门禁代码完成了 leader 本地专项验证。但 vOPC PRD v1.0 的 P0 仍未完整实现，禁止上线，禁止宣称 P0 验收完成。
+已完成多轮 vOPC 整改：学院准入、S0 草稿、旧文本直推、基础成果版本门禁、结项/异常状态机、风险治理闭环、R3 专项通道，以及 reviewer 三轮审计发现的全部可落地缺口（platform_operator 提权、版本门禁、SQL 忽略错误、TOCTOU、freeze 未统一拦截、R3 角色不可达）。但 vOPC PRD v1.0 的 P0 仍未完整实现（AI 虚拟员工、私有文件安全、里程碑完整业务门禁、生产同构验收等），整体禁止上线，禁止宣称 P0 验收完成。
 
 当前工作树未 commit、未 push、未部署。
 
@@ -23,8 +23,8 @@
 | PM 需求核对 | `pm-checklist.md` | 完成，33 项逐项核对 |
 | 开发重构 | `refactor-notes.md` | 完成首轮及后续整改记录 |
 | QA 回归 | `qa-report.md` | 完成，整体 NO-GO |
-| Reviewer 复审 | `audit-report.md` | 完成，但复审发生在迁移 100/安全门禁增量之前 |
-| Leader 最终核验 | 本文档 | 完成，补验复审后增量 |
+| Reviewer 复审 | `audit-report.md` | 完成（附录 B、附录 C 多轮只读复审） |
+| Leader 最终核验 | 本文档 | 完成，补验复审后增量并据附录 C 收尾 |
 
 说明：最后一轮开发专员总结任务因可用模型额度不足未产生有效回复。因此本文不依赖该回复，而以实际 `git diff`、源码检查和 leader 本地测试为证据。新增安全门禁代码已通过专项测试，但尚未经过独立 reviewer 的第二次完整复审。
 
@@ -103,17 +103,18 @@
 
 仍无可验收的 AI task/output/review/context/usage/cost 数据模型和 API/UI；没有真实模型调用、项目级上下文隔离、人工接受/修改/退回/否决、额度、超时重试和成本一致性闭环。
 
-### P0-2 风险治理缺失
+### P0-2 风险治理 — 已闭环（本批），残留边界已记录
 
-R1/R2 审批、R3 专项流程、风险事件、冻结、解冻、申诉和复核尚无完整表/API/UI。R2/R3 的统一写操作、AI、试点、发布和文件外发 gate 未形成。
+已完成：风险创建/列表、R2 双人审批 gate（单人 open、双人 approved、重复 409、未批里程碑 409、批后 201）、R3 独立专项通道（platform_operator ∧ 治理系统角色、双专项审批、任一 reject 封死，未降级 R2）、freeze/unfreeze、appeal/resolve、统一写门禁（risk_frozen 下 CreateArtifact/Version/Risk/Close 均 409）、TOCTOU 修复（SubmitMilestone 与 ReviewMilestone pass 前同源复核）。
+残留边界（reviewer 附录 C 指出，非本批引入）：`platform_operator` 项目角色本身仍无 provisioning API，R2/R3 共享该既有边界；正式里程碑的 TOCTOU 回滚测试未断言 submission 回滚为 pending。
 
 ### P0-3 私有文件闭环缺失
 
 当前仍主要是 `source_ref` 元数据；没有受控上传、私有对象 key、病毒/类型/大小扫描、鉴权下载、短时签名、归档删除及跨项目下载负向验证。SHA-256 格式门禁不等于文件真实性验证。
 
-### P0-4 结项与异常状态机缺失
+### P0-4 结项与异常状态机 — 已闭环（本批）
 
-S9 pass 仍会直接进入 completed；缺独立 close/retrospective，以及 continue/pivot/pause/terminate/archive 的理由、证据、权限和审计闭环。
+S9 pass 不再直接 completed，改入 `closeable`，需 CloseProject（结项理由、失败证据、风险处置、成果包/复盘要点、人类结项决策）才落 `completed`；pause/resume/pivot/terminate/archive 合法状态机（CAS+审计+权限 fail-closed），pivot 重置里程碑 S0/draft。仍缺独立 retained retro 报表接口等（非阻断）。
 
 ### P0-5 里程碑完整业务门禁仍不足
 
@@ -133,18 +134,17 @@ S9 pass 仍会直接进入 completed；缺独立 close/retrospective，以及 co
 
 ## 7. 下一批最小可执行顺序
 
-1. 对迁移 100 和安全门禁增量做独立 reviewer 复审，先关闭权限提升、事务一致性和阶段版本门禁审计项。
-2. 将 S9 milestone pass 与 close 分离，落结项/复盘和 pause/pivot/terminate 状态机。
-3. 建 risk/approval/freeze/appeal 最小模型与统一 gate。
-4. 接入私有文件服务，实现受控上传、校验、鉴权下载和跨项目负向测试。
-5. 实现 AI task/output/review/context/usage 最小真实闭环，再接模型调用、额度和重试。
-6. 补甲方确认、rubric、conditional pass、waiver 和试点/发布审批实体。
-7. 完成真实 MySQL/Turso、备份恢复、多端/WebView、P95 和 Flutter lint baseline 验收。
+1. 接入私有文件服务，实现受控上传、校验、鉴权下载和跨项目负向测试（当前最大 P0）。
+2. 实现 AI task/output/review/context/usage 最小真实闭环，再接模型调用、额度和重试。
+3. 补甲方确认、rubric、conditional pass、waiver 和试点/发布审批实体。
+4. 补 `platform_operator` 项目角色的 provisioning API（消除 R2/R3 共享边界）。
+5. 补正式里程碑 TOCTOU 回滚断言的 submission=pending；将新增路由纳入 TestRouteRegistrationCount 锚点。
+6. 完成真实 MySQL/Turso、备份恢复、多端/WebView、P95 和 Flutter lint baseline 验收。
 
 ## 8. 签署
 
-当前可认可为完成：学院准入、外院邀请双时点校验、S0 草稿闭环、S1-S9 旧直推移除、基础正式评审、结构化成果版本门禁、普通邀请角色提权封堵及一批事务错误处理。
+当前可认可为完成：学院准入、外院邀请双时点校验、S0 草稿闭环、S1-S9 旧直推移除、基础正式评审、结构化成果版本门禁、普通邀请角色提权封堵、一批事务错误处理、结项/异常状态机、风险治理闭环、R3 专项通道，以及 reviewer 附录 B/C 指出的 TOCTOU、freeze 统一拦截、R3 角色可达性三类缺口。
 
-当前不可认可为完成：AI 执行与隔离、风险审批、私有文件、结项复盘、完整里程碑业务审批和生产同构验收。
+当前不可认可为完成：AI 执行与隔离、里程碑完整业务门禁（评分/条件下通过/豁免/甲方结构化证据）、私有文件安全与字段级隔离、生产同构验收、全量 Flutter lint 清零。
 
 **最终判定：NO-GO；继续开发可行，但当前版本不得上线。**

@@ -265,3 +265,96 @@ QA 报告与 refactor-notes 声称「冻结后**所有写操作**被 blockedStat
 本批新增的结项/异常状态机与风险治理/专项审批代码**方向正确、实现质量合格、测试为真实断言**，可继续迭代；但因 H-B1（TOCTOU）、H-B2（freeze 未全覆盖）、M-B1（专项角色不可达）与上一轮 P0 叠加，**不得上线、部署或宣称 vOPC PRD v1.0 P0 验收完成**。
 
 # **本批结论：NO-GO（可继续开发，禁止上线）。**
+
+
+---
+
+# 附录 C：审计附录 B 三缺口（H-B1/H-B2/M-B1）修复的独立只读复审（2026-08-22 第二批复审）
+
+- 复审方：reviewer-audit-wxx（独立复核，不采信 QA/refactor 的 PASS 结论）
+- 复审对象：仅截至本复审时刻的未提交工作树，重点 4 个文件（vopc_delivery.go / vopc_risk.go / vopc_close.go / vopc_governance_test.go）
+- 前置材料：pm-checklist、refactor-notes、qa-report（含附录 B 三缺口回归）、audit-report（附录 B）、refactor-final-summary
+- 约束：只读；仅更新本文件追加本章；不部署、不 commit、不 push
+
+## C.1 最终判定
+
+# 三缺口修复范围：GO（逐项关闭，代码与测试均真实达标）
+
+针对附录 B 点名 H-B1 / H-B2 / M-B1 三个缺口的最小增量修复，经独立核查属实：不是"只改测试没改代码"、不是"断言自证"、不是"TOCTOU 仍可绕"。三项均在其原始口径下关闭。
+
+但需明确两条**未在本批消除的残留**（均非本批引入、为既有口径边界），且整体项目仍 **NO-GO**（AI 真实闭环、私有文件、完整里程碑 rubric/条件通过/豁免/甲方审批、真实 MySQL/Turso 同构、前端三层准入、flutter analyze 既有 lint 等上一轮 P0 未变）。故：
+
+- **对本批三缺口：GO（关闭）**
+- **对整体项目：NO-GO（维持，禁止上线）**
+
+## C.2 逐项独立复核
+
+### H-B1 里程碑门禁 TOCTOU（High）— CLOSED，真实同函数复核 + 全量回滚
+
+| 检查点 | Risk | 证据（本复核实测行号） | 独立结论 |
+|---|---|---|---|
+| 是否真实同函数（非复制） | High | `rg milestoneAdvanceAllowed` 仅 3 处：定义 `vopc_risk.go:531`，调用 `vopc_delivery.go:514`（SubmitMilestone）与 `:670`（ReviewMilestone） | **通过**。两处调用同一 `milestoneAdvanceAllowed`，无第二个实现。 |
+| 复核位置是否封死时序 | High | `vopc_delivery.go:668` `if next=="passed"` → `:670` 调门禁，位于 `:681` 项目阶段推进之前 | **通过**。提交后评审前登记 R3/升档 → pass 被拦。 |
+| 409 是否全量回滚（review+submission+stage 均不变） | Critical | `:641` `tx, err := h.db.Begin()` + `:646` `defer tx.Rollback()`；门禁拦截于 `:673` `return`，在此之前 `:655` INSERT review、`:661` UPDATE submission→passed 均在同一 tx 内，由 defer 回滚 | **通过**。三步（review insert / submission 状态 / 项目 stage）同 tx，拦截即全量回滚，submission 保持 pending，项目 stage 不变。 |
+| 是否与 SubmitMilestone 同源 | High | `:514` 与 `:670` 均 `milestoneAdvanceAllowed(tx, id)` | **通过**。同函数同签名。 |
+| 无其它推进旁路 | High | `rg "SET stage="` 仅 3 处推进/复位：`vopc_delivery.go:681`（ReviewMilestone，已门禁）、`vopc_handler.go:681`（S0→S1 立项，非里程碑）、`vopc_close.go:140`（pivot 回 S0 复位，已加 risk_frozen 拦截）；`rg "advance"` 正式路由无里程碑 advance 端点 | **通过**。正向推进唯一通道已门禁。 |
+| 测试可信度 | High | `TestVOPCMilestoneGateTOCTOU`（vopc_governance_test.go:406-461）：R0 提交 S2→提交后治理角色登记 R3→reviewer pass 断言 409 且 `stage` 仍 S1 | **通过**。`go test -run TestVOPCMilestoneGateTOCTOU -count=1 -v` 实测 PASS（0.06s），断言含 stage 不变的真实 DB 读回，非伪断言。 |
+
+**结论：H-B1 关闭。** 但注意测试未显式断言"submission 状态回滚为 pending"（仅断言 response 409 + stage 不变）。经代码审查确认回滚成立（同 tx + defer Rollback），建议后续补一条 submission.status 仍 pending 的断言以固化原子性（测试覆盖补强，非功能缺陷）。
+
+### H-B2 freeze 统一拦截业务写（High）— CLOSED，覆盖完整、申诉豁免合理
+
+| 检查点 | Risk | 证据 | 独立结论 |
+|---|---|---|---|
+| 统一门禁 helper | Medium | `projectBlockedForWrite`（`vopc_delivery.go:762-770`）判 `blockedStatuses ∪ completedLike` | **通过**。只读 status，不写库。 |
+| CreateArtifact 接入 | High | `vopc_delivery.go:306` 门禁，位于 INSERT 之前 | **通过**。409 且不落库不写事件。 |
+| CreateArtifactVersion 接入 | High | `vopc_delivery.go:400` 门禁，位于版本归属校验前 | **通过**。409。 |
+| CreateRisk 接入 | High | `vopc_risk.go:103` 门禁 | **通过**。409 且不落库（测试断言 frozenRisks=0）。 |
+| CloseProject risk_frozen 前置拦截 | High | `vopc_close.go:120-124` 显式 `status=="risk_frozen"` 拦截 | **通过且必要**。经查 `closeTransition`（`:211-234`）对 pause/pivot/terminate 均**未排除 risk_frozen**（仅排除 draft/completedLike/terminated/archived/paused），故 pivot/terminate/pause 可从 risk_frozen 直达，此显式拦截确为必需。 |
+| 申诉豁免是否合理且不破坏闭环 | High | `CreateRiskAppeal`（`vopc_risk.go:357-394`）走 `manageableProject`，**未**加 `projectBlockedForWrite`；冻结后主理人仍可申诉（remedy 路径） | **通过/合理**。冻结→申诉→裁定→解冻闭环需要冻结态下仍可申诉；否则冻结即死锁。若无此豁免，冻结项目将无法发起 remedy，闭环断裂。豁免口径正确。 |
+| 测试可信度 | High | `TestVOPCFreezeBlocksBusinessWrites`（vopc_governance_test.go:463-527）：冻结后 CreateArtifact/CreateArtifactVersion/CreateRisk 各 409 + frozenArtifacts/frozenRisks=0、pivot/terminate 各 409、appeal 201 | **通过**。`go test -run TestVOPCFreezeBlocksBusinessWrites -count=1 -v` 实测 PASS（0.05s），断言含真实 DB 读回（不落库验证），非伪断言。 |
+
+**结论：H-B2 关闭。** 治理动作（ApproveRisk/FreezeProject/ResolveRiskAppeal）作为 remedy/治理操作**有意不加**门禁，与审计 B.2.3"治理动作可接受"口径一致。
+
+### M-B1 R3 专项角色可达性（Medium）— CLOSED（核心）；附带一条既有限制残留
+
+| 检查点 | Risk | 证据 | 独立结论 |
+|---|---|---|---|
+| 独立 risk_governance 项目角色全仓移除 | High | `rg risk_governance` 仅命中：迁移文件名 `102_vopc_risk_governance.sql`、`migration_vopc_test.go:13`/`vopc_handler_test.go:42` 的迁移名列表、`vopc_risk.go:42` 注释。**无任何 `.go`/`.sql` 的 `project_role='risk_governance'` 判定或授予路径** | **通过**。判定与授予路径均移除，残留仅为命名/注释。 |
+| isSpecialRiskGovernance 复用生产可达角色 | High | `vopc_risk.go:30` `platformGovernanceRoles = setOf("college_admin","school_admin","sys_admin")`；`vopc_risk.go:47-50` `SELECT m.project_role,u.role FROM ... JOIN users u ON u.id=m.user_id` `return role=="platform_operator" && platformGovernanceRoles[sysRole]` | **通过**。三个治理系统角色经 `001_init.sql:10` role CHECK 定义 + `007_seed_users.sql:6/10/14` 播种，生产可达。 |
+| 测试不再 db.Exec 直插自证 | High | 删除 `addRiskGovernance` helper；`TestVOPCR3SpecialGovernanceChannel` 改为 `addCollegeAdmin`（真实系统角色）+ `addPlatformOperator`（platform_operator 成员）驱动 | **部分通过（附边界，见下）**。伪造 `risk_governance` 直插已删除；但 `platform_operator` 项目成员仍经 `addPlatformOperator` 用 `db.Exec` 直插（因 platform_operator 亦无 provisioning API，见残留）。 |
+| R2/R3 差异保留、无误降 R3 | High | R2=`isRiskManager`（`vopc_risk.go:19-27`，任意 platform_operator）；R3=`isSpecialRiskGovernance`（platform_operator ∧ 治理系统角色）；`milestoneAdvanceAllowed`（`:531-564`）R3 分支（`:538-551`）挂有未批 R3 风险即拦，严于 R2 | **通过**。R3 未降为与 R2 等同：角色更严、创建走 readableProject+二次校验、门禁更严。 |
+| 测试可信度 | High | `TestVOPCR3SpecialGovernanceChannel`：owner→403、非治理系统角色( student )挂 platform_operator→403、治理系统角色+platform_operator→201、双人专项审批放行、任一 reject 封死 | **通过**。`go test -run TestVOPCR3SpecialGovernanceChannel -count=1 -v` 实测 PASS（0.09s）。plainOp 使用 DB 内 `users.role='student'`（`:55` 预置 user2 student），与 `token(2,"student",...)` 一致，DB 层角色为权威判据，非 JWT 声明自证。 |
+
+**结论：M-B1 核心关闭。** 独立不可授的 `risk_governance` 已移除，R3 复用与 R2 同源的 `platform_operator` + 治理系统角色，专项通道不再比 R2 更不可达。
+
+**残留（非本批引入，记录不修）：** `platform_operator` 项目角色本身仍无 in-system 授予 API（`projectRoles` 邀请白名单已排除它，`vopc_handler_test.go:480-481` 断言 owner 不得授予；无 admin 项目成员授予端点），其授予依赖"平台治理侧数据分配"（refactor-notes 已明确记录）。因此"治理系统角色 ∧ platform_operator 成员"这条组合的端到端可达性，仍受 platform_operator 授予路径这一既有限制约束——但这是 R2 与 R3 共享的同一限制，R3 不再额外叠加一条不可授角色，M-B1 原缺口（R3 相对 R2 多出的那条不可授 `risk_governance`）已消除。
+
+## C.3 事务审计原子性 / 无伪成功 / 无占位 / 未改历史迁移（任务第 4 点）
+
+- **原子性**：H-B1 门禁位于 ReviewMilestone 单事务内（defer Rollback），拦截时 review/submission/stage 全量回滚；H-B2 的 `projectBlockedForWrite` 只读不写；新增拦截均在既有事务内，未新增任何 bypass。
+- **无伪成功**：`go build ./...`、`go vet ./internal/handler/` 实测均 exit 0；三缺口测试均为真实 HTTP 请求 + DB 状态读回断言（frozenArtifacts/frozenRisks=0、stage 不变、风险 status 流转），非占位/非 `t.Skip`。
+- **无占位残留**：`rg createProjectAt|addRiskGovernance|bytesBuffer|func w2` 在 `internal/handler` 无命中（`addRiskGovernance` 已彻底删除；`bytes.Buffer` 仅存在于既有 request helper 合法使用）。
+- **未改历史迁移**：`git diff --check -- server/` exit 0；097-102 迁移文件无 diff；本批无新增迁移（risk_governance 复用既有字符串值，无 DDL）。
+- **101/102 语义未变**：`milestoneAdvanceAllowed` 的 R3 分支逻辑（挂未批 R3 风险即拦，比 R2 严）未被 H-B1 改动，仅新增了调用点；102 的表结构未变。
+
+## C.4 QA 结论与本复核的一致性（任务第 5 点）
+
+- **一致**：QA 附录 B 判定 H-B1/H-B2/M-B1 三项 PASS，本复核独立核查后同意三项在其口径下关闭，证据一致。
+- **发现 QA 报告一处轻微失实**：QA"附录 B 三缺口修复回归"章节声称 `git diff --check` PASS，但本复核实测 `git diff --check` 在 `qa-report.md:406` 报 trailing whitespace（`qa-report.md` 自身追加段落引入的空格）。这是 QA 自报门禁与实跑不一致的轻微缺陷，**非代码缺陷**（`server/` 目录 `git diff --check` 为 0）。建议 QA 修正该尾随空白并重跑。
+- **QA 措辞需收紧**：QA 称 M-B1 测试"改用真实可授角色"——严格说测试仍以 `addPlatformOperator`（db.Exec 直插）授予 platform_operator 项目成员（因该角色亦无 provisioning API）。准确表述应为"改用真实系统角色（college_admin）取代伪造的 risk_governance 项目角色；platform_operator 成员仍无自助授予路径（既有边界）"。这不推翻 M-B1 关闭结论，但应避免写成"端到端可授闭环已完成"。
+
+## C.5 下一批最小可执行顺序（在整体 P0 之内，除本批外的新增建议）
+
+1. （补强）在 `TestVOPCMilestoneGateTOCTOU` 增加"submission 状态回滚为 pending"断言，固化 H-B1 全量回滚的原子性证明。
+2. （补强）将 7 条新增治理/结项路由（close/close-records/risks×2/freeze/risk-appeals×2）纳入 `TestRouteRegistrationCount` 锚点断言（上轮已记建议，仍未做）。
+3. （残留）若要将 R3 专项通道做成真正端到端可达，需落 platform_operator 授予的治理侧 provisioning 端点（同解 R2 通行性问题），而非仅为 R3 单独造端点。
+4. （Low 清理）统一 `LastInsertId` error 处理；区分 `closed_at` vs `terminated_at`/`archived_at`。
+5. 继续推进上一轮既定 P0（AI 闭环、私有文件、rubric/conditional/waiver/甲方/试点发布审批、真实 MySQL/Turso）。
+6. （QA）修正 qa-report.md 尾随空白，重跑 `git diff --check` 后如实更新门禁表。
+
+## C.6 签署
+
+H-B1（TOCTOU 真实同函数复核 + 全量回滚）、H-B2（freeze 统一拦截业务写 + 申诉豁免合理）、M-B1（移除不可授 risk_governance，R3 复用 platform_operator+治理系统角色，R2/R3 差异保留）三项修复经独立代码审查 + 定向测试实跑 + 全量 build/vet/diff-check 验证，**均可按其原始口径关闭**。
+
+# 本批复审结论：三缺口 GO（关闭）；整体项目维持 NO-GO（禁止上线、部署或宣称 vOPC PRD v1.0 P0 验收完成）。

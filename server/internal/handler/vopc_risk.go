@@ -26,19 +26,27 @@ func isRiskManager(tx *sql.Tx, projectID, userID int64) bool {
 	return role == "platform_operator"
 }
 
-// isSpecialRiskGovernance 判断用户是否持有 R3 专项审批角色。
+// platformGovernanceRoles 是可达成 R3 专项审批的平台治理系统角色。
+// vOPC PRD 4.4：平台管理、风控与全局数据权限由蔚小芯 RBAC/Capability 控制，
+// 治理角色即 college_admin/school_admin/sys_admin（播种于 007_seed_users，生产可达）。
+var platformGovernanceRoles = setOf("college_admin", "school_admin", "sys_admin")
+
+// isSpecialRiskGovernance 判断用户是否为 R3 专项审批人。
 //
-// R3 与 R2 治理口径分离：R2 走一般平台治理角色（platform_operator）的双人审批；
-// R3 按 PRD 13.1「禁止或专项审批 → 默认禁止，按学校制度专项审批」落地为独立专项
-// 通道——R3 风险只能由项目内 risk_governance 专项角色创建与审批，普通 manager、
-// 甚至 platform_operator 都不得越权。risk_governance 由平台在治理侧授予，项目侧
-// 不开放自助授予（与 platform_operator 一致）。
+// R3 与 R2 治理口径分离：R2 走一般平台治理角色（platform_operator 成员）的双人审批；
+// R3 按 PRD 13.1「禁止或专项审批 → 默认禁止，按学校制度专项审批」落地为更强的专项
+// 通道——R3 风险只由「项目内 platform_operator 成员 + 治理系统角色」创建与审批，普通
+// manager 不得越权，一般 platform_operator（非治理系统角色）也不得越权。
+//
+// 此处复用既有的 platform_operator 项目角色与治理系统角色，不再引入不可授的独立
+// risk_governance 项目角色：platform_operator 经平台治理侧数据分配（与 R2 同源），
+// 治理系统角色经 RBAC 角色授予，二者在生产均为可达，专项审批因此可被真实授予并验收。
 func isSpecialRiskGovernance(tx *sql.Tx, projectID, userID int64) bool {
-	var role string
-	if err := tx.QueryRow(`SELECT project_role FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'`, projectID, userID).Scan(&role); err != nil {
+	var role, sysRole string
+	if err := tx.QueryRow(`SELECT m.project_role, u.role FROM vopc_project_members m JOIN users u ON u.id=m.user_id WHERE m.project_id=? AND m.user_id=? AND m.status='active'`, projectID, userID).Scan(&role, &sysRole); err != nil {
 		return false
 	}
-	return role == "risk_governance"
+	return role == "platform_operator" && platformGovernanceRoles[sysRole]
 }
 
 // CreateRisk 在项目内登记一条风险。创建后风险为 open；R2/R3 风险在审批通过前
@@ -76,9 +84,9 @@ func (h *VOPCHandler) CreateRisk(c *gin.Context) {
 		return
 	}
 	u := middleware.GetUserContext(c)
-	// R3 专项口径先于普通 manage 边界判断：专项治理角色（risk_governance）作为项目成员
-	// 经 readableProject 通过，再以 isSpecialRiskGovernance 二次校验；普通 manager 仍走
-	// manageableProject。避免把 risk_governance 直接放大为完整项目管理权。
+	// R3 专项口径先于普通 manage 边界判断：专项治理角色（platform_operator + 治理系统角色）
+	// 作为项目成员经 readableProject 通过，再以 isSpecialRiskGovernance 二次校验；普通 manager
+	// 仍走 manageableProject。避免把专项治理权直接放大为完整项目管理权。
 	var tx *sql.Tx
 	var owner int64
 	var acquired bool
@@ -92,6 +100,10 @@ func (h *VOPCHandler) CreateRisk(c *gin.Context) {
 	}
 	defer tx.Rollback()
 	_ = owner
+	if blocked, msg := projectBlockedForWrite(tx, id); blocked {
+		c.JSON(409, gin.H{"code": 409, "message": msg})
+		return
+	}
 	// R3 专项口径：仅平台专项治理角色可登记 R3 风险，普通 manager（owner/co_owner）
 	// 不得替项目擅自创建“禁止或专项审批”级别风险。R0/R1/R2 维持既有创建语义。
 	if in.RiskLevel == "R3" && !isSpecialRiskGovernance(tx, id, u.UserID) {
@@ -222,7 +234,7 @@ func (h *VOPCHandler) ApproveRisk(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "风险不存在或无权操作"})
 		return
 	}
-	// 审批权限按风险等级分流：R3 走独立专项通道（risk_governance 专项角色），
+	// 审批权限按风险等级分流：R3 走独立专项通道（platform_operator + 治理系统角色），
 	// R2 及以下走一般平台治理（platform_operator）。两者不可互相越权。
 	if riskLevel == "R3" {
 		if !isSpecialRiskGovernance(tx, id, u.UserID) {
@@ -511,7 +523,8 @@ func (h *VOPCHandler) ResolveRiskAppeal(c *gin.Context) {
 // risk_level=R2 的风险（即已经平台双人审批）方可推进里程碑。
 //
 // R3（禁止或专项审批）：一旦项目为 R3，或项目上登记了任意未通过专项审批的 R3
-// 风险，即视为 R3-tier，在“两名不同专项审批人（risk_governance）均 approve”之前
+// 风险，即视为 R3-tier，在“两名不同专项审批人（platform_operator + 治理系统角色）
+// 均 approve”之前
 // 一律禁止推进里程碑。R3 较 R2 更严格：即使项目本体是 R0/R1/R2，只要挂有否决级
 // R3 风险，也必须先走专项审批。
 // 返回 (是否允许, 错误文案, 状态码)。

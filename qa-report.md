@@ -337,3 +337,70 @@
 本轮 A/B/C/D 全部 PASS，R3 专项通道（第三轮 P0）已实现；相对前轮无新增回归、无新增 P0 阻断。整体仍维持 NO-GO 的原因是上轮及更早已明确的、非本批范围的 P0 阻断项仍未消除：AI 虚拟员工闭环、里程碑完整业务门禁（评分量表/条件通过/豁免/甲方结构化证据）、私有文件安全与字段级隔离、生产同构（真实 MySQL/Turso 并发/备份恢复）、前端入口三层校验、flutter analyze 既有 lint 门禁等。
 
 本轮仅更新本报告（追加本章节），未修改业务源码、未新增迁移、未部署、未 commit、未 push。
+---
+
+## 附录 B 三缺口修复回归（2026-08-22，QA 子代理二次回归）
+
+基准：`docs/wxx-vopc-prd-v1.0.md`、`pm-checklist.md`、`refactor-notes.md`、`qa-report.md`、`audit-report.md`。
+
+工作树改动（`git status`/`git diff --stat`，与预期一致）：
+- `server/internal/handler/vopc_delivery.go`（+28）
+- `server/internal/handler/vopc_risk.go`（+41/-若干）
+- `server/internal/handler/vopc_close.go`（+7）
+- `server/internal/handler/vopc_governance_test.go`（+198/-39）
+- `refactor-notes.md`（+43）
+
+### H-B1 里程碑门禁 TOCTOU 绕过 — PASS
+
+- **证据**：`ReviewMilestone`（`vopc_delivery.go`）`next=="passed"` 分支、在 `stageStatuses[target]` 推进前新增 `milestoneAdvanceAllowed(tx, id)` 复核（`vopc_delivery.go:665-672`），与 `SubmitMilestone`（`:506`）为**同一函数同源**，非复制实现。
+- **时序缺口封死**：提交后、评审前若登记未批 R3 风险或项目升档，reviewer pass 会被 409 拒绝且 stage 不变。
+- **测试**：`TestVOPCMilestoneGateTOCTOU` 新增——R0 项目提交 S2 → 提交后治理角色登记 R3 → reviewer pass 断言 409 且 project.stage 仍 S1。`go test -run TestVOPCMilestoneGateTOCTOU -count=1 -v` **PASS**。
+- **原子性**：门禁拦截时 `defer tx.Rollback()` 全量回滚（review insert 与 submission 状态更新均不落库），submission 保持 pending；无部分提交。
+
+### H-B2 freeze 统一拦截写入 — PASS（并澄清申诉豁免）
+
+- **证据**：新增 `projectBlockedForWrite(tx, id)`（`vopc_delivery.go:762`），命中 `blockedStatuses ∪ completedLike`。接入：
+  - `CreateArtifact`（`vopc_delivery.go:306`）→ 409 且不落库不写事件；
+  - `CreateArtifactVersion`（`vopc_delivery.go:400`）→ 409；
+  - `CreateRisk`（`vopc_risk.go:103`）→ 409；
+  - `CloseProject`（`vopc_close.go:120-124`）新增 `status=="risk_frozen"` 前置拦截，close/pause/pivot/terminate/archive 均 409（此前 `pivot`/`pause`/`terminate` 可从 risk_frozen 通过 closeTransition）。
+- **申诉豁免**：`CreateRiskAppeal` **有意不加拦截**（走 `manageableProject`），冻结→申诉→裁定→解冻闭环成立。冻结后主理人仍可 201 申诉。
+- **测试**：`TestVOPCFreezeBlocksBusinessWrites` 新增——冻结后 CreateArtifact/CreateArtifactVersion/CreateRisk 各 409 且断言不落库（frozenArtifacts/frozenRisks=0），pivot/terminate 各 409，appeal 仍 201。`-run TestVOPCFreezeBlocksBusinessWrites -count=1 -v` **PASS**。
+
+### M-B1 R3 角色可达 — PASS
+
+- **证据**：独立 `risk_governance` project-role **已全仓移除**——`rg risk_governance` 仅命中注释/文件名（`102_vopc_risk_governance.sql`）/文档，无任何 `.go`/`.sql` 的 `project_role='risk_governance'` 判定或授予路径；测试 helper `addRiskGovernance`（db.Exec 直插自证）已删除。
+- **判定改写**：`isSpecialRiskGovernance` 为「项目内 `platform_operator` 成员（与 R2 同源）∧ 治理系统角色 `college_admin`/`school_admin`/`sys_admin`」（`vopc_risk.go:20-58`）。三个治理角色均由 `001_init.sql` role CHECK 与 `007_seed_users.sql` 播种，**生产可达**。
+- **测试驱动**：`TestVOPCR3SpecialGovernanceChannel` 重写为真实可授角色——治理系统角色+platform_operator 建 R3→201、student 挂 platform_operator 建 R3→403、owner→403、双人专项审批放行、任一 reject 封死。`addCollegeAdmin` 播种的是真实系统角色（非 self-proving 直插 R3 角色）。`-run ... -count=1 -v` **PASS**。
+- **R2/R3 差异保留**：R2=`isRiskManager`（任意 platform_operator），R3=`isSpecialRiskGovernance`（platform_operator+治理系统角色），R3 门禁更严（挂未批 R3 风险即拦），未退化。
+
+### 不回归核查 — PASS
+
+既有结项状态机、风险治理、学院准入、S0、成果版本门禁、任务/决策/邀请、正式里程碑、迁移 097-102 方言兼容全部仍绿（见下方命令表）。
+
+### 命令与 exit code（本次实跑，server/ 下）
+
+| 门禁 | 结果 | exit code |
+|---|---|---|
+| go test ./... -count=1 | PASS | 0 |
+| go vet ./... | PASS | 0 |
+| go build ./... | PASS | 0 |
+| go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 | PASS | 0（097-102 六方言全 PASS）|
+| go test ./pkg/app -run 'Test(KeyRoutesReachable\|RouteRegistrationCount\|RunMigrationsCreatesSchema\|RunMigrationsIdempotent)' -count=1 | PASS | 0 |
+| git diff --check | PASS | 0 |
+| go test ./internal/handler -run 'TestVOPCMilestoneGateTOCTOU\|TestVOPCFreezeBlocksBusinessWrites\|TestVOPCR3SpecialGovernanceChannel' -count=1 -v | PASS | 0（3/3 用例执行且 PASS）|
+
+### 残留阻断项（未在本批消除，记录不修）
+
+- **无测试占位/伪成功残留**：`rg createProjectAt|addRiskGovernance|bytesBuffer|t.Skip(|TODO|FIXME` 在 `internal/handler` 无命中（`bytes.Buffer` 仅存在于既有 `request` helper 与增量里合法使用；`w2` 命中均为 chat/auth/kb 无关测试的合法 `httptest.ResponseRecorder`）。`addRiskGovernance` 已彻底删除。
+- **事务审计原子**：本轮新增拦截均在既有 `defer tx.Rollback()` 事务内，未新增任何 bypass；`projectBlockedForWrite` 只读 status，不写库。
+- **未改历史迁移**：097-102 migration 文件无 diff；本轮无新增迁移。
+- 仍维持 NO-GO 的、非本批范围 P0 阻断不变（见上一轮第五节）：AI 真实执行、私有文件/字段级隔离、rubric/条件通过/甲方与发布审批、真实 MySQL/Turso 同构、前端三层校验等，本轮未触碰。
+
+### 最终判定
+
+**GO（针对本批三缺口修复范围）**：H-B1 / H-B2 / M-B1 三项修复均 PASS、有真实负向测试、无占位/伪成功、未改历史迁移、不回归；全部门禁 exit code 0。
+
+**整体项目维持 NO-GO**（非本批功能缺陷）：上一轮及更早已明确的 P0 阻断未消除。
+
+本轮仅追加 qa-report.md 本章节；未改源码/测试/迁移，未部署、未 commit、未 push。

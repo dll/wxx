@@ -115,6 +115,13 @@ func (h *VOPCHandler) CloseProject(c *gin.Context) {
 		return
 	}
 
+	// H-B2 修复：risk_frozen 是治理冻结态，只能由平台治理角色经 unfreeze 解除，
+	// 项目主理人不得趁机 pivot/terminate/pause 绕过治理冻结。
+	if status == "risk_frozen" {
+		c.JSON(409, gin.H{"code": 409, "message": "项目处于治理冻结状态，须先由平台治理角色解冻"})
+		return
+	}
+
 	// resume 恢复到此前 pause 记录的 previous_status；若历史丢失则回退到 pending_review。
 	if in.Action == "resume" {
 		var prev sql.NullString

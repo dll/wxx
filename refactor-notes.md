@@ -155,3 +155,46 @@
 - **测试（vopc_governance_test.go 新增 TestVOPCR3SpecialGovernanceChannel）**：普通 manager 创建 R3 被拒(403)、platform_operator 越权创建被拒(403)、专项角色创建成功(201)、R3 缺专项审批时里程碑被拦(409)、单人专项审批仍 open 且里程碑仍拦、双专项审批后放行(201)、任一专项 reject 即 rejected 且里程碑再拦。既有 R2 双人审批 gate 测试继续通过，确认 R2 语义不退化。
 - **未扩展/仍阻断**：本批未伪造外部审批/模型/对象存储；试点审批、发布审批、文件外发等其他 R3 相关联的域仍缺 schema/运行环境，继续 [blocked]。里程碑门禁为本批实际落地的最小门禁点。
 - **验证（全部通过）**：gofmt -w；go vet ./internal/handler/；go test ./internal/handler -run 'Test.*(VOPC|Close|Risk|Freeze|Appeal|Pivot|Governance|R3)' -count=1；go test ./internal/db -run TestToMySQLVOPCMigrations -count=1；go test ./pkg/app -count=1；go test ./... -count=1；git diff --check。未部署、未 commit、未 push（leader 统一提交）。
+
+## 审计附录 B 三缺口修复（2026-08-22 第二批）
+
+基准：`audit-report.md` 附录 B.2.3 + B.6。针对 H-B1 / H-B2 / M-B1 三个缺口做最小增量修复，不回退既有成果。
+
+### H-B1：里程碑门禁 TOCTOU 绕过 — 已修复
+
+- 修复：`vopc_delivery.go` 的 `ReviewMilestone` 在 `next=="passed"` 分支、执行 `stageStatuses[target]` 推进前，新增 `milestoneAdvanceAllowed(tx, id)` 复核；不满足 R2/R3 门禁则按同源文案（409/500）拒绝，与 `SubmitMilestone` 的 `:506` 调用同源（同一函数）。
+- 语义：封死“提交后、评审前新登记 R3 风险 / 项目被升档，reviewer 直接 pass 仍推进”的时序绕过。
+- 测试：新增 `TestVOPCMilestoneGateTOCTOU`——R0 项目提交 S2 → 提交后由治理角色登记未审批 R3 风险 → reviewer pass 断言 409 且项目 stage 仍为 S1（未推进）。
+
+### H-B2：freeze 未统一拦截写操作 — 已修复（并澄清申诉豁免）
+
+- 修复：新增 `projectBlockedForWrite(tx, id)` 统一门禁（校验 `blockedStatuses` ∪ `completedLike`），接入以下缺失路径：
+  - `CreateArtifact`（vopc_delivery.go）、`CreateArtifactVersion`（vopc_delivery.go）、`CreateRisk`（vopc_risk.go）→ 冻结/暂停/终止/归档/关项项目返回 409，且不写事件不落库。
+  - `CloseProject`（vopc_close.go）新增 `status=="risk_frozen"` 前置拦截（close/pause/pivot/terminate/archive 均 409），防止主理人借 pivot/terminate 绕过治理冻结；`closeTransition` 既有规则不变。
+- 澄清：**`CreateRiskAppeal`（申诉）不加拦截**——申诉是冻结后的 remedy 路径（冻结→申诉→裁定→解冻闭环），冻结时仍允许主理人申诉；这是有意豁免，与审计 B.2.3 对“治理动作可接受”的口径一致。
+- 测试：新增 `TestVOPCFreezeBlocksBusinessWrites`——冻结后 CreateArtifact/CreateArtifactVersion/CreateRisk 各自 409 且不落库、pivot/terminate 各 409、同时断言 appeal 仍 201。
+
+### M-B1：R3 专项角色无 provisioning API — 已修复（复用既有治理角色 + 服务端显式判定）
+
+- 修复思路（按此优先）：不再引入不可授的独立 `risk_governance` 项目角色，改为复用 PRD 4.4 的生产可达治理模型：
+  - `isSpecialRiskGovernance` 现判定为“项目内 `platform_operator` 成员 + 治理系统角色（`college_admin`/`school_admin`/`sys_admin`）”，两个条件均生产可达：`platform_operator` 经平台治理侧数据分配（与 R2 同源）、治理系统角色经既有 RBAC/capability 授权（007_seed_users 播种）。
+  - R2 与 R3 仍服务端显式分离：R2 = 任意 `platform_operator` 成员（`isRiskManager`）；R3 = `platform_operator` + 治理系统角色（`isSpecialRiskGovernance`），且 R3 里程碑门禁仍比 R2 更严（挂有未专项审批 R3 风险即阻断，不受项目风险等级影响）。
+- 移除：删除测试 helper `addRiskGovernance`（`db.Exec` 直插 `risk_governance` 的自证）；全仓已无 `risk_governance` 项目角色字符串的实际判定（仅注释/文件名残留，无授予路径）。
+- 测试：`TestVOPCR3SpecialGovernanceChannel` 重写为经真实可授角色驱动——治理系统角色 + `platform_operator` 可创建 R3（201）、非治理系统角色（student）挂着 `platform_operator` 越权创建 R3 被 403、owner 创建 R3 被 403、双专项审批放行、任一 reject 封死推进。
+- 未新增迁移、未改 101/102；`risk_governance` 从不是合法 project_role 授予路径，因此无 DDL/能力双端同步破坏。
+
+### 验证（全部通过）
+
+- `gofmt -w` 相关文件；`go vet ./internal/handler/` 通过。
+- `go test ./internal/handler -run 'Test.*(VOPC|Close|Risk|Freeze|Appeal|Pivot|Governance|R3|TOCTOU)' -count=1` 通过。
+- `go test ./internal/handler -count=1`（全量）通过。
+- `go test ./internal/db -run TestToMySQLVOPCMigrations -count=1` 通过。
+- `go test ./pkg/app -count=1` 通过。
+- `git diff --check` 通过。
+- 未部署、未 commit、未 push（leader 统一）。
+
+### 仍在边界（未伪造、后续批次）
+
+- H-B2 的口径已确定为“治理冻结/不可写状态拦截全部业务写（成果/版本/风险/结构性流转）”，但**申诉/裁定/解冻等治理 remedy 动作为有意豁免**；若后续要“全量写拦截”需另行设计冻结态下申诉的替代入口。
+- R2/R3“一般治理（platform_operator）”的项目角色授予本身仍依赖平台治理侧数据分配（无自助 API），本轮与历史一致未新增该授予端点；R3 专项通道现已与 R2 同源可达，不再是独立不可授能力。
+- 上一轮 P0 剩余（AI 真实执行/私有文件/rubric/条件通过/甲方与发布审批/真实 MySQL-Turso）继续 [blocked]，本轮未触碰。
