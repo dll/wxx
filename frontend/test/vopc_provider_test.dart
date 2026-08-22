@@ -110,6 +110,33 @@ void main() {
       expect(api.getCalls, contains(ApiConfig.vopcInvitations));
     });
 
+    test('milestone submission uses selected real artifact versions', () async {
+      final versionsPath = ApiConfig.vopcArtifactVersions(7, 5);
+      final submitPath = ApiConfig.vopcMilestoneSubmissions(7);
+      final api = _FakeVopcApi()
+        ..getResponses[versionsPath] = _response({
+          'data': [
+            {'id': 11, 'version': 'v1', 'release_notes': '首版'}
+          ]
+        })
+        ..postResponses[submitPath] = _response({
+          'data': {'id': 21, 'status': 'pending'}
+        }, statusCode: 201)
+        ..getResponses[submitPath] = _response({'data': <Object>[]});
+      final provider = VopcProvider(api);
+
+      final versions = await provider.loadArtifactVersions(7, 5);
+      expect(versions.single['id'], 11);
+      expect(
+          await provider.submitMilestone(7, {
+            'stage': 'S2',
+            'evidence': '真实版本证据',
+            'artifact_version_ids': [11]
+          }),
+          isTrue);
+      expect(api.postData[submitPath]?['artifact_version_ids'], [11]);
+    });
+
     test('surfaces 409 and does not report a false status success', () async {
       final path = ApiConfig.vopcProjectTask(7, 31);
       final api = _FakeVopcApi()
@@ -147,6 +174,7 @@ class _FakeVopcApi implements VopcApiClient {
   final postResponses = <String, Response<dynamic>>{};
   final putResponses = <String, Response<dynamic>>{};
   final putErrors = <String, DioException>{};
+  final postData = <String, dynamic>{};
   final getCalls = <String>[];
 
   @override
@@ -156,8 +184,10 @@ class _FakeVopcApi implements VopcApiClient {
   }
 
   @override
-  Future<Response<dynamic>> post(String path, {dynamic data}) async =>
-      postResponses[path]!;
+  Future<Response<dynamic>> post(String path, {dynamic data}) async {
+    postData[path] = data;
+    return postResponses[path]!;
+  }
 
   @override
   Future<Response<dynamic>> put(String path, {dynamic data}) async {

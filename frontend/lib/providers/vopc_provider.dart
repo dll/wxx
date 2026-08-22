@@ -42,7 +42,15 @@ class VopcProject {
   final String productForm;
   final String projectCycle;
   final String acceptanceCriteria;
+  final String projectSource;
+  final String dataType;
+  final String mentorNeeds;
+  final String resourceNeeds;
+  final bool realUserTrial;
+  final bool externalPublish;
+  final bool fundsInvolved;
   final int ownerUserId;
+  final bool canManage;
 
   const VopcProject(
       {required this.id,
@@ -59,7 +67,15 @@ class VopcProject {
       this.productForm = '',
       this.projectCycle = '',
       this.acceptanceCriteria = '',
-      this.ownerUserId = 0});
+      this.projectSource = 'self_proposed',
+      this.dataType = '公开数据',
+      this.mentorNeeds = '',
+      this.resourceNeeds = '',
+      this.realUserTrial = false,
+      this.externalPublish = false,
+      this.fundsInvolved = false,
+      this.ownerUserId = 0,
+      this.canManage = false});
 
   factory VopcProject.fromJson(Map<String, dynamic> json) => VopcProject(
       id: (json['id'] as num).toInt(),
@@ -76,7 +92,15 @@ class VopcProject {
       productForm: json['product_form'] ?? '',
       projectCycle: json['project_cycle'] ?? '',
       acceptanceCriteria: json['acceptance_criteria'] ?? '',
-      ownerUserId: (json['owner_user_id'] as num?)?.toInt() ?? 0);
+      projectSource: json['project_source'] ?? 'self_proposed',
+      dataType: json['data_type'] ?? '公开数据',
+      mentorNeeds: json['mentor_needs'] ?? '',
+      resourceNeeds: json['resource_needs'] ?? '',
+      realUserTrial: json['real_user_trial'] == true,
+      externalPublish: json['external_publish'] == true,
+      fundsInvolved: json['funds_involved'] == true,
+      ownerUserId: (json['owner_user_id'] as num?)?.toInt() ?? 0,
+      canManage: json['can_manage'] == true);
 }
 
 class VopcDecision {
@@ -260,24 +284,32 @@ class VopcProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> advanceProject(int projectId, String currentStage,
-      {String evidence = '', String reviewNote = ''}) async {
+  Future<bool> updateProject(int id, Map<String, dynamic> data) async {
+    error = null;
+    statusCode = null;
+    try {
+      await _api.put(ApiConfig.vopcProject(id), data: data);
+      await loadDetail(id);
+      await loadProjects();
+      return true;
+    } catch (e) {
+      _setError(e, '草稿保存失败');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> submitProject(int projectId) async {
     error = null;
     statusCode = null;
     notifyListeners();
     try {
-      final current = int.tryParse(currentStage.replaceFirst('S', '')) ?? -1;
-      if (current < 0 || current >= 9) return false;
-      final path = current == 0
-          ? ApiConfig.vopcProjectSubmit(projectId)
-          : ApiConfig.vopcProjectAdvance(projectId, 'S${current + 1}');
-      await _api
-          .post(path, data: {'evidence': evidence, 'review_note': reviewNote});
+      await _api.post(ApiConfig.vopcProjectSubmit(projectId));
       await loadDetail(projectId);
       await loadProjects();
       return true;
     } catch (e) {
-      _setError(e, '项目阶段推进失败');
+      _setError(e, '项目立项提交失败');
       notifyListeners();
       return false;
     }
@@ -458,6 +490,21 @@ class VopcProvider extends ChangeNotifier {
       _setError(e, '成果创建失败');
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> loadArtifactVersions(
+      int projectId, int artifactId) async {
+    try {
+      final r =
+          await _api.get(ApiConfig.vopcArtifactVersions(projectId, artifactId));
+      return (r.data?['data'] as List? ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (e) {
+      _setError(e, '成果版本加载失败');
+      notifyListeners();
+      return const [];
     }
   }
 

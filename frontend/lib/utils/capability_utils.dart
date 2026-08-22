@@ -123,8 +123,13 @@ class Capability {
   static const vopcProjectCreate = 'vopc.project.create';
   static const vopcProjectManage = 'vopc.project.manage';
   static const vopcProjectJoin = 'vopc.project.join';
+  static const vopcMentorReview = 'vopc.mentor.review';
   static const vopcMilestoneReview = 'vopc.milestone.review';
+  static const vopcResourceOffer = 'vopc.resource.offer';
+  static const vopcPublishRequest = 'vopc.publish.request';
   static const vopcAudit = 'vopc.audit';
+  static const vopcRiskManage = 'vopc.risk.manage';
+  static const vopcAnalyticsRead = 'vopc.analytics.read';
 }
 
 /// 能力判断工具（前端单一来源，由 Storage 持有当前用户能力清单）

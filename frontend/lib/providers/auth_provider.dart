@@ -152,6 +152,9 @@ class AuthProvider extends ChangeNotifier {
           username: _profile!.username,
           role: _profile!.role,
           displayName: _profile!.displayName,
+          ownerScope: _profile!.ownerScope,
+          ownerId: _profile!.ownerId,
+          status: _profile!.status,
         );
         // 同步入学年份到年级主题（登录/刷新资料时自动切换主题）
         final year = _profile!.enrollmentYear;
@@ -164,6 +167,7 @@ class AuthProvider extends ChangeNotifier {
       }
       // 拉取能力清单（用于菜单/按钮可见性）
       await _refreshCapabilities();
+      authRefreshNotifier.refresh();
       _loading = false;
       notifyListeners();
     } catch (e) {

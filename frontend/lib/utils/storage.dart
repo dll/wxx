@@ -7,6 +7,9 @@ class Storage {
   static const String _keyUsername = 'username';
   static const String _keyRole = 'role';
   static const String _keyDisplayName = 'display_name';
+  static const String _keyOwnerScope = 'owner_scope';
+  static const String _keyOwnerId = 'owner_id';
+  static const String _keyUserStatus = 'user_status';
   static const String _keyConsented = 'consented';
   static const String _keyFirstLaunch = 'first_launch_done';
   static const String _keyFreshmanGuideSeen = 'freshman_guide_seen';
@@ -18,7 +21,8 @@ class Storage {
   static const String _keyShowAvatar = 'show_avatar';
   static const String _keyGradeThemeEnabled = 'grade_theme_enabled';
   static const String _keyEnrollmentYear = 'enrollment_year';
-  static const String _keyStudentInterests = 'student_interests'; // 学生关注内容（逗号分隔的多选兴趣）
+  static const String _keyStudentInterests =
+      'student_interests'; // 学生关注内容（逗号分隔的多选兴趣）
 
   // ── 反馈草稿 ──
   static const String _keyFeedbackDraft = 'feedback_draft';
@@ -43,15 +47,24 @@ class Storage {
   static String? get username => _prefs.getString(_keyUsername);
   static String? get role => _prefs.getString(_keyRole);
   static String? get displayName => _prefs.getString(_keyDisplayName);
+  static String? get ownerScope => _prefs.getString(_keyOwnerScope);
+  static String? get ownerId => _prefs.getString(_keyOwnerId);
+  static String? get userStatus => _prefs.getString(_keyUserStatus);
 
   static Future<void> setUserInfo({
     required String username,
     required String role,
     required String displayName,
+    String ownerScope = '',
+    String ownerId = '',
+    String status = 'active',
   }) async {
     await _prefs.setString(_keyUsername, username);
     await _prefs.setString(_keyRole, role);
     await _prefs.setString(_keyDisplayName, displayName);
+    await _prefs.setString(_keyOwnerScope, ownerScope);
+    await _prefs.setString(_keyOwnerId, ownerId);
+    await _prefs.setString(_keyUserStatus, status);
   }
 
   // ── 首次启动 ──
@@ -108,6 +121,9 @@ class Storage {
     await _prefs.remove(_keyToken);
     await _prefs.remove(_keyUsername);
     await _prefs.remove(_keyRole);
+    await _prefs.remove(_keyOwnerScope);
+    await _prefs.remove(_keyOwnerId);
+    await _prefs.remove(_keyUserStatus);
     await _prefs.remove(_keyDisplayName);
     await _prefs.remove(_keyCapabilities);
   }

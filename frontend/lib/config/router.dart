@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/storage.dart';
+import '../utils/vopc_access.dart';
 import '../widgets/fab_menu.dart';
 import '../pages/consent/consent_page.dart';
 import '../pages/login/login_page.dart';
@@ -194,9 +195,10 @@ final GoRouter appRouter = GoRouter(
     if (loggedIn && isLoginPage) return '/home';
     if (loggedIn && isConsentPage && firstLaunchDone) return '/home';
 
-    // vOPC 与其他主菜单一致：入口和页面访问只依赖登录状态。
-    // 具体创建、管理、评审等操作仍由能力按钮与后端授权控制，
-    // 避免能力清单请求失败或缓存尚未刷新时误隐藏功能。
+    // vOPC 页面必须与后端 CollegeAccess 同步执行学院准入；缓存缺失时按拒绝降级。
+    if (state.matchedLocation.startsWith('/vopc') && !VopcAccess.allowed) {
+      return '/home';
+    }
     return null;
   },
   routes: [
@@ -733,7 +735,7 @@ class _NavItem {
   const _NavItem(this.label, this.icon, this.selectedIcon, this.route);
 }
 
-List<_NavItem> _navItemsForRole(String? role) => [
+List<_NavItem> _navItemsForRole(String? role, {bool compact = false}) => [
       _NavItem(
         role == 'teacher' ? '教学' : '首页',
         role == 'teacher'
@@ -750,11 +752,13 @@ List<_NavItem> _navItemsForRole(String? role) => [
         Icons.assignment,
         '/enrollment',
       ),
-      const _NavItem(
-          '服务', Icons.grid_view_outlined, Icons.grid_view, '/services'),
+      if (!compact)
+        const _NavItem(
+            '服务', Icons.grid_view_outlined, Icons.grid_view, '/services'),
       const _NavItem('我的', Icons.person_outline, Icons.person, '/profile'),
-      const _NavItem(
-          'vOPC', Icons.rocket_launch_outlined, Icons.rocket_launch, '/vopc'),
+      if (VopcAccess.allowed)
+        const _NavItem(
+            'vOPC', Icons.rocket_launch_outlined, Icons.rocket_launch, '/vopc'),
     ];
 
 /// 主页面外壳 — 响应式布局 + 磨砂玻璃导航
@@ -834,7 +838,8 @@ class MainShell extends StatelessWidget {
   /// 移动端布局：磨砂玻璃底部导航
   Widget _buildMobileLayout(BuildContext context) {
     final theme = Theme.of(context);
-    final items = _navItemsForRole(Storage.role);
+    // 小屏保持五项，服务能力通过“更多/首页”入口访问，vOPC 仍一键直达。
+    final items = _navItemsForRole(Storage.role, compact: true);
     final index = _currentIndex(context, items);
     return Scaffold(
       body: RepaintBoundary(key: screenshotKey, child: child),
