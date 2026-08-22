@@ -39,7 +39,7 @@ func vopcTestDB(t *testing.T) *sql.DB {
 	if _, err = db.Exec(string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql"} {
+	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql"} {
 		migration, readErr := os.ReadFile("../../migrations/" + name)
 		if readErr != nil {
 			t.Fatal(readErr)
@@ -90,6 +90,14 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), h.CreateTask)
 	g.PUT("/projects/:id/tasks/:taskId", h.UpdateTask)
 	g.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), h.SubmitProject)
+	g.POST("/projects/:id/close", auth.RequireCapability(auth.VOPCProjectManage), h.CloseProject)
+	g.GET("/projects/:id/close-records", h.ListCloseRecords)
+	g.GET("/projects/:id/risks", h.ListRisks)
+	g.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), h.CreateRisk)
+	g.POST("/projects/:id/risks/:riskId/approve", auth.RequireCapability(auth.VOPCRiskManage), h.ApproveRisk)
+	g.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), h.FreezeProject)
+	g.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), h.CreateRiskAppeal)
+	g.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), h.ResolveRiskAppeal)
 	return r
 }
 
@@ -349,8 +357,15 @@ func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 	if err := db.QueryRow(`SELECT stage,status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage, &status); err != nil {
 		t.Fatal(err)
 	}
-	if stage != "S9" || status != "completed" {
-		t.Fatalf("final state = %s/%s, want S9/completed", stage, status)
+	if stage != "S9" || status != "closeable" {
+		t.Fatalf("final state = %s/%s, want S9/closeable", stage, status)
+	}
+	// closeable 需由项目管理角色发起 close 才结项。
+	if got := request(r, "POST", base+"/close", owner, map[string]any{"action": "close", "reason": "完成交付并复盘", "outcome_package": "成果包与用户反馈", "human_decision": "结项并归档"}).Code; got != http.StatusOK {
+		t.Fatalf("close got %d", got)
+	}
+	if err := db.QueryRow(`SELECT status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&status); err != nil || status != "completed" {
+		t.Fatalf("post-close status=%s err=%v", status, err)
 	}
 }
 

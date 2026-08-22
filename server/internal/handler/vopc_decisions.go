@@ -124,7 +124,7 @@ func (h *VOPCHandler) CreateDecision(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
 		return
 	}
-	if blockedStatuses[status] || status == "completed" {
+	if blockedStatuses[status] || completedLike[status] {
 		c.JSON(409, gin.H{"code": 409, "message": "当前项目状态禁止创建决策"})
 		return
 	}
@@ -202,7 +202,7 @@ func (h *VOPCHandler) ActDecision(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "决策不存在或无权操作"})
 		return
 	}
-	if blockedStatuses[projectStatus] || projectStatus == "completed" {
+	if blockedStatuses[projectStatus] || completedLike[projectStatus] {
 		c.JSON(409, gin.H{"code": 409, "message": "当前项目状态禁止处理决策"})
 		return
 	}

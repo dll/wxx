@@ -499,8 +499,12 @@ func (h *VOPCHandler) SubmitMilestone(c *gin.Context) {
 		return
 	}
 	cur, _ := strconv.Atoi(strings.TrimPrefix(current, "S"))
-	if n != cur+1 || blockedStatuses[status] || status == "completed" {
+	if n != cur+1 || blockedStatuses[status] || completedLike[status] {
 		c.JSON(409, gin.H{"code": 409, "message": "只能提交当前阶段的下一里程碑"})
+		return
+	}
+	if allowed, msg, code := milestoneAdvanceAllowed(tx, id); !allowed {
+		c.JSON(code, gin.H{"code": code, "message": msg})
 		return
 	}
 	var pending int

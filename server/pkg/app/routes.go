@@ -156,6 +156,18 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
 				vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
 				vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
+
+				// 结项与异常状态机
+				vopc.POST("/projects/:id/close", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CloseProject)
+				vopc.GET("/projects/:id/close-records", d.vopcH.ListCloseRecords)
+
+				// 风险治理
+				vopc.GET("/projects/:id/risks", d.vopcH.ListRisks)
+				vopc.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRisk)
+				vopc.POST("/projects/:id/risks/:riskId/approve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ApproveRisk)
+				vopc.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.FreezeProject)
+				vopc.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRiskAppeal)
+				vopc.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ResolveRiskAppeal)
 			}
 
 			// ── AI 对话（self.chat）──

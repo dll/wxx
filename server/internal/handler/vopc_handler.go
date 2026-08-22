@@ -19,9 +19,18 @@ var (
 	riskLevels      = setOf("R0", "R1", "R2", "R3")
 	dataTypes       = setOf("公开数据", "校内非敏感数据", "个人数据", "敏感个人数据", "学籍数据", "心理健康数据", "医疗健康数据")
 	blockedStatuses = setOf("paused", "risk_frozen", "terminated", "archived")
-	stageStatuses   = []string{"draft", "pending_review", "company_formed", "requirement_baselined", "solution_approved", "developing", "testing", "production", "operating", "completed"}
-	taskPriorities  = setOf("low", "normal", "high", "urgent")
-	taskStatuses    = setOf("todo", "in_progress", "review", "done", "cancelled")
+	// stageStatuses[9] 不再是 completed：S9 里程碑通过后项目进入 closeable（可结项）
+	// 状态，必须由项目管理角色发起 close 才落为 completed。
+	stageStatuses = []string{"draft", "pending_review", "company_formed", "requirement_baselined", "solution_approved", "developing", "testing", "production", "operating", "closeable"}
+	// statusCloseable 表示 S9 已通过、等待人工结项决策。
+	statusCloseable = "closeable"
+	// completedLike 表示 S9 已通过或已结项，禁止再创建任务/决策、推进里程碑。
+	completedLike = setOf("completed", "closeable")
+	// closeActions 是结项/异常状态机的合法动作。
+	closeActions = setOf("close", "pause", "resume", "pivot", "terminate", "archive")
+
+	taskPriorities = setOf("low", "normal", "high", "urgent")
+	taskStatuses   = setOf("todo", "in_progress", "review", "done", "cancelled")
 )
 
 func setOf(values ...string) map[string]bool {
@@ -541,7 +550,7 @@ func (h *VOPCHandler) UpdateTask(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "任务不存在或无权操作"})
 		return
 	}
-	if blockedStatuses[projectStatus] || projectStatus == "completed" {
+	if blockedStatuses[projectStatus] || completedLike[projectStatus] {
 		c.JSON(409, gin.H{"code": 409, "message": "当前项目状态禁止更新任务"})
 		return
 	}
