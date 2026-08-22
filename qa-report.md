@@ -404,3 +404,80 @@
 **整体项目维持 NO-GO**（非本批功能缺陷）：上一轮及更早已明确的 P0 阻断未消除。
 
 本轮仅追加 qa-report.md 本章节；未改源码/测试/迁移，未部署、未 commit、未 push。
+---
+
+## 回归轮次：私有文件闭环（迁移 103 + vopc_files + 接线 + file 门禁）
+
+- 测试日期：2026-08-22
+- 审查对象：已暂存工作树中的 vOPC 私有文件闭环改动（`.gitignore`、迁移 103、`vopc_files.go` + 测试、`vopc_delivery.go` file 门禁、routes/config/app 接线、迁移/路由/回归测试接线）
+- 复核基准：`docs/wxx-vopc-prd-v1.0.md`、`pm-checklist.md`、`refactor-notes.md`、`qa-report.md`、`audit-report.md`
+
+### 上传端点 POST /projects/:id/files 核查 — PASS
+
+- `vopc.project.manage` capability（`auth.RequireCapability`）+ `CollegeAccess` 学院准入（外院/非 cs → 403）+ 项目写权限（`projectPolicy(..., "manage")`，非成员 → 404）三层门禁齐备。
+- 无权限 403/404、未登录 401：`TestVOPCFileUploadPermissionMatrix` 覆盖非成员 404、外院 403、未登录 401、owner 201。
+- 20MB 上限 → 413（`vopcMaxFileBytes=20<<20`，`fh.Size > vopcMaxFileBytes` 判 413）；`TestVOPCFileUploadRejectsSizeTypeAndInjection` 覆盖超限 413。
+- MIME 白名单不匹配 → 415（`vopcAllowedMimeTypes`；危险 `application/x-msdownload` 覆盖 415）；声明空/octet-stream 时按扩展名兜底判断。
+- 事务+审计原子：`tx.Begin()` 后校验权限 → 落盘成功 → `INSERT vopc_files` → `writeEvent("file.uploaded")` → `tx.Commit()`；任一步失败均 `defer tx.Rollback()` 且 `os.Remove(diskPath)`，保证失败不入库不落盘。
+- 返回不可猜 `object_key`（`crypto/rand` 32 字节 hex，64-hex），不含真实磁盘路径；`c.JSON` 仅返回 meta（object_key/file_name/mime_type/size/checksum/storage_status）。
+- 文件名净化：`safeFileName` 取 `filepath.Base`、去 `\`→`/`、拒绝 `.`/`..`/空/CRLF/NUL 与超长；注入文件名 `../../etc/passwd` 仍返回净化后的 `file_name` 且 object_key 合规（测试断言 key 合法且 fileName 无 `/`/`..`）。
+
+### 下载端点 GET /projects/:id/files/:key 核查 — PASS
+
+- 成员/owner 可下 200、非成员 404、越权（外院）403、未授权 404：`TestVOPCFileDownloadAuthorization` 覆盖 owner 200、member 200（body 含真实字节）、非成员 404、路径注入 `..%2F..` 404。
+- key 严格 64-hex（`validObjectKey` 仅小写 `0-9a-f` 且长度 64），路径注入直接 404，杜绝路径穿越。
+- 服务端流式（`io.Copy(c.Writer, f)`）+ `X-Content-Type-Options: nosniff` + `X-Checksum-Sha256` + `Content-Disposition` 附件（RFC 5987 `filename*`，`urlPathEscape` percent-encoding）。
+- 不暴露真实路径：磁盘路径由 `resolveUploadDir` + object_key 拼接，仅内部使用；磁盘缺失时返回 404（避免状态泄露）。
+- 学院准入复检（defense-in-depth）：`DownloadFile` 内部再校验 `OwnerScope=="college"`、`OwnerID==collegeID`、非 guest、`active`（与路由层 `CollegeAccess` 双保险）。
+
+### 受控文件与里程碑门禁核查 — PASS
+
+- `artifact_types` 增加 `file`；`milestoneArtifactTypes` 的 S2/S3/S5/S9 文档型阶段允许 `file`（与 `document` 等价），S4/S6/S7/S8 保持原状。
+- `CreateArtifactVersion` 当 `source_kind=="storage_ref"` 时：校验 `source_ref` 为合法 64-hex object_key，且 `vopc_files` 中存在对应的本项目记录且 `storage_status != "scan_failed"`，否则 422。
+- `TestVOPCFileMilestoneGateIntegration` 覆盖：合法 storage_ref 版本 201；非法 key（`not-a-key`）422；格式合法但不存在（`aaa...a`）422；受控文件作里程碑提交（S2）201。
+
+### 不回归核查 — PASS
+
+既有学院准入、S0、成果版本门禁、结项状态机、风险治理/R3、任务/决策/邀请、正式里程碑、迁移 097-102 方言兼容全部仍绿（`go test ./...` 全量 PASS，见下命令表）。本批仅新增 `vopc_files` 表与两条路由，未改历史迁移、未改既有 artifact/version 门禁列定义。
+
+### 无占位/伪成功/路径泄露/越权绕过核查 — PASS
+
+- `.uploads/` 已加入 `.gitignore`（第 17 行，`git check-ignore` 命中），无 `.uploads/` 下文件被暂存；仓库 `.uploads/` 目录为空（测试使用 `t.TempDir()` 隔离，未污染仓库）。
+- `.gitignore` 已规范化为 LF（0 处 CRLF），`git diff --cached --check` 与 `git diff --check` 均 0 退出。
+- 无硬编码可猜 URL / 磁盘绝对路径对外返回；object_key 由加密安全随机生成，不可猜。
+
+### 命令与 exit code（本次实跑，server/ 下）
+
+| 门禁 | 结果 | exit code |
+|---|---|---|
+| go test ./... -count=1 | PASS | 0（全量包绿）|
+| go vet ./... | PASS | 0 |
+| go build ./... | PASS | 0 |
+| go test ./internal/db -run TestToMySQLVOPCMigrations -count=1 | PASS | 0（097-103 七方言全 PASS）|
+| go test ./pkg/app -run 'Test(KeyRoutesReachable\|RouteRegistrationCount\|RunMigrationsCreatesSchema\|RunMigrationsIdempotent)' -count=1 | PASS | 0（4/4 用例 PASS）|
+| git diff --cached --check | PASS | 0 |
+| git diff --check | PASS | 0 |
+
+### 迁移 103 SQLite/MySQL 兼容性 — PASS（翻译层验证）
+
+- 迁移 103 仅新增一张表 + 三条普通索引；`INTEGER PRIMARY KEY AUTOINCREMENT` 经 `ToMySQL` 译为 `BIGINT PRIMARY KEY AUTO_INCREMENT`，`TEXT ... DEFAULT CURRENT_TIMESTAMP` 译为 `DATETIME ... DEFAULT CURRENT_TIMESTAMP`；`TestToMySQLVOPCMigrations/103_vopc_private_files.sql` PASS，无 `AUTOINCREMENT`/`ON CONFLICT`/`INDEX IF NOT EXISTS` 等 SQLite-only 残留。
+- 未改历史迁移：097-102 migration 文件无 diff。
+
+### [blocked] 边界（本批不做伪造，记录不修）
+
+- **云对象存储** [blocked]：`storage_status` 默认 `pending`，落盘为本地受控目录，未接真实云对象存储 SDK / 签名 URL。
+- **病毒扫描** [blocked]：无真实病毒扫描；`scan_failed` 状态仅存在于白名单与门禁判定中，当前无写入该状态的链路。
+- **真实 MySQL 同构** [blocked]：MySQL 兼容性仅经 `ToMySQL` 翻译器静态验证，未在真实 MySQL 实例上执行 103 迁移。
+
+### 残留阻断项（仅记录，本批未消除）
+
+- 无新增阻塞缺陷：本轮五大门禁全绿，上传/下载/门禁/不回归均 PASS；未发现占位、伪成功、路径泄露或越权绕过。
+- 上述 [blocked] 三项为外部能力边界，非本轮可消除，保持记录。
+
+### 最终判定
+
+**GO（针对本批私有文件闭环范围）**：上传/下载鉴权、file 门禁、里程碑 storage_ref 门禁、迁移 103 方言兼容、不回归全部 PASS，有真实正/负向测试，无占位/伪成功，未改历史迁移。
+
+**整体项目维持 NO-GO（历史 P0 阻断，非本批功能缺陷）**：此前已明确的 P0 阻断（真实 AI 执行、私有文件/字段级隔离、rubric/条件通过与审批、真实 MySQL/Turso 同构、前端三层校验等）仍未消除，本轮未触碰。
+
+本轮仅追加 qa-report.md 本章节；未改源码/测试/迁移，未部署、未 commit、未 push。

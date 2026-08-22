@@ -358,3 +358,92 @@ QA 报告与 refactor-notes 声称「冻结后**所有写操作**被 blockedStat
 H-B1（TOCTOU 真实同函数复核 + 全量回滚）、H-B2（freeze 统一拦截业务写 + 申诉豁免合理）、M-B1（移除不可授 risk_governance，R3 复用 platform_operator+治理系统角色，R2/R3 差异保留）三项修复经独立代码审查 + 定向测试实跑 + 全量 build/vet/diff-check 验证，**均可按其原始口径关闭**。
 
 # 本批复审结论：三缺口 GO（关闭）；整体项目维持 NO-GO（禁止上线、部署或宣称 vOPC PRD v1.0 P0 验收完成）。
+
+---
+
+# 附录 D：vOPC 私有文件闭环（迁移 103 + vopc_files + file 门禁）独立只读复审（2026-08-22）
+
+> 复审方：reviewer-audit-wxx（独立复审，不采信 QA 结论）
+> 复审日期：2026-08-22
+> 复审对象：已暂存工作树中的私有文件闭环改动（`.gitignore`、迁移 103、`vopc_files.go`+`vopc_files_test.go`、`vopc_delivery.go` file 门禁、`vopc_handler.go`、`routes.go`、`app.go`、`config.go`、`regression_test.go`、`migration_vopc_test.go`），以及未暂存的 `qa-report.md` 新增私有文件章节。
+> 前置材料：`pm-checklist.md`、`refactor-notes.md`、`qa-report.md`、`audit-report.md`（正文+附录 B/C）、`refactor-final-summary.md`（均已通读）。
+> 约束：只读；本批仅追加本附录，未改源码/测试/迁移，未部署/commit/push。
+
+## D.1 最终判定
+
+# **GO（本批私有文件闭环范围）**
+
+独立复核后结论与 QA「本批 GO、整体 NO-GO」一致。上传/下载鉴权三层边界、MIME/大小门禁、object_key 不可猜与净化、鉴权流式下载、storage_ref 受控文件门禁、迁移 103 方言兼容、`.gitignore` 正确忽略 `.uploads/`、不回归，均有真实代码路径与自动化测试佐证，且我独立实跑 `go build ./...`、`go vet`、定向 `go test`、`git diff --check`（含 `--cached`）全部通过。
+
+**整体项目维持 NO-GO**（历史 P0 阻断：AI 执行/上下文隔离、rubric/条件通过/豁免/甲方审批、真实 MySQL/Turso、前端三层校验等，本批未触碰）。
+
+## D.2 逐项复核（Risk + 证据行号 + 结论）
+
+### 1. 上传三层门禁 / 大小 / MIME / 事务原子 / object_key / 文件名净化
+
+- **Risk：低**。证据：路由层 `routes.go:153` `CollegeAccess` + `RequireCapability(VOPCProjectManage)`；handler `vopc_files.go:149-166` 再查 `owner` + `projectPolicy(tx,...,"manage")`（非成员 404），`projectPolicy` 定义 `vopc_handler.go:709-726` fail-closed（`err!=nil` 返回 false）；`projectBlockedForWrite` `vopc_delivery.go:781-789` 查询失败即 blocked。三层齐备且 fail-closed。
+- **大小 413**：`vopc_files.go:42` `vopcMaxFileBytes=20<<20`；`:157-160` `fh.Size>vopcMaxFileBytes → 413`；`fh.Size<=0 → 400`。✓
+- **MIME 415**：`:161-166` 优先 `fh.Header.Get("Content-Type")` 小写，空/octet-stream 时 `detectMimeByExt` 兜底，均不在 `vopcAllowedMimeTypes`（`:38-57`）即 415。**注**：这是「声明优先 + 扩展名兜底」，非真实内容嗅探——攻击者可声明 `image/png` 上传任意二进制。缓解为下载时 `nosniff` + `Content-Disposition: attachment`（强制下载不外内联执行），故风险为低；QA 报告措辞「不信任扩展名」略夸大，实际为「声明优先、扩展名兜底」。要求内容级嗅探（magic bytes）属外部扫描器能力，本批 `[blocked]`。
+- **事务+审计原子 + 回滚 + os.Remove**：`vopc_files.go:167-245` `tx.Begin()` → `defer` 未提交即 `Rollback`；`persistMultipartFile` 用 `os.O_EXCL`（`:324`）；`INSERT` 失败/`writeEvent` 失败/`Commit` 失败均 `os.Remove(diskPath)`。`writeEvent` 7 参调用正确（签名 `vopc_handler.go:317`）。✓
+- **object_key**：`newObjectKey`（`:98-103`）`crypto/rand` 32B hex，`validObjectKey`（`:316-325`）严格 64 位 `0-9a-f`；磁盘仅以 key 落盘，`c.JSON` 只回 meta（`:220-233`）不含路径。✓
+- **文件名净化**：`safeFileName`（`:106-130`）取 `filepath.Base`、`\`→`/`、拒 `.`/`..`/空/CRLF/NUL/超 255 rune，仅展示不落盘。✓
+
+### 2. 下载：成员可下/非成员 404/越权/未授权/流式/nosniff/checksum/RFC5987/key 校验/defense-in-depth
+
+- **Risk：低**。`vopc_files.go:250-314`：`validObjectKey` 前置 404（key `..%2F..` 长度≠64 → 404，杜绝路径穿越）；`projectPolicy(read)` 非成员 404；字段级复检 `u.OwnerScope=="college"&&EqualFold(u.OwnerID,h.collegeID)&&Role!="guest"&&Status=="active"`（`:288-291`，与 `CollegeAccess` 双保险）；`SELECT ... WHERE project_id=? AND object_key=?` 依项目隔离，磁盘缺失 404 不泄露状态。
+- 流式 `io.Copy` + `X-Content-Type-Options: nosniff` + `X-Checksum-Sha256` + `Content-Disposition` RFC5987 `filename*`（`urlPathEscape` percent-encoding，`:330-347`）+ `Content-Length`。✓
+- **发现（低风险，记录非阻断）**：`storageStatus` 在 `:301` 被 Scan 但**下载路径从不判定 `scan_failed`**——若未来接入真实扫描器并写入 `scan_failed`，该文件仍会被下载；而里程碑 `CreateArtifactVersion` 门禁（`vopc_delivery.go:410-423`）会拒绝 `scan_failed`。当前无任何代码写 `scan_failed`（QA 亦记录），故为潜在不一致而非现有漏洞。建议下一批在下载路径对 `scan_failed` 加 404/423 隔离，与门禁语义对齐。
+
+### 3. 受控文件/里程碑门禁
+
+- **Risk：低**。`vopc_delivery.go:17` artifactTypes 增 `file`；`:22-27` `milestoneArtifactTypes` S2/S3/S5/S9 增 `file`（与 document 等价），S4/S6/S7/S8 不变。
+- `CreateArtifactVersion` `:407-423`：`source_kind==storage_ref` 时先 `validObjectKey`，再 `SELECT storage_status FROM vopc_files WHERE project_id=? AND object_key=?`（**用上下文项目 id 限定，防跨项目伪造 key**），`ErrNoRows` 或 `scan_failed` → 422。既有 `validSHA256` 门禁保留。✓
+- 与既有版本门禁（`intended_stage/status/checksum/类型`）不冲突，仅新增 storage_ref 专项前置；历史 artifact 类型/来源不受影响。✓
+
+### 4. 安全总评
+
+- **无越权绕过/IDOR**：上传/下载均以上下文 `id` + 项目关系 + 学院复检三重绑定；下载 key 与 project_id 联合查询。
+- **无路径遍历**：project id 经 `projectID` 强转正 int；object_key 严格 64-hex 且磁盘 `filepath.Join(dir, key)` 无路径成分；文件名净化且不落盘。
+- **无符号链接攻击**：上传 `os.O_EXCL|0o600` 新建、下载 `os.Open` 只读；`resolveUploadDir` `MkdirAll(0o700)` 项目内隔离。（注：`os.Open` 可跟随已存在符号链接，但 `.uploads` 目录 0700 且服务端独占，非多租户共享，风险可接受。）
+- **无并发上传冲突**：`os.O_EXCL` + `UNIQUE(project_id,object_key)` + 事务，重复 key 碰撞极低且插入失败回滚删盘。
+- **无临时文件泄漏**：失败路径均 `os.Remove(diskPath)`；测试用 `t.TempDir()` 不污染仓库。
+- **fail-closed**：`projectPolicy`/`projectBlockedForWrite` 查询失败均拒绝；`CollegeAccess` 缺省拒绝。✓
+
+### 5. 迁移 103 / .gitignore / LF 归一化
+
+- **Risk：低**。`103_vopc_private_files.sql` 仅一张表 + 三条普通索引，`INTEGER PRIMARY KEY AUTOINCREMENT`/`TEXT DEFAULT CURRENT_TIMESTAMP` 经 `ToMySQL` 翻译层静态验证（`migration_vopc_test.go:12` 已纳入 103），无 SQLite-only 残留；未改 097-102（git 确认无 diff）。✓
+- **`.gitignore` 已正确忽略 `.uploads/`**（`:17`），`git check-ignore` 命中；`git ls-files` 无任何 uploads 文件被跟踪；`.uploads/` 无副作用（仅追加三行 + 末尾删一个空行）。✓
+- **LF 归一化**：`.gitignore` 440 行 diff 中 219 删/221 增，经 `git diff --cached --ignore-cr-at-eol` 验证**实质变化仅追加 `.uploads/` 三行**，其余为 CRLF→LF 行尾归一化（HEAD 为 CRLF、工作树为 LF）。此为无害的无关变更，QA 已如实记录，非隐患；但建议后续单独 commit 行尾归一化以减小 diff 噪音（非阻断）。
+
+### 6. QA/S0 既有闭环不回归
+
+- **Risk：低**。`routes.go`/`vopc_handler_test.go` 仅新增两条路由与 file 门禁，未改既有 artifact/version 列定义、未改历史迁移；`regression_test.go:63` 已把 `/projects/:id/files`、`/projects/:id/files/:key` 纳入路由锚点。
+- 定向测试 `Test.*(VOPC|File|Upload|Download|Milestone)` PASS；`TestToMySQLVOPCMigrations`（含 103）PASS；`RouteRegistrationCount/KeyRoutesReachable/RunMigrations*` PASS。✓
+
+## D.3 独立实跑验证（本批我亲自执行）
+
+| 命令 | 结果 | exit |
+|---|---|---|
+| `go build ./...`（server/） | PASS | 0 |
+| `go vet ./internal/handler/ ./internal/db/ ./pkg/app/` | PASS | 0 |
+| `go test ./internal/handler -run 'Test.*(VOPC|File|Upload|Download|Milestone)' -count=1` | PASS | 0 |
+| `go test ./internal/db -run TestToMySQLVOPCMigrations -count=1` | PASS | 0 |
+| `go test ./pkg/app -run 'Test(KeyRoutesReachable|RouteRegistrationCount|RunMigrationsCreatesSchema|RunMigrationsIdempotent)' -count=1` | PASS | 0 |
+| `git diff --check` / `git diff --cached --check` | 0 处空白错误 | 0 |
+
+## D.4 新增发现（均低风险，非阻断，建议下一批处理）
+
+1. **下载路径未隔离 `scan_failed`**（`vopc_files.go:301` 读而未用）：与里程碑门禁的 `scan_failed` 拒绝语义不一致；当前无写 `scan_failed` 的链路，故无现有漏洞，但接入真实扫描器前应补齐。
+2. **MIME 白名单为「声明优先 + 扩展名兜底」，非内容嗅探**：可声明合法 MIME 上传任意二进制；缓解=`nosniff`+`attachment` 强制下载。真实 magic-byte/病毒扫描属 `[blocked]` 外部能力。
+3. **`.gitignore` CRLF→LF 归一化属无关 diff**：建议下一批单独保留/合并，避免污染本批语义。
+
+## D.5 下一批最小可执行顺序（在整体 P0 之内）
+
+1. 下载路径对 `storage_status==scan_failed` 加拒绝（对齐门槛语义）。
+2. 接入真实扫描器或对高风险 MIME 做「隔离后放行」保守策略（需外部凭据，`[blocked]` 解除后）。
+3. 明确上传是否自动绑定 `artifact_version_id`（当前仅由 storage_ref 反向引用完成）。
+4. 继续遗留 P0：AI 执行/上下文隔离、rubric/条件通过/豁免/甲方审批、真实 MySQL/Turso、前端三层校验、`.gitignore` 行尾归一化单独提交。
+
+## D.6 签署
+
+对 QA 判定的 GO 做过独立 code review + 定向测试实跑 + 全量 build/vet/diff-check，结论一致：**本批私有文件闭环 GO；整体项目维持 NO-GO**。三个新发现均为低风险、记录不阻断，不影响本批放行。
