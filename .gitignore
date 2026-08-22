@@ -1,4 +1,4 @@
-# Miscellaneous
+﻿# Miscellaneous
 *.class
 *.lock
 # Flutter 应用的依赖锁定文件应追踪以确保构建可重现
@@ -12,6 +12,9 @@
 # Student data / data files
 *.xlsx
 data/*
+
+# vOPC 私有文件受控存储（本地对象存储，不入库）
+.uploads/
 
 # Generated wiki
 code-wiki.md
@@ -220,4 +223,3 @@ signing/
 
 # OpenClaw 运行数据/备份（非项目源码，不入库）
 .openclaw/
-
