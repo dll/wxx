@@ -223,3 +223,7 @@ signing/
 
 # OpenClaw 运行数据/备份（非项目源码，不入库）
 .openclaw/
+
+# APK 分发走 GitHub Release + 服务器 downloads（保留最近3版），仓库不入库二进制
+frontend/web/downloads/*.apk
+frontend/build/web/downloads/
