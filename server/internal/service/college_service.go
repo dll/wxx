@@ -86,8 +86,8 @@ type FiveDimEntry struct {
 
 // CollegeFiveDim 学院五维全院聚合结果。
 type CollegeFiveDim struct {
-	SampleCount int            `json:"sample_count"`        // 全院参与聚合的快照数
-	Dimensions  []FiveDimEntry `json:"dimensions"`         // 5 维
+	SampleCount int            `json:"sample_count"`         // 全院参与聚合的快照数
+	Dimensions  []FiveDimEntry `json:"dimensions"`           // 5 维
 	TrendNote   string         `json:"trend_note,omitempty"` // 趋势说明（无历史快照→数据积累中）
 }
 
@@ -163,7 +163,6 @@ func (s *CollegeService) buildDepartments(ownerID, className string) []map[strin
 	}
 	return out
 }
-
 
 // TwinScreenData 学院数字孪生大屏数据
 type TwinScreenData struct {

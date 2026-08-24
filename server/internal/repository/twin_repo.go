@@ -502,9 +502,12 @@ type ScopeDimAgg struct {
 // 修复合院学生 >500 时静默漏样本导致均值失真的缺陷。
 //
 // scopeCond: 过滤条件（ownerScope/ownerID/major/className 任一为空则跳过该维度，
-//             与 ListSnapshotsByScope 的口径一致）。
+//
+//	与 ListSnapshotsByScope 的口径一致）。
+//
 // groupBy:  ""    → 只返回 Overall（整体）；
-//           major → 额外返回 ByGroup（按 major 分组）；class → 按 class_name 分组。
+//
+//	major → 额外返回 ByGroup（按 major 分组）；class → 按 class_name 分组。
 //
 // returns: 无快照时 Overall.Count=0 且五维均值=0，调用方按维度 sample_count==0 判定 not_available。
 func (r *TwinRepo) AggregateSnapshotsByScope(ownerScope, ownerID, major, className, groupBy string) (*SnapshotScopeAgg, error) {

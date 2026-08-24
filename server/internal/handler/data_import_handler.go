@@ -100,6 +100,7 @@ func (h *DataImportHandler) ImportMySchedule(c *gin.Context) {
 // 教师在前端选定课程 + 学生学号集合 + 真实成绩，本接口校验：
 //   - 每条记录 target 必须为 role='student' 的学生（不得对教师/管理员等写成绩）
 //   - created_by 强制写当前教师 user_id（审计可追溯谁的声明）
+//
 // 幂等沿用 UpsertGrade。
 func (h *DataImportHandler) ImportTeacherGrades(c *gin.Context) {
 	if h.phase3 == nil {

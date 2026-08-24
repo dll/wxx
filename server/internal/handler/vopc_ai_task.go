@@ -368,7 +368,7 @@ func (h *VOPCHandler) getAITask(projectID, taskID int64) gin.H {
 		"final_decision": nullableStringPtr(t.Decision), "decision_by": nullableIntPtr(t.DecisionBy),
 		"decision_note": t.DecisionNote, "revision": t.Revision,
 		"modification_rate": modificationRate(t.Revision),
-		"created_by":      t.CreatedBy, "created_at": anyString(t.CreatedAt),
+		"created_by":        t.CreatedBy, "created_at": anyString(t.CreatedAt),
 	}
 }
 

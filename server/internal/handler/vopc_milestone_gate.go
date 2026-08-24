@@ -304,9 +304,9 @@ func (h *VOPCHandler) CreateMilestoneWaiver(c *gin.Context) {
 	}
 	u := middleware.GetUserContext(c)
 	var in struct {
-		Stage           string `json:"stage"`
+		Stage            string `json:"stage"`
 		RequiredEvidence string `json:"required_evidence"`
-		Reason          string `json:"reason"`
+		Reason           string `json:"reason"`
 	}
 	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(400, gin.H{"code": 400, "message": "请求 JSON 格式错误"})

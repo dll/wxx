@@ -1,0 +1,1 @@
+ok  	github.com/dll/wxx/server/pkg/app	88.241s

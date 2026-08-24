@@ -76,7 +76,7 @@ func (h *VOPCHandler) Guides(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"templates":   opcGuideTemplates,
+			"templates": opcGuideTemplates,
 			"role_options": []gin.H{
 				{"role_key": "project_manager", "name": "产品经理向导"},
 				{"role_key": "market_user", "name": "市场与用户向导"},

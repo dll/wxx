@@ -631,10 +631,10 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	var in struct {
-		Result     string         `json:"result"`
-		Note       string         `json:"note"`
+		Result     string          `json:"result"`
+		Note       string          `json:"note"`
 		Scores     []reviewScoreIn `json:"scores"`
-		Conditions []reviewCondIn `json:"conditions"`
+		Conditions []reviewCondIn  `json:"conditions"`
 	}
 	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(400, gin.H{"code": 400, "message": "请求 JSON 格式错误"})

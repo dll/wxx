@@ -88,7 +88,10 @@ func setupHomeworkSvcTestDB(t *testing.T) (*HomeworkService, *sql.DB) {
 	if _, err := db.Exec(`DELETE FROM users`); err != nil {
 		t.Fatalf("清空 users 失败: %v", err)
 	}
-	for _, u := range []struct{ id int; name, role, disp string }{
+	for _, u := range []struct {
+		id               int
+		name, role, disp string
+	}{
 		{3, "tea_a", "teacher", "王老师"},
 		{10, "stu1", "student", "张三"},
 	} {

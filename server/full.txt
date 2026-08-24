@@ -1,0 +1,28 @@
+?   	github.com/dll/wxx/server	[no test files]
+?   	github.com/dll/wxx/server/cmd/eval	[no test files]
+?   	github.com/dll/wxx/server/cmd/gate	[no test files]
+?   	github.com/dll/wxx/server/cmd/migrate	[no test files]
+?   	github.com/dll/wxx/server/cmd/reset-seed	[no test files]
+?   	github.com/dll/wxx/server/cmd/server	[no test files]
+?   	github.com/dll/wxx/server/cmd/stress	[no test files]
+?   	github.com/dll/wxx/server/cmd/sync-db	[no test files]
+ok  	github.com/dll/wxx/server/internal/agent	13.683s
+ok  	github.com/dll/wxx/server/internal/auth	5.598s
+ok  	github.com/dll/wxx/server/internal/config	37.708s
+ok  	github.com/dll/wxx/server/internal/context_engine	64.874s
+ok  	github.com/dll/wxx/server/internal/db	6.576s
+ok  	github.com/dll/wxx/server/internal/handler	125.208s
+?   	github.com/dll/wxx/server/internal/jwtutil	[no test files]
+ok  	github.com/dll/wxx/server/internal/llm	23.831s
+?   	github.com/dll/wxx/server/internal/logger	[no test files]
+ok  	github.com/dll/wxx/server/internal/middleware	12.455s
+ok  	github.com/dll/wxx/server/internal/model	6.809s
+?   	github.com/dll/wxx/server/internal/ports	[no test files]
+ok  	github.com/dll/wxx/server/internal/repository	130.378s
+ok  	github.com/dll/wxx/server/internal/service	257.745s
+ok  	github.com/dll/wxx/server/internal/temporal	18.302s
+ok  	github.com/dll/wxx/server/internal/temporal/activities	25.922s
+ok  	github.com/dll/wxx/server/internal/temporal/workflows	9.192s
+?   	github.com/dll/wxx/server/internal/testutil	[no test files]
+ok  	github.com/dll/wxx/server/internal/util	18.671s
+ok  	github.com/dll/wxx/server/pkg/app	84.432s

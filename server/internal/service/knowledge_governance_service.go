@@ -147,7 +147,7 @@ func (s *KnowledgeGovernanceService) deterministicChecks(resources []*model.KBRe
 			if prev, ok := seenTitle[titleKey]; ok {
 				issues = append(issues, &model.KGIssue{
 					ResourceID: r.ResourceID, Title: r.Title, Category: "duplicate",
-					Level: "warning",
+					Level:   "warning",
 					Message: fmt.Sprintf("与资源 %s 标题重复，存在内容冗余风险，建议核对合并。", prev),
 				})
 			} else {
@@ -158,7 +158,7 @@ func (s *KnowledgeGovernanceService) deterministicChecks(resources []*model.KBRe
 		if r.ExpiredAt != nil && *r.ExpiredAt != "" && *r.ExpiredAt <= time.Now().Format("2006-01-02") {
 			issues = append(issues, &model.KGIssue{
 				ResourceID: r.ResourceID, Title: r.Title, Category: "expired",
-				Level: "warning",
+				Level:   "warning",
 				Message: fmt.Sprintf("已到失效日期 %s，但仍为 published 状态，建议退役或续期。", *r.ExpiredAt),
 			})
 		}

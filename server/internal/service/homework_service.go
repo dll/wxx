@@ -13,7 +13,7 @@ import (
 // 归属强约束：发布/编辑前校验该教师对该 (course_id, semester) 已有 approved 授课关系（teacher_courses），
 // 对称 R3 成绩强校验语义；绝不造数据、0 行诚实空。
 type HomeworkService struct {
-	homeworkRepo    *repository.HomeworkRepo
+	homeworkRepo     *repository.HomeworkRepo
 	teacherCourseSvc *TeacherCourseService
 }
 
@@ -164,4 +164,3 @@ func (s *HomeworkService) GradeStatsByCourse(ctx context.Context, teacherID int6
 	}
 	return s.homeworkRepo.GradeStatsByCourse(courseID, semester)
 }
-

@@ -221,7 +221,7 @@ type projectInput struct {
 	RealTrial       bool   `json:"real_user_trial"`
 	ExternalPublish bool   `json:"external_publish"`
 	FundsInvolved   bool   `json:"funds_involved"`
-	ComplexityLayer  int    `json:"complexity_layer"`
+	ComplexityLayer int    `json:"complexity_layer"`
 }
 
 func (in *projectInput) normalizeAndValidate(submit bool) (string, int) {

@@ -52,7 +52,6 @@ func createStu(t *testing.T, db *sql.DB) int64 {
 	return id
 }
 
-
 // TestCollegeFiveDim_ZeroSamples 覆盖 0 样本：无快照 → FiveDim=nil，绝不可见编造均值。
 func TestCollegeFiveDim_ZeroSamples(t *testing.T) {
 	svc, _, _ := setupCollegeTwinService(t)

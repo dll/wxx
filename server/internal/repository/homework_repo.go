@@ -190,12 +190,12 @@ type CourseGradeStats struct {
 	CourseID     string         `json:"course_id"`
 	CourseName   string         `json:"course_name"`
 	Semester     string         `json:"semester"`
-	Total        int            `json:"total"`                       // 录入人数
-	AvgScore     float64        `json:"avg_score"`                   // 均分（0 行=0）
-	PassRate     float64        `json:"pass_rate"`                   // 及格率 0-1（0 行=0）
-	PassedCount  int            `json:"passed_count"`                // 及格人数
-	Levels       map[string]int `json:"levels"`                      // 优秀/良好/及格/不及格 四档人数
-	NotAvailable bool           `json:"not_available"`               // 0 行诚实标记
+	Total        int            `json:"total"`         // 录入人数
+	AvgScore     float64        `json:"avg_score"`     // 均分（0 行=0）
+	PassRate     float64        `json:"pass_rate"`     // 及格率 0-1（0 行=0）
+	PassedCount  int            `json:"passed_count"`  // 及格人数
+	Levels       map[string]int `json:"levels"`        // 优秀/良好/及格/不及格 四档人数
+	NotAvailable bool           `json:"not_available"` // 0 行诚实标记
 }
 
 // GradeStatsByCourse 按课程聚合成绩统计（只读，无任何写入/聚合幻数）。
@@ -228,9 +228,9 @@ func (r *HomeworkRepo) GradeStatsByCourse(courseID, semester string) (*CourseGra
 		AvgScore:    avgScore,
 		PassedCount: passedCount,
 		Levels: map[string]int{
-			"优秀": 0,
-			"良好": 0,
-			"及格": 0,
+			"优秀":  0,
+			"良好":  0,
+			"及格":  0,
 			"不及格": 0,
 		},
 	}

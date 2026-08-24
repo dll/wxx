@@ -429,10 +429,10 @@ type KGIssue struct {
 // KGLLMFindings LLM 审计单条资源的返回项
 // 由知识治理智能体按严格 JSON 约束返回
 type KGLLMFindings struct {
-	Risk      string   `json:"risk"`      // high / medium / low / none
-	Reasons   []string `json:"reasons"`   // 判定理由
-	Suggest   string   `json:"suggest"`   // 优化建议
-	Confidence float64 `json:"confidence"` // 0~1 置信度
+	Risk       string   `json:"risk"`       // high / medium / low / none
+	Reasons    []string `json:"reasons"`    // 判定理由
+	Suggest    string   `json:"suggest"`    // 优化建议
+	Confidence float64  `json:"confidence"` // 0~1 置信度
 }
 
 // KGSummary 治理统计汇总
@@ -445,16 +445,16 @@ type KGSummary struct {
 
 // KnowledgeGovernanceResult 知识治理审计报告
 type KnowledgeGovernanceResult struct {
-	GeneratedAt string      `json:"generated_at"`
+	GeneratedAt string     `json:"generated_at"`
 	Summary     KGSummary  `json:"summary"`
-	Issues      []*KGIssue  `json:"issues"`        // 全部发现（确定性 + LLM）
-	DataSource  string      `json:"data_source"`  // real / degraded
+	Issues      []*KGIssue `json:"issues"`      // 全部发现（确定性 + LLM）
+	DataSource  string     `json:"data_source"` // real / degraded
 }
 
 // KnowledgeGovernanceResponse 治理接口响应
 type KnowledgeGovernanceResponse struct {
-	Code    int                         `json:"code"`
-	Message string                      `json:"message"`
+	Code    int                        `json:"code"`
+	Message string                     `json:"message"`
 	Data    *KnowledgeGovernanceResult `json:"data"`
 }
 

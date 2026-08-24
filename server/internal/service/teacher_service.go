@@ -409,9 +409,9 @@ func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOvervi
 	}
 
 	return &DailyOverview{
-		Date:        today,
-		Greeting:    greeting,
-		DataSource:  "real", // 诚实：未接入授课关系时不报假课程
+		Date:         today,
+		Greeting:     greeting,
+		DataSource:   "real", // 诚实：未接入授课关系时不报假课程
 		KeyKnowledge: []string{},
 	}
 }

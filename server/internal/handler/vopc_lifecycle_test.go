@@ -103,7 +103,7 @@ func TestVOPCLifecycleDeleteDraft(t *testing.T) {
 	// 子表级联清理
 	for _, tbl := range []string{"vopc_project_members", "vopc_ai_roles", "vopc_milestones", "vopc_decisions", "vopc_events", "vopc_tasks"} {
 		var n int
-		_ = db.QueryRow(`SELECT COUNT(*) FROM ` + tbl + ` WHERE project_id=?`, id).Scan(&n)
+		_ = db.QueryRow(`SELECT COUNT(*) FROM `+tbl+` WHERE project_id=?`, id).Scan(&n)
 		if n != 0 {
 			t.Fatalf("cascade cleanup failed for %s: count=%d", tbl, n)
 		}

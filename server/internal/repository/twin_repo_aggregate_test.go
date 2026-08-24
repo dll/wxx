@@ -55,7 +55,6 @@ func uidCounter() int {
 	return aggUIDSeed
 }
 
-
 // TestAggregateSnapshotsByScope_ZeroSamples 覆盖 0 样本：整体 Count=0、均值=0（调用方按 0 样本走 not_available）。
 func TestAggregateSnapshotsByScope_ZeroSamples(t *testing.T) {
 	repo, db := setupTwinAggTestDB(t)

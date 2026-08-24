@@ -933,7 +933,7 @@ func (r *SecretaryOutcomeRepo) growthTrendCard(ownerID string) map[string]interf
 
 	return map[string]interface{}{
 		"key": "nurture.growth_trend", "label": label, "unit": "-",
-		"data_source":  "trend",
+		"data_source": "trend",
 		"value": map[string]interface{}{
 			"academic":    gt.Academic,
 			"ability":     gt.Ability,
@@ -971,7 +971,7 @@ func (r *SecretaryOutcomeRepo) getGrowthTrend(ownerID string, windowWeeks int) (
 	rows, err := r.db.Query(`SELECT user_id,
 		academic_score, ability_score, ideological_score, emotional_score, social_score, computed_at
 		FROM snapshot_history WHERE 1=1`+cond+
-		` ORDER BY user_id ASC, computed_at ASC`, args...) 
+		` ORDER BY user_id ASC, computed_at ASC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("查询快照历史失败: %w", err)
 	}

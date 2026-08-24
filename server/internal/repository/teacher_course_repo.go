@@ -13,7 +13,7 @@ import (
 type TeacherCourse struct {
 	ID           int64  `json:"id"`
 	TeacherID    int64  `json:"teacher_id"`
-	TeacherName  string `json:"teacher_name"`  // 冗余展示（join users），非权威
+	TeacherName  string `json:"teacher_name"` // 冗余展示（join users），非权威
 	CourseID     string `json:"course_id"`
 	CourseName   string `json:"course_name"` // 冗余展示名，非权威
 	Semester     string `json:"semester"`

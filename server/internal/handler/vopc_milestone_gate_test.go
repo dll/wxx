@@ -196,7 +196,7 @@ func TestVOPCA4ReviewConditionalAndFinalize(t *testing.T) {
 	// conditional_pass + conditions + scores → 200，submission 状态 condition_pending，阶段不推进
 	cw := request(r, "POST", subBase+"/review", admin, map[string]any{
 		"result": "conditional_pass", "note": "主体已达标，待补验收",
-		"scores":    []map[string]any{{"dimension_key": "completeness", "score": 4, "comment": "基本齐全"}},
+		"scores":     []map[string]any{{"dimension_key": "completeness", "score": 4, "comment": "基本齐全"}},
 		"conditions": []map[string]any{{"description": "补验收台账", "due_at": ""}},
 	})
 	if cw.Code != 200 {
