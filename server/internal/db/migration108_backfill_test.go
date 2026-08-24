@@ -44,6 +44,15 @@ func migration108SeedLegacy(t *testing.T, db *sql.DB) {
 			t.Fatal(err)
 		}
 	}
+	// 撞键场景：项目 2 的里程碑表 G 行与 S 行并存（生产 crash-loop 复现用例）
+	if _, err := db.Exec(`INSERT INTO vopc_projects(name,stage,status,owner_user_id) VALUES('mixed','S1','pending_review',9)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, ms := range []struct{ stage, status string }{{"G0", "passed"}, {"S0", "passed"}, {"S1", "pending"}} {
+		if _, err := db.Exec(`INSERT INTO vopc_milestones(project_id,stage,status,required_evidence) VALUES(2,?,?,'x')`, ms.stage, ms.status); err != nil {
+			t.Fatal(err)
+		}
+	}
 	// 成果版次遗留门禁阶段
 	if _, err := db.Exec(`INSERT INTO vopc_artifacts(project_id,name,artifact_type,created_by) VALUES(1,'a','doc',1)`); err != nil {
 		t.Fatal(err)
@@ -137,6 +146,29 @@ func TestMigration108StageBackfill(t *testing.T) {
 	var is string
 	if err := db.QueryRow(`SELECT intended_stage FROM vopc_artifact_versions LIMIT 1`).Scan(&is); err != nil || is != "G1" {
 		t.Fatalf("intended_stage 应为 G1, got %s err=%v", is, err)
+	}
+
+	// 撞键场景断言：项目2 已有 G0 行，不得重复插入；S1 应合并为 G1
+	var g0 int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM vopc_milestones WHERE project_id=2 AND stage='G0'`).Scan(&g0); err != nil || g0 != 1 {
+		t.Fatalf("项目2 G0 行应恰为 1, got %d err=%v", g0, err)
+	}
+	var mixed map[string]int = map[string]int{}
+	rows2, err := db.Query(`SELECT stage,COUNT(*) FROM vopc_milestones WHERE project_id=2 GROUP BY stage`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows2.Close()
+	for rows2.Next() {
+		var s string
+		var n int
+		if err := rows2.Scan(&s, &n); err != nil {
+			t.Fatal(err)
+		}
+		mixed[s] = n
+	}
+	if mixed["G0"] != 1 || mixed["G1"] != 1 || mixed["G2"] != 1 || mixed["G3"] != 1 || mixed["G4"] != 1 || len(mixed) != 5 {
+		t.Fatalf("项目2 里程碑应补齐为 G0-G4 各×1, got %v", mixed)
 	}
 
 	// 幂等：重复执行不报错、结果不变

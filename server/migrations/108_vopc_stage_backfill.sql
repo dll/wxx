@@ -18,12 +18,19 @@ UPDATE vopc_projects SET stage='G2', status='developing' WHERE stage='S4';
 UPDATE vopc_projects SET stage='G3', status='validating' WHERE stage IN ('S5','S7');
 UPDATE vopc_projects SET stage='G4', status='closeable' WHERE stage IN ('S6','S8','S9');
 
--- 里程碑表同步（v1.0 创建时播种的是 S 阶段里程碑行）
-UPDATE vopc_milestones SET stage='G0' WHERE stage='S0';
-UPDATE vopc_milestones SET stage='G1' WHERE stage IN ('S1','S2','S3');
-UPDATE vopc_milestones SET stage='G2' WHERE stage='S4';
-UPDATE vopc_milestones SET stage='G3' WHERE stage IN ('S5','S7');
-UPDATE vopc_milestones SET stage='G4' WHERE stage IN ('S6','S8','S9');
+-- 里程碑表同步（v1.0 播种的是 S0-S9 十行；直接 UPDATE 或同组多行 INSERT 都会撞 UNIQUE(project_id,stage)，
+-- 改为两步：先清理全部 S 行，再为每个项目补齐缺失的 G 行——保留已有 G 行的状态与评审备注）：
+DELETE FROM vopc_milestones WHERE stage LIKE 'S%';
+INSERT INTO vopc_milestones(project_id,stage,required_evidence)
+SELECT p.id,'G0','' FROM vopc_projects p WHERE NOT EXISTS (SELECT 1 FROM vopc_milestones m WHERE m.project_id=p.id AND m.stage='G0');
+INSERT INTO vopc_milestones(project_id,stage,required_evidence)
+SELECT p.id,'G1','' FROM vopc_projects p WHERE NOT EXISTS (SELECT 1 FROM vopc_milestones m WHERE m.project_id=p.id AND m.stage='G1');
+INSERT INTO vopc_milestones(project_id,stage,required_evidence)
+SELECT p.id,'G2','' FROM vopc_projects p WHERE NOT EXISTS (SELECT 1 FROM vopc_milestones m WHERE m.project_id=p.id AND m.stage='G2');
+INSERT INTO vopc_milestones(project_id,stage,required_evidence)
+SELECT p.id,'G3','' FROM vopc_projects p WHERE NOT EXISTS (SELECT 1 FROM vopc_milestones m WHERE m.project_id=p.id AND m.stage='G3');
+INSERT INTO vopc_milestones(project_id,stage,required_evidence)
+SELECT p.id,'G4','' FROM vopc_projects p WHERE NOT EXISTS (SELECT 1 FROM vopc_milestones m WHERE m.project_id=p.id AND m.stage='G4');
 
 -- 成果版次门禁字段同步（100 引入 intended_stage）
 UPDATE vopc_artifact_versions SET intended_stage='G0' WHERE intended_stage='S0';
