@@ -4,7 +4,7 @@ import 'storage.dart';
 /// vOPC v2.0「现实延伸（L4）」外部站点跳转地址。
 ///
 /// 虚拟OPC 网站即将开发上线；当前为占位域名，后续替换为真实域名。
-const String vopcSiteUrl = 'https://qcnbzr4eeji5.feishu.cn'; // 虚拟OPC 站入口（CCIT 官网上线前先用飞书站点）
+const String vopcSiteUrl = 'https://qcnbzr4eeji5.feishu.cn/page/Aq3omI7sPdKOZaa8Xq7cbyQgnGf'; // 虚拟OPC 官网（飞书 page；待 ccit-agent.cn 域名解析修复后切回）
 
 /// vOPC 前端准入判定。后端 CollegeAccess 仍是最终安全边界；这里负责入口与路由门禁。
 class VopcAccess {
