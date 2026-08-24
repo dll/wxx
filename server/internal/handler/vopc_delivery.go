@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -20,11 +19,10 @@ var projectRoles = setOf("co_owner", "member", "mentor", "reviewer")
 var artifactTypes = setOf("document", "image", "archive", "repository", "dataset", "link", "file", "other")
 var sourceKinds = setOf("link", "repository", "storage_ref", "dataset_ref")
 
-// file 类型作为受控私有文件，可充当需文档型交付的阶段证据（与 document 等价）。
+// G 阶段要求的成果类型（v2.0 精简主线）。G2 产出为主（文档/文件/仓库/数据），G3 反馈与验证，G4 复盘归档。
 var milestoneArtifactTypes = map[string]map[string]bool{
-	"S2": setOf("document", "file"), "S3": setOf("document", "file"), "S4": setOf("repository"),
-	"S5": setOf("document", "file"), "S6": setOf("dataset"), "S7": setOf("repository"),
-	"S8": setOf("archive"), "S9": setOf("document", "file"),
+	"G0": setOf("document", "file"), "G1": setOf("document", "file"), "G2": setOf("document", "file", "repository", "dataset"),
+	"G3": setOf("document", "file", "dataset"), "G4": setOf("document", "file", "archive", "repository"),
 }
 
 func (h *VOPCHandler) ListMembers(c *gin.Context) {
@@ -509,8 +507,8 @@ func (h *VOPCHandler) SubmitMilestone(c *gin.Context) {
 	}
 	in.Stage = strings.ToUpper(strings.TrimSpace(in.Stage))
 	in.Evidence = strings.TrimSpace(in.Evidence)
-	n, e := strconv.Atoi(strings.TrimPrefix(in.Stage, "S"))
-	if e != nil || n < 1 || n > 9 || in.Evidence == "" {
+	n := stageIndexOf(in.Stage)
+	if n < 1 || n > 4 || in.Evidence == "" {
 		c.JSON(422, gin.H{"code": 422, "message": "目标阶段或证据无效"})
 		return
 	}
@@ -525,7 +523,7 @@ func (h *VOPCHandler) SubmitMilestone(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "项目不存在"})
 		return
 	}
-	cur, _ := strconv.Atoi(strings.TrimPrefix(current, "S"))
+	cur := stageIndexOf(current)
 	if n != cur+1 || blockedStatuses[status] || completedLike[status] {
 		c.JSON(409, gin.H{"code": 409, "message": "只能提交当前阶段的下一里程碑"})
 		return
@@ -607,6 +605,21 @@ func (h *VOPCHandler) SubmitMilestone(c *gin.Context) {
 	}
 	c.JSON(201, gin.H{"code": 0, "data": gin.H{"id": sid, "status": "pending"}})
 }
+
+// reviewScoreIn 是评审请求体中可选的评分维度得分（A4 评分量表）。
+// dimension_key 必须命中该提交 stage 的量表维度；score ∈ [0, max_score]。
+type reviewScoreIn struct {
+	DimensionKey string `json:"dimension_key"`
+	Score        int64  `json:"score"`
+	Comment      string `json:"comment"`
+}
+
+// reviewCondIn 是评审请求体中可选的条件通过条目（A4 conditional pass）。
+type reviewCondIn struct {
+	Description string `json:"description"`
+	DueAt       string `json:"due_at"`
+}
+
 func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 	id, ok := projectID(c)
 	if !ok {
@@ -618,18 +631,30 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	var in struct {
-		Result string `json:"result"`
-		Note   string `json:"note"`
+		Result     string         `json:"result"`
+		Note       string         `json:"note"`
+		Scores     []reviewScoreIn `json:"scores"`
+		Conditions []reviewCondIn `json:"conditions"`
 	}
 	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(400, gin.H{"code": 400, "message": "请求 JSON 格式错误"})
 		return
 	}
 	in.Note = strings.TrimSpace(in.Note)
-	if (in.Result != "pass" && in.Result != "return") || in.Note == "" {
+	if in.Result != "pass" && in.Result != "return" && in.Result != "conditional_pass" {
 		c.JSON(422, gin.H{"code": 422, "message": "评审结果和意见必填"})
 		return
 	}
+	if in.Note == "" {
+		c.JSON(422, gin.H{"code": 422, "message": "评审意见必填"})
+		return
+	}
+	// A4 conditional pass：必须携带至少一条待闭环条件。
+	if in.Result == "conditional_pass" && len(in.Conditions) == 0 {
+		c.JSON(422, gin.H{"code": 422, "message": "条件通过必须登记至少一条待闭环条件"})
+		return
+	}
+
 	u := middleware.GetUserContext(c)
 	tx, err := h.db.Begin()
 	if err != nil {
@@ -664,14 +689,38 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	next := "returned"
-	if in.Result == "pass" {
+	switch in.Result {
+	case "pass":
 		next = "passed"
+	case "conditional_pass":
+		next = "condition_pending"
 	}
-	if _, err = tx.Exec(`INSERT INTO vopc_milestone_reviews(submission_id,reviewer_user_id,result,note) VALUES(?,?,?,?)`, sid, reviewer, in.Result, in.Note); err != nil {
+	res, err := tx.Exec(`INSERT INTO vopc_milestone_reviews(submission_id,reviewer_user_id,result,note) VALUES(?,?,?,?)`, sid, reviewer, in.Result, in.Note)
+	if err != nil {
 		serverError(c, "评审保存失败")
 		return
 	}
-	res, err := tx.Exec(`UPDATE vopc_milestone_submissions SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'`, next, sid)
+	reviewID, _ := res.LastInsertId()
+	// A4 评分量表：可选附带各维度得分，落库到 vopc_review_scores；不传即回退原行为。
+	if code, msg := recordReviewScores(tx, id, stage, reviewID, in.Scores); code != 0 {
+		c.JSON(code, gin.H{"code": code, "message": msg})
+		return
+	}
+	// A4 conditional pass：登记待闭环条件。
+	if in.Result == "conditional_pass" {
+		for _, cond := range in.Conditions {
+			desc := strings.TrimSpace(cond.Description)
+			if desc == "" || utf8.RuneCountInString(desc) > 1000 {
+				c.JSON(422, gin.H{"code": 422, "message": "待闭环条件内容必填且不超过 1000 字"})
+				return
+			}
+			if _, err = tx.Exec(`INSERT INTO vopc_milestone_conditions(submission_id,description,due_at) VALUES(?,?,?)`, sid, desc, nullableString(strings.TrimSpace(cond.DueAt))); err != nil {
+				serverError(c, "条件登记失败")
+				return
+			}
+		}
+	}
+	res, err = tx.Exec(`UPDATE vopc_milestone_submissions SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'`, next, sid)
 	if err != nil {
 		serverError(c, "评审保存失败")
 		return
@@ -684,38 +733,8 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	if next == "passed" {
-		// H-B1 修复：提交后、评审前可能新登记了 R2/R3 风险或项目被升档，
-		// 推进落地前必须复检风险门禁，封死 SubmitMilestone 通过后的 TOCTOU 绕过。
-		if allowed, msg, code := milestoneAdvanceAllowed(tx, id); !allowed {
+		if code, msg := advanceMilestoneAsPass(tx, id, sid, current, stage, in.Note); code != 0 {
 			c.JSON(code, gin.H{"code": code, "message": msg})
-			return
-		}
-		cur, _ := strconv.Atoi(strings.TrimPrefix(current, "S"))
-		target, _ := strconv.Atoi(strings.TrimPrefix(stage, "S"))
-		if target != cur+1 {
-			c.JSON(409, gin.H{"code": 409, "message": "项目阶段已变化，无法通过"})
-			return
-		}
-		nextStatus := stageStatuses[target]
-		res, err = tx.Exec(`UPDATE vopc_projects SET stage=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage=?`, stage, nextStatus, id, current)
-		if err != nil {
-			serverError(c, "项目阶段更新失败")
-			return
-		}
-		if n, rowsErr := res.RowsAffected(); rowsErr != nil {
-			serverError(c, "项目阶段更新失败")
-			return
-		} else if n != 1 {
-			c.JSON(409, gin.H{"code": 409, "message": "项目阶段已变化"})
-			return
-		}
-		res, err = tx.Exec(`UPDATE vopc_milestones SET status='passed',review_note=? WHERE project_id=? AND stage=?`, in.Note, id, current)
-		if err != nil {
-			serverError(c, "里程碑状态更新失败")
-			return
-		}
-		if n, rowsErr := res.RowsAffected(); rowsErr != nil || n != 1 {
-			serverError(c, "里程碑状态更新失败")
 			return
 		}
 	}
@@ -728,6 +747,71 @@ func (h *VOPCHandler) ReviewMilestone(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": sid, "status": next}})
+}
+
+// advanceMilestoneAsPass 执行 pass 分支的完整推进逻辑（风险门禁复检 + 阶段 CAS + 里程碑状态）。
+// finalize（conditional pass 闭环）复用同一推进路径，确保不绕过 R2/R3 与 TOCTOU 门禁。
+// 返回 (状态码 0=成功, 错误文案)。
+func advanceMilestoneAsPass(tx *sql.Tx, projectID, submissionID int64, current, stage, note string) (int, string) {
+	// H-B1 修复：提交后、评审前可能新登记了 R2/R3 风险或项目被升档，
+	// 推进落地前必须复检风险门禁，封死 SubmitMilestone 通过后的 TOCTOU 绕过。
+	if allowed, msg, code := milestoneAdvanceAllowed(tx, projectID); !allowed {
+		return code, msg
+	}
+	cur := stageIndexOf(current)
+	target := stageIndexOf(stage)
+	if target != cur+1 {
+		return 409, "项目阶段已变化，无法通过"
+	}
+	nextStatus := stageStatuses[target]
+	res, err := tx.Exec(`UPDATE vopc_projects SET stage=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage=?`, stage, nextStatus, projectID, current)
+	if err != nil {
+		return 500, "项目阶段更新失败"
+	}
+	if n, rowsErr := res.RowsAffected(); rowsErr != nil {
+		return 500, "项目阶段更新失败"
+	} else if n != 1 {
+		return 409, "项目阶段已变化"
+	}
+	res, err = tx.Exec(`UPDATE vopc_milestones SET status='passed',review_note=? WHERE project_id=? AND stage=?`, note, projectID, current)
+	if err != nil {
+		return 500, "里程碑状态更新失败"
+	}
+	if n, rowsErr := res.RowsAffected(); rowsErr != nil || n != 1 {
+		return 500, "里程碑状态更新失败"
+	}
+	return 0, ""
+}
+
+// recordReviewScores 校验并写入评审维度得分。scores 为空即直接返回成功（回退原行为）。
+// 约束：dimension_key 必须命中该 stage 量表；score ∈ [0, max_score]。
+func recordReviewScores(tx *sql.Tx, projectID int64, stage string, reviewID int64, scores []reviewScoreIn) (int, string) {
+	if len(scores) == 0 {
+		return 0, ""
+	}
+	_ = projectID
+	for _, s := range scores {
+		key := strings.TrimSpace(s.DimensionKey)
+		if key == "" {
+			return 422, "评分维度键不能为空"
+		}
+		var rubricID int64
+		var maxScore int64
+		err := tx.QueryRow(`SELECT id,max_score FROM vopc_rubrics WHERE stage=? AND dimension_key=?`, stage, key).Scan(&rubricID, &maxScore)
+		if errors.Is(err, sql.ErrNoRows) {
+			return 422, "评分维度不存在于该阶段量表：" + key
+		}
+		if err != nil {
+			return 500, "评分量表读取失败"
+		}
+		if s.Score < 0 || s.Score > maxScore {
+			return 422, "维度得分越界：" + key
+		}
+		if _, err = tx.Exec(`INSERT INTO vopc_review_scores(review_id,rubric_id,score,comment) VALUES(?,?,?,?)`, reviewID, rubricID, s.Score, strings.TrimSpace(s.Comment)); err != nil {
+			return 500, "维度得分写入失败"
+		}
+	}
+	return 0, ""
 }
 
 func (h *VOPCHandler) readableProject(c *gin.Context, id int64) (*sql.Tx, int64, bool) {

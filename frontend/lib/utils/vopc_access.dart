@@ -1,6 +1,11 @@
 import 'capability_utils.dart';
 import 'storage.dart';
 
+/// vOPC v2.0「现实延伸（L4）」外部站点跳转地址。
+///
+/// 虚拟OPC 网站即将开发上线；当前为占位域名，后续替换为真实域名。
+const String vopcSiteUrl = 'https://vopc.example.com';
+
 /// vOPC 前端准入判定。后端 CollegeAccess 仍是最终安全边界；这里负责入口与路由门禁。
 class VopcAccess {
   VopcAccess._();

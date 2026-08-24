@@ -66,6 +66,12 @@ class ApiService {
     return _dio.get(path, queryParameters: params, options: options);
   }
 
+  /// 以字节流接收（用于私有文件鉴权下载等二进制接口）。
+  Future<Response> getBytes(String path) {
+    return _dio.get(path,
+        options: Options(responseType: ResponseType.bytes));
+  }
+
   Future<Response> post(String path, {dynamic data}) {
     return _dio.post(path, data: data);
   }

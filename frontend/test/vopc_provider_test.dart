@@ -178,8 +178,13 @@ class _FakeVopcApi implements VopcApiClient {
   final getCalls = <String>[];
 
   @override
-  Future<Response<dynamic>> get(String path) async {
+  Future<Response<dynamic>> get(String path, {Map<String, dynamic>? params}) async {
     getCalls.add(path);
+    return getResponses[path]!;
+  }
+
+  @override
+  Future<Response<dynamic>> delete(String path) async {
     return getResponses[path]!;
   }
 
@@ -194,5 +199,17 @@ class _FakeVopcApi implements VopcApiClient {
     final error = putErrors[path];
     if (error != null) throw error;
     return putResponses[path]!;
+  }
+
+  @override
+  Future<Response<dynamic>> getBytes(String path) async {
+    getCalls.add(path);
+    return getResponses[path]!;
+  }
+
+  @override
+  Future<Response<dynamic>> uploadFile(String path,
+      {required List<int> bytes, required String filename}) async {
+    return postResponses[path]!;
   }
 }

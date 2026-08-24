@@ -1,9 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/vopc_provider.dart';
 import '../../utils/capability_utils.dart';
+import '../../utils/vopc_access.dart';
 
 class VopcPage extends StatefulWidget {
   const VopcPage({super.key});
@@ -22,6 +25,9 @@ class _VopcPageState extends State<VopcPage> {
     final p = context.read<VopcProvider>();
     await p.loadProjects();
     await p.loadInvitations();
+    await p.loadLearning();
+    await p.loadGuides();
+    await p.loadOutcomesSummary();
   }
 
   @override
@@ -50,11 +56,13 @@ class _VopcPageState extends State<VopcPage> {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
           children: [
             _VopcHero(
-              title: '项目孵化工作台',
-              subtitle: '把真实问题变成可验证、可协作、可交付的成果。',
+              title: '虚拟 OPC 教学模块',
+              subtitle: '通过分层的复杂度，理解一人公司如何把一个想法推进为可审阅、可复盘的虚拟成果。',
               projectCount: p.projects.length,
               pendingCount: pending,
             ),
+            const SizedBox(height: 20),
+            const _OpcIntroSection(),
             const SizedBox(height: 20),
             if (pending > 0) ...[
               const _SectionHeader(
@@ -83,10 +91,10 @@ class _VopcPageState extends State<VopcPage> {
                   message: p.error!, code: p.statusCode, onRetry: _start),
             if (!p.loading && p.error == null) ...[
               _SectionHeader(
-                title: '我的项目',
+                title: '我的虚拟项目',
                 subtitle: p.projects.isEmpty
-                    ? '还没有项目，从一个真实问题开始'
-                    : '${p.projects.length} 个项目持续孵化中',
+                    ? '还没有虚拟项目，从一个想法开始走通 OPC 主线'
+                    : '${p.projects.length} 个虚拟项目持续孵化中',
                 icon: Icons.rocket_launch_outlined,
               ),
               if (p.projects.isEmpty)
@@ -95,7 +103,15 @@ class _VopcPageState extends State<VopcPage> {
                 ...p.projects.map((e) => _ProjectCard(
                       project: e,
                       onTap: () => context.push('/vopc/projects/${e.id}'),
+                      onEdit: () => _editProject(e),
+                      onDelete: () => _deleteProject(e),
                     )),
+              const SizedBox(height: 24),
+              _buildProjectHall(context, p),
+              const SizedBox(height: 24),
+              _buildOutcomes(context, p),
+              const SizedBox(height: 24),
+              const _RealityExtensionCard(),
             ],
           ],
         ),
@@ -119,6 +135,169 @@ class _VopcPageState extends State<VopcPage> {
           .showSnackBar(SnackBar(content: Text(message)));
     }
   }
+
+  Future<void> _editProject(VopcProject project) async {
+    final data = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (_) => _CreateProjectDialog(initial: project));
+    if (data == null || !mounted) return;
+    final p = context.read<VopcProvider>();
+    final ok = await p.updateProject(project.id, data);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(ok ? '草稿已保存' : (p.error ?? '保存失败'))));
+    }
+  }
+
+  Future<void> _deleteProject(VopcProject project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('删除项目'),
+        content: Text('确定要删除项目「${project.name}」吗？仅草稿项目可删除，该操作不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final p = context.read<VopcProvider>();
+    final ok = await p.deleteProject(project.id);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(ok ? '项目已删除' : (p.error ?? '删除失败'))));
+    }
+  }
+
+  /// B1 项目大厅：展示可浏览的可见虚拟练习项目（非成员只读）。
+  Widget _buildProjectHall(BuildContext context, VopcProvider p) {
+    // vOPC 可见性模型为 private / invite_only / college / restricted（无 public）。
+    // 大厅展示非 private（可被学院授权用户浏览）的虚拟练习项目，只读不可写。
+    final hall = p.projects
+        .where((e) => e.visibility != 'private')
+        .toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _SectionHeader(
+        title: '项目大厅',
+        subtitle: hall.isEmpty
+            ? '暂无学院可见的虚拟练习项目'
+            : '${hall.length} 个项目可浏览（只读，不可写）',
+        icon: Icons.storefront_outlined,
+      ),
+      if (hall.isEmpty)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(children: [
+              const Icon(Icons.visibility_outlined, size: 40, color: Colors.grey),
+              const SizedBox(height: 10),
+              Text('暂无学院可见项目',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              const Text('当项目主理人将项目设为学院可见（非 private）后，会在这里展示供浏览学习。',
+                  style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ]),
+          ),
+        )
+      else
+        ...hall.map((e) => _HallProjectCard(
+              project: e,
+              onTap: () => context.push('/vopc/projects/${e.id}'),
+            )),
+    ]);
+  }
+
+  /// B1 成果与复盘：聚合 artifacts 摘要 + close-records。
+  Widget _buildOutcomes(BuildContext context, VopcProvider p) {
+    final summary = p.outcomesSummary;
+    final artifactCount = (summary['artifact_count'] as num?)?.toInt() ?? 0;
+    final versionCount = (summary['version_count'] as num?)?.toInt() ?? 0;
+    final closeRecords =
+        (summary['close_records'] as List?)?.cast<Map<String, dynamic>>() ??
+            const <Map<String, dynamic>>[];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _SectionHeader(
+        title: '成果与复盘',
+        subtitle: p.outcomesLoading
+            ? '正在汇总…'
+            : '$artifactCount 项成果 · $versionCount 个版本 · ${closeRecords.length} 条复盘/结项记录',
+        icon: Icons.reviews_outlined,
+      ),
+      if (p.outcomesLoading)
+        const LinearProgressIndicator()
+      else if (artifactCount == 0 && closeRecords.isEmpty)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(children: [
+              const Icon(Icons.emoji_events_outlined, size: 40, color: Colors.grey),
+              const SizedBox(height: 10),
+              Text('还没有成果或复盘记录',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              const Text('在项目中登记成果、推进里程碑，结项复盘后会在这里沉淀出你的 OPC 成果档案。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ]),
+          ),
+        )
+      else ...[
+        if (artifactCount > 0)
+          Row(children: [
+            Icon(Icons.inventory_2_outlined,
+                color: Theme.of(context).colorScheme.primary, size: 18),
+            const SizedBox(width: 6),
+            Text('累计 $artifactCount 项成果（$versionCount 个版本）',
+                style: Theme.of(context).textTheme.bodyMedium),
+          ]),
+        if (closeRecords.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ...closeRecords.take(5).map((r) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(
+                    _closeActionIcon(r['action']?.toString()),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(
+                      '${r['project_name']?.toString() ?? ''} · ${_closeActionLabel(r['action']?.toString())}'),
+                  subtitle: Text(r['reason']?.toString() ?? ''),
+                  trailing: Text(r['created_at']?.toString() ?? '',
+                      style: const TextStyle(fontSize: 11)),
+                ),
+              )),
+          if (closeRecords.length > 5)
+            Text('等 ${closeRecords.length} 条记录，前往对应项目工作台查看全部',
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ],
+    ]);
+  }
+
+  static String _closeActionLabel(String? action) => switch (action) {
+        'close' => '结项',
+        'pause' => '暂停',
+        'resume' => '继续',
+        'pivot' => '转向',
+        'terminate' => '终止',
+        'archive' => '归档',
+        _ => action ?? '记录',
+      };
+
+  static IconData _closeActionIcon(String? action) => switch (action) {
+        'close' => Icons.task_alt_rounded,
+        'pause' => Icons.pause_circle_outline,
+        'resume' => Icons.play_circle_outline,
+        'pivot' => Icons.u_turn_left_rounded,
+        'terminate' => Icons.cancel_outlined,
+        'archive' => Icons.archive_outlined,
+        _ => Icons.history_rounded,
+      };
 }
 
 class _CreateProjectDialog extends StatefulWidget {
@@ -203,7 +382,7 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('填写完整后即可创建并提交立项；也可以先保存为 S0 草稿。',
+                    Text('填写完整后即可创建并提交立项；也可以先保存为 G0 草稿。',
                         style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 14),
                     _field(name, '项目名称 *', required: true),
@@ -377,11 +556,394 @@ class _VopcHero extends StatelessWidget {
                 ?.copyWith(color: Colors.white.withOpacity(.88))),
         const SizedBox(height: 20),
         Row(children: [
-          _HeroMetric(label: '我的项目', value: '$projectCount'),
+          _HeroMetric(label: '我的虚拟项目', value: '$projectCount'),
           const SizedBox(width: 28),
           _HeroMetric(label: '待处理邀请', value: '$pendingCount')
         ]),
       ]),
+    );
+  }
+}
+
+/// L1 概念层入口：OPC 核心思想一句话 + 五步核心流程图（idea → validate →
+/// build → deliver → feedback）+ 进入学习入口。
+/// 数据优先取 VopcProvider.learning（来自 GET /vopc/learning），
+/// 为空时回退到内置默认内容，保证任意环境都能渲染。
+class _OpcIntroSection extends StatelessWidget {
+  const _OpcIntroSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final learning = context.watch<VopcProvider>().learning;
+    final cards = _learningList(learning, 'knowledge_cards');
+    final steps = _learningList(learning, 'flow_steps');
+
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withOpacity(.55))),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(.1),
+                    borderRadius: BorderRadius.circular(10)),
+                child:
+                    Icon(Icons.school_outlined, size: 19, color: theme.colorScheme.primary)),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('OPC 入门 · L1 概念层',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              Text('先理解核心思想，再进入项目流程',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
+            ]),
+          ]),
+          const SizedBox(height: 14),
+          if (cards.isNotEmpty)
+            _CoreIdeaCard(
+                title: cards.first['title'] ?? 'OPC 核心思想',
+                body: cards.first['body'] ?? _defaultCoreIdea),
+          const SizedBox(height: 14),
+          if (steps.isNotEmpty)
+            _FlowStrip(steps: steps)
+          else
+            const _FlowStrip(steps: _defaultFlowSteps),
+          const SizedBox(height: 14),
+          Row(children: [
+            FilledButton.tonalIcon(
+              onPressed: () => _openLearning(context),
+              icon: const Icon(Icons.menu_book_outlined),
+              label: const Text('进入 OPC 学习'),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  void _openLearning(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        final learning = sheetCtx.read<VopcProvider>().learning;
+        return _LearningSheet(learning: learning);
+      },
+    );
+  }
+}
+
+/// 从 learning 数据中提取某段列表（knowledge_cards / flow_steps），
+/// 数据为 Map 或 List，兜底为空返回空列表。
+List<Map<String, dynamic>> _learningList(
+    Map<String, dynamic> learning, String key) {
+  final raw = learning[key];
+  if (raw is List) {
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+  return const [];
+}
+
+const String _defaultCoreIdea =
+    'OPC（一人公司）：一个人像一家公司一样，独立承担产品、市场、交付等多数关键角色，把一个小想法在「需求 → 成果 → 反馈 → 复盘」的闭环里推进为可审阅、可复盘的成果。';
+
+const List<Map<String, String>> _defaultFlowSteps = [
+  {
+    'key': 'idea',
+    'title': '想法',
+    'desc': '找到要解决的问题，明确价值假设'
+  },
+  {
+    'key': 'validate',
+    'title': '验证',
+    'desc': '低成本验证假设是否成立'
+  },
+  {
+    'key': 'build',
+    'title': '构建',
+    'desc': '做出最小可审阅的虚拟产出'
+  },
+  {
+    'key': 'deliver',
+    'title': '交付',
+    'desc': '整理成果并约定验收标准'
+  },
+  {
+    'key': 'feedback',
+    'title': '反馈',
+    'desc': '收集反馈，复盘并决定下一步'
+  },
+];
+
+class _CoreIdeaCard extends StatelessWidget {
+  final String title;
+  final String body;
+  const _CoreIdeaCard({required this.title, required this.body});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withOpacity(.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(body, style: theme.textTheme.bodyMedium),
+      ]),
+    );
+  }
+}
+
+/// 五步核心流程图（水平流 strip，窄屏自动换行）。
+class _FlowStrip extends StatelessWidget {
+  final List<Map<String, dynamic>> steps;
+  const _FlowStrip({required this.steps});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final items = steps
+        .map((s) => _FlowNode(
+              title: s['title']?.toString() ?? '',
+              desc: s['desc']?.toString() ?? '',
+            ))
+        .toList();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          items[i],
+          if (i < items.length - 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Icon(Icons.arrow_forward_rounded,
+                  size: 16, color: theme.colorScheme.outline),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _FlowNode extends StatelessWidget {
+  final String title;
+  final String desc;
+  const _FlowNode({required this.title, required this.desc});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        if (desc.isNotEmpty)
+          Text(desc,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.outline)),
+      ]),
+    );
+  }
+}
+
+class _LearningSheet extends StatelessWidget {
+  final Map<String, dynamic> learning;
+  const _LearningSheet({required this.learning});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cards = _learningList(learning, 'knowledge_cards');
+    final steps = _learningList(learning, 'flow_steps');
+    final quizzes = _learningList(learning, 'quizzes');
+    final allCards = cards.isEmpty ? _defaultCards : cards;
+    final allSteps = steps.isEmpty ? _defaultFlowSteps : steps;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .82,
+      maxChildSize: .95,
+      minChildSize: .5,
+      builder: (context, scrollController) => ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: theme.colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('OPC 核心知识卡',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('一人公司最小闭环：需求方 + 产品/服务 + 交付 + 反馈',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.outline)),
+          const SizedBox(height: 14),
+          for (final c in allCards) ...[
+            _CoreIdeaCard(
+                title: c['title']?.toString() ?? '',
+                body: c['body']?.toString() ?? ''),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 8),
+          Text('OPC 核心流程图',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          _FlowStrip(steps: allSteps),
+          const SizedBox(height: 20),
+          if (quizzes.isNotEmpty) ...[
+            Text('自测小问卷',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            ...quizzes.map((q) => _QuizCard(
+                  question: q['q']?.toString() ?? '',
+                  options:
+                      (q['options'] as List?)?.map((e) => e.toString()).toList() ??
+                          const [],
+                  answer: (q['answer'] as num?)?.toInt(),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+const List<Map<String, String>> _defaultCards = [
+  {
+    'title': 'OPC 是什么',
+    'body':
+        'OPC（One-Person Company，一人公司）：一个人像一家公司一样，独立承担产品、市场、交付等多数角色，把一个小想法推进为可交付的成果。'
+  },
+  {
+    'title': '为什么成立',
+    'body': '单点专注、成本低、决策快、反馈短。关键不是「一个人干所有事」，而是「承担所有关键责任」。'
+  },
+  {
+    'title': '最小闭环',
+    'body': '一个 OPC ≈ 需求方 + 产品/服务 + 交付 + 反馈。四者缺一不可，循环闭环即生意。'
+  },
+  {
+    'title': '核心心态',
+    'body': '先验证再投入，先交付再完善；每一步都要能回溯、能复盘、能讲清楚。'
+  },
+];
+
+class _QuizCard extends StatefulWidget {
+  final String question;
+  final List<String> options;
+  final int? answer;
+  const _QuizCard(
+      {required this.question, required this.options, this.answer});
+  @override
+  State<_QuizCard> createState() => _QuizCardState();
+}
+
+class _QuizCardState extends State<_QuizCard> {
+  int? _selected;
+  bool _checked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final correct = _checked && _selected == widget.answer;
+    final wrong = _checked && _selected != widget.answer;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.question,
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          for (var i = 0; i < widget.options.length; i++)
+            RadioListTile<int>(
+              dense: true,
+              value: i,
+              groupValue: _selected,
+              onChanged: _checked
+                  ? null
+                  : (v) => setState(() => _selected = v),
+              title: Text(widget.options[i]),
+              secondary: _checked
+                  ? Icon(
+                      i == widget.answer
+                          ? Icons.check_circle
+                          : (_selected == i ? Icons.cancel : null),
+                      color: i == widget.answer
+                          ? Colors.green
+                          : Colors.red,
+                    )
+                  : null,
+            ),
+          const SizedBox(height: 6),
+          Row(children: [
+            if (!_checked)
+              FilledButton.tonal(
+                onPressed: _selected == null
+                    ? null
+                    : () => setState(() => _checked = true),
+                child: const Text('确认答案'),
+              ),
+            if (_checked) ...[
+              if (correct)
+                const Row(children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 18),
+                  SizedBox(width: 4),
+                  Text('回答正确', style: TextStyle(color: Colors.green)),
+                ])
+              else
+                const Row(children: [
+                  Icon(Icons.cancel, color: Colors.red, size: 18),
+                  SizedBox(width: 4),
+                  Text('再想想正确答案', style: TextStyle(color: Colors.red)),
+                ]),
+              if (wrong) ...[const SizedBox(width: 8), TextButton(
+                onPressed: () => setState(() {
+                  _checked = false;
+                  _selected = null;
+                }),
+                child: const Text('重试'),
+              )],
+            ] else if (_selected != null)
+              const Text(''),
+          ]),
+        ]),
+      ),
     );
   }
 }
@@ -436,6 +998,127 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// B1 项目大厅缩略卡：名称/类型/阶段/风险/可见性，非成员只读浏览。
+class _HallProjectCard extends StatelessWidget {
+  final VopcProject project;
+  final VoidCallback onTap;
+  const _HallProjectCard({required this.project, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withOpacity(.5))),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: theme.colorScheme.tertiaryContainer.withOpacity(.5),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.storefront_outlined,
+                    color: theme.colorScheme.tertiary, size: 20)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(project.name,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 5),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      _MetaChip(project.projectType),
+                      _MetaChip(project.stage),
+                      _MetaChip(project.riskLevel),
+                      _MetaChip(project.visibility == 'private' ? '私有' : project.visibility),
+                    ]),
+                  ]),
+            ),
+            const SizedBox(width: 4),
+            Text('看看',
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: theme.colorScheme.primary)),
+            Icon(Icons.chevron_right, color: theme.colorScheme.outline),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// B3 L4 现实延伸引流卡片。
+class _RealityExtensionCard extends StatelessWidget {
+  const _RealityExtensionCard();
+
+  Future<void> _open(BuildContext context) async {
+    final uri = Uri.parse(vopcSiteUrl);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法打开链接，请稍后再试')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+              color: theme.colorScheme.tertiary.withOpacity(.45))),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                    color: theme.colorScheme.tertiary.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.public_rounded,
+                    size: 19, color: theme.colorScheme.tertiary)),
+            const SizedBox(width: 10),
+            Text('现实延伸 · L4',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            '更真实的 AI 执行、云对象存储、真实经营与传播，即将在「虚拟OPC」网站上线。',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: () => _open(context),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('前往虚拟OPC网站'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 class _InvitationCard extends StatelessWidget {
   final Map<String, dynamic> invitation;
   final VoidCallback onDecline;
@@ -483,7 +1166,13 @@ class _InvitationCard extends StatelessWidget {
 class _ProjectCard extends StatelessWidget {
   final VopcProject project;
   final VoidCallback onTap;
-  const _ProjectCard({required this.project, required this.onTap});
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  const _ProjectCard(
+      {required this.project,
+      required this.onTap,
+      required this.onEdit,
+      required this.onDelete});
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -532,9 +1221,196 @@ class _ProjectCard extends StatelessWidget {
                           _MetaChip(project.riskLevel)
                         ])
                       ])),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
+                  IconButton(
+                      tooltip: '编辑',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: onEdit),
+                  IconButton(
+                      tooltip: '删除',
+                      visualDensity: VisualDensity.compact,
+                      color: theme.colorScheme.error,
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: onDelete),
+                  const SizedBox(width: 2),
                   Icon(Icons.chevron_right, color: theme.colorScheme.outline),
                 ]))));
+  }
+}
+
+class _UserSearchDialog extends StatefulWidget {
+  final TextEditingController controller;
+  final Future<List<Map<String, dynamic>>> Function(String keyword) findUsers;
+  const _UserSearchDialog(
+      {required this.controller, required this.findUsers});
+  @override
+  State<_UserSearchDialog> createState() => _UserSearchDialogState();
+}
+
+class _UserSearchDialogState extends State<_UserSearchDialog> {
+  List<Map<String, dynamic>> _users = const [];
+  bool _loading = false;
+  String _role = 'member';
+  String? _selectedUserId;
+  bool _searchDone = false;
+
+  Future<void> _search(String q) async {
+    if (q.trim().isEmpty) {
+      setState(() {
+        _users = const [];
+        _searchDone = false;
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _searchDone = true;
+    });
+    final result = await widget.findUsers(q.trim());
+    if (!mounted) return;
+    setState(() {
+      _users = result;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('邀请成员'),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: widget.controller,
+              decoration: const InputDecoration(
+                labelText: '搜索用户（按姓名/账号）',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onSubmitted: _search,
+              onChanged: (v) => _search(v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: _role,
+              items: const [
+                DropdownMenuItem(value: 'member', child: Text('成员')),
+                DropdownMenuItem(value: 'co_owner', child: Text('联合主理人')),
+                DropdownMenuItem(value: 'mentor', child: Text('导师')),
+                DropdownMenuItem(value: 'reviewer', child: Text('评审')),
+              ],
+              onChanged: (v) => setState(() => _role = v ?? 'member'),
+            ),
+            const SizedBox(height: 8),
+            if (_loading)
+              const LinearProgressIndicator()
+            else if (!_searchDone)
+              const Text('输入关键字后回车或继续输入以搜索',
+                  style: TextStyle(color: Colors.grey))
+            else if (_users.isEmpty)
+              const Text('未找到可邀请用户', style: TextStyle(color: Colors.grey))
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ..._users.map((u) => ListTile(
+                          dense: true,
+                          leading: Icon(
+                              _selectedUserId == u['id'].toString()
+                                  ? Icons.radio_button_checked
+                                  : Icons.person_outline),
+                          title: Text(u['display_name']?.toString() ??
+                              '用户 #${u['id']}'),
+                          subtitle: Text(
+                              '@${u['username']} · ${u['role']}'),
+                          onTap: () => setState(
+                              () => _selectedUserId = u['id'].toString()),
+                        )),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+            onPressed: _selectedUserId == null
+                ? null
+                : () => Navigator.pop(context, {
+                      'user_id': _selectedUserId!,
+                      'role': _role,
+                      'note': '',
+                    }),
+            child: const Text('邀请')),
+      ],
+    );
+  }
+}
+
+class _StageProgress extends StatelessWidget {
+  final String currentStage;
+  final String status;
+  const _StageProgress({required this.currentStage, required this.status});
+
+  static const List<String> _stages = ['G0', 'G1', 'G2', 'G3', 'G4'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cur = currentStage.toUpperCase();
+    final idx = _stages.indexOf(cur);
+    final progress = idx < 0 ? 0.0 : (idx + 1) / _stages.length;
+    final blocked = {'paused', 'risk_frozen', 'terminated', 'archived'}.contains(status);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('OPC 虚拟主线阶段', style: theme.textTheme.titleSmall),
+        Text('$cur / 共 ${_stages.length} 个阶段',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      ]),
+      const SizedBox(height: 8),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: LinearProgressIndicator(
+          value: progress,
+          minHeight: 10,
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          color: blocked
+              ? theme.colorScheme.error
+              : theme.colorScheme.primary,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final s in _stages)
+            Expanded(
+              child: Container(
+                alignment: Alignment.center,
+                child: Text(
+                  s,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: cur == s ? FontWeight.w800 : FontWeight.w400,
+                    color: cur == s
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      if (blocked) ...[const SizedBox(height: 6), Text('项目已暂停/冻结/终止/归档', style: TextStyle(color: theme.colorScheme.error, fontSize: 12))],
+    ]);
   }
 }
 
@@ -550,11 +1426,12 @@ class _EmptyVopcCard extends StatelessWidget {
               Icon(Icons.lightbulb_outline_rounded,
                   size: 46, color: theme.colorScheme.primary),
               const SizedBox(height: 12),
-              Text('还没有项目',
+              Text('还没有虚拟项目',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 5),
-              Text('从一个真实问题开始，逐步验证你的想法。', style: theme.textTheme.bodySmall)
+              Text('从一个想法开始，走通 OPC 主线：需求 → 成果 → 反馈 → 复盘。',
+                  style: theme.textTheme.bodySmall)
             ])));
   }
 }
@@ -570,8 +1447,21 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-        () => context.read<VopcProvider>().loadDetail(widget.projectId));
+    Future.microtask(() async {
+      final p = context.read<VopcProvider>();
+      await p.loadDetail(widget.projectId);
+      await p.loadAIRoles(widget.projectId);
+      // L3 治理层数据（最佳努力，失败不阻塞）
+      await p.loadCloseRecords(widget.projectId);
+      await p.loadRisks(widget.projectId);
+      await p.loadSpecialApprovals(widget.projectId);
+      await p.loadRiskAppeals(widget.projectId);
+      await p.loadMilestoneWaivers(widget.projectId);
+      await p.loadClientEvidence(widget.projectId);
+      await p.loadRubrics(widget.projectId);
+      await p.loadFiles(widget.projectId);
+      await p.loadAITasks(widget.projectId);
+    });
   }
 
   @override
@@ -622,7 +1512,10 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                           Chip(label: Text(p.detail!.projectType)),
                           Chip(label: Text(p.detail!.riskLevel))
                         ]),
-                        if (canManage && p.detail!.stage == 'S0') ...[
+                        const SizedBox(height: 16),
+                        _StageProgress(currentStage: p.detail!.stage, status: p.detail!.status),
+                        const SizedBox(height: 16),
+                        if (canManage && p.detail!.stage == 'G0') ...[
                           const SizedBox(height: 16),
                           Card(
                             color: Theme.of(context)
@@ -661,6 +1554,8 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                           ),
                         ],
                         const SizedBox(height: 24),
+                        _buildAIRoles(context, p, canManage),
+                        const SizedBox(height: 24),
                         _buildDecisions(context, p, canManage),
                         const SizedBox(height: 24),
                         _buildMembers(context, p, canManage),
@@ -670,13 +1565,65 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                         _buildMilestones(context, p, canManage),
                         const SizedBox(height: 24),
                         _buildTasks(context, p, canManage),
+                        const SizedBox(height: 24),
+                        _buildGovernance(context, p, canManage),
                       ]));
   }
 
   Future<void> _submitProject() async {
     final p = context.read<VopcProvider>();
     final project = p.detail;
-    if (project == null || project.stage != 'S0') return;
+    if (project == null || project.stage != 'G0') return;
+    // 提交前前端完整性自检：缺失字段明确列出并引导编辑，避免直接收到后端笼统 422。
+    final missing = <String>[];
+    const required = {
+      'summary': '项目摘要',
+      'problem': '要解决的真实问题',
+      'targetUsers': '目标用户',
+      'expectedOutcome': '预期成果',
+      'validationPlan': '验证计划',
+      'productForm': '产品/成果形态',
+      'projectCycle': '项目周期',
+      'acceptanceCriteria': '验收标准',
+    };
+    String? fieldOf(String s) {
+      switch (s) {
+        case 'summary': return project.summary;
+        case 'problem': return project.problem;
+        case 'targetUsers': return project.targetUsers;
+        case 'expectedOutcome': return project.expectedOutcome;
+        case 'validationPlan': return project.validationPlan;
+        case 'productForm': return project.productForm;
+        case 'projectCycle': return project.projectCycle;
+        case 'acceptanceCriteria': return project.acceptanceCriteria;
+        default: return null;
+      }
+    }
+    required.forEach((key, label) {
+      final v = fieldOf(key);
+      if (v == null || v.trim().isEmpty) missing.add(label);
+    });
+    if (missing.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('提交立项前需补齐以下信息'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...missing.map((label) => Text('• $label')),
+              const SizedBox(height: 12),
+              const Text('请点击「编辑草稿」填写完整后再提交立项。'),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('知道了')),
+          ],
+        ),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -715,9 +1662,9 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
   }
 
   bool _canCreateTask(VopcProject project) {
-    final stage = int.tryParse(project.stage.replaceFirst('S', '')) ?? -1;
+    final stage = int.tryParse(project.stage.replaceFirst('G', '')) ?? -1;
     const blocked = {'paused', 'risk_frozen', 'terminated', 'archived'};
-    return stage >= 1 && stage < 9 && !blocked.contains(project.status);
+    return stage >= 1 && stage < 4 && !blocked.contains(project.status);
   }
 
   Widget _buildDecisions(
@@ -762,6 +1709,40 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                   ]))))
     ]);
   }
+
+  Widget _buildAIRoles(BuildContext context, VopcProvider p, bool canManage) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('AI 团队成员 · ${p.aiRoles.length}',
+              style: Theme.of(context).textTheme.titleLarge),
+          const Spacer(),
+        ]),
+        const SizedBox(height: 4),
+        const Text('虚拟 AI 化身，辅助你完成各阶段孵化工作',
+            style: TextStyle(color: Colors.grey, fontSize: 12)),
+        const SizedBox(height: 8),
+        if (p.aiRoles.isEmpty)
+          const Text('暂无 AI 岗位（创建项目时自动生成 4 个默认岗位）',
+              style: TextStyle(color: Colors.grey))
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: p.aiRoles
+                .map<Widget>((r) => Chip(
+                      avatar: Icon(
+                          r['role_key'] == 'project_manager'
+                              ? Icons.supervisor_account
+                              : r['role_key'] == 'execution'
+                                  ? Icons.handyman
+                                  : Icons.smart_toy_outlined,
+                          size: 18),
+                      label: Text(
+                          '${r['role_name']}${r['enabled'] == true ? '' : '（禁用）'}'),
+                    ))
+                .toList(),
+          ),
+      ]);
 
   Widget _buildMembers(BuildContext context, VopcProvider p, bool canManage) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -885,12 +1866,22 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
   }
 
   Future<void> _inviteMember() async {
-    final d = await _textDialog(
-        '邀请成员', ['用户 ID', '项目角色（member/co_owner/mentor/reviewer）', '说明']);
-    final id = int.tryParse(d?['用户 ID'] ?? '');
-    if (d != null && id != null && mounted) {
-      await context.read<VopcProvider>().inviteMember(widget.projectId, id,
-          d['项目角色（member/co_owner/mentor/reviewer）']!, d['说明']!);
+    final p = context.read<VopcProvider>();
+    final searchCtrl = TextEditingController();
+    final result = await showDialog<Map<String, String>>(context: context,
+        builder: (c) => _UserSearchDialog(
+            controller: searchCtrl,
+            findUsers: (q) =>
+                p.searchUsers(q, excludeProjectId: widget.projectId)));
+    searchCtrl.dispose();
+    if (result == null || !mounted) return;
+    final userId = int.tryParse(result['user_id'] ?? '');
+    if (userId == null) return;
+    await p.inviteMember(
+        widget.projectId, userId, result['role'] ?? 'member', result['note'] ?? '');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(p.error ?? '已发送邀请')));
     }
   }
 
@@ -914,7 +1905,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
       '来源类型（link/repository/storage_ref/dataset_ref）',
       '安全引用 URL/标识',
       'SHA-256 校验和（64 位十六进制）',
-      '适用阶段（S2-S9）',
+      '适用阶段（G0-G4）',
       '版本说明'
     ]);
     if (d != null && mounted) {
@@ -925,7 +1916,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
         'source_kind': d['来源类型（link/repository/storage_ref/dataset_ref）'],
         'source_ref': d['安全引用 URL/标识'],
         'checksum': d['SHA-256 校验和（64 位十六进制）'],
-        'intended_stage': d['适用阶段（S2-S9）'],
+        'intended_stage': d['适用阶段（G0-G4）'],
         'release_notes': d['版本说明']
       });
     }
@@ -1004,12 +1995,12 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 5),
-              Text(provider.detail?.stage == 'S0'
-                  ? '请先点击页面上方“提交立项”，项目进入 S1 后即可创建任务。'
+              Text(provider.detail?.stage == 'G0'
+                  ? '请先点击页面上方“提交立项”，项目进入 G1 后即可创建任务。'
                   : canManage
                       ? '点击右下角“新建任务”，开始分解和推进工作。'
                       : '项目负责人尚未创建任务。'),
-              if (canManage && provider.detail?.stage == 'S0') ...[
+              if (canManage && provider.detail?.stage == 'G0') ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
                   onPressed: _submitProject,
@@ -1162,6 +2153,622 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
           .showSnackBar(const SnackBar(content: Text('任务状态已更新')));
     }
   }
+
+  // ── L3 治理层 UI（结项/风险/里程碑门禁/私有文件/虚拟向导） ──
+
+  Widget _buildGovernance(
+      BuildContext context, VopcProvider p, bool canManage) {
+    final theme = Theme.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(Icons.gpp_good_outlined, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Text('治理与门禁 · L3', style: theme.textTheme.titleLarge),
+      ]),
+      const SizedBox(height: 4),
+      const Text('结项状态、风险分级、里程碑门禁、私有文件与虚拟向导审阅',
+          style: TextStyle(color: Colors.grey, fontSize: 12)),
+      const SizedBox(height: 12),
+      _buildCloseGovernance(context, p, canManage),
+      const SizedBox(height: 20),
+      _buildRiskGovernance(context, p, canManage),
+      const SizedBox(height: 20),
+      _buildMilestoneGate(context, p, canManage),
+      const SizedBox(height: 20),
+      _buildPrivateFiles(context, p, canManage),
+      const SizedBox(height: 20),
+      _buildAITaskReview(context, p, canManage),
+    ]);
+  }
+
+  Widget _buildCloseGovernance(
+      BuildContext context, VopcProvider p, bool canManage) {
+    final status = p.detail?.status ?? '';
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('结项 / 生命周期 · ${p.closeRecords.length}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const Spacer(),
+        if (canManage)
+          FilledButton.tonalIcon(
+            onPressed: _openCloseAction,
+            icon: const Icon(Icons.flag_outlined),
+            label: const Text('状态流转'),
+          ),
+      ]),
+      const SizedBox(height: 6),
+      Row(children: [
+        _MetaChip('当前状态：$status'),
+        const SizedBox(width: 6),
+        if (status == 'risk_frozen')
+          const _MetaChip('已冻结'),
+      ]),
+      const SizedBox(height: 8),
+      if (p.closeRecords.isEmpty)
+        const Text('暂无结项/异常状态记录', style: TextStyle(color: Colors.grey, fontSize: 12))
+      else
+        ...p.closeRecords.take(5).map((r) => Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                dense: true,
+                title: Text('${r['action']} → ${r['new_status']}'),
+                subtitle: Text(r['reason']?.toString() ?? ''),
+                trailing: Text(r['created_at']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 11)),
+              ),
+            )),
+    ]);
+  }
+
+  Widget _buildRiskGovernance(
+      BuildContext context, VopcProvider p, bool canManage) {
+    final isRiskManager = CapabilityUtils.has(Capability.vopcRiskManage);
+    final isMentor = CapabilityUtils.has(Capability.vopcMentorReview);
+    final canApproveRisk = isRiskManager || isMentor;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('风险治理 · ${p.risks.length}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const Spacer(),
+        if (canManage)
+          FilledButton.tonalIcon(
+            onPressed: _createRisk,
+            icon: const Icon(Icons.report_problem_outlined),
+            label: const Text('登记风险'),
+          ),
+        if (isRiskManager) ...[
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () => _freezeAction(
+                p.detail?.status == 'risk_frozen' ? 'unfreeze' : 'freeze'),
+            child: Text(p.detail?.status == 'risk_frozen' ? '解冻项目' : '冻结项目'),
+          ),
+        ],
+      ]),
+      const SizedBox(height: 6),
+      if ((p.detail?.riskLevel ?? '') == 'R2' || (p.detail?.riskLevel ?? '') == 'R3')
+        const Padding(
+          padding: EdgeInsets.only(bottom: 6),
+          child: Text('未批不可推进：R2 需导师/管理员审核，R3 需学校制度专项审批',
+              style: TextStyle(color: Colors.orange, fontSize: 12)),
+        ),
+      if (p.risks.isEmpty)
+        const Text('暂无登记风险', style: TextStyle(color: Colors.grey, fontSize: 12))
+      else
+        ...p.risks.map((r) => Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                dense: true,
+                leading: _MetaChip(r['risk_level']?.toString() ?? 'R0'),
+                title: Text(r['title']?.toString() ?? ''),
+                subtitle: Text('${r['status']} · ${r['description']?.toString() ?? ''}'),
+                trailing: canApproveRisk && r['status'] == 'open'
+                    ? Wrap(spacing: 4, children: [
+                        TextButton(
+                            onPressed: () => _approveRisk(r, 'approve'),
+                            child: const Text('通过')),
+                        TextButton(
+                            onPressed: () => _approveRisk(r, 'reject'),
+                            child: const Text('拒绝')),
+                      ])
+                    : null,
+              ),
+            )),
+      // 专项审批记录
+      if (p.specialApprovals.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        const Text('专项审批记录', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ...p.specialApprovals.map((s) => ListTile(
+            dense: true,
+            leading: const Icon(Icons.verified_outlined, size: 18),
+            title: Text('${s['approver']}'),
+            subtitle: Text('${s['reason']}${s['ref'] != null && s['ref'] != '' ? ' · 依据：${s['ref']}' : ''}'))),
+      ],
+      if (isRiskManager) FilledButton.tonal(
+          onPressed: _createSpecialApproval,
+          child: const Text('登记专项审批（R3）')),
+      // 申诉
+      if (p.riskAppeals.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        Text('风险申诉 · ${p.riskAppeals.length}',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ...p.riskAppeals.map((a) => ListTile(
+            dense: true,
+            title: Text(a['status']?.toString() ?? ''),
+            subtitle: Text(a['reason']?.toString() ?? ''),
+            trailing: isRiskManager && a['status'] == 'pending'
+                ? Wrap(spacing: 4, children: [
+                    TextButton(
+                        onPressed: () => _resolveAppeal(a, 'upheld'),
+                        child: const Text('维持')),
+                    TextButton(
+                        onPressed: () => _resolveAppeal(a, 'dismissed'),
+                        child: const Text('驳回')),
+                  ])
+                : null)),
+      ],
+      if (canManage)
+        TextButton.icon(
+            onPressed: _createRiskAppeal,
+            icon: const Icon(Icons.contact_support_outlined, size: 18),
+            label: const Text('发起风险申诉')),
+    ]);
+  }
+
+  Widget _buildMilestoneGate(
+      BuildContext context, VopcProvider p, bool canManage) {
+    final canReview = CapabilityUtils.has(Capability.vopcMilestoneReview);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('里程碑门禁（G0-G4） · ${p.rubrics.isEmpty ? '量表未加载' : '${p.rubrics.length} 维度'}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const Spacer(),
+        if (canManage)
+          FilledButton.tonalIcon(
+            onPressed: _createWaiver,
+            icon: const Icon(Icons.rule_outlined),
+            label: const Text('申请豁免'),
+          ),
+      ]),
+      const SizedBox(height: 6),
+      // 评分量表（阶段 + 维度 + 通过分）
+      if (p.rubrics.isNotEmpty)
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: p.rubrics
+              .map((r) => _MetaChip(
+                  '${r['stage']}·${r['title']} ≥${r['min_pass']}'))
+              .toList(),
+        ),
+      if (p.milestoneSubmissions.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        ...p.milestoneSubmissions.map((s) => Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                dense: true,
+                title: Text('${s.stage} · ${s.status}'),
+                subtitle: Text(s.evidence),
+                trailing: canReview && s.status == 'condition_pending'
+                    ? PopupMenuButton<String>(
+                        onSelected: (a) async {
+                          if (a == 'finalize') {
+                            await p.finalizeMilestone(widget.projectId, s.id);
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'finalize', child: Text('确认闭环'))
+                            ])
+                    : canReview && s.status == 'pending'
+                        ? PopupMenuButton<String>(
+                            onSelected: (r) => _reviewMilestone(s, r),
+                            itemBuilder: (_) => const [
+                                  PopupMenuItem(value: 'pass', child: Text('通过')),
+                                  PopupMenuItem(value: 'return', child: Text('退回')),
+                                  PopupMenuItem(value: 'condition_pending', child: Text('条件通过')),
+                                ])
+                        : null,
+              ),
+            )),
+      ],
+      // 豁免列表
+      if (p.milestoneWaivers.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text('里程碑豁免 · ${p.milestoneWaivers.length}',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ...p.milestoneWaivers.map((w) => ListTile(
+            dense: true,
+            title: Text('${w['stage']} · ${w['status']}'),
+            subtitle: Text(w['reason']?.toString() ?? ''),
+            trailing: (CapabilityUtils.has(Capability.vopcMentorReview) ||
+                    CapabilityUtils.has(Capability.vopcRiskManage)) &&
+                w['status'] == 'pending'
+                ? Wrap(spacing: 4, children: [
+                    TextButton(
+                        onPressed: () => _reviewWaiver(w, 'approve'),
+                        child: const Text('批准')),
+                    TextButton(
+                        onPressed: () => _reviewWaiver(w, 'reject'),
+                        child: const Text('驳回')),
+                  ])
+                : null)),
+      ],
+      // 甲方结构化证据
+      if (p.clientEvidence.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text('甲方结构化证据 · ${p.clientEvidence.length}',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ...p.clientEvidence.map((e) => ListTile(
+            dense: true,
+            leading: const Icon(Icons.badge_outlined, size: 18),
+            title: Text('${e['stage']} · ${e['client_rep']}'),
+            subtitle: Text('${e['conclusion']}'))),
+      ],
+    ]);
+  }
+
+  Widget _buildPrivateFiles(
+      BuildContext context, VopcProvider p, bool canManage) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('私有文件（受控鉴权） · ${p.files.length}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const Spacer(),
+        if (canManage)
+          FilledButton.tonalIcon(
+            onPressed: _uploadFile,
+            icon: const Icon(Icons.upload_file_outlined),
+            label: const Text('上传文件'),
+          ),
+      ]),
+      const SizedBox(height: 8),
+      if (p.files.isEmpty)
+        const Text('暂无私有文件', style: TextStyle(color: Colors.grey, fontSize: 12))
+      else
+        ...p.files.map((f) => Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.lock_outline, size: 18),
+                title: Text(f['file_name']?.toString() ?? f['object_key']?.toString() ?? ''),
+                subtitle: Text('${f['storage_status']} · ${_formatBytes(f['size_bytes'])}'),
+                trailing: IconButton(
+                  tooltip: '下载',
+                  onPressed: () => _downloadFile(f),
+                  icon: const Icon(Icons.download_outlined),
+                ),
+              ),
+            )),
+    ]);
+  }
+
+  Widget _buildAITaskReview(
+      BuildContext context, VopcProvider p, bool canManage) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('虚拟向导调阅 · ${p.aiTasks.length}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const Spacer(),
+        if (canManage)
+          FilledButton.tonalIcon(
+            onPressed: _createAITask,
+            icon: const Icon(Icons.auto_awesome_outlined),
+            label: const Text('引导（新建向导稿）'),
+          ),
+      ]),
+      const SizedBox(height: 8),
+      if (p.aiTasks.isEmpty)
+        const Text('暂无虚拟向导任务，点击「引导」生成结构草稿',
+            style: TextStyle(color: Colors.grey, fontSize: 12))
+      else
+        ...p.aiTasks.map((t) => Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: Text('${t.roleKey} · ${t.model}',
+                              style: Theme.of(context).textTheme.titleSmall)),
+                      _MetaChip('provider=${t.model == 'virtual_guide' ? 'template' : t.model}'),
+                    ]),
+                    const SizedBox(height: 4),
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      _MetaChip('版次 revision=${t.revision.isEmpty ? '0' : t.revision}'),
+                      _MetaChip('修改率 ${(t.modificationRate * 100).toStringAsFixed(0)}%'),
+                      if (t.finalDecision != null) _MetaChip('已审阅：${t.finalDecision}'),
+                    ]),
+                    if (t.outputContent.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(t.outputContent,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    ],
+                    if (canManage && t.finalDecision == null) ...[
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        FilledButton(
+                            onPressed: () => _reviewAITask(t, 'accept'),
+                            child: const Text('接受 accept')),
+                        OutlinedButton(
+                            onPressed: () => _reviewAITask(t, 'revise'),
+                            child: const Text('修改 revise')),
+                        OutlinedButton(
+                            onPressed: () => _reviewAITask(t, 'reject'),
+                            child: const Text('退回 reject')),
+                        OutlinedButton(
+                            onPressed: () => _reviewAITask(t, 'overrule'),
+                            child: const Text('否决 overrule')),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+            )),
+    ]);
+  }
+
+  // ── 治理动作 ──
+
+  Future<void> _openCloseAction() async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('选择生命周期动作'),
+        children: ['close', 'pause', 'resume', 'pivot', 'terminate', 'archive']
+            .map((a) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(c, a),
+                  child: Text(_VopcPageState._closeActionLabel(a)),
+                ))
+            .toList(),
+      ),
+    );
+    if (action == null || !mounted) return;
+    final note = await _textDialog('状态流转：$action', ['理由（必填）',
+        if (action == 'terminate') '失败证据',
+        if (action == 'close' || action == 'pivot') '人类决策依据',
+        if (action == 'close') '成果包/复盘要点']);
+    if (note == null || !mounted) return;
+    final p = context.read<VopcProvider>();
+    final ok = await p.closeProject(widget.projectId, {
+      'action': action,
+      'reason': note['理由（必填）'] ?? '',
+      if (action == 'terminate') 'failure_evidence': note['失败证据'] ?? '',
+      if (action == 'close' || action == 'pivot')
+        'human_decision': note['人类决策依据'] ?? '',
+      if (action == 'close') 'outcome_package': note['成果包/复盘要点'] ?? '',
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? '状态已流转' : (p.error ?? '流转失败'))));
+    }
+  }
+
+  Future<void> _createRisk() async {
+    final d = await _textDialog('登记风险', ['风险等级（R0/R1/R2/R3）', '标题', '描述']);
+    if (d != null && mounted) {
+      await context.read<VopcProvider>().createRisk(widget.projectId, {
+        'risk_level': d['风险等级（R0/R1/R2/R3）'] ?? 'R0',
+        'title': d['标题'],
+        'description': d['描述'],
+      });
+    }
+  }
+
+  Future<void> _approveRisk(Map<String, dynamic> r, String decision) async {
+    final d = await _textDialog('风险审批：$decision', ['理由']);
+    if (d != null && mounted) {
+      final ok = await context.read<VopcProvider>().approveRisk(
+          widget.projectId, (r['id'] as num).toInt(), decision, d['理由'] ?? '');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(ok
+                ? '审批已提交'
+                : (context.read<VopcProvider>().error ?? '审批失败'))));
+      }
+    }
+  }
+
+  Future<void> _freezeAction(String action) async {
+    final d = await _textDialog(action == 'freeze' ? '冻结项目' : '解冻项目', ['理由']);
+    if (d != null && mounted) {
+      final ok = await context
+          .read<VopcProvider>()
+          .freezeProject(widget.projectId, action, d['理由'] ?? '');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(ok
+                ? (action == 'freeze' ? '项目已冻结' : '项目已解冻')
+                : (context.read<VopcProvider>().error ?? '操作失败'))));
+      }
+    }
+  }
+
+  Future<void> _createSpecialApproval() async {
+    final d = await _textDialog('登记专项审批（R3）', ['审批主体', '批准理由', '依据/批文编号']);
+    if (d != null && mounted) {
+      await context.read<VopcProvider>().createSpecialApproval(widget.projectId, {
+        'approver': d['审批主体'],
+        'reason': d['批准理由'],
+        'ref': d['依据/批文编号'],
+      });
+    }
+  }
+
+  Future<void> _createRiskAppeal() async {
+    final d = await _textDialog('发起风险申诉', ['申诉理由']);
+    if (d != null && mounted) {
+      await context
+          .read<VopcProvider>()
+          .createRiskAppeal(widget.projectId, d['申诉理由'] ?? '');
+    }
+  }
+
+  Future<void> _resolveAppeal(Map<String, dynamic> a, String decision) async {
+    final d = await _textDialog('裁定申诉：$decision', ['裁定说明']);
+    if (d != null && mounted) {
+      await context.read<VopcProvider>().resolveRiskAppeal(
+          widget.projectId, (a['id'] as num).toInt(), decision, d['裁定说明'] ?? '');
+    }
+  }
+
+  Future<void> _createWaiver() async {
+    final d = await _textDialog('申请里程碑豁免', ['阶段（G0-G4）', '必交证据', '理由']);
+    if (d != null && mounted) {
+      await context.read<VopcProvider>().createMilestoneWaiver(widget.projectId, {
+        'stage': d['阶段（G0-G4）'],
+        'required_evidence': d['必交证据'],
+        'reason': d['理由'],
+      });
+    }
+  }
+
+  Future<void> _reviewWaiver(Map<String, dynamic> w, String action) async {
+    final d = await _textDialog('豁免审批：$action', ['审批意见']);
+    if (d != null && mounted) {
+      await context.read<VopcProvider>().reviewMilestoneWaiver(
+          widget.projectId, (w['id'] as num).toInt(), action, d['审批意见'] ?? '');
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    final p = context.read<VopcProvider>();
+    final ok = await p.uploadProjectFile(
+        widget.projectId, filename: file.name, bytes: bytes);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ok ? '文件已上传' : (p.error ?? '上传失败'))));
+    }
+  }
+
+  Future<void> _downloadFile(Map<String, dynamic> f) async {
+    final key = f['object_key']?.toString();
+    if (key == null || key.isEmpty) return;
+    final p = context.read<VopcProvider>();
+    final bytes = await p.downloadProjectFile(widget.projectId, key);
+    if (!mounted) return;
+    if (bytes == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(p.error ?? '下载失败')));
+      return;
+    }
+    // 简单落地：提示已取回字节（受控鉴权已由后端完成）。
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已取回文件（${bytes.length} 字节），受控鉴权通过')));
+  }
+
+  Future<void> _createAITask() async {
+    final p = context.read<VopcProvider>();
+    final roles = p.aiRoles
+        .where((r) => r['enabled'] == true)
+        .map((r) => r['role_key']?.toString() ?? '')
+        .where((k) => k.isNotEmpty)
+        .toList();
+    final data = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (c) => _AITaskCreateDialog(roles: roles),
+    );
+    if (data == null || !mounted) return;
+    final task = await p.createAITask(widget.projectId, data);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(task != null ? '虚拟向导草稿已生成' : (p.error ?? '生成失败'))));
+    }
+  }
+
+  Future<void> _reviewAITask(VopcAITask t, String decision) async {
+    final labels = <String>['审阅备注'];
+    if (decision == 'revise') labels.add('修订指示 revision');
+    final d = await _textDialog('审阅虚拟向导：$decision', labels);
+    if (d == null || !mounted) return;
+    final ok = await context.read<VopcProvider>().reviewAITask(
+        widget.projectId, t.id, decision,
+        note: d['审阅备注'] ?? '',
+        revision: d['修订指示 revision'] ?? '');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ok
+              ? '已审阅'
+              : (context.read<VopcProvider>().error ?? '审阅失败'))));
+    }
+  }
+
+  static String? _formatBytes(dynamic v) {
+    if (v is! num) return null;
+    final n = v.toDouble();
+    if (n < 1024) return '${n.toInt()} B';
+    if (n < 1024 * 1024) return '${(n / 1024).toStringAsFixed(1)} KB';
+    return '${(n / 1024 / 1024).toStringAsFixed(1)} MB';
+  }
+}
+
+class _AITaskCreateDialog extends StatefulWidget {
+  final List<String> roles;
+  const _AITaskCreateDialog({required this.roles});
+  @override
+  State<_AITaskCreateDialog> createState() => _AITaskCreateDialogState();
+}
+
+class _AITaskCreateDialogState extends State<_AITaskCreateDialog> {
+  String _roleKey = '';
+  final _instruction = TextEditingController();
+
+  @override
+  void dispose() {
+    _instruction.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_roleKey.isEmpty && widget.roles.isNotEmpty) {
+      _roleKey = widget.roles.first;
+    }
+    return AlertDialog(
+      title: const Text('虚拟向导引导'),
+      content: SizedBox(
+        width: 460,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<String>(
+            value: widget.roles.contains(_roleKey) ? _roleKey : null,
+            decoration: const InputDecoration(labelText: '向导岗位'),
+            items: widget.roles
+                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                .toList(),
+            onChanged: (v) => setState(() => _roleKey = v ?? ''),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _instruction,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(labelText: '任务指令'),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          onPressed: _instruction.text.trim().isEmpty
+              ? null
+              : () => Navigator.pop(context, {
+                    'role_key': _roleKey,
+                    'instruction': _instruction.text.trim(),
+                  }),
+          child: const Text('生成草稿'),
+        ),
+      ],
+    );
+  }
 }
 
 class _MilestoneSubmissionDialog extends StatefulWidget {
@@ -1198,7 +2805,7 @@ class _MilestoneSubmissionDialogState
               TextField(
                   controller: stage,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(labelText: '目标阶段（如 S2）')),
+                  decoration: const InputDecoration(labelText: '目标阶段（如 G2）')),
               TextField(
                   controller: evidence,
                   onChanged: (_) => setState(() {}),

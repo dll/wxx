@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -15,41 +16,45 @@ import (
 var approvalDecisions = setOf("approve", "reject")
 var freezeActions = setOf("freeze", "unfreeze")
 
-// isRiskManager 判断当前用户是否具备平台风险治理权。风险冻结/解冻/审批是
-// 平台治理动作，只允许项目内 platform_operator 角色执行；双重审批在本最小闭环
-// 中落地为“两名不同审批人对同一条风险均 approve”。
-func isRiskManager(tx *sql.Tx, projectID, userID int64) bool {
+// platformGovernanceRoles 是平台治理系统角色（college_admin/school_admin/sys_admin）。
+// 与持有 vopc.risk.manage 能力的角色集合一致（见 auth/capabilities.go），供
+// GrantGovernanceRole（治理角色授予）以 users.role 为权威判据使用。
+var platformGovernanceRoles = setOf("college_admin", "school_admin", "sys_admin")
+
+// isAuthorizedAdmin 判断用户是否为「授权管理员」，即持有 vopc.risk.manage 能力。
+//
+// PRD §9.1：vopc.risk.manage（冻结、解冻和处置风险项目）默认主体=授权管理员。
+// 能力的权威判据是数据库 users.role（经 auth.HasCapability 沿角色继承链解析），
+// 而非 JWT 自证或项目内 platform_operator 成员关系——项目运营者平台角色不自动获得
+// 风险治理权，其能力必须来自 vopc.risk.manage 授权（college_admin/school_admin/sys_admin）。
+func isAuthorizedAdmin(tx *sql.Tx, userID int64) bool {
+	var role string
+	if err := tx.QueryRow(`SELECT role FROM users WHERE id=?`, userID).Scan(&role); err != nil {
+		return false
+	}
+	return auth.HasCapability(role, auth.VOPCRiskManage)
+}
+
+// isProjectAdvisor 判断用户是否为本项目导师或评审者成员（mentor/reviewer 项目角色）。
+//
+// PRD §13.1 R2「导师/管理员审核与安全检查」中的「导师」即项目内 mentor/reviewer 成员。
+// 该判定与平台系统角色解耦：一个系统角色为 teacher/counselor 的用户，仅当被邀请为本
+// 项目 mentor/reviewer 成员时，才可作为本项目 R2 风险的审核人。
+func isProjectAdvisor(tx *sql.Tx, projectID, userID int64) bool {
 	var role string
 	if err := tx.QueryRow(`SELECT project_role FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'`, projectID, userID).Scan(&role); err != nil {
 		return false
 	}
-	return role == "platform_operator"
+	return role == "mentor" || role == "reviewer"
 }
 
-// platformGovernanceRoles 是可达成 R3 专项审批的平台治理系统角色。
-// vOPC PRD 4.4：平台管理、风控与全局数据权限由蔚小芯 RBAC/Capability 控制，
-// 治理角色即 college_admin/school_admin/sys_admin（播种于 007_seed_users，生产可达）。
-var platformGovernanceRoles = setOf("college_admin", "school_admin", "sys_admin")
-
-// isSpecialRiskGovernance 判断用户是否为 R3 专项审批人。
-//
-// R3 与 R2 治理口径分离：R2 走一般平台治理角色（platform_operator 成员）的双人审批；
-// R3 按 PRD 13.1「禁止或专项审批 → 默认禁止，按学校制度专项审批」落地为更强的专项
-// 通道——R3 风险只由「项目内 platform_operator 成员 + 治理系统角色」创建与审批，普通
-// manager 不得越权，一般 platform_operator（非治理系统角色）也不得越权。
-//
-// 此处复用既有的 platform_operator 项目角色与治理系统角色，不再引入不可授的独立
-// risk_governance 项目角色：platform_operator 经平台治理侧数据分配（与 R2 同源），
-// 治理系统角色经 RBAC 角色授予，二者在生产均为可达，专项审批因此可被真实授予并验收。
-func isSpecialRiskGovernance(tx *sql.Tx, projectID, userID int64) bool {
-	var role, sysRole string
-	if err := tx.QueryRow(`SELECT m.project_role, u.role FROM vopc_project_members m JOIN users u ON u.id=m.user_id WHERE m.project_id=? AND m.user_id=? AND m.status='active'`, projectID, userID).Scan(&role, &sysRole); err != nil {
-		return false
-	}
-	return role == "platform_operator" && platformGovernanceRoles[sysRole]
+// isRiskAdvisorOrAdmin 是 R2/R0/R1 风险审批人的统一口径：项目导师/评审者「或」授权管理员。
+// 单人有效审核即通过，不再要求两名不同审批人。
+func isRiskAdvisorOrAdmin(tx *sql.Tx, projectID, userID int64) bool {
+	return isProjectAdvisor(tx, projectID, userID) || isAuthorizedAdmin(tx, userID)
 }
 
-// CreateRisk 在项目内登记一条风险。创建后风险为 open；R2/R3 风险在审批通过前
+// CreateRisk 在项目内登记一条风险。创建后风险为 open；R2/R3 风险在审批通过/专项审批前
 // 不允许推进里程碑（由 milestone gate 校验）。
 func (h *VOPCHandler) CreateRisk(c *gin.Context) {
 	id, ok := projectID(c)
@@ -84,30 +89,39 @@ func (h *VOPCHandler) CreateRisk(c *gin.Context) {
 		return
 	}
 	u := middleware.GetUserContext(c)
-	// R3 专项口径先于普通 manage 边界判断：专项治理角色（platform_operator + 治理系统角色）
-	// 作为项目成员经 readableProject 通过，再以 isSpecialRiskGovernance 二次校验；普通 manager
-	// 仍走 manageableProject。避免把专项治理权直接放大为完整项目管理权。
+	// R3 风险（禁止或专项审批）是重大风险：仅授权管理员可登记，且之后不进入普通审批，
+	// 必须按学校制度专项审批后方可解除推进阻断。R0/R1/R2 维持既有的项目管理者创建语义。
 	var tx *sql.Tx
-	var owner int64
 	var acquired bool
 	if in.RiskLevel == "R3" {
-		tx, owner, acquired = h.readableProject(c, id)
+		// R3 登记是平台治理动作，可用项目成员关系之外的授权管理员路径；自行开启事务并
+		// 校验项目存在 + 授权管理员，避免 readableProject 的成员关系 404 约束拦下管理员。
+		var err error
+		tx, err = h.db.Begin()
+		if err != nil {
+			serverError(c, "风险登记失败")
+			return
+		}
+		defer tx.Rollback()
+		var exist int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM vopc_projects WHERE id=?`, id).Scan(&exist); err != nil || exist != 1 {
+			c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权访问"})
+			return
+		}
+		if !isAuthorizedAdmin(tx, u.UserID) {
+			c.JSON(403, gin.H{"code": 403, "message": "R3 风险仅授权管理员可登记"})
+			return
+		}
+		acquired = true
 	} else {
-		tx, owner, acquired = h.manageableProject(c, id)
+		tx, _, acquired = h.manageableProject(c, id)
+		if !acquired {
+			return
+		}
+		defer tx.Rollback()
 	}
-	if !acquired {
-		return
-	}
-	defer tx.Rollback()
-	_ = owner
 	if blocked, msg := projectBlockedForWrite(tx, id); blocked {
 		c.JSON(409, gin.H{"code": 409, "message": msg})
-		return
-	}
-	// R3 专项口径：仅平台专项治理角色可登记 R3 风险，普通 manager（owner/co_owner）
-	// 不得替项目擅自创建“禁止或专项审批”级别风险。R0/R1/R2 维持既有创建语义。
-	if in.RiskLevel == "R3" && !isSpecialRiskGovernance(tx, id, u.UserID) {
-		c.JSON(403, gin.H{"code": 403, "message": "R3 风险仅平台专项治理角色可创建"})
 		return
 	}
 	res, err := tx.Exec(`INSERT INTO vopc_risks(project_id,risk_level,title,description,reported_by) VALUES(?,?,?,?,?)`, id, in.RiskLevel, in.Title, in.Description, u.UserID)
@@ -179,8 +193,14 @@ func (h *VOPCHandler) ListRisks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
 }
 
-// ApproveRisk 平台治理角色对风险做出 approve/reject。R2 解除推进阻断需“双人审批”：
-// 同一条风险未被两个不同审批人都 approve 前，R2/R3 项目里程碑仍被拦截。
+// ApproveRisk 对 R0/R1/R2 风险做出 approve/reject。
+//
+// PRD §13.1 校正：R2「导师/管理员审核与安全检查」为「导师或管理员」单人有效审核即可
+// 解除推进阻断，不再要求两名不同审批人。审批人须为项目导师（mentor/reviewer 成员）或
+// 持有 vopc.risk.manage 能力的授权管理员。
+//
+// R3「禁止或专项审批」不走本普通审批通道：平台不内置「双人 approve」伪专项机制，一律
+// 拒绝并引导走学校制度专项审批（见 CreateSpecialApproval / ListSpecialApprovals）。
 func (h *VOPCHandler) ApproveRisk(c *gin.Context) {
 	id, ok := projectID(c)
 	if !ok {
@@ -234,15 +254,14 @@ func (h *VOPCHandler) ApproveRisk(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "风险不存在或无权操作"})
 		return
 	}
-	// 审批权限按风险等级分流：R3 走独立专项通道（platform_operator + 治理系统角色），
-	// R2 及以下走一般平台治理（platform_operator）。两者不可互相越权。
+	// R3 不进入普通审批：默认禁止推进，仅按学校制度专项审批（专项审批记录）放行。
 	if riskLevel == "R3" {
-		if !isSpecialRiskGovernance(tx, id, u.UserID) {
-			c.JSON(403, gin.H{"code": 403, "message": "R3 风险仅专项审批角色可审批"})
-			return
-		}
-	} else if !isRiskManager(tx, id, u.UserID) {
-		c.JSON(403, gin.H{"code": 403, "message": "仅平台治理角色可审批风险"})
+		c.JSON(409, gin.H{"code": 409, "message": "R3 风险不通过平台普通审批，须按学校制度专项审批"})
+		return
+	}
+	// 审批人须为项目导师/评审者成员「或」授权管理员。
+	if !isRiskAdvisorOrAdmin(tx, id, u.UserID) {
+		c.JSON(403, gin.H{"code": 403, "message": "仅项目导师/评审者或授权管理员可审批风险"})
 		return
 	}
 	if riskStatus != "open" {
@@ -263,25 +282,14 @@ func (h *VOPCHandler) ApproveRisk(c *gin.Context) {
 		serverError(c, "审批记录写入失败")
 		return
 	}
-	nextStatus := riskStatus
+	// 单人有效审批：approve 即 approved，reject 即 rejected。
+	nextStatus := "approved"
 	if in.Decision == "reject" {
 		nextStatus = "rejected"
-	} else {
-		// approve：累计两名不同审批人 approve 才转为 approved。
-		var approveCount int
-		if err = tx.QueryRow(`SELECT COUNT(DISTINCT approver_user_id) FROM vopc_risk_approvals WHERE risk_id=? AND decision='approve'`, rid).Scan(&approveCount); err != nil {
-			serverError(c, "审批失败")
-			return
-		}
-		if approveCount >= 2 {
-			nextStatus = "approved"
-		}
 	}
-	if nextStatus != riskStatus {
-		if _, err = tx.Exec(`UPDATE vopc_risks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'`, nextStatus, rid); err != nil {
-			serverError(c, "风险状态更新失败")
-			return
-		}
+	if _, err = tx.Exec(`UPDATE vopc_risks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'`, nextStatus, rid); err != nil {
+		serverError(c, "风险状态更新失败")
+		return
 	}
 	if writeEvent(tx, id, u.UserID, "risk."+in.Decision+"d", riskStatus, nextStatus, "风险 #"+itoa(rid)+"："+in.Reason) != nil {
 		serverError(c, "审批审计写入失败")
@@ -295,8 +303,118 @@ func (h *VOPCHandler) ApproveRisk(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"id": rid, "status": nextStatus, "level": riskLevel}})
 }
 
-// FreezeProject 平台治理角色冻结或解冻项目。冻结后项目进入 risk_frozen，所有
-// 写操作被 blockedStatuses 拦截；解冻恢复。必须填写理由并审计。
+// CreateSpecialApproval 登记一条 R3 专项审批记录（按学校制度）。
+//
+// PRD §13.1：R3「禁止或专项审批 → 默认禁止，按学校制度专项审批」。专项审批是学校制度
+// 的外部批准行为，平台仅记录其批准结果（approver=审批主体/机构、reason=批准理由、
+// ref=学校制度批文或依据），不伪造、不代学校裁决。仅持有 vopc.risk.manage 能力的授权
+// 管理员可登记；存在有效专项审批记录后，R3 阻断（里程碑/发布/文件外发）才解除。
+func (h *VOPCHandler) CreateSpecialApproval(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	var in struct {
+		Reason   string `json:"reason"`
+		Approver string `json:"approver"`
+		Ref      string `json:"ref"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"code": 400, "message": "请求 JSON 格式错误"})
+		return
+	}
+	in.Reason = strings.TrimSpace(in.Reason)
+	in.Approver = strings.TrimSpace(in.Approver)
+	in.Ref = strings.TrimSpace(in.Ref)
+	if in.Reason == "" || utf8.RuneCountInString(in.Reason) > 4000 {
+		c.JSON(422, gin.H{"code": 422, "message": "专项审批理由必填且不超过 4000 字"})
+		return
+	}
+	if in.Approver == "" || utf8.RuneCountInString(in.Approver) > 200 {
+		c.JSON(422, gin.H{"code": 422, "message": "审批主体必填且不超过 200 字"})
+		return
+	}
+	if utf8.RuneCountInString(in.Ref) > 500 {
+		c.JSON(422, gin.H{"code": 422, "message": "审批依据/批文编号超过 500 字"})
+		return
+	}
+	u := middleware.GetUserContext(c)
+	tx, err := h.db.Begin()
+	if err != nil {
+		serverError(c, "专项审批登记失败")
+		return
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+	if !isAuthorizedAdmin(tx, u.UserID) {
+		c.JSON(403, gin.H{"code": 403, "message": "仅授权管理员可登记专项审批"})
+		return
+	}
+	var owner int64
+	if err = tx.QueryRow(`SELECT owner_user_id FROM vopc_projects WHERE id=?`, id).Scan(&owner); errors.Is(err, sql.ErrNoRows) {
+		c.JSON(404, gin.H{"code": 404, "message": "项目不存在"})
+		return
+	} else if err != nil {
+		serverError(c, "专项审批登记失败")
+		return
+	}
+	res, err := tx.Exec(`INSERT INTO vopc_risk_special_approvals(project_id,reason,approver,ref,created_by) VALUES(?,?,?,?,?)`, id, in.Reason, in.Approver, in.Ref, u.UserID)
+	if err != nil {
+		serverError(c, "专项审批登记失败")
+		return
+	}
+	sid, _ := res.LastInsertId()
+	if writeEvent(tx, id, u.UserID, "risk.special_approval", "", "approved", "专项审批 #"+itoa(sid)+"："+in.Approver) != nil {
+		serverError(c, "专项审批审计写入失败")
+		return
+	}
+	if tx.Commit() != nil {
+		serverError(c, "专项审批登记失败")
+		return
+	}
+	committed = true
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "data": gin.H{"id": sid}})
+}
+
+// ListSpecialApprovals 只读返回项目专项审批记录。
+func (h *VOPCHandler) ListSpecialApprovals(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	tx, _, ok := h.readableProject(c, id)
+	if !ok {
+		return
+	}
+	defer tx.Rollback()
+	rows, err := tx.Query(`SELECT id,reason,approver,ref,created_by,created_at FROM vopc_risk_special_approvals WHERE project_id=? ORDER BY id DESC`, id)
+	if err != nil {
+		serverError(c, "专项审批列表读取失败")
+		return
+	}
+	defer rows.Close()
+	items := []gin.H{}
+	for rows.Next() {
+		var sid, createdBy int64
+		var reason, approver, ref, createdAt string
+		if rows.Scan(&sid, &reason, &approver, &ref, &createdBy, &createdAt) != nil {
+			serverError(c, "专项审批列表读取失败")
+			return
+		}
+		items = append(items, gin.H{"id": sid, "reason": reason, "approver": approver, "ref": ref, "created_by": createdBy, "created_at": createdAt})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
+}
+
+// FreezeProject 授权管理员冻结或解冻项目。冻结后项目进入 risk_frozen，所有写操作被
+// blockedStatuses 拦截；解冻恢复。必须填写理由并审计。
+//
+// PRD §9.1 / §13.2：冻结/解冻权归 vopc.risk.manage（授权管理员），不依赖项目内
+// platform_operator 成员关系。
 func (h *VOPCHandler) FreezeProject(c *gin.Context) {
 	id, ok := projectID(c)
 	if !ok {
@@ -340,8 +458,8 @@ func (h *VOPCHandler) FreezeProject(c *gin.Context) {
 		serverError(c, "冻结操作失败")
 		return
 	}
-	if !isRiskManager(tx, id, u.UserID) {
-		c.JSON(403, gin.H{"code": 403, "message": "仅平台治理角色可冻结/解冻项目"})
+	if !isAuthorizedAdmin(tx, u.UserID) {
+		c.JSON(403, gin.H{"code": 403, "message": "仅授权管理员可冻结/解冻项目"})
 		return
 	}
 	if in.Action == "freeze" {
@@ -432,7 +550,9 @@ func (h *VOPCHandler) CreateRiskAppeal(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"code": 0, "data": gin.H{"id": aid, "status": "pending"}})
 }
 
-// ResolveRiskAppeal 平台治理角色裁定申诉（upheld 维持原处置 / dismissed 驳回）。
+// ResolveRiskAppeal 授权管理员裁定申诉（upheld 维持原处置 / dismissed 驳回）。
+//
+// PRD §9.1 / §13.2：申诉裁定权归 vopc.risk.manage（授权管理员）。
 func (h *VOPCHandler) ResolveRiskAppeal(c *gin.Context) {
 	id, ok := projectID(c)
 	if !ok {
@@ -486,8 +606,8 @@ func (h *VOPCHandler) ResolveRiskAppeal(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "申诉不存在"})
 		return
 	}
-	if !isRiskManager(tx, id, u.UserID) {
-		c.JSON(403, gin.H{"code": 403, "message": "仅平台治理角色可裁定申诉"})
+	if !isAuthorizedAdmin(tx, u.UserID) {
+		c.JSON(403, gin.H{"code": 403, "message": "仅授权管理员可裁定申诉"})
 		return
 	}
 	if status != "pending" {
@@ -519,39 +639,36 @@ func (h *VOPCHandler) ResolveRiskAppeal(c *gin.Context) {
 
 // milestoneAdvanceAllowed 是里程碑推进门禁。
 //
-// R2（一般风险）：项目 risk_level 为 R2 时，必须存在至少一条 status=approved 且
-// risk_level=R2 的风险（即已经平台双人审批）方可推进里程碑。
+// 按 PRD §13.1 分级口径：
+//   - R2（较高风险）：需存在至少一条 status=approved 且 risk_level=R2 的风险，即已由
+//     「导师或管理员」单人有效审核通过，方可推进里程碑。
+//   - R3（禁止或专项审批）：一旦项目为 R3，或项目上登记了 R3 风险，即进入 R3-tier——
+//     默认禁止推进，仅当存在至少一条学校制度专项审批记录
+//     （vopc_risk_special_approvals）时才放行。R3 与 R2 不可混同：普通 approve 不计入
+//     R3 的放行条件。
+//   - R0/R1：不设风险门禁（R0 自动进入孵化，R1 用户告知与基础审核）。
 //
-// R3（禁止或专项审批）：一旦项目为 R3，或项目上登记了任意未通过专项审批的 R3
-// 风险，即视为 R3-tier，在“两名不同专项审批人（platform_operator + 治理系统角色）
-// 均 approve”之前
-// 一律禁止推进里程碑。R3 较 R2 更严格：即使项目本体是 R0/R1/R2，只要挂有否决级
-// R3 风险，也必须先走专项审批。
 // 返回 (是否允许, 错误文案, 状态码)。
 func milestoneAdvanceAllowed(tx *sql.Tx, projectID int64) (bool, string, int) {
 	var riskLevel string
 	if err := tx.QueryRow(`SELECT risk_level FROM vopc_projects WHERE id=?`, projectID).Scan(&riskLevel); err != nil {
 		return false, "项目风险门禁读取失败", 500
 	}
-	// 是否存在未通过专项审批的 R3 风险。
-	var r3Outstanding int
-	if err := tx.QueryRow(`SELECT COUNT(*) FROM vopc_risks WHERE project_id=? AND risk_level='R3' AND status<>'approved'`, projectID).Scan(&r3Outstanding); err != nil {
+	// 项目上是否存在 R3 风险项（无论该项的普通状态如何，R3 默认禁止）。
+	var r3RiskCount int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM vopc_risks WHERE project_id=? AND risk_level='R3'`, projectID).Scan(&r3RiskCount); err != nil {
 		return false, "项目风险门禁读取失败", 500
 	}
-	// 项目级别 R3：需专项审批通过的 R3 风险。
-	if riskLevel == "R3" {
+	isR3 := riskLevel == "R3" || r3RiskCount > 0
+	if isR3 {
 		var n int
-		if err := tx.QueryRow(`SELECT COUNT(*) FROM vopc_risks WHERE project_id=? AND risk_level='R3' AND status='approved'`, projectID).Scan(&n); err != nil {
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM vopc_risk_special_approvals WHERE project_id=?`, projectID).Scan(&n); err != nil {
 			return false, "项目风险门禁读取失败", 500
 		}
 		if n == 0 {
-			return false, "R3 项目须经平台专项审批后方可推进里程碑", 409
+			return false, "R3 项目须按学校制度专项审批后方可推进里程碑", 409
 		}
 		return true, "", 0
-	}
-	// 即使项目本体非 R3，存在未专项审批的 R3 风险也阻断（禁止推进）。
-	if r3Outstanding > 0 {
-		return false, "存在未通过专项审批的 R3 风险，禁止推进里程碑", 409
 	}
 	if riskLevel != "R2" {
 		return true, "", 0
@@ -561,7 +678,7 @@ func milestoneAdvanceAllowed(tx *sql.Tx, projectID int64) (bool, string, int) {
 		return false, "项目风险门禁读取失败", 500
 	}
 	if n == 0 {
-		return false, "R2 项目须经平台双人审批后方可推进里程碑", 409
+		return false, "R2 项目须经导师或管理员审核通过后方可推进里程碑", 409
 	}
 	return true, "", 0
 }

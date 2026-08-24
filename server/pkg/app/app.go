@@ -345,6 +345,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	if dir := strings.TrimSpace(cfg.VOPCUploadDir); dir != "" {
 		vopcHandler.SetUploadDir(dir)
 	}
+	// v2.0 虚拟向导：不再注入真实 LLM（模板化草稿生成，零外部模型依赖）。
+	// L4 远期若接入真实执行，可在此处显式 SetLLMClient（当前为兼容空实现）。
 	portalCredHandler.SetProxyService(portalProxySvc)
 
 	// 打卡服务（S1 学生核心功能）

@@ -179,6 +179,8 @@ class ApiConfig {
 
   // ── vOPC 项目孵化 ──
   static const String vopcAccess = '$apiPrefix/vopc/access';
+  static const String vopcLearning = '$apiPrefix/vopc/learning';
+  static const String vopcGuides = '$apiPrefix/vopc/guides';
   static const String vopcProjects = '$apiPrefix/vopc/projects';
   static String vopcProject(int id) => '$apiPrefix/vopc/projects/$id';
   static String vopcProjectTasks(int id) =>
@@ -200,10 +202,63 @@ class ApiConfig {
       '$apiPrefix/vopc/projects/$projectId/artifacts/$artifactId/versions';
   static String vopcMilestoneSubmissions(int id) =>
       '$apiPrefix/vopc/projects/$id/milestone-submissions';
+  static String vopcAiRoles(int id) => '$apiPrefix/vopc/projects/$id/ai-roles';
+  static String vopcProjectDelete(int id) =>
+      '$apiPrefix/vopc/projects/$id/delete';
+  static const String vopcUsersSearch = '$apiPrefix/vopc/users/search';
   static String vopcMilestoneReview(int projectId, int submissionId) =>
       '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/review';
   static String vopcProjectSubmit(int id) =>
       '$apiPrefix/vopc/projects/$id/submit';
+
+  // ── vOPC v2.0 L3 治理层（结项/风险/里程碑门禁/私有文件/虚拟向导） ──
+  // 结项与异常状态机
+  static String vopcProjectClose(int id) =>
+      '$apiPrefix/vopc/projects/$id/close';
+  static String vopcProjectCloseRecords(int id) =>
+      '$apiPrefix/vopc/projects/$id/close-records';
+  // 风险治理
+  static String vopcProjectRisks(int id) =>
+      '$apiPrefix/vopc/projects/$id/risks';
+  static String vopcRiskApprove(int projectId, int riskId) =>
+      '$apiPrefix/vopc/projects/$projectId/risks/$riskId/approve';
+  static String vopcSpecialApprovals(int id) =>
+      '$apiPrefix/vopc/projects/$id/special-approvals';
+  static String vopcProjectFreeze(int id) =>
+      '$apiPrefix/vopc/projects/$id/freeze';
+  static String vopcRiskAppeals(int id) =>
+      '$apiPrefix/vopc/projects/$id/risk-appeals';
+  static String vopcRiskAppealResolve(int projectId, int appealId) =>
+      '$apiPrefix/vopc/projects/$projectId/risk-appeals/$appealId/resolve';
+  // 私有文件受控上传与鉴权下载
+  static String vopcProjectFiles(int id) =>
+      '$apiPrefix/vopc/projects/$id/files';
+  static String vopcProjectFile(int id, String objectKey) =>
+      '$apiPrefix/vopc/projects/$id/files/$objectKey';
+  // 里程碑完整业务门禁（评分量表/条件闭环/豁免/甲方结构化证据）
+  static String vopcRubrics(int id) =>
+      '$apiPrefix/vopc/projects/$id/rubrics';
+  static String vopcSubmissionReview(int projectId, int submissionId) =>
+      '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/review';
+  static String vopcMarkCondition(int projectId, int submissionId, int conditionId) =>
+      '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/conditions/$conditionId';
+  static String vopcFinalizeMilestone(int projectId, int submissionId) =>
+      '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/finalize';
+  static String vopcMilestoneWaivers(int id) =>
+      '$apiPrefix/vopc/projects/$id/milestone-waivers';
+  static String vopcMilestoneWaiverReview(int projectId, int waiverId) =>
+      '$apiPrefix/vopc/projects/$projectId/milestone-waivers/$waiverId/review';
+  static String vopcClientEvidence(int id) =>
+      '$apiPrefix/vopc/projects/$id/client-evidence';
+  static String vopcClientEvidenceUpdate(int projectId, int evidenceId) =>
+      '$apiPrefix/vopc/projects/$projectId/client-evidence/$evidenceId';
+  // 虚拟向导（AI 任务四态审阅）
+  static String vopcAITasks(int id) =>
+      '$apiPrefix/vopc/projects/$id/ai-tasks';
+  static String vopcAITask(int id, int taskId) =>
+      '$apiPrefix/vopc/projects/$id/ai-tasks/$taskId';
+  static String vopcAITaskReview(int id, int taskId) =>
+      '$apiPrefix/vopc/projects/$id/ai-tasks/$taskId/review';
 
   // ── AI 模型配置 ──
   static const String modelConfig = '$apiPrefix/user/model-config';

@@ -252,7 +252,7 @@ func TestVOPCFileMilestoneGateIntegration(t *testing.T) {
 	}
 	_ = json.Unmarshal(art.Body.Bytes(), &aid)
 	ver := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(aid.Data.ID, 10)+"/versions", owner, map[string]any{
-		"version": "v1", "source_kind": "storage_ref", "source_ref": f.Data.Key, "checksum": f.Data.Checksum, "intended_stage": "S2",
+		"version": "v1", "source_kind": "storage_ref", "source_ref": f.Data.Key, "checksum": f.Data.Checksum, "intended_stage": "G2",
 	})
 	if ver.Code != 201 {
 		t.Fatalf("storage_ref 版本创建 got %d %s", ver.Code, ver.Body.String())
@@ -265,12 +265,12 @@ func TestVOPCFileMilestoneGateIntegration(t *testing.T) {
 	_ = json.Unmarshal(ver.Body.Bytes(), &vid)
 
 	if got := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(aid.Data.ID, 10)+"/versions", owner, map[string]any{
-		"version": "v2", "source_kind": "storage_ref", "source_ref": "not-a-key", "checksum": f.Data.Checksum, "intended_stage": "S2",
+		"version": "v2", "source_kind": "storage_ref", "source_ref": "not-a-key", "checksum": f.Data.Checksum, "intended_stage": "G2",
 	}).Code; got != 422 {
 		t.Fatalf("非法 storage_ref 版本 got %d, want 422", got)
 	}
 	if got := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(aid.Data.ID, 10)+"/versions", owner, map[string]any{
-		"version": "v3", "source_kind": "storage_ref", "source_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "checksum": f.Data.Checksum, "intended_stage": "S2",
+		"version": "v3", "source_kind": "storage_ref", "source_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "checksum": f.Data.Checksum, "intended_stage": "G2",
 	}).Code; got != 422 {
 		t.Fatalf("不存在 key 版本 got %d, want 422", got)
 	}
@@ -279,7 +279,7 @@ func TestVOPCFileMilestoneGateIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	sub := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{
-		"stage": "S2", "evidence": "受控文件作为阶段性证据", "artifact_version_ids": []int64{vid.Data.ID}, "reviewer_user_id": 4,
+		"stage": "G2", "evidence": "受控文件作为阶段性证据", "artifact_version_ids": []int64{vid.Data.ID}, "reviewer_user_id": 4,
 	})
 	if sub.Code != 201 {
 		t.Fatalf("里程碑提交 got %d %s", sub.Code, sub.Body.String())

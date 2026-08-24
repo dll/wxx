@@ -134,6 +134,9 @@ func setupRouter(d *deps) *gin.Engine {
 			vopc.Use(handler.CollegeAccess(d.cfg.VOPCCollegeID))
 			{
 				vopc.GET("/access", d.vopcH.AccessStatus)
+				vopc.GET("/learning", d.vopcH.Learning)
+				vopc.GET("/guides", d.vopcH.Guides)
+				vopc.GET("/users/search", d.vopcH.SearchUsers)
 				vopc.GET("/projects", d.vopcH.ListProjects)
 				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
 				vopc.GET("/projects/:id", d.vopcH.GetProject)
@@ -155,7 +158,25 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.GET("/projects/:id/files/:key", d.vopcH.DownloadFile)
 				vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
 				vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
+				vopc.GET("/projects/:id/ai-roles", d.vopcH.ListAIRoles)
 				vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)
+				// vOPC A4 里程碑完整业务门禁：评分量表 / 条件闭环 / 豁免 / 甲方结构化证据
+				vopc.GET("/projects/:id/rubrics", d.vopcH.ListRubrics)
+				vopc.GET("/projects/:id/milestone-submissions/:submissionId/review", d.vopcH.GetSubmissionReview)
+				vopc.PUT("/projects/:id/milestone-submissions/:submissionId/conditions/:conditionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.MarkConditionSatisfied)
+				vopc.POST("/projects/:id/milestone-submissions/:submissionId/finalize", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.FinalizeMilestone)
+				vopc.GET("/projects/:id/milestone-waivers", d.vopcH.ListMilestoneWaivers)
+				vopc.POST("/projects/:id/milestone-waivers", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateMilestoneWaiver)
+				vopc.POST("/projects/:id/milestone-waivers/:waiverId/review", auth.RequireAnyCapability(auth.VOPCMentorReview, auth.VOPCMilestoneReview, auth.VOPCRiskManage), d.vopcH.ReviewMilestoneWaiver)
+				vopc.GET("/projects/:id/client-evidence", d.vopcH.ListClientEvidence)
+				vopc.POST("/projects/:id/client-evidence", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateClientEvidence)
+				vopc.PUT("/projects/:id/client-evidence/:evidenceId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateClientEvidence)
+				// vOPC B1 AI 任务真实执行闭环
+				vopc.POST("/projects/:id/ai-tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateAITask)
+				vopc.GET("/projects/:id/ai-tasks", d.vopcH.ListAITasks)
+				vopc.GET("/projects/:id/ai-tasks/:taskId", d.vopcH.GetAITask)
+				vopc.POST("/projects/:id/ai-tasks/:taskId/review", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ReviewAITask)
+				vopc.POST("/projects/:id/ai-tasks/:taskId/retry", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.RetryAITask)
 				vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
 				vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
 				vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
@@ -163,11 +184,15 @@ func setupRouter(d *deps) *gin.Engine {
 				// 结项与异常状态机
 				vopc.POST("/projects/:id/close", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CloseProject)
 				vopc.GET("/projects/:id/close-records", d.vopcH.ListCloseRecords)
+				// 项目生命周期：删除（仅草稿）——归档走既有 close archive 动作。
+				vopc.POST("/projects/:id/delete", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.DeleteProject)
 
 				// 风险治理
 				vopc.GET("/projects/:id/risks", d.vopcH.ListRisks)
 				vopc.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRisk)
-				vopc.POST("/projects/:id/risks/:riskId/approve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ApproveRisk)
+				vopc.POST("/projects/:id/risks/:riskId/approve", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCMentorReview), d.vopcH.ApproveRisk)
+				vopc.GET("/projects/:id/special-approvals", d.vopcH.ListSpecialApprovals)
+				vopc.POST("/projects/:id/special-approvals", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.CreateSpecialApproval)
 				vopc.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.FreezeProject)
 				vopc.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRiskAppeal)
 				vopc.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ResolveRiskAppeal)

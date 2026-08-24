@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -60,7 +63,7 @@ func (in *closeInput) normalizeAndValidate() (string, int) {
 // vopc_close_records 与 vopc_events，任一步失败整体回滚。
 //
 // 合法流转：
-//   - close：仅 closeable → completed
+//   - close：仅 closeable → completed（G4 复盘后结项）
 //   - pause：任何非 draft/completed/closeable/terminated/archived 状态 → paused
 //   - resume：仅 paused → 恢复到此前的活跃状态
 //   - pivot：活跃或 paused → draft（回到 S0 重新定向）
@@ -135,9 +138,9 @@ func (h *VOPCHandler) CloseProject(c *gin.Context) {
 		}
 	}
 
-	// pivot 回到 S0 草案重定向：阶段回退、里程碑复位。
+	// pivot 回到 G0 草案重定向：阶段回退、里程碑复位。
 	if in.Action == "pivot" {
-		res, e := tx.Exec(`UPDATE vopc_projects SET stage='S0',status=?,submitted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=?`, next, id, status)
+		res, e := tx.Exec(`UPDATE vopc_projects SET stage='G0',status=?,submitted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=?`, next, id, status)
 		if e != nil {
 			serverError(c, "转向失败")
 			return
@@ -146,7 +149,7 @@ func (h *VOPCHandler) CloseProject(c *gin.Context) {
 			c.JSON(409, gin.H{"code": 409, "message": "项目状态已变化，请刷新后重试"})
 			return
 		}
-		if _, e = tx.Exec(`UPDATE vopc_milestones SET status='pending',review_note='' WHERE project_id=? AND stage<>'S0'`, id); e != nil {
+		if _, e = tx.Exec(`UPDATE vopc_milestones SET status='pending',review_note='' WHERE project_id=? AND stage<>'G0'`, id); e != nil {
 			serverError(c, "转向失败")
 			return
 		}
@@ -194,10 +197,13 @@ func (h *VOPCHandler) CloseProject(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"id": id, "status": next, "stage": stageForStatus(next, stage)}})
 }
 
-// stageForStatus 返回动作后的展示阶段；closeable/completed 保持 S9。
+// stageForStatus 返回动作后的展示阶段；draft 回到 G0，closeable/completed 保持 G4。
 func stageForStatus(status, curStage string) string {
 	if status == "draft" {
-		return "S0"
+		return "G0"
+	}
+	if status == "closeable" || status == "completed" {
+		return "G4"
 	}
 	return curStage
 }
@@ -232,7 +238,10 @@ func closeTransition(from, action string) (string, bool) {
 		}
 		return "terminated", true
 	case "archive":
-		if from != "completed" && from != "terminated" {
+		// 允许归档：completed / terminated（原有）以及 draft 之外的常规可操作状态（收尾留存项目）。
+		// 排除：archived（已归档）、completed/terminated 之外的所有终态由上面分支命中；
+		// draft 草稿不入归档（草稿可删除）——但若用户选择归档也放行，便于统一入口。
+		if from == "archived" {
 			return "", false
 		}
 		return "archived", true
@@ -268,4 +277,75 @@ func (h *VOPCHandler) ListCloseRecords(c *gin.Context) {
 		items = append(items, gin.H{"id": rid, "action": action, "reason": reason, "failure_evidence": fe, "outcome_package": op, "human_decision": hd, "decided_by": by, "previous_status": prev, "new_status": next, "created_at": created})
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
+}
+
+// DeleteProject 硬删除一个 S0 草稿项目并级联清理全部关联数据（数据链路贯通）。
+// 权限：VOPCProjectManage（主理人/联合主理人，projectPolicy manage）。
+// 边界：仅允许删除 draft 草稿；已提交/进行/终止/归档项目禁止删除（数据沉淀，请走 archive 归档）。
+// 依赖 ON DELETE CASCADE：生产连接已启用 foreign_keys(on)，子表全链路级联。
+func (h *VOPCHandler) DeleteProject(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	u := middleware.GetUserContext(c)
+	tx, err := h.db.Begin()
+	if err != nil {
+		serverError(c, "项目删除失败")
+		return
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+	var owner int64
+	var status string
+	if err := tx.QueryRow(`SELECT owner_user_id,status FROM vopc_projects WHERE id=?`, id).Scan(&owner, &status); errors.Is(err, sql.ErrNoRows) {
+		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
+		return
+	} else if err != nil {
+		serverError(c, "项目读取失败")
+		return
+	}
+	allowed, e := projectPolicy(tx, id, u.UserID, owner, "manage")
+	if e != nil || !allowed {
+		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
+		return
+	}
+	if status != "draft" {
+		c.JSON(409, gin.H{"code": 409, "message": "仅 G0 草稿项目可删除；已提交或已归档项目请使用归档或结项"})
+		return
+	}
+	// 删除前留痕（写全局概念：draft 项目删除本身即终态，先写一条 close_records 不可行——
+	// 该表随项目级联；此处直接清理。如需删除审计，应接入全局 audit 通道，本期记录日志即可。）
+	if _, err := tx.Exec(`DELETE FROM vopc_projects WHERE id=? AND status='draft'`, id); err != nil {
+		serverError(c, "项目删除失败")
+		return
+	}
+	// 显式清理磁盘私有文件目录（DB 行走级联；磁盘对象按 uploadDir/<projectID> 清理）。
+	// 注意：不能用 resolveUploadDir（它会重新 mkdir）；这里纯路径拼接后删除。
+	if dir, derr := h.projectUploadDirPath(id); derr == nil {
+		_ = os.RemoveAll(dir)
+	}
+	if err := tx.Commit(); err != nil {
+		serverError(c, "项目删除失败")
+		return
+	}
+	committed = true
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"id": id, "deleted": true}})
+}
+
+// projectUploadDirPath 返回项目私有文件磁盘目录路径（纯拼接，不创建）。
+func (h *VOPCHandler) projectUploadDirPath(projectID int64) (string, error) {
+	root := h.uploadDir
+	if root == "" {
+		root = ".uploads/vopc"
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(abs, strconv.FormatInt(projectID, 10)), nil
 }

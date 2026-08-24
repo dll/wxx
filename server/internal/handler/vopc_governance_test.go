@@ -9,10 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// helper: 在当前测试中追加一名 college_admin 用户，用于双人审批。
+// helper: 在当前测试中追加一名 college_admin 用户。
 func addCollegeAdmin(t *testing.T, db *sql.DB, id int) {
 	t.Helper()
 	if _, err := db.Exec(`INSERT INTO users(id,username,display_name,role,owner_scope,owner_id) VALUES(?,?,?,?,?,?)`, id, "u"+strconv.Itoa(id), "管理员"+strconv.Itoa(id), "college_admin", "college", "cs"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// helper: 在当前测试中追加一名 teacher 用户，用于 R2「导师」（mentor）单人审核路径。
+func addTeacher(t *testing.T, db *sql.DB, id int) {
+	t.Helper()
+	if _, err := db.Exec(`INSERT INTO users(id,username,display_name,role,owner_scope,owner_id) VALUES(?,?,?,?,?,?)`, id, "u"+strconv.Itoa(id), "教师"+strconv.Itoa(id), "teacher", "college", "cs"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -128,13 +136,13 @@ func TestVOPCPivotResetsProject(t *testing.T) {
 	if err := db.QueryRow(`SELECT stage,status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage, &status); err != nil {
 		t.Fatal(err)
 	}
-	if stage != "S0" || status != "draft" {
-		t.Fatalf("post-pivot = %s/%s, want S0/draft", stage, status)
+	if stage != "G0" || status != "draft" {
+		t.Fatalf("post-pivot = %s/%s, want G0/draft", stage, status)
 	}
 	var resets int
-	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_milestones WHERE project_id=? AND stage<>'S0' AND status='pending'`, out.Data.ID).Scan(&resets)
-	if resets != 9 {
-		t.Fatalf("milestone resets=%d want 9", resets)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_milestones WHERE project_id=? AND stage<>'G0' AND status='pending'`, out.Data.ID).Scan(&resets)
+	if resets != 4 {
+		t.Fatalf("milestone resets=%d want 4", resets)
 	}
 }
 
@@ -143,9 +151,13 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 	r := vopcRouter(db)
 	owner := token(t, 1, "student", "college", "cs", "active")
 	admin := token(t, 4, "college_admin", "college", "cs", "active")
-	addCollegeAdmin(t, db, 6)
-	admin2 := token(t, 6, "college_admin", "college", "cs", "active")
-	// R2 项目（个人数据）。
+	// 导师路径：teacher 持有 vopc.mentor.review，作为本项目 mentor 成员可单人审核 R2。
+	addTeacher(t, db, 9)
+	mentor := token(t, 9, "teacher", "college", "cs", "active")
+	// 越权者：teacher 持有 vopc.mentor.review 但非本项目 mentor 成员，应被 in-handler 拒绝。
+	addTeacher(t, db, 10)
+	stranger := token(t, 10, "teacher", "college", "cs", "active")
+	// R2 项目（个人数据触发升档）。
 	proj := validProject()
 	proj["data_type"] = "个人数据"
 	w := request(r, "POST", "/api/v1/vopc/projects", owner, proj)
@@ -159,11 +171,13 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &out)
 	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
-	// 平台角色未加入项目时不能审批。
-	if got := request(r, "POST", base+"/risks/1/approve", admin, map[string]any{"decision": "approve", "reason": "审查通过"}).Code; got != 404 {
-		t.Fatalf("approve without membership got %d", got)
+
+	// 将 teacher #9 设为本项目 mentor 成员（普通项目角色，可由主理人邀请，测试直插作 setup）。
+	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, out.Data.ID, 9, "mentor"); err != nil {
+		t.Fatal(err)
 	}
-	// 登记风险。
+
+	// 登记 R2 风险。
 	w = request(r, "POST", base+"/risks", owner, map[string]any{"risk_level": "R2", "title": "个人数据风险", "description": "涉及个人数据"})
 	if w.Code != 201 {
 		t.Fatalf("create risk %d %s", w.Code, w.Body.String())
@@ -174,11 +188,8 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &risk)
-	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
-	grantPlatformOperator(t, r, out.Data.ID, admin, 6)
 
-	// 提交立项进入 S1，再向 S2 提交里程碑被 R2 门禁拦截。
-	// 先提交立项。
+	// 提交立项进入 S1。
 	if got := request(r, "POST", base+"/submit", owner, nil).Code; got != 200 {
 		t.Fatalf("submit got %d", got)
 	}
@@ -190,7 +201,7 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(aw.Body.Bytes(), &art)
-	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"})
+	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "G2"})
 	var ver struct {
 		Data struct {
 			ID int64 `json:"id"`
@@ -198,33 +209,47 @@ func TestVOPCRiskGovernanceAndGate(t *testing.T) {
 	}
 	_ = json.Unmarshal(vw.Body.Bytes(), &ver)
 	// R2 未审批，禁止提交里程碑。
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 9}).Code; got != 409 {
 		t.Fatalf("R2 unapproved milestone got %d", got)
 	}
-	// 单人审批 → 仍 open（未达双人）。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", admin, map[string]any{"decision": "approve", "reason": "初步通过"}).Code; got != 200 {
-		t.Fatalf("single approve got %d", got)
+	// 越权：teacher 但非本项目 mentor 成员 → 403。
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", stranger, map[string]any{"decision": "approve", "reason": "越权"}).Code; got != 403 {
+		t.Fatalf("non-mentor approve got %d, want 403", got)
+	}
+	// 导师单人审核通过 → approved（不再需要两名不同审批人）。
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", mentor, map[string]any{"decision": "approve", "reason": "审核通过"}).Code; got != 200 {
+		t.Fatalf("mentor approve got %d", got)
 	}
 	var rstatus string
 	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk.Data.ID).Scan(&rstatus)
-	if rstatus != "open" {
-		t.Fatalf("after single approve status=%s want open", rstatus)
+	if rstatus != "approved" {
+		t.Fatalf("after single mentor approve status=%s want approved", rstatus)
 	}
-	// 同一审批人重复审批被拒绝。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", admin, map[string]any{"decision": "approve", "reason": "重复"}).Code; got != 409 {
+	// 同一审批人重复审批被拒。
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", mentor, map[string]any{"decision": "approve", "reason": "重复"}).Code; got != 409 {
 		t.Fatalf("duplicate approve got %d", got)
 	}
-	// 第二人审批 → approved。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", admin2, map[string]any{"decision": "approve", "reason": "复核通过"}).Code; got != 200 {
-		t.Fatalf("second approve got %d", got)
-	}
-	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk.Data.ID).Scan(&rstatus)
-	if rstatus != "approved" {
-		t.Fatalf("after double approve status=%s want approved", rstatus)
-	}
 	// 审批后里程碑可提交。
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 201 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 9}).Code; got != 201 {
 		t.Fatalf("approved milestone got %d", got)
+	}
+	// 「管理员」单人审核路径：登记第二条 R2 风险，由授权管理员单人 approve 即 approved。
+	w = request(r, "POST", base+"/risks", owner, map[string]any{"risk_level": "R2", "title": "真实部署风险", "description": "涉及真实部署"})
+	if w.Code != 201 {
+		t.Fatalf("create risk2 %d %s", w.Code, w.Body.String())
+	}
+	var risk2 struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &risk2)
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk2.Data.ID, 10)+"/approve", admin, map[string]any{"decision": "approve", "reason": "管理员审核通过"}).Code; got != 200 {
+		t.Fatalf("admin approve got %d", got)
+	}
+	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk2.Data.ID).Scan(&rstatus)
+	if rstatus != "approved" {
+		t.Fatalf("after single admin approve status=%s want approved", rstatus)
 	}
 }
 
@@ -241,8 +266,7 @@ func TestVOPCRiskFreezeAndAppeal(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &out)
 	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
-	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
-	// 普通成员无法冻结（走治理角色校验）。
+	// 普通成员无法冻结（无 vopc.risk.manage 能力，路由层即 403）。
 	if got := request(r, "POST", base+"/freeze", owner, map[string]any{"action": "freeze", "reason": "违规"}).Code; got != 403 {
 		t.Fatalf("owner freeze got %d", got)
 	}
@@ -281,22 +305,15 @@ func TestVOPCRiskFreezeAndAppeal(t *testing.T) {
 	}
 }
 
-// TestVOPCR3SpecialGovernanceChannel 验证 B3：R3 独立专项审批通道。
-// 覆盖：普通 manager 创建 R3 被拒、非治理系统角色的 platform_operator 越权创建 R3 被拒、
-// 治理系统角色 + platform_operator（真实可授）可创建 R3、R3 缺专项审批时里程碑被拦、
-// 双专项审批后放行、任一 reject 即拒绝。
+// TestVOPCR3SpecialGovernanceChannel 验证 PRD §13.1 R3 口径：默认禁止、按学校制度专项审批。
+// 覆盖：普通 manager 创建 R3 被拒、授权管理员可登记 R3、R3 缺专项审批时里程碑被拦、
+// R3 不经平台普通审批（approve 被拒）、登记专项审批记录后里程碑放行、非授权管理员
+// 不可登记专项审批。
 func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	db := vopcTestDB(t)
 	r := vopcRouter(db)
 	owner := token(t, 1, "student", "college", "cs", "active")
-	// op 是治理系统角色（college_admin），经 grantPlatformOperator 真实端点成为项目 platform_operator 成员，
-	// 即 R3 专项审批人（platform_operator + 治理系统角色），生产可达。
-	op := token(t, 4, "college_admin", "college", "cs", "active")
-	// plainOp 是普通系统角色（student）却挂着 platform_operator 项目角色，不应能越权 R3。
-	plainOp := token(t, 2, "student", "college", "cs", "active")
-	addCollegeAdmin(t, db, 7)
-	addCollegeAdmin(t, db, 8)
-	gov2 := token(t, 8, "college_admin", "college", "cs", "active")
+	admin := token(t, 4, "college_admin", "college", "cs", "active")
 
 	// R0 项目（公开数据，不触发 R2/R3 自动升档），用于隔离 R3 门禁。
 	w := request(r, "POST", "/api/v1/vopc/projects", owner, validProject())
@@ -311,23 +328,20 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &out)
 	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
 
-	// 1) 普通 manager（owner）创建 R3 风险 → 403。
+	// 指定 reviewer（用户 4 作为 reviewer 成员），供里程碑提交的 reviewer_user_id 校验。
+	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, out.Data.ID, 4, "reviewer"); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1) 普通 manager（owner）登记 R3 风险 → 403（R3 仅授权管理员可登记）。
 	if got := request(r, "POST", base+"/risks", owner, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"}).Code; got != 403 {
 		t.Fatalf("owner create R3 got %d, want 403", got)
 	}
 
-	// 2) 非治理系统角色的 platform_operator（student 挂着平台运营者项目角色）越权创建 R3 → 403。
-	grantPlatformOperator(t, r, out.Data.ID, op, 2)
-	if got := request(r, "POST", base+"/risks", plainOp, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"}).Code; got != 403 {
-		t.Fatalf("non-governance platform_operator create R3 got %d, want 403", got)
-	}
-
-	// 3) 治理系统角色 + platform_operator（真实可授）可创建 R3 风险。
-	grantPlatformOperator(t, r, out.Data.ID, op, 4)
-	grantPlatformOperator(t, r, out.Data.ID, op, 8)
-	w = request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
+	// 2) 授权管理员登记 R3 风险 → 201。
+	w = request(r, "POST", base+"/risks", admin, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
 	if w.Code != 201 {
-		t.Fatalf("gov create R3 %d %s", w.Code, w.Body.String())
+		t.Fatalf("admin create R3 %d %s", w.Code, w.Body.String())
 	}
 	var risk struct {
 		Data struct {
@@ -336,11 +350,10 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &risk)
 
-	// R3 缺专项审批时里程碑被拦（项目为 R0，但挂有未审批 R3 风险）。
+	// R3 缺专项审批时里程碑被拦（项目为 R0，但挂有 R3 风险 → R3-tier）。
 	if got := request(r, "POST", base+"/submit", owner, nil).Code; got != 200 {
 		t.Fatalf("submit got %d", got)
 	}
-	// 造一个成果版本用于里程碑提交。
 	aw := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "章程", "artifact_type": "document", "visibility": "private"})
 	var art struct {
 		Data struct {
@@ -348,63 +361,42 @@ func TestVOPCR3SpecialGovernanceChannel(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(aw.Body.Bytes(), &art)
-	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"})
+	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "G2"})
 	var ver struct {
 		Data struct {
 			ID int64 `json:"id"`
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(vw.Body.Bytes(), &ver)
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
 		t.Fatalf("R3 unapproved milestone got %d, want 409", got)
 	}
 
-	// 4) 单人专项审批（op）→ 仍 open（未达双人）。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", op, map[string]any{"decision": "approve", "reason": "初步通过"}).Code; got != 200 {
-		t.Fatalf("op single approve got %d", got)
+	// 3) R3 不进入平台普通审批：即使授权管理员 approve 也被拒（按学校制度专项审批）。
+	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", admin, map[string]any{"decision": "approve", "reason": "尝试普通审批"}).Code; got != 409 {
+		t.Fatalf("R3 ordinary approve got %d, want 409", got)
 	}
+	// R3 风险仍为 open，里程碑仍被拦。
 	var rstatus string
 	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk.Data.ID).Scan(&rstatus)
 	if rstatus != "open" {
-		t.Fatalf("after single R3 approve status=%s want open", rstatus)
+		t.Fatalf("after failed approve R3 status=%s want open", rstatus)
 	}
-	// 单人审批后里程碑仍被拦。
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
-		t.Fatalf("R3 single-approved milestone got %d, want 409", got)
-	}
-	// 第二专项审批（gov2）→ approved，里程碑放行。
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk.Data.ID, 10)+"/approve", gov2, map[string]any{"decision": "approve", "reason": "专项复核通过"}).Code; got != 200 {
-		t.Fatalf("gov2 approve got %d", got)
-	}
-	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk.Data.ID).Scan(&rstatus)
-	if rstatus != "approved" {
-		t.Fatalf("after double R3 approve status=%s want approved", rstatus)
-	}
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 201 {
-		t.Fatalf("R3 approved milestone got %d, want 201", got)
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
+		t.Fatalf("R3 still-blocked milestone got %d, want 409", got)
 	}
 
-	// 5) 任一专项 reject 即拒绝：另建 R3 风险用专项角色 reject → rejected，里程碑被拦。
-	w = request(r, "POST", base+"/risks", op, map[string]any{"risk_level": "R3", "title": "医疗诊断风险", "description": "涉及医疗"})
-	if w.Code != 201 {
-		t.Fatalf("gov create R3-2 %d %s", w.Code, w.Body.String())
+	// 4) 非授权管理员（owner/student）不可登记专项审批 → 403（路由层 vopc.risk.manage 拦截）。
+	if got := request(r, "POST", base+"/special-approvals", owner, map[string]any{"reason": "学校批准", "approver": "校科研处", "ref": "批文-2026-001"}).Code; got != 403 {
+		t.Fatalf("owner special-approval got %d, want 403", got)
 	}
-	var risk2 struct {
-		Data struct {
-			ID int64 `json:"id"`
-		} `json:"data"`
+
+	// 5) 授权管理员登记专项审批记录 → 201，里程碑放行。
+	if got := request(r, "POST", base+"/special-approvals", admin, map[string]any{"reason": "学校制度批准", "approver": "校科研处", "ref": "批文-2026-001"}).Code; got != 201 {
+		t.Fatalf("admin special-approval got %d", got)
 	}
-	_ = json.Unmarshal(w.Body.Bytes(), &risk2)
-	if got := request(r, "POST", base+"/risks/"+strconv.FormatInt(risk2.Data.ID, 10)+"/approve", op, map[string]any{"decision": "reject", "reason": "禁止推进"}).Code; got != 200 {
-		t.Fatalf("gov reject R3 got %d", got)
-	}
-	_ = db.QueryRow(`SELECT status FROM vopc_risks WHERE id=?`, risk2.Data.ID).Scan(&rstatus)
-	if rstatus != "rejected" {
-		t.Fatalf("after reject R3 status=%s want rejected", rstatus)
-	}
-	// 存在未通过专项审批的 R3 风险仍阻断里程碑。
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S3", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 409 {
-		t.Fatalf("rejected R3 milestone got %d, want 409", got)
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4}).Code; got != 201 {
+		t.Fatalf("R3 special-approved milestone got %d, want 201", got)
 	}
 }
 
@@ -446,7 +438,7 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(aw.Body.Bytes(), &art)
-	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"})
+	vw := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "G2"})
 	var ver struct {
 		Data struct {
 			ID int64 `json:"id"`
@@ -455,7 +447,7 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 	_ = json.Unmarshal(vw.Body.Bytes(), &ver)
 
 	// 提交 S2 里程碑（此时无 R3 风险，门禁通过）。
-	sw := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4})
+	sw := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "证据", "artifact_version_ids": []int64{ver.Data.ID}, "reviewer_user_id": 4})
 	if sw.Code != 201 {
 		t.Fatalf("submit milestone got %d %s", sw.Code, sw.Body.String())
 	}
@@ -466,10 +458,9 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 	}
 	_ = json.Unmarshal(sw.Body.Bytes(), &sub)
 
-	// 提交后、评审前：治理角色（用户 7 = college_admin + platform_operator）登记一条 R3 风险。
+	// 提交后、评审前：授权管理员（用户 7 = college_admin）登记一条 R3 风险。
 	addCollegeAdmin(t, db, 7)
 	gov := token(t, 7, "college_admin", "college", "cs", "active")
-	grantPlatformOperator(t, r, out.Data.ID, reviewer, 7)
 	rw := request(r, "POST", base+"/risks", gov, map[string]any{"risk_level": "R3", "title": "真实支付风险", "description": "涉及真实支付"})
 	if rw.Code != 201 {
 		t.Fatalf("gov create R3 %d %s", rw.Code, rw.Body.String())
@@ -482,10 +473,10 @@ func TestVOPCMilestoneGateTOCTOU(t *testing.T) {
 	// 项目阶段不应推进到 S2。
 	var stage, status string
 	_ = db.QueryRow(`SELECT stage,status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage, &status)
-	if stage != "S1" {
-		t.Fatalf("stage=%s want S1 (未推进)", stage)
+	if stage != "G1" {
+		t.Fatalf("stage=%s want G1 (未推进)", stage)
 	}
-	if status == "company_formed" {
+	if status == "developing" {
 		t.Fatalf("status=%s 不应被推进", status)
 	}
 	// H-B1 全量回滚断言：submission 应仍为 pending，评审记录未落库，无伪造审计误写。
@@ -534,8 +525,7 @@ func TestVOPCFreezeBlocksBusinessWrites(t *testing.T) {
 	}
 	_ = json.Unmarshal(aw.Body.Bytes(), &art)
 
-	// 治理角色冻结项目。
-	grantPlatformOperator(t, r, out.Data.ID, admin, 4)
+	// 授权管理员（vopc.risk.manage）冻结项目。
 	if got := request(r, "POST", base+"/freeze", admin, map[string]any{"action": "freeze", "reason": "风险处置"}).Code; got != 200 {
 		t.Fatalf("freeze got %d", got)
 	}
@@ -551,7 +541,7 @@ func TestVOPCFreezeBlocksBusinessWrites(t *testing.T) {
 	}
 
 	// 冻结后：为首个成果新增版本应被拒（409）。
-	if got := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "S2"}).Code; got != 409 {
+	if got := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(art.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v1", "source_kind": "repository", "source_ref": "repo:commit:1", "checksum": "0000000000000000000000000000000000000000000000000000000000000001", "intended_stage": "G2"}).Code; got != 409 {
 		t.Fatalf("frozen CreateArtifactVersion got %d, want 409", got)
 	}
 

@@ -39,7 +39,7 @@ func vopcTestDB(t *testing.T) *sql.DB {
 	if _, err = db.Exec(string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql", "103_vopc_private_files.sql"} {
+	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql", "103_vopc_private_files.sql", "104_vopc_risk_special_approval.sql", "107_vopc_v2_layers.sql"} {
 		migration, readErr := os.ReadFile("../../migrations/" + name)
 		if readErr != nil {
 			t.Fatal(readErr)
@@ -96,7 +96,9 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.GET("/projects/:id/close-records", h.ListCloseRecords)
 	g.GET("/projects/:id/risks", h.ListRisks)
 	g.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), h.CreateRisk)
-	g.POST("/projects/:id/risks/:riskId/approve", auth.RequireCapability(auth.VOPCRiskManage), h.ApproveRisk)
+	g.POST("/projects/:id/risks/:riskId/approve", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCMentorReview), h.ApproveRisk)
+	g.GET("/projects/:id/special-approvals", h.ListSpecialApprovals)
+	g.POST("/projects/:id/special-approvals", auth.RequireCapability(auth.VOPCRiskManage), h.CreateSpecialApproval)
 	g.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), h.FreezeProject)
 	g.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), h.CreateRiskAppeal)
 	g.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), h.ResolveRiskAppeal)
@@ -289,7 +291,7 @@ func TestVOPCProjectRoleBoundariesAndBlockedStates(t *testing.T) {
 	}
 }
 
-func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
+func TestVOPCG0ToG4FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 	db := vopcTestDB(t)
 	r := vopcRouter(db)
 	owner := token(t, 1, "student", "college", "cs", "active")
@@ -308,18 +310,19 @@ func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 	}
 	base := fmtPath("/api/v1/vopc/projects/%d", out.Data.ID)
 	if got := request(r, "POST", base+"/submit", owner, nil).Code; got != http.StatusOK {
-		t.Fatalf("S0 -> S1 got %d", got)
+		t.Fatalf("G0 -> G1 got %d", got)
 	}
-	if got := request(r, "POST", base+"/milestones/S2/advance", owner, map[string]any{"evidence": "文本直推"}).Code; got != http.StatusNotFound {
+	if got := request(r, "POST", base+"/milestones/G2/advance", owner, map[string]any{"evidence": "文本直推"}).Code; got != http.StatusNotFound {
 		t.Fatalf("formal router must not expose text advance route, got %d", got)
 	}
 	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, out.Data.ID, 4, "reviewer"); err != nil {
 		t.Fatal(err)
 	}
-	stageTypes := map[int]string{2: "document", 3: "document", 4: "repository", 5: "document", 6: "dataset", 7: "repository", 8: "archive", 9: "document"}
-	for target := 2; target <= 9; target++ {
-		stage := "S" + strconv.Itoa(target)
-		artifact := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "阶段交付物" + stage, "artifact_type": stageTypes[target], "visibility": "private"})
+	// G1→G2→G3→G4 三个里程碑；每阶段一个符合类型要求的成果版本。
+	stageTypes := map[string]string{"G2": "document", "G3": "document", "G4": "document"}
+	for _, g := range []string{"G2", "G3", "G4"} {
+		stage := g
+		artifact := request(r, "POST", base+"/artifacts", owner, map[string]any{"name": "阶段交付物" + stage, "artifact_type": stageTypes[stage], "visibility": "private"})
 		var artifactOut struct {
 			Data struct {
 				ID int64 `json:"id"`
@@ -328,7 +331,7 @@ func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 		if err := json.Unmarshal(artifact.Body.Bytes(), &artifactOut); err != nil || artifactOut.Data.ID == 0 {
 			t.Fatalf("artifact %s: %d %s", stage, artifact.Code, artifact.Body.String())
 		}
-		version := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(artifactOut.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v" + strconv.Itoa(target), "source_kind": "repository", "source_ref": "repo:commit:stage-" + strconv.Itoa(target), "checksum": fmt.Sprintf("%064x", target), "intended_stage": stage})
+		version := request(r, "POST", base+"/artifacts/"+strconv.FormatInt(artifactOut.Data.ID, 10)+"/versions", owner, map[string]any{"version": "v" + stage, "source_kind": "repository", "source_ref": "repo:commit:stage-" + stage, "checksum": fmt.Sprintf("%064x", stageIndexOf(stage)), "intended_stage": stage})
 		var versionOut struct {
 			Data struct {
 				ID int64 `json:"id"`
@@ -341,7 +344,7 @@ func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 			"stage": stage, "evidence": "阶段证据与人工确认记录", "artifact_version_ids": []int64{versionOut.Data.ID}, "reviewer_user_id": 4,
 		})
 		if w.Code != http.StatusCreated {
-			t.Fatalf("submit milestone S%d got %d: %s", target, w.Code, w.Body.String())
+			t.Fatalf("submit milestone %s got %d: %s", stage, w.Code, w.Body.String())
 		}
 		var submission struct {
 			Data struct {
@@ -353,15 +356,15 @@ func TestVOPCS0ToS9FormalMilestoneFlowAndNoTextAdvanceRoute(t *testing.T) {
 		}
 		path := base + "/milestone-submissions/" + strconv.FormatInt(submission.Data.ID, 10) + "/review"
 		if got := request(r, "POST", path, reviewer, map[string]any{"result": "pass", "note": "指定评审人工通过"}).Code; got != http.StatusOK {
-			t.Fatalf("review S%d got %d", target, got)
+			t.Fatalf("review %s got %d", stage, got)
 		}
 	}
 	var stage, status string
 	if err := db.QueryRow(`SELECT stage,status FROM vopc_projects WHERE id=?`, out.Data.ID).Scan(&stage, &status); err != nil {
 		t.Fatal(err)
 	}
-	if stage != "S9" || status != "closeable" {
-		t.Fatalf("final state = %s/%s, want S9/closeable", stage, status)
+	if stage != "G4" || status != "closeable" {
+		t.Fatalf("final state = %s/%s, want G4/closeable", stage, status)
 	}
 	// closeable 需由项目管理角色发起 close 才结项。
 	if got := request(r, "POST", base+"/close", owner, map[string]any{"action": "close", "reason": "完成交付并复盘", "outcome_package": "成果包与用户反馈", "human_decision": "结项并归档"}).Code; got != http.StatusOK {
@@ -494,7 +497,7 @@ func TestVOPCInvitationArtifactAndMilestoneReview(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &artifact)
 	versionPath := base + "/artifacts/" + strconv.FormatInt(artifact.Data.ID, 10) + "/versions"
-	w = request(r, "POST", versionPath, owner, map[string]any{"version": "v1.0.0", "source_kind": "repository", "source_ref": "repo:commit:abc", "checksum": fmt.Sprintf("%064x", 1), "intended_stage": "S2", "release_notes": "首版"})
+	w = request(r, "POST", versionPath, owner, map[string]any{"version": "v1.0.0", "source_kind": "repository", "source_ref": "repo:commit:abc", "checksum": fmt.Sprintf("%064x", 1), "intended_stage": "G2", "release_notes": "首版"})
 	if w.Code != 201 {
 		t.Fatalf("version %d %s", w.Code, w.Body.String())
 	}
@@ -510,28 +513,28 @@ func TestVOPCInvitationArtifactAndMilestoneReview(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, project.Data.ID, 4, "reviewer"); err != nil {
 		t.Fatal(err)
 	}
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "只有文本不能通过", "artifact_version_ids": []int64{}, "reviewer_user_id": 4}).Code; got != 422 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "只有文本不能通过", "artifact_version_ids": []int64{}, "reviewer_user_id": 4}).Code; got != 422 {
 		t.Fatalf("empty artifact versions=%d", got)
 	}
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "重复版本", "artifact_version_ids": []int64{version.Data.ID, version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "重复版本", "artifact_version_ids": []int64{version.Data.ID, version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
 		t.Fatalf("duplicate versions=%d", got)
 	}
-	if _, err := db.Exec(`UPDATE vopc_artifact_versions SET intended_stage='S3' WHERE id=?`, version.Data.ID); err != nil {
+	if _, err := db.Exec(`UPDATE vopc_artifact_versions SET intended_stage='G3' WHERE id=?`, version.Data.ID); err != nil {
 		t.Fatal(err)
 	}
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "跨阶段版本", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "跨阶段版本", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
 		t.Fatalf("wrong stage version=%d", got)
 	}
-	if _, err := db.Exec(`UPDATE vopc_artifact_versions SET intended_stage='S2',status='invalid' WHERE id=?`, version.Data.ID); err != nil {
+	if _, err := db.Exec(`UPDATE vopc_artifact_versions SET intended_stage='G2',status='invalid' WHERE id=?`, version.Data.ID); err != nil {
 		t.Fatal(err)
 	}
-	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "失效版本", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
+	if got := request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "失效版本", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4}).Code; got != 422 {
 		t.Fatalf("invalid version=%d", got)
 	}
 	if _, err := db.Exec(`UPDATE vopc_artifact_versions SET status='active' WHERE id=?`, version.Data.ID); err != nil {
 		t.Fatal(err)
 	}
-	w = request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "S2", "evidence": "完整的项目章程与组织证据", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4})
+	w = request(r, "POST", base+"/milestone-submissions", owner, map[string]any{"stage": "G2", "evidence": "完整的项目章程与组织证据", "artifact_version_ids": []int64{version.Data.ID}, "reviewer_user_id": 4})
 	if w.Code != 201 {
 		t.Fatalf("milestone submit %d %s", w.Code, w.Body.String())
 	}
@@ -549,7 +552,7 @@ func TestVOPCInvitationArtifactAndMilestoneReview(t *testing.T) {
 		t.Fatalf("review=%d", got)
 	}
 	var stage string
-	if err := db.QueryRow(`SELECT stage FROM vopc_projects WHERE id=?`, project.Data.ID).Scan(&stage); err != nil || stage != "S2" {
+	if err := db.QueryRow(`SELECT stage FROM vopc_projects WHERE id=?`, project.Data.ID).Scan(&stage); err != nil || stage != "G2" {
 		t.Fatalf("stage=%s err=%v", stage, err)
 	}
 	var events int
