@@ -1,6 +1,6 @@
 package handler
 
-// vOPC 项目生命周期修复测试：删除（仅草稿，级联清理）+ 归档扩展 + 越权。
+// vOPC 项目生命周期测试：强制删除（任意状态，级联清理）+ 归档扩展 + 越权。
 // 删除的级联验证需要一个启用 foreign_keys 的 SQLite 连接（生产 migration.go 已启用）。
 
 import (
@@ -110,7 +110,7 @@ func TestVOPCLifecycleDeleteDraft(t *testing.T) {
 	}
 }
 
-// TestVOPCLifecycleDeleteNonDraft verifies non-draft project delete returns 409.
+// TestVOPCLifecycleDeleteNonDraft verifies force-delete works for non-draft projects too.
 func TestVOPCLifecycleDeleteNonDraft(t *testing.T) {
 	db := vopcLifecycleDB(t)
 	r := vopcLifecycleRouter(db)
@@ -120,14 +120,14 @@ func TestVOPCLifecycleDeleteNonDraft(t *testing.T) {
 	if got := request(r, "POST", fmtPath("/api/v1/vopc/projects/%d/submit", id), owner, nil).Code; got != 200 {
 		t.Fatalf("submit got %d", got)
 	}
-	if got := request(r, "POST", fmtPathA4("/api/v1/vopc/projects/%d/delete", id), owner, nil).Code; got != 409 {
-		t.Fatalf("non-draft delete got %d want 409", got)
+	if got := request(r, "POST", fmtPathA4("/api/v1/vopc/projects/%d/delete", id), owner, nil).Code; got != 200 {
+		t.Fatalf("non-draft delete got %d want 200 (force delete)", got)
 	}
-	// 项目仍存在
+	// 项目已删除
 	var cnt int
 	_ = db.QueryRow(`SELECT COUNT(*) FROM vopc_projects WHERE id=?`, id).Scan(&cnt)
-	if cnt != 1 {
-		t.Fatalf("project should remain, count=%d", cnt)
+	if cnt != 0 {
+		t.Fatalf("project should be deleted, count=%d", cnt)
 	}
 }
 

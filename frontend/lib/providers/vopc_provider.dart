@@ -377,7 +377,7 @@ class VopcProvider extends ChangeNotifier {
     }
   }
 
-  /// 删除项目（仅 S0 草稿可删）。
+  /// 删除项目（强制删除：任意状态可删）。
   Future<bool> deleteProject(int id) async {
     error = null;
     statusCode = null;

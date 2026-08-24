@@ -154,7 +154,7 @@ class _VopcPageState extends State<VopcPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('删除项目'),
-        content: Text('确定要删除项目「${project.name}」吗？仅草稿项目可删除，该操作不可恢复。'),
+        content: Text('确定要删除项目「${project.name}」吗？删除为强制操作，任意状态均可删除，该操作不可恢复。'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
           FilledButton(

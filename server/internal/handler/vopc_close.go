@@ -279,9 +279,10 @@ func (h *VOPCHandler) ListCloseRecords(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
 }
 
-// DeleteProject 硬删除一个 S0 草稿项目并级联清理全部关联数据（数据链路贯通）。
+// DeleteProject 硬删除一个项目并级联清理全部关联数据（数据链路贯通）。
 // 权限：VOPCProjectManage（主理人/联合主理人，projectPolicy manage）。
-// 边界：仅允许删除 draft 草稿；已提交/进行/终止/归档项目禁止删除（数据沉淀，请走 archive 归档）。
+// 边界：强制删除——任意状态（draft/进行中/completed/terminated/archived）均可删除；
+// 删除留痕依赖全局 AuditLog 中间件（audit_logs 表记录 method+path+result_code，不随项目级联）。
 // 依赖 ON DELETE CASCADE：生产连接已启用 foreign_keys(on)，子表全链路级联。
 func (h *VOPCHandler) DeleteProject(c *gin.Context) {
 	id, ok := projectID(c)
@@ -314,13 +315,12 @@ func (h *VOPCHandler) DeleteProject(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权操作"})
 		return
 	}
-	if status != "draft" {
-		c.JSON(409, gin.H{"code": 409, "message": "仅 G0 草稿项目可删除；已提交或已归档项目请使用归档或结项"})
+	if status == "" {
+		c.JSON(500, gin.H{"code": 500, "message": "项目状态异常"})
 		return
 	}
-	// 删除前留痕（写全局概念：draft 项目删除本身即终态，先写一条 close_records 不可行——
-	// 该表随项目级联；此处直接清理。如需删除审计，应接入全局 audit 通道，本期记录日志即可。）
-	if _, err := tx.Exec(`DELETE FROM vopc_projects WHERE id=? AND status='draft'`, id); err != nil {
+	// 强制删除：不再限制仅 draft（任意状态可删）；删除动作本身由全局审计中间件留痕。
+	if _, err := tx.Exec(`DELETE FROM vopc_projects WHERE id=?`, id); err != nil {
 		serverError(c, "项目删除失败")
 		return
 	}
