@@ -137,7 +137,7 @@ func TestVOPCAccessHTTPMatrix(t *testing.T) {
 	cases := []struct {
 		name, tok string
 		want      int
-	}{{"未登录", "", 401}, {"inactive token", token(t, 1, "student", "college", "cs", "disabled"), 403}, {"guest", token(t, 1, "guest", "college", "cs", "active"), 403}, {"外院", token(t, 1, "student", "college", "business", "active"), 403}, {"school scope", token(t, 1, "student", "school", "cs", "active"), 403}, {"合法 cs", token(t, 1, "student", "college", "CS", "active"), 200}}
+	}{{"未登录", "", 401}, {"inactive token", token(t, 1, "student", "college", "cs", "disabled"), 403}, {"guest", token(t, 1, "guest", "college", "cs", "active"), 403}, {"外院", token(t, 1, "student", "college", "business", "active"), 403}, {"school scope", token(t, 1, "student", "school", "cs", "active"), 403}, {"合法 cs", token(t, 1, "student", "college", "CS", "active"), 200}, {"sys admin system scope", token(t, 9, "sys_admin", "system", "", "active"), 200}, {"inactive sys admin", token(t, 9, "sys_admin", "system", "", "disabled"), 403}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := request(r, "GET", "/api/v1/vopc/access", tc.tok, nil).Code; got != tc.want {

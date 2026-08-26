@@ -101,8 +101,13 @@ func CollegeAccess(collegeID ...string) gin.HandlerFunc {
 	}
 	return func(c *gin.Context) {
 		u := middleware.GetUserContext(c)
-		if u == nil || u.Status != "active" || u.Role == "guest" || u.OwnerScope != "college" || !strings.EqualFold(u.OwnerID, id) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅计算机学院已授权用户可使用 vOPC"})
+		// sys_admin 承担全局运维与审计，账号通常属于 system 作用域；只要账号
+		// 启用即可进入。其他角色仍必须通过学院白名单，防止跨学院访问。
+		adminAllowed := u != nil && u.Status == "active" && u.Role == "sys_admin"
+		collegeAllowed := u != nil && u.Status == "active" && u.Role != "guest" &&
+			u.OwnerScope == "college" && strings.EqualFold(u.OwnerID, id)
+		if !adminAllowed && !collegeAllowed {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 403, "message": "仅计算机学院已授权用户或系统管理员可使用 vOPC"})
 			return
 		}
 		c.Next()
