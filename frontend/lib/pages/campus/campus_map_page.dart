@@ -98,8 +98,8 @@ const _tabs = [
       Color(0xFFC62828),
       'https://www.douyin.com/search/%E6%BB%81%E5%B7%9E%E5%AD%A6%E9%99%A2',
       '搜索滁州学院官方抖音'),
-  _CampusTabInfo(_CampusTab.csci, '计算机学院', Icons.computer,
-      Color(0xFF2E7D32), 'https://csci.chzu.edu.cn/', '计算机科学与工程学院（网络空间安全学院）'),
+  _CampusTabInfo(_CampusTab.csci, '计算机学院', Icons.computer, Color(0xFF2E7D32),
+      'https://csci.chzu.edu.cn/', '计算机科学与工程学院（网络空间安全学院）'),
 ];
 
 /// 会峰校区报到步骤（WGS-84，来源：OpenStreetMap 会峰校区 way 734826227）
@@ -306,8 +306,11 @@ class _CampusMapPageState extends State<CampusMapPage> {
   final Map<int, int> _remoteIds = {};
   bool _loadingSteps = false;
 
-  /// 管理员编辑模式：开启后地图标注可拖拽，松手自动保存坐标。
+  /// 管理员编辑模式：拖拽后先更新本地坐标，并在后台尝试持久化。
+  /// 退出编辑时会等待所有尚未确认落库的坐标保存成功。
   bool _editMode = false;
+  bool _savingCoordinates = false;
+  final Map<int, ({double lat, double lng})> _pendingCoordinates = {};
 
   _CampusPlan get _campus => _campuses[_campusIndex];
   List<_CheckinStep> get _steps => _campusStepsMap[_campus.id] ?? _campus.steps;
@@ -339,6 +342,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
   /// 失败时回退到本地硬编码常量，保证离线/后端不可用时不影响使用。
   Future<void> _loadStepsFromServer() async {
     setState(() => _loadingSteps = true);
+    // 防止请求失败后继续使用上一个校区/上一次加载留下的远端 ID。
+    _remoteIds.clear();
     try {
       // 管理员用 admin 接口（含 draft），普通用户用公开接口（仅 published）
       final url = _canEditNodes
@@ -401,10 +406,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
     }
   }
 
-  /// 管理员拖拽标注后，调用后端接口保存新坐标。
-  /// 先本地立即更新避免视觉回弹，再异步保存到后端；保存失败时 Snack 提示。
+  /// 管理员拖拽标注后先更新本地位置，并把坐标记为“待确认落库”。
+  /// 后台会立即尝试保存；即使失败，待保存记录也不会丢失，退出编辑时会重试。
   Future<void> _onMarkerMoved(int index, double lat, double lng) async {
-    if (!_canEditNodes) return;
+    if (!_canEditNodes || index < 0 || index >= _steps.length) return;
     final step = _steps[index];
     final updated = _CheckinStep(
       title: step.title,
@@ -421,55 +426,129 @@ class _CampusMapPageState extends State<CampusMapPage> {
     final list = List<_CheckinStep>.from(_steps);
     list[index] = updated;
     _campusStepsMap[_campus.id] = list;
-    setState(() {});
+    final coordinate = (lat: lat, lng: lng);
+    _pendingCoordinates[index] = coordinate;
+    if (mounted) setState(() {});
 
+    // 松手后立即保存；失败时保留 pending，交由“退出编辑”统一重试。
+    await _saveCoordinate(index, coordinate, showSuccess: true);
+  }
+
+  Future<bool> _saveCoordinate(
+    int index,
+    ({double lat, double lng}) coordinate, {
+    bool showSuccess = false,
+  }) async {
     final stepId = _remoteIds[index];
-    if (stepId == null) {
-      // 后端无对应记录（本地回退模式），仅本地保存
-      if (mounted) {
+    if (stepId == null) return false;
+    try {
+      final resp = await _api.patch(
+        ApiConfig.adminCampusStepCoords(stepId.toString()),
+        data: {'lat': coordinate.lat, 'lng': coordinate.lng},
+      );
+      if (resp.statusCode != 200 || resp.data['code'] != 0) return false;
+
+      // 即时请求成功后仍保留待确认记录；退出编辑时会再次保存并从后端读取
+      // 校验，避免“接口返回成功但页面刷新后坐标回退”的假成功。
+      if (showSuccess && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('后端未加载，坐标仅本地保存'),
+            content: Text('节点坐标已暂存，退出编辑时将确认保存'),
             duration: Duration(seconds: 2),
           ),
         );
       }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 保存所有尚未确认落库的节点。只有全部成功才允许退出编辑模式。
+  Future<bool> _savePendingCoordinates() async {
+    if (_pendingCoordinates.isEmpty) return true;
+    if (_savingCoordinates) return false;
+    setState(() => _savingCoordinates = true);
+    final snapshot = Map<int, ({double lat, double lng})>.from(
+      _pendingCoordinates,
+    );
+    var requestsSucceeded = true;
+    for (final entry in snapshot.entries) {
+      if (!await _saveCoordinate(entry.key, entry.value)) {
+        requestsSucceeded = false;
+      }
+    }
+    if (requestsSucceeded) {
+      await _verifySavedCoordinates(snapshot);
+    }
+    if (mounted) setState(() => _savingCoordinates = false);
+    return _pendingCoordinates.isEmpty;
+  }
+
+  /// 保存后重新读取管理端节点，只有数据库返回的坐标与拖拽结果一致才算成功。
+  Future<void> _verifySavedCoordinates(
+    Map<int, ({double lat, double lng})> expected,
+  ) async {
+    try {
+      final resp = await _api.get(
+        '${ApiConfig.adminCampusSteps}?campus=${_campus.id}',
+      );
+      if (resp.statusCode != 200 || resp.data['code'] != 0) return;
+      final rows = resp.data['data'] as List? ?? const [];
+      final byId = <int, Map<String, dynamic>>{};
+      for (final item in rows) {
+        final row = Map<String, dynamic>.from(item as Map);
+        final id = row['id'];
+        if (id is num) byId[id.toInt()] = row;
+      }
+      for (final entry in expected.entries) {
+        final remoteId = _remoteIds[entry.key];
+        final row = remoteId == null ? null : byId[remoteId];
+        final lat = (row?['lat'] as num?)?.toDouble();
+        final lng = (row?['lng'] as num?)?.toDouble();
+        final value = entry.value;
+        if (lat != null &&
+            lng != null &&
+            (lat - value.lat).abs() < 0.0000001 &&
+            (lng - value.lng).abs() < 0.0000001 &&
+            _pendingCoordinates[entry.key] == value) {
+          _pendingCoordinates.remove(entry.key);
+        }
+      }
+    } catch (_) {
+      // 读取确认失败时保留 pending，禁止退出编辑并允许用户重试。
+    }
+  }
+
+  Future<void> _toggleNodeEditing(BuildContext messengerContext) async {
+    if (!_editMode) {
+      setState(() => _editMode = true);
+      ScaffoldMessenger.of(messengerContext).showSnackBar(
+        const SnackBar(
+          content: Text('编辑模式：拖动标注校正位置；退出编辑前会确认保存'),
+          duration: Duration(seconds: 3),
+        ),
+      );
       return;
     }
-    try {
-      final resp = await _api.patch(
-        ApiConfig.adminCampusStepCoords(stepId.toString()),
-        data: {'lat': lat, 'lng': lng},
+
+    final saved = await _savePendingCoordinates();
+    if (!mounted) return;
+    if (!saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_remoteIds.isEmpty
+              ? '保存失败：未加载到后端节点，请检查登录状态和网络后重试'
+              : '仍有 ${_pendingCoordinates.length} 个节点未保存，已保持编辑模式，请重试'),
+          duration: const Duration(seconds: 5),
+        ),
       );
-      if (resp.data['code'] == 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('节点坐标已保存'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('保存失败：${resp.data['message'] ?? '未知错误'}'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('保存失败：$e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      return;
     }
+    setState(() => _editMode = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('全部节点坐标已保存，已退出编辑')),
+    );
   }
 
   /// 打开报到流程管理面板（管理员专用）。
@@ -571,15 +650,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
     } else {
       _mapController.setVisible(true);
       if (selected == 'edit') {
-        setState(() => _editMode = !_editMode);
-        if (_editMode) {
-          ScaffoldMessenger.of(buttonContext).showSnackBar(
-            const SnackBar(
-              content: Text('编辑模式：拖动标注即可校正位置，松手自动保存'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+        await _toggleNodeEditing(buttonContext);
       }
     }
   }
@@ -690,8 +761,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
         return Column(
           children: [
             Expanded(flex: 7, child: map),
-            VerticalDivider(
-                width: 1, color: theme.colorScheme.outlineVariant),
+            VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
             Expanded(flex: 2, child: _buildStepsPanel(theme)),
           ],
         );
@@ -1114,7 +1184,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
           _toolBtn(Icons.my_location, '复位', () => _mapController.reset()),
           _toolBtn(Icons.add, '放大', () => _mapController.zoomIn()),
           _toolBtn(Icons.remove, '缩小', () => _mapController.zoomOut()),
-          _toolBtn(Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
+          _toolBtn(
+              Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
           if (_canEditNodes) ...[
             const SizedBox(width: 4),
             Builder(
@@ -1191,7 +1262,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
           _toolBtn(Icons.my_location, '复位', () => _mapController.reset()),
           _toolBtn(Icons.add, '放大', () => _mapController.zoomIn()),
           _toolBtn(Icons.remove, '缩小', () => _mapController.zoomOut()),
-          _toolBtn(Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
+          _toolBtn(
+              Icons.fullscreen, '全屏', () => _mapController.toggleFullscreen()),
           _toolBtn(Icons.download, '保存', () => _mapController.saveImage()),
           const SizedBox(width: 6),
           // 图层/模式
@@ -1200,14 +1272,19 @@ class _CampusMapPageState extends State<CampusMapPage> {
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: SegmentedButton<_MapLayer>(
               segments: const [
-                ButtonSegment(value: _MapLayer.standard, label: Text('标', style: TextStyle(fontSize: 10))),
-                ButtonSegment(value: _MapLayer.satellite, label: Text('卫', style: TextStyle(fontSize: 10))),
+                ButtonSegment(
+                    value: _MapLayer.standard,
+                    label: Text('标', style: TextStyle(fontSize: 10))),
+                ButtonSegment(
+                    value: _MapLayer.satellite,
+                    label: Text('卫', style: TextStyle(fontSize: 10))),
               ],
               selected: {_layer},
               onSelectionChanged: (v) {
                 final l = v.first;
                 setState(() => _layer = l);
-                _mapController.setLayer(l == _MapLayer.satellite ? 'satellite' : 'standard');
+                _mapController.setLayer(
+                    l == _MapLayer.satellite ? 'satellite' : 'standard');
               },
               style: ButtonStyle(
                 visualDensity: VisualDensity.compact,
@@ -1222,8 +1299,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: SegmentedButton<_MapMode>(
               segments: const [
-                ButtonSegment(value: _MapMode.twoD, label: Text('2D', style: TextStyle(fontSize: 10))),
-                ButtonSegment(value: _MapMode.threeD, label: Text('3D', style: TextStyle(fontSize: 10))),
+                ButtonSegment(
+                    value: _MapMode.twoD,
+                    label: Text('2D', style: TextStyle(fontSize: 10))),
+                ButtonSegment(
+                    value: _MapMode.threeD,
+                    label: Text('3D', style: TextStyle(fontSize: 10))),
               ],
               selected: {_mode},
               onSelectionChanged: (v) {
@@ -1256,7 +1337,8 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   /// 紧凑工具按钮
-  Widget _toolBtn(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) {
+  Widget _toolBtn(IconData icon, String tooltip, VoidCallback onTap,
+      {Color? color}) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -1388,13 +1470,25 @@ class _CampusMapPageState extends State<CampusMapPage> {
     });
   }
 
-  void _switchCampus(int index) {
+  Future<void> _switchCampus(int index) async {
     if (_campusIndex == index) return;
+    if (_editMode) {
+      final saved = await _savePendingCoordinates();
+      if (!mounted) return;
+      if (!saved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('仍有节点坐标未保存，暂不能切换校区')),
+        );
+        return;
+      }
+      setState(() => _editMode = false);
+    }
     setState(() {
       _campusIndex = index;
       _completed.clear();
       _currentStep = 0;
       _copiedText = '';
+      _pendingCoordinates.clear();
     });
     // 校区切换：让地图重新取景到新校区完整范围。
     // widget.campusId 的变化也会通过 didUpdateWidget 触发一次，
