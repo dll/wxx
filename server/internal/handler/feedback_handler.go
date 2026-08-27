@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/service"
@@ -143,10 +144,22 @@ func (h *FeedbackHandler) Mine(c *gin.Context) {
 }
 
 // Get 获取反馈详情 GET /api/v1/feedback/:id
+// 安全修复 G1（水平越权）：普通用户仅可读取本人提交的反馈；
+// 持有 union.feedback.list 能力的反馈管理员可查看全部。
 func (h *FeedbackHandler) Get(c *gin.Context) {
 	feedbackID := c.Param("id")
 
-	fb, err := h.feedbackSvc.Get(feedbackID)
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+	canManageAll := auth.HasCapability(userCtx.Role, auth.UnionFeedbackList)
+
+	fb, err := h.feedbackSvc.GetAuthorized(feedbackID, userCtx.UserID, canManageAll)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
@@ -369,8 +382,36 @@ func (h *FeedbackHandler) Rate(c *gin.Context) {
 }
 
 // GetLogs 获取反馈处理记录 GET /api/v1/feedback/:id/logs
+// 安全修复 G1（水平越权）：与详情一致，普通用户仅可读本人反馈的处理记录，
+// 反馈管理员（union.feedback.list）可读全部。
 func (h *FeedbackHandler) GetLogs(c *gin.Context) {
 	feedbackID := c.Param("id")
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Code:    401,
+			Message: "未获取到用户信息",
+		})
+		return
+	}
+	canManageAll := auth.HasCapability(userCtx.Role, auth.UnionFeedbackList)
+
+	fb, err := h.feedbackSvc.GetAuthorized(feedbackID, userCtx.UserID, canManageAll)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
+			Code:    500,
+			Message: "查询反馈失败",
+		})
+		return
+	}
+	if fb == nil {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{
+			Code:    404,
+			Message: "反馈不存在或无权访问",
+		})
+		return
+	}
 
 	logs, err := h.feedbackSvc.ListLogs(feedbackID)
 	if err != nil {
@@ -466,13 +507,38 @@ func (h *FeedbackHandler) UploadScreenshot(c *gin.Context) {
 	})
 }
 
-// ServeScreenshot GET /uploads/feedback/:filename — 从 SQLite blob 返回图片字节
+// ServeScreenshot GET /uploads/feedback/:filename — 从 blob 表返回图片字节
+// 安全修复 G1（截图越权）：截图可能包含其他用户的个人信息，不再对任意登录用户开放。
+// 仅允许两类访问者：
+//  1. 截图上传者本人，或引用该截图的反馈提交者（owner-or-uploader）；
+//  2. 持有 union.feedback.list 能力的反馈管理员。
+//
+// data: URL 内联截图不经过本接口，不受影响。
 func (h *FeedbackHandler) ServeScreenshot(c *gin.Context) {
 	filename := c.Param("filename")
 	if filename == "" {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		c.Status(http.StatusUnauthorized)
+		return
+	}
+	canManageAll := auth.HasCapability(userCtx.Role, auth.UnionFeedbackList)
+	if !canManageAll {
+		allowed, aerr := h.feedbackSvc.CanAccessScreenshot(filename, userCtx.UserID)
+		if aerr != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		if !allowed {
+			c.Status(http.StatusForbidden)
+			return
+		}
+	}
+
 	dataB64, mime, err := h.feedbackSvc.GetScreenshot(filename)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)

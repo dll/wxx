@@ -147,6 +147,22 @@ class ApiConfig {
   static String adminFeedbackLinkResource(String id) =>
       '$apiPrefix/admin/feedback/$id/link-resource';
 
+  // ── 反馈修复任务（闭环 MVP，管理端） ──
+  static const String adminRepairTasks =
+      '$apiPrefix/admin/feedback/repair-tasks';
+  static String adminRepairTask(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no';
+  static String adminRepairTaskAccept(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no/accept';
+  static String adminRepairTaskReject(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no/reject';
+  static String adminRepairTaskDeployConfirm(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no/deploy-confirm';
+  static String adminRepairTaskDeployDone(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no/deploy-done';
+  static String adminRepairTaskCancel(String no) =>
+      '$apiPrefix/admin/feedback/repair-tasks/$no/cancel';
+
   // ── 办事流程办理记录 ──
   static const String processRecords = '$apiPrefix/process/records';
   static String processRecordStart(String flow) =>
@@ -236,11 +252,11 @@ class ApiConfig {
   static String vopcProjectFile(int id, String objectKey) =>
       '$apiPrefix/vopc/projects/$id/files/$objectKey';
   // 里程碑完整业务门禁（评分量表/条件闭环/豁免/甲方结构化证据）
-  static String vopcRubrics(int id) =>
-      '$apiPrefix/vopc/projects/$id/rubrics';
+  static String vopcRubrics(int id) => '$apiPrefix/vopc/projects/$id/rubrics';
   static String vopcSubmissionReview(int projectId, int submissionId) =>
       '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/review';
-  static String vopcMarkCondition(int projectId, int submissionId, int conditionId) =>
+  static String vopcMarkCondition(
+          int projectId, int submissionId, int conditionId) =>
       '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/conditions/$conditionId';
   static String vopcFinalizeMilestone(int projectId, int submissionId) =>
       '$apiPrefix/vopc/projects/$projectId/milestone-submissions/$submissionId/finalize';
@@ -253,8 +269,7 @@ class ApiConfig {
   static String vopcClientEvidenceUpdate(int projectId, int evidenceId) =>
       '$apiPrefix/vopc/projects/$projectId/client-evidence/$evidenceId';
   // 虚拟向导（AI 任务四态审阅）
-  static String vopcAITasks(int id) =>
-      '$apiPrefix/vopc/projects/$id/ai-tasks';
+  static String vopcAITasks(int id) => '$apiPrefix/vopc/projects/$id/ai-tasks';
   static String vopcAITask(int id, int taskId) =>
       '$apiPrefix/vopc/projects/$id/ai-tasks/$taskId';
   static String vopcAITaskReview(int id, int taskId) =>

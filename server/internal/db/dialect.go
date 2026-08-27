@@ -58,6 +58,11 @@ var longTextColumns = map[string]bool{
 	"code": true, "analysis": true, "snapshot": true, "metadata": true,
 	"trace": true, "title": true, "query": true,
 	"question": true, "context": true, "message_text": true,
+	// 反馈修复任务（109）长内容列：诊断/验证结果/日志/反馈 ID 集合等 JSON 或大段文本
+	"feedback_ids": true, "diagnosis": true, "verify_result": true,
+	"diff_stat": true, "log_text": true, "worker_token_note": true,
+	"accept_note": true, "reject_reason": true, "deploy_ref": true,
+	"worker_host": true, "base_commit": true, "branch": true,
 	// 实际数据超过 MySQL TEXT(64KB) 上限的列 → LONGTEXT（见 longLongTextColumns）
 	"analysis_json": true, "gap_analysis": true,
 }

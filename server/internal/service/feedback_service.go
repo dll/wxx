@@ -473,13 +473,57 @@ func (s *FeedbackService) ListMine(userID int64, status string, page, pageSize i
 	return items, total, nil
 }
 
-// Get 获取单条反馈详情
+// Get 获取单条反馈详情（无归属校验，仅供内部/既有调用方使用；
+// 对外 HTTP 入口请使用 GetAuthorized，见下方安全修复 G1）。
 func (s *FeedbackService) Get(feedbackID string) (*model.Feedback, error) {
 	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
 	if err != nil {
 		return nil, fmt.Errorf("查询反馈失败: %w", err)
 	}
 	return fb, nil
+}
+
+// GetAuthorized 获取单条反馈详情（带归属/权限校验，修复 G1 水平越权）。
+// canManageAll 为 true 时（反馈管理员，持有 union.feedback.list）可查看任意反馈；
+// 否则仅当 userID 等于反馈提交者本人时返回，其余返回 (nil, nil)。
+func (s *FeedbackService) GetAuthorized(feedbackID string, userID int64, canManageAll bool) (*model.Feedback, error) {
+	fb, err := s.feedbackRepo.GetByFeedbackID(feedbackID)
+	if err != nil {
+		return nil, fmt.Errorf("查询反馈失败: %w", err)
+	}
+	if fb == nil {
+		return nil, nil
+	}
+	if canManageAll || fb.UserID == userID {
+		return fb, nil
+	}
+	return nil, nil
+}
+
+// CanAccessScreenshot 判断用户是否有权访问某张反馈截图（修复 G1 截图越权）。
+// 允许：截图上传者（feedback_screenshots.uploaded_by == username）或截图被当前用户
+// 提交的反馈引用（feedback.screenshot_url 含该文件名且 feedback.user_id == userID）。
+func (s *FeedbackService) CanAccessScreenshot(filename string, userID int64) (bool, error) {
+	// 路径 1：该用户是否上传过此截图
+	uploader, err := s.screenshotRepo.OwnerByFilename(filename)
+	if err != nil {
+		return false, err
+	}
+	if uploader != "" {
+		// 用 userRepo 反查 username 是否对应当前 userID
+		if s.userRepo != nil {
+			u, uerr := s.userRepo.GetByID(userID)
+			if uerr == nil && u != nil && u.Username == uploader {
+				return true, nil
+			}
+		}
+	}
+	// 路径 2：该用户提交的反馈是否引用了此截图
+	refCount, rerr := s.feedbackRepo.CountScreenshotRefsByUser(filename, userID)
+	if rerr != nil {
+		return false, rerr
+	}
+	return refCount > 0, nil
 }
 
 // Resolve 处理反馈（标记为处理中/已解决/驳回，含可选回复）

@@ -186,7 +186,7 @@ class _OnlineRepairSheetState extends State<_OnlineRepairSheet> {
                   color: theme.colorScheme.primary, size: 22),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('在线修复助手',
+                child: Text('修复诊断助手',
                     style: theme.textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.bold)),
               ),

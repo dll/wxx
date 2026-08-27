@@ -34,3 +34,15 @@ func (r *FeedbackScreenshotRepo) GetByFilename(filename string) (dataBase64, mim
 	}
 	return dataBase64, mime, err
 }
+
+// OwnerByFilename 返回截图的上传者用户名（用于归属校验）。无记录返回空串。
+func (r *FeedbackScreenshotRepo) OwnerByFilename(filename string) (uploader string, err error) {
+	err = r.db.QueryRow(
+		`SELECT uploaded_by FROM feedback_screenshots WHERE filename = ?`,
+		filename,
+	).Scan(&uploader)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return uploader, err
+}

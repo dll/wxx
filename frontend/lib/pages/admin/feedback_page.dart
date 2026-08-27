@@ -737,11 +737,12 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
               const SizedBox(height: 12),
               _buildTimelineSection(context),
               const SizedBox(height: 20),
-              // 在线修复：任何状态下都可用（已解决/已驳回的反馈也能查看代码定位）
+              // 修复诊断：任何状态下都可用（已解决/已驳回的反馈也能查看代码定位）。
+              // 仅做 AI 诊断与代码定位，不直接修改代码；实际修复走受控修复任务流程。
               FilledButton.icon(
                 onPressed: () => showOnlineRepair(context, fb),
                 icon: const Icon(Icons.build_circle_outlined),
-                label: const Text('在线修复'),
+                label: const Text('修复诊断'),
                 style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.tertiary,
                   foregroundColor: Theme.of(context).colorScheme.onTertiary,

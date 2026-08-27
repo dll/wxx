@@ -102,6 +102,16 @@ func setupRouter(d *deps) *gin.Engine {
 	// API v1 路由组
 	v1 := router.Group("/api/v1")
 	{
+		// ── 本机修复执行端内部路由（token 鉴权，非 JWT / 非业务角色）──
+		// 仅当 WXX_REPAIR_AGENT_TOKEN 已配置时端点才可用（middleware 内二次兑底），
+		// 与交互式前台用户完全隔离。服务器只认领/验证上报，绝不执行改码/构建/部署。
+		internalRepair := v1.Group("/internal/repair-tasks")
+		internalRepair.Use(middleware.RepairAgentTokenAuth())
+		{
+			internalRepair.POST("/next", d.feedbackRepairTaskH.NextTask)
+			internalRepair.POST("/:no/verify", d.feedbackRepairTaskH.VerifyTask)
+		}
+
 		// 认证（公开）
 		authGroup := v1.Group("/auth")
 		{
@@ -542,6 +552,21 @@ func setupRouter(d *deps) *gin.Engine {
 			secured.PUT("/admin/feedback/:id/link-resource", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackH.LinkResource)
 			// 反馈截图：从 SQLite blob 流式输出（需认证，原公开路由已移入 secured 组修复越权）
 			secured.GET("/uploads/feedback/:filename", d.feedbackH.ServeScreenshot)
+
+			// ── 反馈修复任务（闭环 MVP，管理端）──
+			// 审核创建/列表/详情/取消/验收/驳回/部署确认/完成，全部走 JWT + UnionFeedback 能力门控。
+			// 服务器绝不执行改码/构建/部署；仅做状态机与审计。
+			repairTasks := secured.Group("/admin/feedback/repair-tasks")
+			{
+				repairTasks.POST("", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.CreateTask)
+				repairTasks.GET("", auth.RequireCapability(auth.UnionFeedbackList), d.feedbackRepairTaskH.ListTasks)
+				repairTasks.GET("/:no", auth.RequireCapability(auth.UnionFeedbackList), d.feedbackRepairTaskH.GetTask)
+				repairTasks.POST("/:no/cancel", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.CancelTask)
+				repairTasks.POST("/:no/accept", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.AcceptTask)
+				repairTasks.POST("/:no/reject", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.RejectTask)
+				repairTasks.POST("/:no/deploy-confirm", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.DeployConfirmTask)
+				repairTasks.POST("/:no/deploy-done", auth.RequireCapability(auth.UnionFeedbackWrite), d.feedbackRepairTaskH.DeployDoneTask)
+			}
 
 			// ── 办事流程办理记录 ──
 			process := secured.Group("/process/records")

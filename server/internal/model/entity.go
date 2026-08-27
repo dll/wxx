@@ -300,6 +300,176 @@ const (
 	RepairStatusRolledBack = "rolled_back"
 )
 
+// ── 反馈修复任务（闭环 MVP）状态机 ──
+// 服务器绝不执行源码修改/构建/部署；仅做状态流转与审计。
+// approved → running → awaiting_acceptance → deploy_pending → deploying → deployed → closed
+//
+//	     │             ▲                    │
+//	     ▼             └── reject ──────────┘
+//	verify_failed ─────▶ (重新认领 → running / cancel → cancelled)
+const (
+	// RepairTaskApproved 已审核待执行。
+	RepairTaskApproved = "approved"
+	// RepairTaskRunning 执行端已领取、正在修复/验证。
+	RepairTaskRunning = "running"
+	// RepairTaskVerifyFailed 验证未通过，待整改可重新认领。
+	RepairTaskVerifyFailed = "verify_failed"
+	// RepairTaskAwaitingAcceptance 验证通过，等待管理员验收。
+	RepairTaskAwaitingAcceptance = "awaiting_acceptance"
+	// RepairTaskDeployPending 已验收，等待人工部署后确认。
+	RepairTaskDeployPending = "deploy_pending"
+	// RepairTaskDeploying 管理员已确认开始部署（仅标记）。
+	RepairTaskDeploying = "deploying"
+	// RepairTaskDeployed 部署完成。
+	RepairTaskDeployed = "deployed"
+	// RepairTaskClosed 全流程关闭（终态）。
+	RepairTaskClosed = "closed"
+	// RepairTaskCancelled 已取消（终态）。
+	RepairTaskCancelled = "cancelled"
+)
+
+// FeedbackRepairTask 反馈修复任务，对应 feedback_repair_tasks 表。
+// 承载：管理员审核创建 -> 执行端领取/验证上报 -> 管理员验收 -> 部署确认/完成记录。
+// 服务器不执行改写/部署动作，仅做状态机 + 审计。
+type FeedbackRepairTask struct {
+	ID                int64  `json:"id" db:"id"`
+	TaskNo            string `json:"task_no" db:"task_no"`
+	Creator           string `json:"creator" db:"creator"`
+	FeedbackIDs       string `json:"feedback_ids" db:"feedback_ids"`
+	Title             string `json:"title" db:"title"`
+	Diagnosis         string `json:"diagnosis" db:"diagnosis"`
+	Status            string `json:"status" db:"status"`
+	WorkerHost        string `json:"worker_host" db:"worker_host"`
+	WorkerTokenNote   string `json:"worker_token_note" db:"worker_token_note"`
+	BaseCommit        string `json:"base_commit" db:"base_commit"`
+	Branch            string `json:"branch" db:"branch"`
+	VerifyResult      string `json:"verify_result" db:"verify_result"`
+	DiffStat          string `json:"diff_stat" db:"diff_stat"`
+	LogText           string `json:"log_text" db:"log_text"`
+	AcceptNote        string `json:"accept_note" db:"accept_note"`
+	AcceptedBy        string `json:"accepted_by" db:"accepted_by"`
+	RejectReason      string `json:"reject_reason" db:"reject_reason"`
+	RejectedBy        string `json:"rejected_by" db:"rejected_by"`
+	DeployConfirmedBy string `json:"deploy_confirmed_by" db:"deploy_confirmed_by"`
+	DeployRef         string `json:"deploy_ref" db:"deploy_ref"`
+	CreatedAt         string `json:"created_at" db:"created_at"`
+	UpdatedAt         string `json:"updated_at" db:"updated_at"`
+}
+
+// RepairTaskVerifyReport 执行端验证结果上报载荷（POST .../verify）。
+// 执行端在本机跑 go vet/go test/flutter analyze/test 后回传是否全部通过。
+type RepairTaskVerifyReport struct {
+	Passed         bool   `json:"passed" binding:"required"`
+	GoVet          string `json:"go_vet"`
+	GoTest         string `json:"go_test"`
+	FlutterAnalyze string `json:"flutter_analyze"`
+	FlutterTest    string `json:"flutter_test"`
+	DiffStat       string `json:"diff_stat"`
+	Log            string `json:"log"`
+}
+
+// RepairTaskVerifyResultBundle 落库的验证结果 JSON。
+type RepairTaskVerifyResultBundle struct {
+	Passed         bool   `json:"passed"`
+	GoVet          string `json:"go_vet"`
+	GoTest         string `json:"go_test"`
+	FlutterAnalyze string `json:"flutter_analyze"`
+	FlutterTest    string `json:"flutter_test"`
+}
+
+// RepairTaskDTO 管理端任务列表/详情响应 DTO（聚合诊断信息便于前端渲染）。
+type RepairTaskDTO struct {
+	ID                int64    `json:"id"`
+	TaskNo            string   `json:"task_no"`
+	Creator           string   `json:"creator"`
+	FeedbackIDs       []string `json:"feedback_ids"`
+	Title             string   `json:"title"`
+	Diagnosis         string   `json:"diagnosis"`
+	Status            string   `json:"status"`
+	WorkerHost        string   `json:"worker_host"`
+	BaseCommit        string   `json:"base_commit"`
+	Branch            string   `json:"branch"`
+	VerifyResult      string   `json:"verify_result"`
+	DiffStat          string   `json:"diff_stat"`
+	LogText           string   `json:"log_text"`
+	AcceptNote        string   `json:"accept_note"`
+	AcceptedBy        string   `json:"accepted_by"`
+	RejectReason      string   `json:"reject_reason"`
+	RejectedBy        string   `json:"rejected_by"`
+	DeployConfirmedBy string   `json:"deploy_confirmed_by"`
+	DeployRef         string   `json:"deploy_ref"`
+	CreatedAt         string   `json:"created_at"`
+	UpdatedAt         string   `json:"updated_at"`
+}
+
+// RepairTaskPayload 执行端认领/详情载荷（脱敏：不含截图 base64，仅文本诊断 + 相关代码文件）。
+type RepairTaskPayload struct {
+	TaskNo      string            `json:"task_no"`
+	Title       string            `json:"title"`
+	Status      string            `json:"status"`
+	FeedbackIDs []string          `json:"feedback_ids"`
+	Diagnosis   *AIRepairResponse `json:"diagnosis,omitempty"`
+	BaseCommit  string            `json:"base_commit"`
+	Branch      string            `json:"branch"`
+	LogText     string            `json:"log_text"`
+	CreatedAt   string            `json:"created_at"`
+}
+
+// RepairTaskCreateRequest 管理员创建修复任务请求。
+type RepairTaskCreateRequest struct {
+	FeedbackIDs []string `json:"feedback_ids" binding:"required,min=1,dive,required"`
+	Title       string   `json:"title"`
+}
+
+// RepairTaskVerifyRequest 执行端验证上报请求（认领/验证共用 claim 标识）。
+type RepairTaskVerifyRequest struct {
+	Passed         bool   `json:"passed" binding:"required"`
+	GoVet          string `json:"go_vet"`
+	GoTest         string `json:"go_test"`
+	FlutterAnalyze string `json:"flutter_analyze"`
+	FlutterTest    string `json:"flutter_test"`
+	DiffStat       string `json:"diff_stat"`
+	Log            string `json:"log"`
+}
+
+// RepairTaskClaimRequest 执行端认领请求（携带 worker 标识）。
+type RepairTaskClaimRequest struct {
+	WorkerHost string `json:"worker_host" binding:"required"`
+	BaseCommit string `json:"base_commit"`
+	Branch     string `json:"branch"`
+}
+
+// RepairTaskRejectRequest 管理员驳回请求。
+type RepairTaskRejectRequest struct {
+	Reason string `json:"reason"`
+}
+
+// RepairTaskAcceptRequest 管理员验收请求。
+type RepairTaskAcceptRequest struct {
+	Note string `json:"note"`
+}
+
+// RepairTaskDeployConfirmRequest 管理员部署确认请求（仅标记，不触发服务器动作）。
+type RepairTaskDeployConfirmRequest struct {
+	DeployRef string `json:"deploy_ref"`
+}
+
+// RepairTaskDeployDoneRequest 管理员部署完成登记请求（仅记录状态，绝不执行部署）。
+type RepairTaskDeployDoneRequest struct {
+	Reply           string `json:"reply"`
+	ResolveFeedback bool   `json:"resolve_feedback"`
+}
+
+// RepairTaskListResponse 管理端任务分页列表响应。
+type RepairTaskListResponse struct {
+	Code     int             `json:"code"`
+	Message  string          `json:"message"`
+	Data     []RepairTaskDTO `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
 // FeedbackStats 反馈统计数据
 type FeedbackStats struct {
 	Total           int             `json:"total"`

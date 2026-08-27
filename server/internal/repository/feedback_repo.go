@@ -45,6 +45,23 @@ func scanFeedbackRow(row *sql.Row, fb *model.Feedback) error {
 		&fb.CreatedAt, &fb.UpdatedAt)
 }
 
+// CountScreenshotRefsByUser 统计指定用户提交的反馈中引用某截图的记录数。
+// 用于截图归属校验（G1）：某截图被该用户自己提交的反馈引用了 build 中，则允许其访问。
+// screenshot 的参数可以是文件名（path.Base）或完整 URL/data URL，这里做宽松的 LIKE 匹配。
+func (r *FeedbackRepo) CountScreenshotRefsByUser(filename string, userID int64) (int, error) {
+	// data: URL 内联截图的 filename 无意义；这里仅匹配 blob 文件名。
+	pattern := "%" + filename + "%"
+	var n int
+	err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM feedback WHERE user_id = ? AND screenshot_url LIKE ?`,
+		userID, pattern,
+	).Scan(&n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 // Create 创建反馈（含截图链接）
 func (r *FeedbackRepo) Create(fb *model.Feedback) (int64, error) {
 	result, err := r.db.Exec(
