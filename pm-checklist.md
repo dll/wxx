@@ -1,300 +1,145 @@
-# wxx 问题反馈→管理员反馈管理→反馈详情→在线修复/复制提交 全链路只读审计
+# 校园导航「管理端拖动节点坐标无法持久化、刷新回退」重构核对清单
 
-> 审计日期：2026-08-26 · 审计方式：**纯只读**（未修改任何源码、未执行任何写操作、未提交 git）
-> 说明：本文件覆盖了 2026-08-21 的 vOPC PRD 核对清单；旧版内容可在 git 历史找回（commit `2aae19d`）。
-> 目标流程假设：**管理员审核后单个/批量创建修复任务 → 本机受控修复 → 自动验证 → 管理员验收 → 人工确认部署**。
-
----
-
-## 一、链路总览（现状）
-
-```
-用户端                                    管理端
-──────                                   ──────
-feedback_dialog.dart 提交反馈             pages/admin/feedback_page.dart 列表
-(自动截屏+分类+模块+草稿)        ──►       ├─ 状态筛选 / 仪表盘统计
-POST /api/v1/feedback                     ├─ 行内：驳回/处理中/解决
-                                          └─ 详情页 FeedbackDetailPage
-my_feedbacks_page.dart「我的反馈」             ├─ 基本信息/内容/截图/回复/评分/时间线
-├─ 查看状态与回复                             ├─ 复制完整报告(Markdown)
-├─ 复制 JSON                                  ├─ 复制结构化(JSON)
-└─ 满意度评价                                  └─ 「在线修复」按钮 → feedback_repair.dart 面板
-                                                  ├─ 自动调用 POST /feedback/:id/ai-repair
-                                                  ├─ 展示：摘要/OCR/根因/代码定位/修复建议
-                                                  ├─ 复制完整报告(Markdown) / 复制JSON   ←两种格式
-                                                  ├─ 「本机复现指引」静态文本
-                                                  └─ 「验证通过并标记已解决」→ PUT /feedback/:id
-```
-
-**核心结论：当前「在线修复」是"AI 诊断 + 复制到剪贴板 + 人工去本机修"的辅助面板，不是自动修复系统。**
-后端没有任何执行代码修改、构建或部署的代码路径；`feedback_repair_jobs` 工单表虽有 build/deploy/healthcheck 阶段常量，但实际只会写入 `diagnose→done` 两段。
+> 核对专员：pm-wxx（只读，未修改任何代码）
+> 核对日期：2026-08-27
+> 结论：leader 定位的三层根因全部核实属实，修复方案可行。以下为核对确认与验收标准。
 
 ---
 
-## 二、前端页面与交互
+## 一、根因确认（全部核实属实）
 
-| 文件 | 角色 | 关键交互 |
-|---|---|---|
-| `frontend/lib/widgets/feedback_dialog.dart` (465 行) | 用户提交 | 打开前自动抓当前页面帧；分类 SegmentedButton（answer_error/suggestion/other）；模块下拉（`models.dart:1362 feedbackModules` 13 个枚举）；关闭/失败时草稿存 SharedPreferences 并可恢复；Web 截图 ≤900KB 转 base64 data URL 内联入库；「复制 JSON」「复制 Markdown」（`FeedbackReport.buildDraftJson/buildDraftMarkdown`）供手工粘贴给外部 AI 工具 |
-| `frontend/lib/pages/profile/my_feedbacks_page.dart` | 用户查看 | 我的反馈列表/详情、状态与回复展示、复制 JSON（`buildJson`）、满意度评价（1-5 星，仅 resolved 且未评过） |
-| `frontend/lib/pages/admin/feedback_page.dart` (1280 行) | 管理员 | 入口在「我的→管理服务」（能力 union.feedback.list 门控）；仪表盘（总数/待处理/处理中/已解决/近7天趋势/热门分类/平均时长）；列表状态筛选 pending/processing/resolved/dismissed；行内驳回/处理中/解决；详情页含截图放大、关联知识资源、处理回复、满意度、时间线；右上角「复制完整反馈」（Markdown 含日志）；底部「在线修复」按钮（任意状态可开） |
-| `frontend/lib/widgets/feedback_repair.dart` (544 行) | 管理员修复助手 | `showOnlineRepair` 底部抽屉；initState **自动**触发 `_runAIRepair()`（每次打开都调一次 LLM 接口并落一条工单）；本地关键词兜底匹配模块→文件映射；展示问题摘要/OCR/根因分析/代码文件卡片/修复建议；「复制完整报告（提交 AI 修复）」「复制结构化 JSON」两按钮；静态「本机复现指引」（flutter run / go run / make deploy-release）；「验证通过并标记已解决」→ 弹窗填回复 → `resolveFeedback(id,'resolved')` |
-| `frontend/lib/utils/feedback_report.dart` | 报告生成器 | 统一 JSON + Markdown 双格式生成；字段全量（含 ai_* 诊断附加段、logs、截图 base64）；三处复用保证不丢字段 |
-| `frontend/lib/providers/feedback_provider.dart` (385 行) | 状态层 | fetchFeedbacks/fetchMyFeedbacks/fetchFeedbackDetail/fetchFeedbackLogs/fetchStats/uploadScreenshot(Bytes)/submitFeedback/resolveFeedback/rateFeedback/linkResource/**aiRepair**。**没有**对 `GET /feedback/:id/ai-repair/job` 的封装与轮询（全前端 grep 无引用） |
+### 根因 1：数据层 —— 迁移 079 删空种子数据，且不回填
 
-交互缺口：
-- 管理端列表**无多选/批量操作**（批量能力目前只有 admin 用户管理与 KB 审核，见 api_config.dart:94-118，均不涉反馈）。
-- 修复面板无工单进度展示（job 轮询接口存在但前端未接）。
-- 已 resolved 的反馈打开修复面板仍显示「验证通过并标记已解决」，点击会被后端状态机拒绝（resolved 为终态），仅提示"操作失败"。
-- 反馈详情页 `GET /feedback/:id` 无 owner 过滤（见下文隐私节），普通学生直接构造 ID 可看他人反馈。
+- 文件：`server/migrations/079_clear_preloaded_data.sql`
+- 第 9 节明确执行 `DELETE FROM campus_checkin_steps;`，注释标注「9. 报到打卡点 campus_checkin_steps（12 条）」。
+- 该迁移已执行（迁移 runner 幂等，`_migrations` 表已记录 `079_clear_preloaded_data.sql`），且 DELETE 不会自动回填。
+- **后果：生产 MySQL 表 `campus_checkin_steps` 为空。** ✅ 属实
+
+> 附带影响：079 同时删除了 kb_resources、process_steps、ai_briefings、competitions、毕设、career_policies、校历、course_schedules、health_activities 等大量演示数据，属**上线前统一清空的既定行为**，非本次 bug 独有。但 campus 模块因前端存在「假节点降级」而放大为拖拽不可用的用户可见故障。
+
+### 根因 2：前端静默降级陷阱
+
+- 文件：`frontend/lib/pages/campus/campus_map_page.dart`
+- `_loadStepsFromServer()` 逻辑核实：
+  1. 进入时先 `_remoteIds.clear()`；
+  2. 管理员走 admin 接口 `ApiConfig.adminCampusSteps?campus=...`，普通用户走公开接口；
+  3. `if (resp.data['code'] == 0)` 后取 `list`，**仅当 `list.isNotEmpty()` 时**才填充 `_remoteIds` 并覆盖 `_campusStepsMap`；
+  4. 否则（空列表 / code != 0 / 异常 catch）**静默回退到本地硬编码 `_campus.steps`（前端 `_huifengSteps` 6 个 + `_langyaSteps` 6 个假节点），`_remoteIds` 保持为空**。
+- **确认：`_remoteIds` 只在 admin 接口成功且 data 非空时填充。** ✅ 属实
+- 关键点：本地假节点坐标与 050 纠正后的权威值**一致**（前端常量已按 OSM 纠正过），所以管理员看到的节点位置是「正确的假点」，更具迷惑性——看似可拖动，实则永远写不进库。
+
+### 根因 3：拖拽保存取 `_remoteIds[index]` 为 null
+
+- `_saveCoordinate()` 首行：`final stepId = _remoteIds[index]; if (stepId == null) return false;`
+- 因 `_remoteIds` 为空，`stepId` 恒为 null，`_saveCoordinate` 直接返回 false。
+- `_savePendingCoordinates()` 中所有请求「失败」，`_pendingCoordinates` 无法清空。
+- `_toggleNodeEditing()` 退出编辑时报错：「保存失败：未加载到后端节点，请检查登录状态和网络后重试」。
+- **坐标从未写入数据库，刷新即回退。** ✅ 属实
 
 ---
 
-## 三、API 路由与权限能力
+## 二、辅助机制核对（均正常）
 
-路由注册：`server/pkg/app/routes.go`（secured 组 = JWTAuth + EnsureUserExists，前缀 `/api/v1`）。
+### 1. 后端接口 `campus_handler.go`
 
-| 方法与路径 | 能力门控 | Handler | 备注 |
+- `ListAdminSteps`（GET /admin/campus/steps）：调用 `h.repo.ListAll(campus)`，空结果时 `steps == nil → steps = []model.CampusStep{}`，返回 `code:0, data:[]` ✅ 正常（不报错，返回空列表）。
+- `UpdateStepCoords`（PATCH /admin/campus/steps/:id/coords）：参数绑定 lat/lng（required），含中国范围校验（lat 3~54、lng 73~136），调用 `h.repo.UpdateCoords`。**接口本身正常**，问题仅在于前端传不到有效 id。
+
+### 2. 迁移机制 `server/cmd/migrate/main.go`
+
+- `_migrations` 表记录已执行文件名，`SELECT COUNT(*) ... WHERE filename=?` 判断，已执行则 skip。
+- 按 `sort.Strings(files)` 文件名排序执行；执行成功后 `INSERT INTO _migrations (filename)` 记录。
+- **幂等确认 ✅**：同一文件名不重复执行。
+- **迁移编号确认 ✅**：目录当前最大为 `109_feedback_repair_tasks.sql`，新增应为 **`110_restore_campus_steps.sql`**。
+
+### 3. 方言转换 `server/internal/db/dialect.go`
+
+- `ToMySQL()` 中 `insertOrIgnoreRe` 把 `INSERT OR IGNORE` → `INSERT IGNORE`（第 7 步）✅。
+- `pkAutoRe` 把 `INTEGER PRIMARY KEY AUTOINCREMENT` → `BIGINT PRIMARY KEY AUTO_INCREMENT`（第 2 步）✅。
+- 但注意：本次恢复数据的 `INSERT OR IGNORE INTO campus_checkin_steps (...)` 是 **DML 而非 DDL**，转换仅依赖 `insertOrIgnoreRe`；若采用 `INSERT OR IGNORE` 需指定唯一键才能真正「幂等去重」（见下方风险点 R2）。
+- `INSERT` 列清单中的保留字列名会被 `insertColsRe` 加反引号处理（status/step_order 均非保留字，不受影响）。
+
+---
+
+## 三、风险点（需 leader/dev 关注）
+
+### R1：恢复数据与 079 清空的语义冲突（高）
+079 的意图是「上线前清空演示数据、改由管理员上传真实资源」。110 恢复 campus 种子数据在语义上是**逆向操作**。需确认产品决策：campus 报到节点应视为「系统必需默认流程」（随 080 之后恢复），还是应继续由管理员通过「流程管理」自行创建？
+- 若管理员已通过流程管理创建了新的 campus_checkin_steps，110 恢复需避免冲突（用 INSERT IGNORE + 唯一键，或用 WHERE NOT EXISTS 判断「该 campus 无任何节点」才插入）。
+
+### R2：INSERT OR IGNORE 的去重依据（高）
+`INSERT OR IGNORE`（MySQL `INSERT IGNORE`）只有在**存在唯一约束命中冲突**时才忽略。当前 048 建表未对 `(campus_id, step_order)` 建唯一索引，若生产表为空则无所谓；但若需真正幂等（防止重复插入 12 条），应：
+- 优先方案 A：显式 `WHERE NOT EXISTS` 判断该 campus 无节点才插入；
+- 或方案 B：先给 `INSERT IGNORE` 增加唯一约束依赖（迁移补 `UNIQUE(campus_id, step_order)` 或显式指定 id 保证主键冲突）。
+
+### R3：id 策略（中）
+048 依赖自增 id（未显式指定）。110 若显式指定 id=1..12，可能与管理员后续追加的节点 id 冲突、或与 AUTO_INCREMENT 计数不一致。建议：**不显式指定 id，依赖 AUTO_INCREMENT 自增**，避免主键冲突；URL 中 `:id` 由 `_remoteIds` 从接口返回动态读取，不依赖固定 id。
+
+### R4：坐标权威取值（中）
+050 纠正后的权威坐标 = 前端 `_huifengSteps` / `_langyaSteps` 常量（已核对，二者一致）：
+- 会峰：step1~6 = (32.2705,118.3055)(32.2745,118.3070)(32.2735,118.3060)(32.2770,118.3040)(32.2740,118.3090)(32.2720,118.3030)
+- 琅琊：step1~6 = (32.2921,118.2988)(32.2932,118.3002)(32.2928,118.2995)(32.2940,118.2976)(32.2926,118.3000)(32.2917,118.2992)
+- **注意：048 原始种子是错误坐标（会峰/琅琊写反 + 琅琊偏移 2km），绝不能照抄 048 的 lat/lng，须用 050 纠正后的值。** ✅ 方案中已明确，予以确认。
+
+### R5：前端降级逻辑改动范围（中）
+当前 `_loadStepsFromServer` 的静默降级对**普通用户**是合理兜底（离线可用），不能一刀切取消。需区分：
+- **管理员（`_canEditNodes`）**：`_remoteIds` 为空时不再允许进入编辑/拖动，明确提示「后端无节点数据，请先在流程管理创建节点」。
+- **普通用户**：保持现有静默回退到本地常量（只读展示，不涉及写库，无危害）。
+- 改动点聚焦于 `_toggleNodeEditing()` 进入编辑前的守卫，以及（建议）admin 加载结果为空时的提示。
+
+### R6：status 字段（低）
+方案要求恢复 `status='published'`，与 048 一致。前端管理员走 admin 接口（含 draft）、普通用户走公开接口（仅 published），恢复 published 可同时服务两端。确认无冲突。
+
+---
+
+## 四、修复范围
+
+| 层 | 文件 | 改动类型 | 说明 |
 |---|---|---|---|
-| POST /api/v1/feedback | `SelfFeedbackSubmit` | Submit | 学生及以上均可提交；校验 token 用户仍存在（防 Vercel 冷启动脏 token） |
-| POST /api/v1/feedback/screenshot | `SelfFeedbackSubmit` | UploadScreenshot | ≤5MB；存 `feedback_screenshots` blob 表；返回 `/uploads/feedback/{filename}` |
-| GET /api/v1/feedback/mine | `SelfFeedbackSubmit` | Mine | 按 user_id 过滤，安全 |
-| **GET /api/v1/feedback/:id** | **无中间件、handler 内也无 user_id 校验** | Get | 注释声称"handler 内 user_id 校验"，**实际代码没有** → 任意登录用户可读任意反馈详情（P1 隐私缺口） |
-| PUT /api/v1/feedback/:id/rate | `SelfFeedbackSubmit` | Rate | Service 内校验 fb.UserID==userID、status==resolved、未评过 |
-| **GET /api/v1/feedback/:id/logs** | **无能力门控、无归属校验** | GetLogs | 同上，任意登录用户可读任意反馈处理记录 |
-| GET /api/v1/feedback | `UnionFeedbackList` | List | 管理员列表（student_union 及以上继承获得） |
-| PUT /api/v1/feedback/:id | `UnionFeedbackList` | Resolve | 状态机校验在 Service |
-| POST /api/v1/feedback/:id/ai-repair | `UnionFeedbackWrite` | AIRepair | 触发诊断；operator 取当前用户名 |
-| GET /api/v1/feedback/:id/ai-repair/job | `UnionFeedbackWrite` | LatestRepairJob | 返回最新工单（前端未使用） |
-| GET /api/v1/admin/feedback/stats | `UnionFeedbackRead`（常量名复用 admin 前缀） | Stats | 统计 |
-| PUT /api/v1/admin/feedback/:id/link-resource | `UnionFeedbackWrite` | LinkResource | 关联知识资源 |
-| GET /api/v1/uploads/feedback/:filename | 仅 JWT，**无归属/能力校验** | ServeScreenshot | 任意登录用户按文件名可取任意截图；文件名为 uuid 前 8 位，可枚举面有限但非零 |
+| 数据层 | `server/migrations/110_restore_campus_steps.sql`（新增） | 新增迁移 | 用 `INSERT OR IGNORE`（SQLite 写法）恢复会峰6+琅琊6共12节点，坐标取 050 权威值，`status='published'`，依赖自增 id（建议加幂等守卫） |
+| 前端 | `frontend/lib/pages/campus/campus_map_page.dart` | 修改逻辑 | 管理员编辑模式下，`_remoteIds` 为空时禁止进入编辑并提示，不再静默降级到可拖动假节点；普通用户保留原兜底 |
 
-能力定义：`server/internal/auth/capabilities.go`
-- `SelfFeedbackSubmit="self.feedback.submit"`：student 基线（:247）
-- `UnionFeedbackList="union.feedback.list"`、`UnionFeedbackRead="admin.feedback.read"`、`UnionFeedbackWrite="admin.feedback.write"`：student_union 获得（:280），counselor/admin 等经角色树继承
-- guest 仅 SelfGuestRead，无任何反馈能力 ✅
+**明确不在本次范围**：
+- 不改 `campus_handler.go`（接口本身正常）。
+- 不改 `dialect.go`（转换逻辑已支持所需语句）。
+- 不改 079（保留既有清空语义）。
+- 不改 048（历史种子保持不动，仅作为字段结构参照）。
 
 ---
 
-## 四、Handler / Service / Repository 分层
+## 五、验收标准
 
-```
-handler/feedback_handler.go      参数绑定+HTTP 语义（无业务逻辑，Get/GetLogs 权限缺失在此层可见）
-service/feedback_service.go      全部业务规则：
-                                 - Submit：fb-xxxxxxxx ID、pending 默认态、AddLog(submit)、answer_error 异步钩子 RetireFAQ(app.go:255 注入)
-                                 - Resolve：状态机 validTransitions + AddLog(status_change) + resolved 时异步站内通知(user_notifications 直插 SQL)
-                                 - AIRepair：①建工单(rp-xxxx run_id) ②截图 blob→Zhipu4V OCR ③本地关键词兜底 matched_files
-                                            ④文本模型 JSON 诊断(module/summary/code_files/root_cause/repair_hint，温度0.2/800tok，
-                                              prompt 内嵌 moduleFilesMap 目录约束候选文件) ⑤finish() 落库 status=succeeded/stage=done
-                                 - Rate/LinkResource/ListMine/GetStats/SaveScreenshot
-repository/feedback_repo.go      双方言(MySQL/SQLite via dbutil.IsMySQL)；listFeedbackCols 统一列；List/Count(ListByUser/CountByUser/
-                                 GetByFeedbackID/Update/UpdateRating/LinkResource/CountByStatus/CountByCategory/WeekTrend/
-                                 TopIssues/AvgResolveHours/AddLog/ListLogs)
-repository/feedback_repair_repo.go  Create(run_id UNIQUE)/AppendLog(log_text || 追加)/UpdateStage/Finalize/SetEditedFiles/
-                                 GetByRunID/LatestByFeedback —— 注意 AppendLog 用 SQLite 语法经 AdaptForDriver 适配
-repository/feedback_screenshot_repo.go  blob 存取(Save/GetByFilename)
-装配：pkg/app/app.go:214-247    SetDB / SetRepairRepo(恒注入) / SetAnswerErrorHook / SetAIRepairClients(Zhipu4V 有 key 时注入)
-```
+### 数据层（110 迁移）
+1. 迁移文件存在且命名 `110_restore_campus_steps.sql`，编号为当前最大 +1（110）。
+2. MySQL 下执行成功：`INSERT OR IGNORE` 被正确转换为 `INSERT IGNORE`，12 条数据落库。
+3. SQLite 下执行成功：12 条数据落库。
+4. 重复执行迁移不报错、不产生重复数据（幂等：依赖文件名去重 + 插入去重守卫）。
+5. 落库坐标与 050 权威值一致（会峰/琅琊分开，无写反、无偏移）。
+6. 12 条 `status` 均为 `published`；id 自增不冲突。
 
-测试现状：
-- `service/feedback_air_repair_test.go`：5 个用例全部通过逻辑完备（LocalFallback / WithLLM(mock) / parseJSON / PersistJob / NoRepoNoRunID）。**注意：LLM 失败降级路径最终也把工单标为 succeeded**（"成功"语义=完成诊断而非完成修复）。
-- `handler/feedback_handler_test.go`：Submit 成功路径等基础用例；**无 Get/GetLogs 越权负向用例**。
+### 后端接口
+7. `GET /admin/campus/steps?campus=huifeng` 返回 `code:0, data:[6 条节点]`（含 id）。
+8. `GET /admin/campus/steps?campus=langya` 返回 `code:0, data:[6 条节点]`。
+9. `PATCH /admin/campus/steps/:id/coords` 传入有效 id + 合法坐标，返回 `code:0`，DB 坐标更新。
 
----
+### 前端（管理员端到端）
+10. 管理员进入报到导航，地图正确加载后端 12 节点（非假节点），`_remoteIds` 非空。
+11. 管理员拖动节点 → 松手暂存 → 退出编辑 → 校验坐标与 DB 一致 → 提示「全部节点坐标已保存」。
+12. **刷新页面后坐标保持不回退**（对照 DB 值）。
+13. 后端无节点（空表）时，管理员进入编辑**被阻止**，明确提示「后端无节点数据，请先在流程管理创建节点」，而非静默显示可拖动的假节点。
+14. 普通用户体验不受影响：后端不可用时仍能离线看到只读流程（静默回退本地常量）。
 
-## 五、数据库表与迁移
-
-| 迁移 | 内容 |
-|---|---|
-| `009_feedback_and_settings.sql` | 建 `feedback` 表：id/feedback_id(UNIQUE)/user_id/username/message_id/resource_id/category/content/screenshot_url/status/resolved_by/resolved_at/reply/created_at/updated_at + system_settings |
-| `011_feedback_enhance.sql` | 补 screenshot_url/reply 列（幂等） |
-| `019_feedback_screenshot_blob.sql` | 建 `feedback_screenshots`（filename UNIQUE/mime/size/data_base64/uploaded_by），解决 Vercel /tmp 易失 |
-| `028_fix_feedback_fk.sql` | 重建 feedback 表去掉 users FK（应用层校验） |
-| `039_feedback_closed_loop.sql` | +rating/rating_comment/rated_at/linked_resource_note/linked_at/linked_by；建 `feedback_logs`(action/operator/detail/created_at) 时间线表 |
-| `063_feedback_module.sql` | +module TEXT（所属模块，在线修复定位用）+索引 |
-| `064_feedback_repair_jobs.sql` | 建 `feedback_repair_jobs`：run_id UNIQUE/feedback_id/operator/status(running\|succeeded\|failed\|rolled_back)/stage(init/diagnose/gen_patch/apply/build/deploy/healthcheck/done/failed)/log_text/edited_files(JSON数组)/summary/detail |
-
-模型常量（entity.go:266-299）已预留 gen_patch/apply/build/verify/deploy/healthcheck 阶段与 rolled_back 状态，**但 Service 从未使用**——这是现成的扩展锚点。
-
-生产库：已从 SQLite 迁移到 **MySQL + Redis**（commit 7b92bd7），repo 层双方言兼容；服务器部署于 `/opt/wxx`（systemd 单元 `wxx` + Caddy 正式入口 wxx-agent.online），Cloudflare Pages 为备用 Web 入口。新迁移需保持 MySQL 兼容（参考 AvgResolveHours 与 AdaptForDriver 的写法）。
+### 回归
+15. 流程管理（CRUD）面板增删改查、审核发布流程不受 110 迁移影响。
+16. 079 之外的其他模块（知识库/流程/竞赛/毕设等）数据不受本次修复影响。
+17. 已完成旧数据无冲突：若管理员已在流程管理手动创建过节点，110 不产生重复（依赖幂等守卫）。
 
 ---
 
-## 六、反馈状态字段与流转
+## 六、待 leader/dev 决策项
 
-`feedback.status`：`pending → processing | resolved | dismissed`；`processing → resolved | dismissed`；resolved/dismissed 为终态不可再变（Service validTransitions 硬编码）。
+1. **R1 语义决策**：campus 节点是否应随 110 恢复为「系统默认流程」？（若产品要求管理员自建，则应改为前端明确引导 + 不恢复数据，仅修前端提示。）
+2. **R2 幂等实现**：选「WHERE NOT EXISTS 守卫」还是「补唯一约束 + INSERT IGNORE」？
+3. **R3 id 策略**：是否确认「不显式指定 id、依赖自增」？
 
-每次变更/提交/评价/关联/AI 诊断均写 `feedback_logs`（action: submit/status_change/link_resource/rate/ai_repair），详情页时间线可视化。
-
-resolved 时异步插入 `user_notifications`（type='feedback'）通知提交者；answer_error 类反馈异步触发 FAQ 缓存 retired（app.go:255）。
-
-满意度：rating 1-5，仅 resolved 后本人可评一次。
-
----
-
-## 七、附件与隐私
-
-- **双存储模式并存**：①原生上传接口→`feedback_screenshots` blob 表，URL 形如 `/uploads/feedback/xxx.png`；②Web 端 `uploadScreenshotBytes` 直接把 ≤900KB 图片编码为 data: URL 存进 `feedback.screenshot_url` 文本列（跨实例可靠但撑大主表行）。
-- 隐私问题（按严重度）：
-  1. `GET /feedback/:id` 与 `/feedback/:id/logs` 无归属校验 → 水平越权读任意反馈全文与截图链接（注释与实现不符，疑似回归）。
-  2. `GET /uploads/feedback/:filename` 仅要求登录，无归属校验。
-  3. 截图可能包含其他学生的个人信息（成绩单、聊天页等）；一旦接入自动修复任务下发链路，**不得默认把截图/全文推给执行端**。
-  4. 复制到剪贴板的报告含用户名/截图 base64，属敏感外泄面（设计如此，但需在制度上限制粘贴去向）。
-
----
-
-## 八、「在线修复」按钮的真实行为（关键结论）
-
-点击后**唯一的服务端动作是诊断**：
-
-1. 前端自动 `POST /feedback/:id/ai-repair`（每次打开面板必调一次，产生一次 GLM-4.6V OCR + 一次文本模型调用 + 一条 repair_job 记录）；
-2. 返回 module/summary/code_files/root_cause/repair_hint/ocr_text/matched_files/run_id；
-3. 前端渲染诊断卡片 + 两枚剪贴板按钮（Markdown/JSON 双格式，`FeedbackReport` 统一生成，字段含反馈全量+日志+AI 诊断）；
-4. 管理员把剪贴板内容粘贴给 Claude/GLM 等**外部 AI 编码工具**，在本机仓库手工完成修改；
-5. 回面板点「验证通过并标记已解决」→ `PUT /feedback/:id` 置 resolved（此步即"验收"，但与真实验证无强关联，纯自觉）。
-
-**不存在**的环节：服务端改码、补丁生成/应用、构建、健康检查、热部署、回滚。`RepairStage*` 中 apply/build/deploy 等常量为死代码；`rolled_back` 状态从未出现。工单查询接口虽实现且带审计字段（edited_files/log_text），前端完全未消费。
-
----
-
-## 九、本机自动修复可复用设施盘点
-
-| 设施 | 位置 | 可复用点 |
-|---|---|---|
-| 构建命令 | `Makefile` | `make test`（go test ./...）、`make lint`（go vet）、`flutter-test`、`flutter-build-web(-safe/-output)`、`flutter-build-apk(-safe)`、`deploy-release`（版本自增+Web/APK 发布）、`eval/eval-gate` 质量门禁 |
-| 全量构建脚本 | `scripts/build-all.ps1` | 版本号 patch 自增 + Web/APK 顺序构建 |
-| CI/CD 部署流水线 | `.github/workflows/deploy-backend.yml` | SSH 私钥 secrets、mysqldump 部署前备份（/opt/wxx/backup/wxx-pre-*.sql）、二进制回滚副本（wxx-server.rollback.*）、systemctl stop/start wxx、健康确认 `systemctl is-active`；`redeploy-server-tar.yml` 支持源码 tar 重部署；`deploy-frontend.yml` rsync 到 /opt/wxx/frontend/web |
-| 健康检查端点 | `routes.go:44 router.GET("/health", healthHandler)` | 公开无鉴权，可直接做部署后探活 |
-| LLM 客户端 | `internal/llm/`（Zhipu4VClient OCR + ChatClient failover + MockClient） | 诊断/补丁说明生成；Mock 支持单测 |
-| 工作流引擎 | `internal/temporal/`（workflows+activities，chat/kb/emotion/integration 已用） | 若修复任务需要长时编排/重试/心跳，可复用；最小方案也可不用 |
-| 工单持久化骨架 | `feedback_repair_jobs` + FeedbackRepairRepo | 表结构与阶段常量可直接扩展审批/验证/验收/部署确认字段 |
-| 测试基线 | go handler/service 测试 + `flutter test` + vopc_provider_test | 自动验证套件的现成组成 |
-| 数据库迁移机制 | 启动时 app.NewWithConfig 自动执行；cmd/migrate | 新增迁移只需追加编号 SQL |
-
-**注意**：仓库内**没有**任何"服务端自我改码/热更新"代码，也没有 OpenClaw/agent 类守护进程集成；"本机修复"目前只能由人在开发机执行（或人驱动 AI CLI）。
-
----
-
-## 十、缺口清单（按优先级）
-
-| # | 缺口 | 级别 |
-|---|---|---|
-| G1 | 反馈详情/日志接口缺归属与能力校验（水平越权读） | P1 安全 |
-| G2 | 无"修复任务"实体：审核、认领、验证结果、验收、部署确认均无落库载体 | P0（对目标流程） |
-| G3 | 无批量选择与批量创建任务的前后端能力 | P0（对目标流程） |
-| G4 | 本机执行端协议缺失（认领/心跳/上报验证结果/上报 diff） | P0（对目标流程） |
-| G5 | 自动验证无统一出口（go test/vet、flutter analyze/test 结果未结构化回传） | P0 |
-| G6 | 验收人与执行人不分离、部署无人工确认闸门 | P1 流程 |
-| G7 | 工单 job 接口前端未接，diagnose 即"succeeded"语义误导 | P2 |
-| G8 | 修复面板对 resolved 反馈仍显示可解决按钮 | P3 UX |
-| G9 | 截图双存储模式并存，data URL 撑大主表 | P3 |
-| G10 | category 校验(oneof=answer_error,suggestion,other)与历史值 bug/feature_request（stats 映射仍在）不一致 | P3 |
-
----
-
-## 十一、最小可用改造清单（MVP）
-
-原则：**服务端只做状态机与审计，绝不在服务器上执行代码修改/构建**；一切改动发生在受控本机（开发机），服务器仅接收结果上报。尽量扩展现有表而非新建平行体系。
-
-### M1 数据库（1 个迁移，编号顺延 109）
-
-`server/migrations/109_feedback_repair_tasks.sql`（MySQL 兼容写法）：
-
-```sql
-CREATE TABLE IF NOT EXISTS feedback_repair_tasks (
-    id            INTEGER/INT AUTO_INCREMENT PRIMARY KEY,
-    task_no       TEXT NOT NULL UNIQUE,            -- rt-xxxxxxxx
-    creator       TEXT NOT NULL,                   -- 创建(审核)管理员
-    feedback_ids  TEXT NOT NULL,                   -- JSON 数组，支持单条/批量
-    title         TEXT NOT NULL DEFAULT '',
-    diagnosis     TEXT NOT NULL DEFAULT '',        -- 合并后的 AI 诊断(JSON: modules/code_files/root_cause/hints)
-    status        TEXT NOT NULL DEFAULT 'approved',-- approved/running/verifying/verify_failed/awaiting_acceptance/
-                                                   -- rejected_accepted/deploy_pending/deploying/deployed/closed/cancelled
-    worker_host   TEXT NOT NULL DEFAULT '',
-    base_commit   TEXT NOT NULL DEFAULT '',
-    branch        TEXT NOT NULL DEFAULT '',
-    verify_result TEXT NOT NULL DEFAULT '',        -- JSON: go_test/go_vet/flutter_analyze/flutter_test passed+摘要
-    diff_stat     TEXT NOT NULL DEFAULT '',
-    log_text      TEXT DEFAULT '',
-    accept_note   TEXT NOT NULL DEFAULT '',
-    accepted_by   TEXT NOT NULL DEFAULT '',
-    deploy_confirmed_by TEXT NOT NULL DEFAULT '',
-    deploy_ref    TEXT NOT NULL DEFAULT '',        -- 部署方式记录(GH run id / 手工命令)
-    created_at/updated_at ...
-);
-CREATE INDEX idx_frt_status ON feedback_repair_tasks(status);
--- 同时给 feedback_logs 增加 action 取值：repair_task_created/repair_verified/repair_accepted/deploy_confirmed
-```
-
-（备选：直接 ALTER `feedback_repair_jobs` 加列；新建 tasks 表更清晰，jobs 保留为"诊断记录"。）
-
-### M2 后端（Handler/Service/Repo 各一文件增量 + 路由 ~10 条）
-
-新增能力常量：`SystemRepairExecute = "system.repair.execute"`（仅授予一个本机服务账号角色，如 sysadmin 树下），管理侧沿用 `UnionFeedbackWrite/List`。
-
-| 路由 | 能力 | 行为 |
-|---|---|---|
-| POST /api/v1/admin/feedback/repair-tasks | UnionFeedbackWrite | body:{feedback_ids:[..], title?}；逐条跑现有 AIRepair 诊断合并 code_files；创建任务 status=approved（创建即审核，记录 creator）；每条反馈 AddLog(repair_task_created) |
-| GET /api/v1/admin/feedback/repair-tasks?status=&page= | UnionFeedbackList | 任务分页列表 |
-| GET /api/v1/admin/feedback/repair-tasks/:no | UnionFeedbackList | 详情（含 verify_result/diff_stat/log） |
-| POST /api/v1/admin/feedback/repair-tasks/:no/cancel | UnionFeedbackWrite | 仅 approved/verify_failed 可取消 |
-| POST /api/v1/admin/feedback/repair-tasks/:no/accept | UnionFeedbackWrite | awaiting_acceptance→accepted(deploy_pending)；建议校验 accepted_by != worker 上报人（单人场景可放宽为提示） |
-| POST /api/v1/admin/feedback/repair-tasks/:no/reject | UnionFeedbackWrite | 驳回整改，回 verify_failed 或 cancelled |
-| POST /api/v1/admin/feedback/repair-tasks/:no/deploy-confirm | UnionFeedbackWrite | deploy_pending→deploying；记录 deploy_confirmed_by；**只做标记，不触发服务器动作** |
-| POST /api/v1/admin/feedback/repair-tasks/:no/deploy-done | UnionFeedbackWrite | deploying→deployed/closed；可选联动：把 feedback_ids 批量 Resolve(resolved, reply="已于 vX.X.X 修复") 复用现有通知链路 |
-| GET /api/v1/internal/repair-tasks/next | SystemRepairExecute | 执行端认领：原子地把最老 approved 任务置 running（全局同时仅 1 个 running，避免并发改码冲突）；返回脱荷载荷（不含截图 base64，仅文本诊断+code_files） |
-| POST .../:no/claim · /heartbeat(可选) · /verify · /abandon | SystemRepairExecute | verify 上报 {passed, go_test, go_vet, flutter_analyze, flutter_test, diff_stat, log}；passed→awaiting_acceptance，failed→verify_failed |
-
-Service 层复用：诊断合并直接调 `s.AIRepair`（已有）；批量 resolve 复用 `Resolve()`（自带状态机/通知/日志）；日志统一走 `feedbackRepo.AddLog` + 任务自身 log_text。
-
-### M3 本机执行端（新增脚本，不改服务端行为）
-
-`scripts/repair-agent.ps1`（或小 Go 程序放 cmd/repair-agent）：
-1. 轮询 `GET /api/v1/internal/repair-tasks/next`（环境变量 WXX_REPAIR_TOKEN，专用账号）；
-2. 认领后在本机仓库 `git worktree add ../wxx-repair-{task_no} -b repair/{task_no}`（隔离工作区）；
-3. 打印诊断报告（复用 Markdown 格式），提示操作者在工作区内人工/AI CLI 完成修改；
-4. 自动验证：`go vet ./... && go test ./...` + `cd frontend && flutter analyze && flutter test`（全部复用 Makefile 同款命令），收集通过与否；
-5. `git diff --stat` 收集 diff_stat；POST /verify 上报；
-6. 结束语：**不在本机做任何部署**；部署由管理员走既有通道（GitHub Actions deploy-backend 手动触发 / `make deploy-release`），完成后回管理台点 deploy-done。
-
-### M4 前端（最小增量）
-
-- `api_config.dart`：+9 个任务端点常量。
-- `feedback_provider.dart`：createRepairTask(List ids)/fetchRepairTasks/pollRepairTask/accept/reject/deployConfirm/deployDone。
-- `pages/admin/feedback_page.dart`：列表加 Checkbox 多选 + 底部「创建修复任务(N)」按钮；新增简单任务列表/详情视图（可先做成同文件内 Widget 或独立 repair_tasks_page.dart），生命周期徽章 + 验证结果展开 + 验收/驳回/部署确认按钮（按 capability 显示，后端二次校验）。
-- 顺手修 G8：resolved 状态隐藏「验证通过并标记已解决」。
-
-### M5 顺序验收口径
-
-1. 管理员在列表勾选 1~N 条反馈 → 创建任务（status=approved，feedback_logs 留痕）；
-2. 本机执行端认领 → running（worker_host/base_commit 落库）；
-3. 本地改码 + 四件套验证自动执行 → passed 上报 → awaiting_acceptance（或 failed→verify_failed→重新认领）；
-4. 另一管理员（或同人在明确知悉下）点验收 → deploy_pending；
-5. 人工执行既有部署（GH Actions 或 make deploy-release）→ 点部署完成 → closed，关联反馈批量 resolved + 站内信通知提交者；
-6. 全程 feedback_logs + 任务 log_text 可追溯。
-
-预估工作量：迁移+后端约 600-800 行（含测试），脚本 ~150 行，前端 ~500 行；不动现有反馈主流程，风险可控。
-
----
-
-## 十二、风险清单
-
-| # | 风险 | 缓解 |
-|---|---|---|
-| R1 | 执行端 token 泄漏 → 可拉取反馈内容/代码结构信息 | 专用最小能力 system.repair.execute；payload 不含截图；token 可轮换；HTTPS-only |
-| R2 | 验收人=创建人=执行人同一人，闸门形同虚设 | MVP 至少强制验收时二次弹窗+记录；后续可加"验收人≠执行人"硬校验 |
-| R3 | 自动验证四件套无法覆盖运行时回归（FTS、地图、语音等集成问题） | 验收步骤保留人工页面复现；部署后用公开 /health + eval-gate 抽查 |
-| R4 | 并行任务互踩（两人同时改同一文件） | MVP 全局仅允许 1 个 running 任务（认领接口原子化）；worktree+分支隔离兜底 |
-| R5 | 生产库已是 MySQL：迁移若沿用 SQLite 方言会炸 | 参考 028/AvgResolveHours 的双方言写法；启动自动迁移前先在本地 MySQL 演练 |
-| R6 | 部署本身仍全人工，"deployed"标记可能与真实发布不同步 | deploy-done 表单要求填 deploy_ref（GH run ID/命令摘要）；Caddy 侧版本号比对可后续加 |
-| R7 | 回滚路径依赖既有运维习惯（wxx-server.rollback.* / mysqldump 备份） | 把"部署前备份+回滚副本"写入 deploy-confirm 的提示文案；分支保留至稳定后再删 |
-| R8 | 每次打开修复面板就打一次 LLM + 落一条 job，成本/噪声随任务化被放大 | 任务创建时才做诊断；面板浏览改为读取已存 diagnosis（G7 一并修） |
-| R9 | 反馈越权读（G1）在任务链路上被间接放大（任务详情含反馈聚合文本） | 先修 G1（Get/GetLogs 加 owner-or-capability 校验）再上线任务功能 |
-| R10 | Windows 开发机中文路径导致 Flutter 构建失败（Makefile 已注明 impellerc 限制） | 执行端脚本直接复用 `-safe` 构建目标，不自造构建命令 |
-
----
-
-## 十三、只读声明
-
-本轮审计仅执行了文件读取、目录列举与 git 只读查询；未修改任何源码、配置或数据；除覆盖本文件 `pm-checklist.md` 外未触碰仓库（该文件本身已被 git 跟踪，旧版可随时恢复）。
+以上三项目前方案默认：恢复数据 + INSERT IGNORE（加守卫）+ 依赖自增，建议 dev 在 refactor-notes 中明确落地方案后再动工。

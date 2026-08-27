@@ -339,7 +339,13 @@ class _CampusMapPageState extends State<CampusMapPage> {
   }
 
   /// 从后端加载报到步骤（公开接口，无需登录）。
-  /// 失败时回退到本地硬编码常量，保证离线/后端不可用时不影响使用。
+  ///
+  /// 普通用户（非管理员）：失败/空列表时静默回退到本地硬编码常量，
+  ///   保证离线/后端不可用时不影响查看报到流程。
+  /// 管理员：失败/空列表时【不回退】到可拖动的硬编码节点，保留 _remoteIds
+  ///   为空，使拖拽保存逻辑正确报错，并由 UI 明确提示“后端无报到节点数据”；
+  ///   否则管理员会把假节点当真实节点拖动，而 _remoteIds 为空导致坐标永远写不
+  ///   进数据库（刷新即回退）。
   Future<void> _loadStepsFromServer() async {
     setState(() => _loadingSteps = true);
     // 防止请求失败后继续使用上一个校区/上一次加载留下的远端 ID。
@@ -379,11 +385,30 @@ class _CampusMapPageState extends State<CampusMapPage> {
           return;
         }
       }
+      // 空列表/业务失败：仅对管理员提示，普通用户静默回退本地常量。
+      if (_canEditNodes) {
+        _showNoRemoteStepsHint();
+      }
       setState(() => _loadingSteps = false);
     } catch (_) {
-      // 静默回退：使用本地硬编码常量
+      // 普通用户静默回退本地常量；管理员明确提示，避免误把假节点当可编辑源。
+      if (_canEditNodes) {
+        _showNoRemoteStepsHint();
+      }
       setState(() => _loadingSteps = false);
     }
+  }
+
+  /// 管理员在后端无报到节点（空列表或接口异常）时给出明确提示。
+  /// 不把硬编码常量当可编辑源使用：此时 _remoteIds 为空，拖拽保存会正确失败。
+  void _showNoRemoteStepsHint() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('后端无报到节点数据，请先在流程管理创建节点'),
+        duration: Duration(seconds: 4),
+      ),
+    );
   }
 
   /// icon_name 字符串 → Material IconData（与后端 icon_name 字段对应）。

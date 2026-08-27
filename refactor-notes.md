@@ -1,154 +1,152 @@
-# 反馈修复闭环 MVP — 重构记录
+# 重构/修复记录（dev-refactor-wxx）
 
-> 日期：2026-08-26 · 目标：把现有「在线修复」（实为 AI 诊断 + 复制报告，不改代码）升级为
-> **管理员审核后单条/批量创建修复任务 → 本机受控修复 → 自动验证 → 管理员验收 → 人工确认部署** 的安全闭环。
+## 问题概述
+
+校园导航管理员拖动报到节点后坐标无法持久化，刷新页面后坐标回退。根因（leader+pm 已锁定）：
+
+1. **数据层**：迁移 `079_clear_preloaded_data.sql` 删光了 `campus_checkin_steps` 表的 12 条种子数据（会峰 6 + 琅琊 6），生产表为空。
+2. **前端**：`campus_map_page.dart` 的 `_loadStepsFromServer()` 在 admin 接口返回空/失败时，静默回退到硬编码假节点，`_remoteIds` 保持为空。
+3. **结果**：管理员拖动假节点 → `_saveCoordinate` 里 `_remoteIds[index]` 取 `null` → `return false` → 退出时报“未加载到后端节点”，坐标从未写库。
+
+## 改动文件列表
+
+| 文件 | 改动类型 |
+| ---- | -------- |
+| `server/migrations/110_restore_campus_steps.sql` | 新增 |
+| `frontend/lib/pages/campus/campus_map_page.dart` | 修改 `_loadStepsFromServer()` + 新增 `_showNoRemoteStepsHint()` |
+
+---
+
+## 修复 1：新增迁移 `server/migrations/110_restore_campus_steps.sql`
+
+恢复会峰 6 + 琅琊 6 共 12 个报到节点，`status='published'`。
+
+### 坐标来源（关键决策）
+
+- **业务字段**（`title/location/duration/task/materials/contact/note/icon_name`）从 `048_campus_map_steps.sql` 种子数据**精确复制**。
+- **`lat/lng`** 采用 `050_fix_campus_step_coords.sql` 纠正后的权威 WGS-84 值（与前端 `campus_map_page.dart` 硬编码常量一致）。
+
+> ⚠️ 权威坐标核对结论：任务清单中列出的「琅琊 5/6」坐标
+> `32.3138,118.3101 / 32.3147,118.3102` 是 **048 的错误坐标**（偏移到校区以北约 2km，
+> 正是 050 迁移要纠正的对象）。指令明确要求以 `050_fix_campus_step_coords.sql` 与
+> 前端硬编码常量为权威来源。二者一致确认：
 >
-> 前提约束：服务器绝不执行源码修改、构建或部署；一切改码只发生在受控本机执行端（开发机）。
-> 未提交、未推送、未部署。
+> - 琅琊 5「校园卡与网络」= `32.2926, 118.3000`
+> - 琅琊 6「入学体检与学籍核验」= `32.2917, 118.2992`
+>
+> 本迁移最终采用上述 050/前端一致的权威值，未使用任务清单中的 048 错误值。
+
+### 写入要点
+
+- SQLite 写法 `INSERT OR IGNORE INTO`（方言转换会自动转 MySQL `INSERT IGNORE`）。
+- `id` 不显式指定，依赖 `AUTOINCREMENT` 自增分配。
+- 迁移机制用 `_migrations` 表保证每个文件只执行一次，`INSERT OR IGNORE` 足够；`campus_checkin_steps` 表本身无唯一约束列（即便 MySQL 下不去重也无妨，因为只执行一次）。
+
+### 最终坐标表
+
+| campus | order | title | lat | lng | icon |
+| ------ | ----- | ----- | --- | --- | ---- |
+| huifeng | 1 | 校门入校核验 | 32.2705 | 118.3055 | login |
+| huifeng | 2 | 学院报到 | 32.2745 | 118.3070 | account_balance |
+| huifeng | 3 | 缴费与绿色通道 | 32.2735 | 118.3060 | payments |
+| huifeng | 4 | 宿舍入住 | 32.2770 | 118.3040 | bed |
+| huifeng | 5 | 校园卡与网络 | 32.2740 | 118.3090 | credit_card |
+| huifeng | 6 | 入学体检与学籍核验 | 32.2720 | 118.3030 | health_and_safety |
+| langya | 1 | 校门入校核验 | 32.2921 | 118.2988 | login |
+| langya | 2 | 学院报到 | 32.2932 | 118.3002 | account_balance |
+| langya | 3 | 缴费与绿色通道 | 32.2928 | 118.2995 | payments |
+| langya | 4 | 宿舍入住 | 32.2940 | 118.2976 | bed |
+| langya | 5 | 校园卡与网络 | 32.2926 | 118.3000 | credit_card |
+| langya | 6 | 入学体检与学籍核验 | 32.2917 | 118.2992 | health_and_safety |
 
 ---
 
-## 一、安全修复（越权读取，P1）
+## 修复 2：前端 `campus_map_page.dart` fallback 陷阱
 
-审计发现反馈详情、处理记录、截图接口缺少归属校验，任意登录用户可读他人反馈全文与截图。本轮修复：
+在 `_loadStepsFromServer()` 中区分 `_canEditNodes`：
 
-- `server/internal/handler/feedback_handler.go`
-  - `Get`（GET /feedback/:id）：改为 `GetAuthorized`，普通用户仅可读本人反馈，持 `union.feedback.list` 能力的反馈管理员可读全部。
-  - `GetLogs`（GET /feedback/:id/logs）：同一归属校验。
-  - `ServeScreenshot`（GET /uploads/feedback/:filename）：仅允许截图上传者本人 / 引用该截图的反馈提交者、以及反馈管理员访问；未授权返回 403。
-- `server/internal/service/feedback_service.go`
-  - 新增 `GetAuthorized(feedbackID, userID, canManageAll)`。
-  - 新增 `CanAccessScreenshot(filename, userID)`（上传者归属 + 反馈引用归属）。
-- `server/internal/repository/feedback_repo.go`、`feedback_screenshot_repo.go`
-  - 补充归属查询：`CountScreenshotRefsByUser`、`OwnerByFilename`。
+- **管理员**（`_canEditNodes == true`）：当 admin 接口返回空列表或失败时，**不再**把硬编码 `_campus.steps` 当作可拖动的编辑源使用；保留 `_remoteIds` 为空，并通过新增的 `_showNoRemoteStepsHint()` 弹出提示 **“后端无报到节点数据，请先在流程管理创建节点”**。此时拖拽保存逻辑 `_remoteIds[index]` 为 null，会正确返回 false，避免“假成功/坐标写不进库”。
+- **普通用户**（非管理员）：保持原有离线兜底逻辑不变，静默回退本地硬编码常量，查看报到流程不受影响。
 
-保留既有 `Get`/`ListLogs` 仅为内部兼容，对外 HTTP 入口一律走带归属校验的新方法。
+### 关键 diff 说明
 
----
+1. `_loadStepsFromServer()` 方法头部新增详细 doc 注释，说明管理员/普通用户两条分支的行为差异。
+2. 在“空列表/业务失败”分支与 `catch {}` 分支中，各加入：
+   ```dart
+   if (_canEditNodes) {
+     _showNoRemoteStepsHint();
+   }
+   ```
+   普通用户分支不触发提示、不改变兜底行为。
+3. 新增方法：
+   ```dart
+   void _showNoRemoteStepsHint() {
+     if (!mounted) return;
+     ScaffoldMessenger.of(context).showSnackBar(
+       const SnackBar(
+         content: Text('后端无报到节点数据，请先在流程管理创建节点'),
+         duration: Duration(seconds: 4),
+       ),
+     );
+   }
+   ```
 
-## 二、修复任务实体与状态机（MVP）
+### 业务逻辑保持
 
-### 迁移 `109_feedback_repair_tasks.sql`
-
-新建 `feedback_repair_tasks` 表（SQLite/MySQL 双方言，长文本列已纳入 `db/dialect.go` 转换为 LONGTEXT）：
-
-- `task_no`（rt-xxxxxxxx）、`creator`（创建即审核）、`feedback_ids`（JSON，支持单/批量）
-- `title`、`diagnosis`（合并后的 AI 诊断 JSON）
-- `status`、`worker_host`、`base_commit`、`branch`
-- `verify_result`（JSON：go_test/go_vet/flutter_analyze/flutter_test）、`diff_stat`、`log_text`
-- `accept_note/accepted_by/reject_reason/rejected_by`
-- `deploy_confirmed_by/deploy_ref`
-- 审计时间戳 `created_at/updated_at`
-
-### 状态机（服务层硬编码校验）
-
-```
-approved → running → awaiting_acceptance → deploy_pending → deploying → deployed → closed
-                                              ↓ reject                       ↑
-                                          verify_failed ← 驳回              (deploy-done)
-approved/verify_failed → cancelled（终态）
-```
-
-关键约束：
-- MVP 全局同时仅允许 1 个 `running` 任务（`Claim` 前 `CountActiveRunning` 闸门），避免并发改码冲突。
-- 服务器只写状态与审计，不执行任何改码/构建/部署动作。
+- 普通学生查看报到流程：不变（仍走公开接口 + 本地兜底）。
+- 管理员成功加载到后端节点时：行为不变（`_campusStepsMap` 覆盖、`_remoteIds` 填充、地图刷新）。
+- 拖拽保存、退出编辑时的重试/校验逻辑：不变。
 
 ---
 
-## 三、后端实现
+## 验证建议（供 qa-regression-wxx 参考）
 
-### 新增文件
-
-- `internal/repository/feedback_repair_task_repo.go`：Create/GetByTaskNo/List/NextClaimable/CountActiveRunning/AppendLog/UpdateStatus/UpdateClaim/UpdateVerifyReport/UpdateAccept/UpdateReject/UpdateDeployConfirm/UpdateDeployDone；`FeedbackIDsToJSON`。
-- `internal/service/feedback_repair_task_service.go`：`FeedbackRepairTaskService` + 状态机 `validTransitions`；Create（单/批量，逐条复用现有 `AIRepair` 诊断合并 code_files）、List/Get/Cancel/Claim/SubmitVerify/Accept/Reject/DeployConfirm/DeployDone（可选联动批量 `Resolve` 反馈并触发既有站内通知）。
-- `internal/handler/feedback_repair_task_handler.go`：管理端 + 内部执行端两组入口。
-- `internal/middleware/repair_agent_token.go`：执行端专用 token 鉴权中间件。
-- `server/migrations/109_feedback_repair_tasks.sql`。
-
-### 执行端鉴权（关键安全设计）
-
-内部路由 `/api/v1/internal/repair-tasks/*` 不依赖 JWT 或业务角色：
-
-- 使用独立环境变量 `WXX_REPAIR_AGENT_TOKEN`，**绝不硬编码、不授予任何业务角色（含 sys_admin）**。
-- 采用 `crypto/subtle.ConstantTimeCompare` 常量时间比较，防时序侧信道。
-- **token 未配置（空）时，内部端点一律返回 404**，不暴露路由存在性。
-- 与交互式前台用户 JWT 完全隔离。
-
-### 路由（`pkg/app/routes.go`）
-
-管理端（JWT + UnionFeedbackWrite/List 能力门控）：
-
-```
-POST /admin/feedback/repair-tasks              CreateTask
-GET  /admin/feedback/repair-tasks              ListTasks
-GET  /admin/feedback/repair-tasks/:no          GetTask
-POST /admin/feedback/repair-tasks/:no/cancel   CancelTask
-POST /admin/feedback/repair-tasks/:no/accept   AcceptTask  (验收 → deploy_pending)
-POST /admin/feedback/repair-tasks/:no/reject   RejectTask  (驳回 → verify_failed)
-POST .../:no/deploy-confirm   DeployConfirmTask  (仅标记，不触发服务器动作)
-POST .../:no/deploy-done      DeployDoneTask     (部署完成记录 + 可选联动解决反馈)
-```
-
-内部执行端（token 鉴权）：
-
-```
-POST /internal/repair-tasks/next        NextTask    (原子领取)
-POST /internal/repair-tasks/:no/verify  VerifyTask  (验证结果上报)
-```
-
-### 装配
-
-`pkg/app/app.go`、`pkg/app/deps.go` 增加 `feedbackRepairTaskSvc` / `feedbackRepairTaskH` 并注入 `deps`。
+1. 执行迁移后，`campus_checkin_steps` 应恢复 12 条 `published` 记录，坐标与上表一致。
+2. 管理员打开校园地图 → 应能看到 12 个真实后端节点并可拖动；拖动后退出编辑，坐标应落库；刷新后坐标不回退。
+3. 若后端无数据（或模拟空列表/失败），管理员应看到“后端无报到节点数据…”提示，且拖拽保存报错而非假成功。
+4. 普通学生视角查看报到流程不受影响（离线/后端不可用仍能查看本地常量兜底）。
 
 ---
 
-## 四、本机执行端脚本 `scripts/repair-agent.ps1`
+## 七·reviewer 回修（H1 / H2 高危缺陷）
 
-- `claim`（默认）：调用 `POST /internal/repair-tasks/next` 领取任务，打印诊断报告（摘要/相关文件/反馈 ID），给出隔离 worktree 与 verify 上报指引。**不 commit、不 push、不部署**。
-- `verify`：对指定工作区执行 `go vet ./...`、`go test ./...`、`flutter analyze`，收集 diff stat，调用 `POST /internal/repair-tasks/:no/verify` 上报。
-- token 从 `WXX_REPAIR_AGENT_TOKEN` 读取，缺失则直接退出（与中间件一致）。
+### 背景
+reviewer 评审发现 110_restore_campus_steps.sql 采用 \CREATE UNIQUE INDEX (campus_id, step_order)\ + \INSERT OR IGNORE\ 实现幂等，存在两处高危缺陷：
 
-> 说明：脚本不自动改码、不自动创建分支提交；实际代码修改由操作者（或操作者驱动的 AI 编码工具）在隔离 worktree 内完成，本脚本只负责受控领取与验证上报。
+- **H1**：唯一索引在建索引时若表内已有同 \step_order\ 数据（079 清空后管理员重建部分节点），会触发 \Duplicate entry\，而 \xecSQL\ 的容错只识别 \duplicate key name / already exists\，不识别 \duplicate entry\，导致迁移中断、服务无法启动。
+- **H2**：唯一索引不含 \status\，会阻碍审核流（draft→pending_review→published）。审核流中同 \(campus_id, step_order)\ 的多 status 行合法共存（管理员新建同 step_order 节点、或为已发布节点再建 draft 多版本），唯一索引会把这类合法操作变成无意义 500。
 
----
+### 结论
+核对 \campus_checkin_steps\ 真实业务约束（048 起仅 id 主键、无任何业务唯一约束），并对照 \campus_repository.go\ 的 Create/Update/Submit/Publish 语义与 \campus_handler.go\ 的 CreateStep/UpdateStep：
 
-## 五、前端（最小可用，纠正语义）
+- \step_order\ 仅用于排序（\ORDER BY step_order\），**不是唯一业务键**；
+- \status\ 参与审核流，draft/pending_review/published 同表共存，\Create\ 无条件插入 \status='draft'\，无重复检测，业务层根本不依赖该唯一索引。
 
-- `lib/pages/admin/feedback_page.dart`：详情页按钮「在线修复」→「修复诊断」，注释说明仅做 AI 诊断与定位，实际修复走受控任务流程。
-- `lib/widgets/feedback_repair.dart`：面板标题「在线修复助手」→「修复诊断助手」。
-- `lib/config/api_config.dart`：补充 `adminRepairTasks` 与 accept/reject/deploy-confirm/deploy-done/cancel 端点常量（供后续任务 UI 接入）。
+因此原「建 (campus_id, step_order) 唯一索引」方向错误，**应彻底移除唯一索引**，改用 \INSERT ... SELECT ... WHERE NOT EXISTS\ 守卫实现幂等去重。
 
-> 本批先纠正「在线修复」这一误导性文案，避免向用户暗示已自动修复。完整的管理端任务列表/详情/验收 UI 属后续批次，本轮未虚构。
+### 修改内容
 
----
+1. **重写 server/migrations/110_restore_campus_steps.sql**
+   - 删除 \CREATE UNIQUE INDEX\（H1/H2 根因）。
+   - 12 条种子改为 \INSERT INTO ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM campus_checkin_steps WHERE campus_id=? AND step_order=? AND status='published')\。
+   - 该写法：幂等（重复执行命中 NOT EXISTS 判定不再插入）、不丢数据（不 DELETE 已有/重建节点）、不阻碍审核流（draft/pending_review 的同 step_order 节点不影响判定，且不阻止同 step_order 多版本）、双方言通用（SQLite / MySQL 均支持）。
 
-## 六、验证（全部通过）
+2. **同步调整测试 server/internal/db/migration110_campus_test.go**
+   - 更新断言：由「必须含唯一索引」改为「不得含任何索引」「必须含 12 条 WHERE NOT EXISTS 守卫」。
+   - 新增 \stripSQLComments\ 辅助，剥离注释后再校验，避免注释中引用旧方案字样被误判。
 
-- `gofmt -l`（目标 Go 文件）：通过（已 `gofmt -w` 修复一处）。
-- `go vet ./...`：通过。
-- `go test ./internal/handler ./internal/service ./pkg/app ./internal/db -count=1`：通过。
-- `dart format`（3 个前端文件）：通过。
-- `flutter analyze`（定向 3 文件）：仅项目既有 info（`surfaceVariant` 已弃用、`unnecessary_to_list_in_spreads`），无 error/warning。
-- `flutter build web --release`：通过（见下方构建记录）。
-- `git diff --check`：通过。
+3. **新增 server/internal/db/migration110_functional_test.go**
+   - 功能回归：内存 SQLite 建 048 表 → 模拟 079 清空 → 播种同 step_order 多状态节点（重建 published + draft + pending_review）→ 执行 110 → 断言 published 恢复 12 条、既有 draft/pending_review 未被删除、同 step_order 已有 published 不重复插入 → 重复执行 110 幂等。
 
----
+### 测试结果
+\\\
+go test ./internal/db/ ./internal/repository/ ./internal/handler/
+  ok  github.com/dll/wxx/server/internal/db          (4.3s)
+  ok  github.com/dll/wxx/server/internal/repository  (cached)
+  ok  github.com/dll/wxx/server/internal/handler     (cached)
+\\\
+迁移 110 相关测试（含 H1/H2 功能回归）全部 PASS。
 
-## 六·补 QA 回归修复（2026-08-27）
-
-QA 回归（qa-regression-wxx）发现 1 项 P1 缺陷，本轮修复：
-
-- **P1 非法状态流转返回 500（应返回 400）**
-  - 根因：`feedback_repair_task_handler.go` 的 `badStateOrErr` 用 `switch err` 直接相等比较，而 service 层返回的是 `fmt.Errorf("%w: ...")` 包装后的错误，导致 `ErrRepairTaskBadState` 匹配不上、落入 default 返回 500。
-  - 修复：`badStateOrErr` 改用 `errors.Is` 链式判断；同步将 `NextTask`、`VerifyTask`、`notFoundOrErr` 中的 `err == service.ErrXxx` 直接比较统一改为 `errors.Is`（防御未来包装，消除同类隐患）。
-  - 验证：`Accept illegal state -> status=500` 已变为 `status=400`，body 正确返回状态机提示；`go build ./...`、`go vet`、5 个核心包 `go test` 全部通过。
-
----
-
-## 七、已知边界（未伪造，后续批次）
-
-1. 前端尚未提供完整的「修复任务列表/详情/验收/部署」管理界面，当前仅接入诊断语义纠正与 API 常量。
-2. `Claim` 的并发闸门（`CountActiveRunning` → `NextClaimable` → `UpdateClaim`）非单事务，存在极窄 TOCTOU 窗口；MVP 依赖「全局仅 1 个执行端 + 人工审批节奏」控制，若需更严并发可后续改为事务 + 行锁。
-3. 执行端脚本不出自动改码（与「服务器不执行改码」边界一致），代码修改仍由操作者/AI 编码工具在隔离 worktree 完成。
-4. 部署动作完全交由管理员通过既有 GitHub Actions / `make deploy-release` 通道手动执行，本闭环只记录状态，不自动部署。
-5. 反馈所属范围（学院/全校）未在本任务内细化；反馈管理员能力沿用既有 `union.feedback.*`。
+### 边界说明
+- 未改动 repository/handler 业务代码：Create 仍无条件插 draft，符合「同 step_order 多 status 共存」的原有语义；H1/H2 均通过「不加索引」根治，无需在 CreateStep 增加重复检测。
+- 前端 fallback 修复的既有正确部分完全保留，本次仅回修后端迁移与相关测试。
