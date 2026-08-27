@@ -388,8 +388,7 @@ class _ChatPageState extends State<ChatPage> {
                     );
                   }
                   final agent = agents[index - 1];
-                  final selected =
-                      chat.selectedAgentId == agent.agentId;
+                  final selected = chat.selectedAgentId == agent.agentId;
                   return _buildAgentOption(
                     theme,
                     icon: _agentIcon(agent.agentType),
@@ -435,7 +434,9 @@ class _ChatPageState extends State<ChatPage> {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: selected ? color : theme.colorScheme.onSurfaceVariant),
+              Icon(icon,
+                  size: 18,
+                  color: selected ? color : theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -505,7 +506,8 @@ class _ChatPageState extends State<ChatPage> {
                   gradient: LinearGradient(
                     colors: [
                       theme.colorScheme.primary,
-                      Color.alphaBlend(theme.colorScheme.primary, accent.withOpacity(0.4)),
+                      Color.alphaBlend(
+                          theme.colorScheme.primary, accent.withOpacity(0.4)),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -622,7 +624,8 @@ class _ChatPageState extends State<ChatPage> {
   List<String> _roleQuestions(String role) {
     switch (role) {
       case 'counselor':
-        return ['今日需要重点关注哪个学生？', '本月班级学情有什么变化？', '帮我生成一次谈心谈话记录'];      case 'teacher':
+        return ['今日需要重点关注哪个学生？', '本月班级学情有什么变化？', '帮我生成一次谈心谈话记录'];
+      case 'teacher':
         return ['帮我备一节《数据结构》教案', '这门课的知识点覆盖如何？', '班级作业完成情况如何？'];
       case 'assistant':
         return ['检查这学期的排课冲突', '审核毕业资格需要哪些材料？', '怎么安排期末考试更合理？'];
@@ -659,7 +662,8 @@ class _ChatPageState extends State<ChatPage> {
       children: [
         Row(
           children: [
-            Icon(Icons.auto_awesome, size: 15, color: theme.colorScheme.primary),
+            Icon(Icons.auto_awesome,
+                size: 15, color: theme.colorScheme.primary),
             const SizedBox(width: 6),
             Text(roleLabel,
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -710,8 +714,7 @@ class _ChatPageState extends State<ChatPage> {
               borderRadius: BorderRadius.circular(8),
               onTap: () => chat.selectAgent(_agentIdForType(group.agentType)),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: group.color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
@@ -875,8 +878,7 @@ class _ChatPageState extends State<ChatPage> {
                     : LinearGradient(
                         colors: [
                           theme.colorScheme.primary,
-                          Color.alphaBlend(
-                              theme.colorScheme.primary,
+                          Color.alphaBlend(theme.colorScheme.primary,
                               theme.colorScheme.tertiary.withOpacity(0.25)),
                         ],
                         begin: Alignment.topLeft,
@@ -1267,11 +1269,9 @@ $printScript
   ///
   /// 流程：弹确认框 → 调 deleteSession 删除后端记录。
   ///
-  /// 删除成功后统一乐观调 newChat 清空当前对话 + 重建页面（_rebuildKey++），
-  /// 彻底清除 ListView/动画等子组件残留状态。
-  /// 不再使用 Web 整页刷新（reloadPage）：Cloudflare Pages 缓存下 CanvasKit
-  /// 资源曾出现 0 字节导致 Flutter 根视图未挂载，刷新后反而空白页
-  /// （见 docs/蔚小芯智能体UI/UX设计与实现.md 的 P0 空白风险记录）。
+  /// 删除成功后清空当前对话并跳转首页，避免停留在已删除会话的空详情页。
+  /// 删除失败时重新加载原会话，保持页面与后端状态一致。
+  /// 不使用 Web 整页刷新（reloadPage），避免 CanvasKit 资源缓存导致白屏。
   Future<void> _confirmDeleteSession(ChatProvider chat) async {
     // 在弹框前快照 sessionId，避免弹框期间 provider 状态被其他逻辑修改
     final sessionId = chat.sessionId;
@@ -1295,10 +1295,6 @@ $printScript
     if (confirm != true) return;
     if (!mounted) return;
 
-    // 先乐观清空界面，避免等待期间仍显示旧会话；
-    // 同时重置 _sending（若 AI 正在回复，删除后 _sending 卡 true 会导致渲染卡死）
-    chat.newChat();
-
     final bool ok;
     try {
       ok = await context.read<SessionProvider>().deleteSession(sessionId);
@@ -1311,10 +1307,19 @@ $printScript
     }
     if (!mounted) return;
 
-    // 重建页面清除 ListView/动画等子组件残留状态
-    setState(() => _rebuildKey++);
+    if (!ok) {
+      await chat.loadSession(sessionId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('删除失败，请稍后重试')),
+      );
+      return;
+    }
+
+    chat.newChat();
+    context.go('/home');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '对话已删除' : '删除失败，请稍后重试')),
+      const SnackBar(content: Text('对话已删除')),
     );
   }
 
@@ -1464,9 +1469,8 @@ $printScript
                                   .textTheme
                                   .labelSmall
                                   ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .error)),
+                                      color:
+                                          Theme.of(context).colorScheme.error)),
                         ],
                       ),
                     ),
@@ -1523,9 +1527,8 @@ $printScript
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _copyDraftJson(
-                              contentCtrl, category, module, screenshotBytes,
-                              screenshotValid, msg),
+                          onPressed: () => _copyDraftJson(contentCtrl, category,
+                              module, screenshotBytes, screenshotValid, msg),
                           icon: const Icon(Icons.data_object, size: 16),
                           label: const Text('复制 JSON'),
                           style: OutlinedButton.styleFrom(
@@ -1537,8 +1540,12 @@ $printScript
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _copyDraftMarkdown(
-                              contentCtrl, category, module, screenshotBytes,
-                              screenshotValid, msg),
+                              contentCtrl,
+                              category,
+                              module,
+                              screenshotBytes,
+                              screenshotValid,
+                              msg),
                           icon: const Icon(Icons.copy_all_outlined, size: 16),
                           label: const Text('复制报告(提交AI修复)'),
                           style: OutlinedButton.styleFrom(
@@ -1552,8 +1559,7 @@ $printScript
                   Text(
                     '截图佐证可选；复制 JSON/报告可将本反馈全部数据手工提交给 AI 工具修复',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color:
-                            Theme.of(context).colorScheme.onSurfaceVariant),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -1640,8 +1646,12 @@ $printScript
   }
 
   /// 复制纠错反馈草稿（JSON）到剪贴板，供手工提交 AI 工具修复
-  void _copyDraftJson(TextEditingController contentCtrl, String category,
-      String module, Uint8List? screenshotBytes, bool screenshotValid,
+  void _copyDraftJson(
+      TextEditingController contentCtrl,
+      String category,
+      String module,
+      Uint8List? screenshotBytes,
+      bool screenshotValid,
       Message msg) {
     final dataUrl = (screenshotBytes != null && screenshotValid)
         ? 'data:image/png;base64,${base64Encode(screenshotBytes)}'
@@ -1663,8 +1673,12 @@ $printScript
   }
 
   /// 复制纠错反馈草稿（Markdown 报告）
-  void _copyDraftMarkdown(TextEditingController contentCtrl, String category,
-      String module, Uint8List? screenshotBytes, bool screenshotValid,
+  void _copyDraftMarkdown(
+      TextEditingController contentCtrl,
+      String category,
+      String module,
+      Uint8List? screenshotBytes,
+      bool screenshotValid,
       Message msg) {
     final dataUrl = (screenshotBytes != null && screenshotValid)
         ? 'data:image/png;base64,${base64Encode(screenshotBytes)}'

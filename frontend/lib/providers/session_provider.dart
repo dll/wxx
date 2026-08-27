@@ -50,11 +50,13 @@ class SessionProvider extends ChangeNotifier {
   /// 已滑出项重新插回树中而崩溃（空白页）；调用方应调用 [fetchSessions] 以服务器为准恢复。
   Future<bool> deleteSession(String id) async {
     final idx = _sessions.indexWhere((s) => s.id == id);
-    if (idx == -1) return true; // 已不在列表中，视为成功
 
     // 先同步移除并刷新，避免 Dismissible 出现「已 dismiss 的项仍在树中」断言崩溃。
-    _sessions.removeAt(idx);
-    notifyListeners();
+    // 详情页可能没有加载会话列表，idx==-1 不能直接返回成功；后端删除仍必须执行。
+    if (idx != -1) {
+      _sessions.removeAt(idx);
+      notifyListeners();
+    }
 
     try {
       await _api.delete(ApiConfig.sessionDelete(id));

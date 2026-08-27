@@ -158,7 +158,8 @@ jobs:
     name: 构建并部署后端到腾讯云
     runs-on: ubuntu-latest
     needs: [quality-gate]
-    timeout-minutes: 20
+    # Go FTS5 交叉编译约 19 分钟；原 20 分钟上限会在 rsync 上传刚开始时硬取消。
+    timeout-minutes: 45
 
     steps:
       - name: 检出代码
