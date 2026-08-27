@@ -24,7 +24,8 @@ class BaiduCampusMapController {
       _st?._send({'type': 'fit_campus', 'campusId': campusId});
 
   /// 2D/3D 视角切换（true=3D 倾斜透视+建筑，false=2D 俯视）。
-  void set3D(bool enabled) => _st?._send({'type': 'set_3d', 'enabled': enabled});
+  void set3D(bool enabled) =>
+      _st?._send({'type': 'set_3d', 'enabled': enabled});
 
   /// 底图图层切换（'standard'=标准矢量图，'satellite'=卫星影像图）。
   void setLayer(String layer) =>
@@ -176,7 +177,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       'tencent' =>
         '/assets/tencent_campus_map.html?v=8&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
       _ =>
-        '/assets/baidu_campus_map.html?v=15&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
+        '/assets/baidu_campus_map.html?v=16&ak=${Uri.encodeComponent(akParam)}&campus=$campusParam',
     };
   }
 
@@ -222,6 +223,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
       // 持续监听尺寸变化（窗口缩放、布局重排），最多轮询 60 次 ≈ 6s
       if (attempts < 60) Timer(const Duration(milliseconds: 100), check);
     }
+
     Timer(const Duration(milliseconds: 50), check);
   }
 
@@ -266,8 +268,7 @@ class _BaiduCampusMapWebState extends State<BaiduCampusMapEmbed> {
     // Flutter Web HtmlElementView 下 ValueKey 重建不可靠（iframe 不会重新
     // 创建），改用 src 更新让浏览器重新加载 HTML，新 HTML 的 window.load
     // 会自动初始化并用 URL 的 ak/campus 参数，ready 后 _sendInit 同步 steps。
-    if (old.provider != widget.provider ||
-        old.campusId != widget.campusId) {
+    if (old.provider != widget.provider || old.campusId != widget.campusId) {
       final newHtmlPath = _buildHtmlPath();
       if (newHtmlPath != _currentHtmlPath && _iframe != null) {
         _currentHtmlPath = newHtmlPath;

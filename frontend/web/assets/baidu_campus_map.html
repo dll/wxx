@@ -437,6 +437,8 @@ function initMap(steps,cur,mode,campusId){
   var cc=wgs2bd(_campusBounds.center.lng,_campusBounds.center.lat);
   _map=new BMapGL.Map('map',{
     enableMapClick:true,
+    // 导出地图时 WebGL 默认缓冲区已被清空，会得到纯背景图；保留绘制缓冲供保存图片使用。
+    preserveDrawingBuffer:true,
     displayOptions:{
       building:false,    // 关闭3D楼块（避免卡顿）
       poi:true,
@@ -684,15 +686,49 @@ window.addEventListener('message',function(e){
     }
   } else if(d.type==='save_image'){
     try{
-      // 使用 html2canvas 截图或百度地图 getCanvas
-      var canvas=_map&&_map.getContainer?_map.getContainer().querySelector('canvas'):null;
-      if(canvas){
-        var link=document.createElement('a');
-        link.download='campus-map.png';
-        link.href=canvas.toDataURL('image/png');
-        link.click();
+      // BMapGL 可能创建多个 canvas；选择实际地图尺寸最大的画布，而不是第一个辅助层。
+      var all=_map&&_map.getContainer?_map.getContainer().querySelectorAll('canvas'):[];
+      var source=null,maxArea=0;
+      Array.prototype.forEach.call(all,function(c){
+        var area=(c.width||0)*(c.height||0);
+        if(area>maxArea){source=c;maxArea=area}
+      });
+      if(!source||maxArea<10000)throw new Error('未找到有效地图画布');
+
+      // 复制底图，再绘制当前节点和标题；避免只导出透明 WebGL/辅助层。
+      var out=document.createElement('canvas');
+      out.width=source.width;out.height=source.height;
+      var ctx=out.getContext('2d');
+      ctx.drawImage(source,0,0,out.width,out.height);
+      var mapRect=document.getElementById('map').getBoundingClientRect();
+      var sx=out.width/Math.max(1,mapRect.width),sy=out.height/Math.max(1,mapRect.height);
+      _ovs.forEach(function(ov,i){
+        if(!ov||!ov._pt)return;
+        var p=_map.pointToPixel(ov._pt),x=p.x*sx,y=p.y*sy;
+        ctx.beginPath();ctx.arc(x,y,13*Math.min(sx,sy),0,Math.PI*2);
+        ctx.fillStyle=i<_cur?'#52C41A':i===_cur?'#FF6B00':'#1677FF';ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold '+Math.max(11,12*Math.min(sx,sy))+'px sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(i+1),x,y);
+      });
+      ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillRect(12,12,190,34);
+      ctx.fillStyle='#1f2937';ctx.font='bold 16px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+      ctx.fillText((CAMPUS_BOUNDS[_campusId]||{}).name||'校园报到导航',24,29);
+
+      var link=document.createElement('a');
+      link.download=((CAMPUS_BOUNDS[_campusId]||{}).name||'校园')+'-报到地图.png';
+      link.href=out.toDataURL('image/png');
+      document.body.appendChild(link);link.click();link.remove();
+      notify('save_image_result',{ok:true});
+    }catch(e){
+      console.warn('save_image failed:',e);
+      notify('save_image_result',{ok:false,message:String(e&&e.message||e)});
+      var alertEl=document.getElementById('tile-alert');
+      if(alertEl){
+        alertEl.querySelector('.ta-title').textContent='地图保存失败';
+        alertEl.querySelector('.ta-body').textContent='地图底图尚未加载完成，请稍后重试。';
+        alertEl.classList.add('show');
       }
-    }catch(e){console.warn('save_image failed:',e)}
+    }
   }
 });
 
