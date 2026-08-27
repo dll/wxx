@@ -143,3 +143,145 @@
 3. **R3 id 策略**：是否确认「不显式指定 id、依赖自增」？
 
 以上三项目前方案默认：恢复数据 + INSERT IGNORE（加守卫）+ 依赖自增，建议 dev 在 refactor-notes 中明确落地方案后再动工。
+
+---
+
+# 「一键自动修复增强」重构核对清单（反馈修复闭环 MVP 断点打通）
+
+> 核对专员：pm-wxx（只读，未修改任何代码）
+> 核对日期：2026-08-27
+> 结论：leader 定位的「自动改代码断点」根因属实。服务端状态机与接口已就绪，唯一实质缺口是**执行端拿不到反馈原文（content）**，且本机脚本缺失「自动改码」动作。以下为核对确认与增强范围建议。
+
+---
+
+## 一、根因确认（对照 leader 5 点，全部核实）
+
+### 根因 1：服务端状态机已就绪 ✅
+
+- 文件：`server/internal/service/feedback_repair_task_service.go`
+- `validTransitions` 核实：
+  - `approved → running | cancelled`
+  - `running → awaiting_acceptance | verify_failed`
+  - `verify_failed → running | cancelled`
+  - `awaiting_acceptance → deploy_pending | verify_failed`
+  - `deploy_pending → deploying | verify_failed`
+  - `deploying → deployed`
+  - `deployed → closed`
+  - `closed → {}`（终态）、`cancelled → {}`（终态）
+- **闭环完整**：`approved → running → awaiting_acceptance → deploy_pending → deploying → deployed → closed`，且 `verify_failed` 可重新认领回到 `running`、`cancelled` 为独立终态。✅ 属实，无需改动。
+
+### 根因 2：接口齐全 ✅
+
+- 文件：`server/internal/handler/feedback_repair_task_handler.go`
+- 管理端（JWT + 能力门控）：`CreateTask` / `ListTasks` / `GetTask` / `CancelTask` / `AcceptTask` / `RejectTask` / `DeployConfirmTask` / `DeployDoneTask`（8 个）。
+- 内部执行端（`WXX_REPAIR_AGENT_TOKEN` token 鉴权）：`NextTask`（claim，对应 service.Claim）/ `VerifyTask`（对应 service.SubmitVerify）。
+- ✅ 接口齐全。leader 描述中「AcceptTask/RejectTask/DeployConfirmTask/DeployDoneTask」均存在，另有 `CancelTask` 为补充。无需新增管理端接口。
+
+### 根因 3：本机执行端只有 claim/verify，缺失「自动改码」 ✅
+
+- 文件：`scripts/repair-agent.ps1`
+- `param` 中 `[ValidateSet("claim", "verify")]`，仅两个模式。
+- claim 模式（默认）：调 `POST /api/v1/internal/repair-tasks/next`，打印 `task.diagnosis.summary`、`task.diagnosis.code_files`、`task.feedback_ids`，然后仅输出「请在隔离分支 repair/xxx 完成修复（人工或 AI 编码工具）」的**提示文本**，并给出 `git worktree add` 示例命令，最后 `exit 0`。
+- verify 模式：跑 `go vet/test` + `flutter analyze`，`Get-DiffStat` 收集 diff，`Submit-Verify` 上报。
+- **确认：claim 不实际改任何文件，仅打印诊断提示让操作者手动复制粘贴改码。** ✅ 实属「自动改代码断点」。
+
+### 根因 4（核心缺口）：执行端拿不到反馈原文 ✅
+
+- 文件：`server/internal/service/feedback_repair_task_service.go` 的 `taskToPayload`（第 406 行起）
+- 返回的 `RepairTaskPayload` 字段仅：`TaskNo / Title / Status / FeedbackIDs / BaseCommit / Branch / LogText / CreatedAt` + `Diagnosis`（`*AIRepairResponse`，含 Summary/CodeFiles/Module/RootCause/RepairHint/OCRText/MatchedFiles/RunID）。
+- `FeedbackIDs` 只是 `[]string`（反馈业务 id 列表），**不包含任何一条反馈的 `content`（用户问题原文）**。
+- **这是「自动修复无从下手」的根因**：AI 编码工具只拿到「AI 摘要（summary）+ 疑似文件列表」，拿不到用户原始反馈原文与期望效果，无法据此生成精准修复。✅ 属实。
+
+### 根因 5：反馈原文位置 ✅
+
+- 文件：`server/internal/model/entity.go` 第 229 行 `type Feedback struct`
+- `Content`（`json:"content"`，对应 `feedback.content` 字段）、`Category`、`Module`、`ScreenshotURL`、`ResourceID` 等字段均存在。✅
+- `model.AIRepairResponse`（`server/internal/model/dto.go` 第 582 行）：`Module / Summary / CodeFiles / RootCause / RepairHint / OCRText / MatchedFiles / RunID`。**注意：AIRepairResponse 里没有 `Content` 字段**——只有 AI 摘要/修复建议/文件定位，不含用户原文。✅
+- 反馈原文从 `feedback` 表读取：`FeedbackService.Get(feedbackID)` → `feedbackRepo.GetByFeedbackID(feedbackID)` 返回 `*model.Feedback`（含 `Content`）。✅
+- 补充核实：`FeedbackService.AIRepair`（`feedback_service.go` 第 182 行）内部已 `GetByFeedbackID` 拿到 `fb`，但仅把 `fb.Content` 写进 `FeedbackRepairJob.Summary`（工单审计字段），**未回传到 `AIRepairResponse`，也未进入 `RepairTaskPayload`**。所以诊断链路上到执行端时 content 已丢失。✅
+
+---
+
+## 二、增强范围建议（供 dev 参考，本清单不改代码）
+
+### A. 服务端：执行端 payload 补充「关联反馈原文」
+
+- **目标**：让 `RepairTaskPayload` 携带每条关联反馈的原文与元数据。
+- 推荐做法（二选一或组合）：
+  1. **扩展 struct**：在 `model.RepairTaskPayload` 新增字段 `FeedbackContents []FeedbackContentItem \`json:"feedback_contents,omitempty"\``，其中
+     - `FeedbackContentItem{ FeedbackID, Category, Module, Content, ResourceID }`。
+     - 在 `taskToPayload` 里，遍历 `p.FeedbackIDs`，调用 `s.feedbackSvc.Get(fid)` 逐个取 `Content/Category/Module/ResourceID` 填充。
+     - 优点：`claim` 一次拿到全部原文，无需额外请求，脚本最省事。缺点：`NextTask` payload 变大，但反馈条数通常有限（可接受）。
+  2. **新增内部接口** `GET /api/v1/internal/repair-tasks/:no/feedbacks`：按 taskNo 返回 `[{feedback_id, module, content, category, resource_id}]`。
+     - 优点：payload 不膨胀、按需拉取；缺点：脚本需二次请求，且需保证该接口同样走 `RepairAgentTokenAuth`。
+- **已知事实**：`AIRepairResponse` 无 `Content`；原文须用 `FeedbackService.Get(feedbackID)`（底层 `GetByFeedbackID`）读取。
+- **变更面**：
+  - `model/entity.go`：新增 `FeedbackContentItem` struct + `RepairTaskPayload` 增字段（若选方案 A.1）。
+  - `service/feedback_repair_task_service.go`：`taskToPayload` 目前是包级函数，需改为接收 `*FeedbackRepairTaskService` 实例以调用 `feedbackSvc.Get` 填充原文。
+  - （若选 A.2）`handler/feedback_repair_task_handler.go` 新增内部 GET 接口 + 路由注册，走 token 鉴权。
+
+### B. 执行端 repair-agent.ps1：新增 auto 模式（一键自动）
+
+- **目标**：`claim 领任务 → 拉取反馈原文 → git worktree 隔离分支 → 调用本机 AI 编码工具自动改码 → verify 上报`，一气呵成。
+- 流程建议：
+  1. `-Mode auto`：先 claim（复用现有 `next` 逻辑，读取 `feedback_contents`）。
+  2. 若 `feedback_contents` 已在 claim payload 中（方案 A.1），直接使用；否则调 A.2 的 feedbacks 接口补齐。
+  3. 创建 `git worktree add ../wxx-repair-<taskNo> -b repair/<taskNo>`（隔离，不污染主工作区）。
+  4. 构造给 AI 编码工具的 prompt：含 `feedback contents`（用户原文）+ `diagnosis.summary/code_files/repair_hint` + 明确约束（不 commit/push、只在 worktree 内改、保持业务逻辑不变）。
+  5. 调用本机编码工具改码（见下方「可用编码工具」）。
+  6. 复用现有 `Run-Verification` + `Submit-Verify` 上报（passed→awaiting_acceptance）。
+- **本机可用编码工具核对**：本机 OpenClaw 环境已具备 `gemini`（Gemini CLI one-shot prompts/生成/skills）、`gh-issues`、`spike`、`github` 等技能。适合用 **OpenClaw agent（openclaw / gemini CLI）** 作为自动编码执行器，配合上下文提示词（feedback 原文 + 诊断）在 worktree 内修改。
+- **git worktree 隔离是否合理** ✅：合理且必要——自动改码必须与主工作区/生产代码物理隔离，契合「服务器不改码不部署、本机隔离」的安全边界；配合既有的 `BaseCommit/Branch` 字段可定位基线。
+- **token 机制** ✅：`$env:WXX_REPAIR_AGENT_TOKEN` 已存在（claim/verify 均在用），auto 模式直接复用，无需新机制。
+
+### C. 安全边界（必须明确强调）
+
+1. **「服务器不改码不部署」原则保持不变**（见 `feedback_repair_task_service.go` 包注释与 handler 注释）：服务端只做状态机流转 + 审计。
+2. **自动修复只发生在本机 `git worktree` 隔离分支**，绝不触碰主工作区，绝不自动 `commit/push/部署`。
+3. **部署仍由管理员人工确认**：`DeployConfirm → DeployDone` 均为人工触发；auto 模式最远只做到「verify 上报 → awaiting_acceptance」，后续验收（`Accept`）、部署确认（`DeployConfirm`）、部署完成（`DeployDone`）全部仍由管理员在管理端完成。
+4. 执行端鉴权仍走 `WXX_REPAIR_AGENT_TOKEN`（`middleware.RepairAgentTokenAuth`），token 不硬编码、不入库、不入日志。
+5. 若引入新的内部 feedbacks 接口，必须同样挂在 token 鉴权下，不得暴露给前台用户。
+
+---
+
+## 三、接口/字段变更清单（汇总）
+
+| 层 | 文件 | 变更 | 说明 |
+|---|---|---|---|
+| model | `server/internal/model/entity.go` | 新增 `FeedbackContentItem` | `{feedback_id, category, module, content, resource_id}` |
+| model | `server/internal/model/entity.go` | `RepairTaskPayload` 增字段 | `FeedbackContents []FeedbackContentItem \`json:"feedback_contents,omitempty"\`` |
+| service | `server/internal/service/feedback_repair_task_service.go` | `taskToPayload` 改签名 | 接收 `*FeedbackRepairTaskService`，遍历 feedback_ids 调 `feedbackSvc.Get` 填原文 |
+| handler（可选） | `server/internal/handler/feedback_repair_task_handler.go` | 新增 `GET /api/v1/internal/repair-tasks/:no/feedbacks` | 若选方案 A.2，走 token 鉴权 |
+| 路由（可选） | 路由注册处 | 注册上述内部接口 | 仅在选 A.2 时 |
+| 脚本 | `scripts/repair-agent.ps1` | 新增 `auto` 模式 | 扩 `ValidateSet("claim","verify","auto")`；claim→拉原文→worktree→AI 改码→verify 上报 |
+
+---
+
+## 四、验收标准（auto 模式）
+
+### 服务端
+1. `NextTask`（claim）返回的 `payload.data.feedback_contents` 包含每条关联反馈的 `feedback_id / content / category / module / resource_id`，content 为用户问题原文非空。
+2. （若选 A.2）`GET /api/v1/internal/repair-tasks/:no/feedbacks` 无 token 或错误 token 返回 401，正确 token 返回原文列表。
+3. 原 `RepairTaskPayload` 既有字段（TaskNo/Diagnosis 等）不回归，diagnosis 仍含 Summary/CodeFiles（可空）。
+
+### 执行端 auto
+4. `pwsh -File scripts/repair-agent.ps1 -Mode auto`（token 已设）能：领取任务 → 读取反馈原文 → 在 `../wxx-repair-<taskNo>` 隔离 worktree（分支 `repair/<taskNo>`）内完成改码 → 跑 `go vet/test + flutter analyze` → 上报 verify。
+5. 改码在 worktree 内发生，主工作区 `git status` 无残留改动；无 `commit/push` 动作。
+6. verify 通过后服务端任务状态变为 `awaiting_acceptance`；verify 失败则 `verify_failed`，且日志含 go vet/test/flutter analyze 结果。
+
+### 安全边界回归
+7. 全流程服务器未执行任何源码修改/构建/部署；部署仍是管理员人工 `DeployConfirm/DeployDone`。
+8. token 机制不变：无 `WXX_REPAIR_AGENT_TOKEN` 时 auto/claim/verify 均安全退出，不泄漏、不硬编码。
+9. 新内部接口不向前台用户暴露（无 token 401）。
+
+### 回归
+10. 既有 claim/verify 模式行为不变（脚本向后兼容）。
+11. 状态机全链路（approved→…→closed 及 verify_failed/cancelled 分支）不受本次增强影响。
+
+---
+
+## 五、待 leader/dev 决策项
+
+1. **接口形态**：选「A.1 扩展 `RepairTaskPayload` 直接内嵌 feedback_contents」还是「A.2 新增独立内部接口」？建议首选 A.1（一次 claim 拿全、脚本简单、payload 增量可控）。
+2. **编码工具**：确认最终调用 `openclaw agent` 还是 `gemini CLI`（本机两者均可用），并明确 prompt 中「不 commit/push/部署、仅限 worktree、保持业务逻辑不变」的硬约束。
+3. **feedback_contents 字段命名**：建议 `feedback_contents`（json snake_case，与既有 `feedback_ids` 风格一致）。

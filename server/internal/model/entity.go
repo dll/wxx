@@ -402,17 +402,27 @@ type RepairTaskDTO struct {
 	UpdatedAt         string   `json:"updated_at"`
 }
 
+// FeedbackRepairContent 执行端载荷中每条反馈的原文信息（供本机 AI 编码工具自动改码用）。
+// 取不到的单条反馈其 Content 为空，不阻断整体 payload。
+type FeedbackRepairContent struct {
+	FeedbackID string `json:"feedback_id"` // 反馈业务 ID
+	Module     string `json:"module"`      // 反馈所属模块
+	Category   string `json:"category"`    // 反馈分类（answer_error/suggestion/other）
+	Content    string `json:"content"`     // 反馈原文正文
+}
+
 // RepairTaskPayload 执行端认领/详情载荷（脱敏：不含截图 base64，仅文本诊断 + 相关代码文件）。
 type RepairTaskPayload struct {
-	TaskNo      string            `json:"task_no"`
-	Title       string            `json:"title"`
-	Status      string            `json:"status"`
-	FeedbackIDs []string          `json:"feedback_ids"`
-	Diagnosis   *AIRepairResponse `json:"diagnosis,omitempty"`
-	BaseCommit  string            `json:"base_commit"`
-	Branch      string            `json:"branch"`
-	LogText     string            `json:"log_text"`
-	CreatedAt   string            `json:"created_at"`
+	TaskNo           string                  `json:"task_no"`
+	Title            string                  `json:"title"`
+	Status           string                  `json:"status"`
+	FeedbackIDs      []string                `json:"feedback_ids"`
+	FeedbackContents []FeedbackRepairContent `json:"feedback_contents"` // 每条反馈原文（执行端改码用）
+	Diagnosis        *AIRepairResponse       `json:"diagnosis,omitempty"`
+	BaseCommit       string                  `json:"base_commit"`
+	Branch           string                  `json:"branch"`
+	LogText          string                  `json:"log_text"`
+	CreatedAt        string                  `json:"created_at"`
 }
 
 // RepairTaskCreateRequest 管理员创建修复任务请求。

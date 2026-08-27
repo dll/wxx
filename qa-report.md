@@ -1,83 +1,146 @@
-# QA 回归测试报告 — 110 迁移 + campus_map_page 管理员加载逻辑
+# 回归测试报告 — 反馈修复闭环 MVP → 一键自动修复
 
-- **测试专员**：qa-regression-wxx
-- **日期**：2026-08-27
-- **被测改动**：
-  1. 新增迁移 `server/migrations/110_restore_campus_steps.sql`
-  2. 修改 `frontend/lib/pages/campus/campus_map_page.dart` 的 `_loadStepsFromServer()`
+- 测试专员：qa-regression-wxx
+- 测试日期：2026-08-27
+- 项目根目录：`E:\2026-2027\2026-2027-1\MyProjects\wxx`
+- 测试环境：Windows 10.0.26200 (x64)、go 1.26.0、PowerShell 7+、SQLite（内存测试库）
+- 改动范围：`entity.go` / `feedback_repair_task_service.go` / `repair-agent.ps1`
 
----
+## 结论（TL;DR）
 
-## 一、测试用例与执行结果
-
-### 后端（Go test）
-
-| 用例编号 | 描述 | 结果 |
-|---------|------|------|
-| B1 | `110_restore_campus_steps.sql` 经 `ToMySQL` 转换后，`INSERT OR IGNORE` → `INSERT IGNORE`，无 SQLite 专有语法残留（AUTOINCREMENT / datetime('now' / ON CONFLICT） | ✅ PASS |
-| B2 | 110 迁移转换后恰好输出 1 条 INSERT IGNORE，含 `'huifeng'` + `'langya'` 两类 campus_id | ✅ PASS |
-| B3 | 110 迁移坐标采用 050 权威纠正值（会峰 step1=32.2705/118.3055、琅琊 step1=32.2921/118.2988） | ✅ PASS |
-| B4 | 原始 SQL 保留 `INSERT OR IGNORE`（SQLite 方言合法，SQLite 下可直接执行） | ✅ PASS |
-| B5 | `internal/db`、`internal/repository`、`internal/handler` 三包全量单元测试 | ✅ PASS（0 失败） |
-
-### 前端（Dart analyze 静态检查）
-
-| 用例编号 | 描述 | 结果 |
-|---------|------|------|
-| F1 | `dart analyze lib/pages/campus/campus_map_page.dart` | ✅ 0 error / 0 warning，23 条 info 级 lint（均为既有的 `prefer_const` / `unused_element` / `use_build_context_synchronously` 风格提示，非本次改动引入） |
-
-### 逻辑走查（代码审阅验证，非运行时）
-
-| 用例编号 | 描述 | 结果 |
-|---------|------|------|
-| R1 | 普通用户（非管理员）行为不变：`_canEditNodes=false` 时走公开接口 `campusSteps`，空列表/异常静默回退硬编码常量 | ✅ PASS（`_loadStepsFromServer` 中仅当 `_canEditNodes` 才弹提示；`_campusStepsMap` 初值即硬编码常量） |
-| R2 | 管理员空列表/失败分支：弹提示「后端无报到节点数据…」且 `_remoteIds` 保持为空 | ✅ PASS（`_showNoRemoteStepsHint` 三处调用点均在 `_canEditNodes` 为真分支；方法开头 `_remoteIds.clear()`） |
-| R3 | 拖拽保存在 `_remoteIds` 为空时正确报错而非假成功 | ✅ PASS（`_saveCoordinate` 中 `stepId==null → return false`；`_toggleNodeEditing` 中 `_remoteIds.isEmpty` 时提示「保存失败：未加载到后端节点…」） |
-| R4 | 管理员加载真实节点后拖拽保存完整链路：`_remoteIds` 填充 → `_api.patch(adminCampusStepCoords)` → `UpdateStepCoords` handler → `UpdateCoords` UPDATE SQL | ✅ PASS（代码链路完整，坐标范围校验 `lat∈[3,54] lng∈[73,136]` 通过） |
-| R5 | 公开接口 `ListPublicSteps` → `ListPublished`（status='published'）不受影响 | ✅ PASS（迁移未改动 repository/handler 查询逻辑） |
-| R6 | 迁移 048/050/079 既有行为不受 110 影响 | ✅ PASS（110 为纯 INSERT，不改表结构、不改既有数据；且按文件名字典序 110 在 079 之后执行，符合「先清空后恢复」的时序） |
+**回归通过，未发现 P0/P1 缺陷。** 原有状态机与管理端/执行端接口语义保持不变；新增 `feedback_contents` 字段向后兼容，并为合法 JSON 数组（非 null）；单条反馈取不到时降级不崩溃（已有测试覆盖并通过）。发现 1 个 P2 性能优化建议（N+1 查询，见 §5.1）与若干无法本地实测的未覆盖项。
 
 ---
 
-## 二、缺陷分级
+## 1. 代码走查结论
 
-### P0（阻断上线，必须修复）
+### 1.1 `model/entity.go`
+- 新增 `FeedbackRepairContent` 结构体，字段 `feedback_id/module/category/content` 全部为 JSON 可序列化字符串，无敏感字段（不含截图 base64），符合「脱敏载荷」设计预期。
+- `RepairTaskPayload` 新增 `FeedbackContents []FeedbackRepairContent`，tag 为 `json:"feedback_contents"`（无 `omitempty`），与 `FeedbackIDs` 并列。
+- 状态机常量（approved→running→awaiting_acceptance→deploy_pending→deploying→deployed→closed，verify_failed/cancelled 分支）**未改动**。
+- ✅ 通过。
 
-无。
+### 1.2 `service/feedback_repair_task_service.go`
+- 新增 `taskToPayloadWithContents()`，在 `taskToPayload()` 基础上逐条 `feedbackSvc.Get(fid)` 填充原文。
+- **`Claim()` 出口**已改为调用 `taskToPayloadWithContents(t)` 返回 payload（原 taskToPayload 保留，供内部复用）。
+- **降级逻辑正确**：单条 `Get` 返回 err 或 `nil` 时，`item` 仅保留 `FeedbackID`（module/category/content 空），且 `continue` 不影响后续条目与其他反馈。
+- **JSON 数组非 null 保证**：`taskToPayload` 中 `FeedbackContents` 初始化为 `[]model.FeedbackRepairContent{}`（空切片而非 nil），故即使 FeedbackIDs 为空，序列化后也为 `"feedback_contents":[]`，**不会是 null**。
+- `FeedbackService.Get(fid)` 内部走 `feedbackRepo.GetByFeedbackID`（单条主键/唯一键查询，无归属校验），语义与既有调用一致。
+- 状态机流转方法（Accept/Reject/DeployConfirm/DeployDone/Cancel/SubmitVerify）逻辑**零改动**。
+- ✅ 通过。
 
-### P1（必须修复的功能/数据正确性问题）
-
-- **P1-1：`INSERT OR IGNORE` 在无唯一约束下无法幂等去重**
-  - 位置：`110_restore_campus_steps.sql` + `048_campus_map_steps.sql` 建表定义
-  - 现象：`campus_checkin_steps` 表仅定义 `id INTEGER PRIMARY KEY AUTOINCREMENT`（id 自增），**未在 `(campus_id, step_order)` 或任何业务键上定义 UNIQUE 约束**（B 系列测试已程序化核实：建表语句含 PRIMARY KEY、不含 UNIQUE）。
-  - 后果：SQLite 的 `INSERT OR IGNORE`、MySQL 的 `INSERT IGNORE` 只会忽略「唯一键冲突」错误。**没有唯一约束就没有冲突可忽略**，因此：
-    1. 若迁移 110 被重复执行（例如：先手动补数据、再跑迁移，或迁移记录 `_migrations` 表被重置后重跑），会**重复插入 12 条数据**，导致 admin 接口返回 24 条，前端地图出现重复标注、`_remoteIds` 错位。
-    2. 迁移内部的 `INSERT OR IGNORE` 语义名不副实——它并不能像设计意图那样「幂等恢复」。
-  - 建议修复（二选一）：
-    - 在 `048` 或 `110` 中为 `campus_checkin_steps` 增加唯一索引：`CREATE UNIQUE INDEX idx_campus_step ON campus_checkin_steps(campus_id, step_order)`，使 `INSERT OR IGNORE` 真正生效；
-    - 或改用「先 `DELETE` 该校区再 `INSERT`」或 `ON DUPLICATE KEY UPDATE`（MySQL）/ `ON CONFLICT ... DO UPDATE`（SQLite）的确定性幂等写法。
-  - 风险缓解：当前生产环境 079 已清空该表、110 仅首次执行一次，故**当前一次性执行不会产生重复**；但这是「依赖外部时序而非迁移自身幂等」的脆弱状态，一旦重跑即出问题。
-
-### P2（建议改进 / 低风险）
-
-- **P2-1**：前端 `campus_map_page.dart` 存在 23 条 info 级 lint（`prefer_const_constructors`、`unused_element`、`use_build_context_synchronously` 等），均为既有代码风格问题，非本次改动引入，不影响功能。
-- **P2-2**：`_loadStepsFromServer` 中复用 `_campus.id` 构造接口 URL 时，若管理员快速切换校区，旧的异步响应可能晚于新请求返回并覆盖 `_campusStepsMap`（竞态）。本次改动未引入，但管理员加载逻辑的路由切换场景下仍存在潜在串扰（`_remoteIds` 已在方法开头 clear，风险有限）。建议后续加请求序号/token 防竞态。
-
----
-
-## 三、结论
-
-1. **方言转换正确**：`dialect.go` 的 `insertOrIgnoreRe` 正则能正确将 `INSERT OR IGNORE` 转为 `INSERT IGNORE`（MySQL），且转换输出不含 SQLite 专有残留；B 系列测试全绿。
-2. **前端改动逻辑正确**：普通用户静默回退、管理员空/失败分支提示且 `_remoteIds` 置空、拖拽保存在空 `_remoteIds` 下正确失败——三条核心需求（改动2 的 ①②③）均通过代码走查验证。
-3. **回归不退化**：公开接口 `ListPublicSteps`、管理员 `_remoteIds 填充→patch→UpdateCoords→UPDATE SQL` 完整链路、048/050/079 既有行为均未受 110 影响。
-4. **存在 1 个 P1 幂等性缺陷**：`campus_checkin_steps` 表无唯一约束，`INSERT OR IGNORE` 无法真正幂等，重复执行会重复插入。当前一次性部署不受影响，但强烈建议为 `(campus_id, step_order)` 增加唯一索引以消除隐患。
-
-**总体结论**：改动功能正确、无回归，**可上线**；但需跟进 P1-1 的幂等性加固（否则未来任何一次迁移重跑都会污染数据）。
+### 1.3 `scripts/repair-agent.ps1`
+- 新增 `-Mode auto` 分支：claim → worktree 隔离分支 → 组装 prompt（含 feedback_contents）→ 调用编码工具（gemini/openclaw/自定义 WXX_REPAIR_CODER）→ verify 上报。
+- 安全边界保持：不 commit/push/部署；token 从 `WXX_REPAIR_AGENT_TOKEN` 读取。
+- `ValidateSet("claim","verify","auto")` 参数校验正确。
+- `feedback_contents` 为空时组装提示词兜底为「(无反馈原文)」，不会抛空引用。
+- PowerShell 解析（AST ParseFile）**无语法错误**。
+- ✅ 通过（静态解析）。
 
 ---
 
-## 四、未能覆盖的项（如实标注）
+## 2. 测试用例与执行结果
 
-1. **无 MySQL 真库**：本环境仅有 SQLite 驱动，未连接真实 MySQL 实例，`INSERT IGNORE` 在 MySQL 下的实际执行结果未能运行时验证——仅通过 `ToMySQL` 单元测试验证了「转换后的 SQL 文本正确」，MySQL 端执行语义（尤其无唯一约束时 INSERT IGNORE 的去重行为）是基于 MySQL 文档语义的静态判断，未做实库验证。
-2. **前端运行时测试**：未启动 Flutter Web/App 实际点击验证「管理员弹提示」「拖拽保存」的 UI 行为，仅做静态分析 + 代码走查（无浏览器/设备运行环境与后端联调）。
-3. **083 及之前已部署生产库的实际 110 执行**：未在包含真实生产数据（含 079 清空后的状态）的库上实跑 `cmd/migrate` 工具。
+### 2.1 编译
+
+| 用例 | 命令 | 结果 |
+|---|---|---|
+| 全量编译 | `go build ./...` | ✅ 通过（exit 0） |
+
+### 2.2 单元/回归测试
+
+| 包 | 命令 | 结果 |
+|---|---|---|
+| service | `go test -count=1 ./internal/service/` | ✅ ok（155.8s） |
+| handler | `go test -count=1 ./internal/handler/` | ✅ ok（89.7s） |
+| repository | `go test -count=1 ./internal/repository/` | ✅ ok（83.5s） |
+| model | `go test -count=1 ./internal/model/` | ✅ ok（3.1s） |
+| 全内部包 | `go test ./internal/...` | ✅ 全部 ok |
+
+### 2.3 状态机/新增功能专项（-run TestRepairTask）
+
+| 用例 | 结果 |
+|---|---|
+| TestRepairTask_StateMachine_FullChain（全链路） | ✅ PASS |
+| TestRepairTask_StateMachine_VerifyFailedLoop（验证失败回路） | ✅ PASS |
+| TestRepairTask_StateMachine_Cancel（取消，终态） | ✅ PASS |
+| TestRepairTask_StateMachine_Reject（驳回） | ✅ PASS |
+| TestRepairTask_IllegalTransition_ReturnsError（非法流转） | ✅ PASS |
+| **TestRepairTask_Payload_ContainsFeedbackContents（新增）** | ✅ PASS |
+| **TestRepairTask_Payload_MissingFeedback_Degrades（新增）** | ✅ PASS |
+| TestRepairTask_ConcurrencyGate（并发闸门） | ✅ PASS |
+
+> 新增测试 `Payload_ContainsFeedbackContents` 与 `Payload_MissingFeedback_Degrades` 已确认真正执行（`go test -count=1 -run TestRepairTask` 非缓存），并验证：
+> - `feedback_contents` 包含逐条反馈原文，module/category/content 正确填充；
+> - 单条 feedback 取不到时，保留 `feedback_id`、content 留空，**整体 Claim 不失败**。
+
+---
+
+## 3. 重点回归验证
+
+### 3.1 Claim payload 含 `feedback_contents`，且为合法 JSON 数组
+- **结论：正确。** `FeedbackContents` 初始化为空切片 `[]model.FeedbackRepairContent{}`（非 nil），`json.Marshal` 产出 `"feedback_contents":[]`，**非 null**。
+- 向后兼容：旧执行端 JSON 反序列化时忽略未知/额外字段，`feedback_contents` 仅为新增字段，不破坏既有 `task_no/title/status/feedback_ids/diagnosis/...` 结构。
+
+### 3.2 状态机语义不退化
+- validTransitions 状态表未改动，全链路、verify_failed 回路、cancel、reject、非法流转各用例均 PASS。
+
+### 3.3 管理端接口语义不变
+- CreateTask/ListTasks/GetTask/Accept/Reject/DeployConfirm/DeployDone 方法体零改动，仅 Claim 出口新增反馈原文填充。handler 层 NextTask 返回值类型仍为 payload（`data` 字段），无破坏。
+
+### 3.4 执行端 NextTask/VerifyTask 语义不变
+- NextTask 仍返回 `{code:0, data: payload}`；空任务返回 `data: nil`；并发冲突返回 409。语义不变。
+
+---
+
+## 4. 缺陷分级
+
+| 级别 | 编号 | 缺陷描述 | 状态 |
+|---|---|---|---|
+| P0 | — | 无（状态机/接口未退化，无崩溃/数据破坏风险） | 通过 |
+| P1 | — | 无 | 通过 |
+| P2 | #1 | 批量任务时逐条 `FeedbackService.Get` 导致 N+1 查询 | 建议优化，非阻塞 |
+
+---
+
+## 5. 并发 / 性能 / 兼容性隐患分析
+
+### 5.1 N+1 查询（P2，性能建议）
+`taskToPayloadWithContents` 对 `p.FeedbackIDs` 逐条调用 `feedbackSvc.Get(fid)`，每条触发一次 `GetByFeedbackID` 查询。批量任务（如 50~200 条反馈）时会产生 N 次查询。
+- **影响评估**：Claim 为低频操作（全局仅 1 个 running 闸门），单次领取 N 通常很小（管理员批量创建但单任务反馈数有限），实际风险低。
+- **建议**：可新增 `feedbackRepo.GetByFeedbackIDs(ids []string)` 批量 `WHERE feedback_id IN (...)` 一次性取回，再逐条映射，消除 N+1。当前实现非阻塞缺陷，不影响正确性。
+
+### 5.2 并发闸门
+`Claim` 先 `CountActiveRunning()`（running + awaiting_acceptance 计数）判断，再 `NextClaimable` → `UpdateClaim`。SQLite 单连接测试下串行安全；生产 MySQL 下 `CountActiveRunning` + `UpdateClaim` 之间非原子，理论上存在极小窗口的并发认领竞态。**与改动无关**（原逻辑即如此），且闸门为「全局仅 1 running」语义，风险可接受，未引入新竞态。
+
+### 5.3 兼容性
+- 新增 `feedback_contents` 为**增量字段**，旧执行端忽略即可，向后兼容 ✅。
+- `diagnosis` 使用 `omitempty`，`feedback_contents` **无** `omitempty`（保证恒输出 `[]`），符合「为空也是合法 JSON 数组而非 null」要求 ✅。
+- 新增 `FeedbackRepairContent` 无指针字段，循环 append 中每次新建 `item` 变量，无共享指针别名问题 ✅。
+
+### 5.4 PowerShell auto 模式
+- `gemini -p $prompt` 与 `openclaw $prompt` 依赖本机 CLI 环境；未安装时命令会失败，但脚本不 push/部署，失败仅影响本次 auto 流程（无副作用）。
+- `Invoke-Expression` 用于自定义 coder，属受控本机工具，提示词已 `Set-Content` 到 worktree 的 `repair-prompt.txt`（不入库，通过后删除）。
+
+---
+
+## 6. 未覆盖项（如实标注）
+
+| 未覆盖项 | 原因 |
+|---|---|
+| 真实云端 MySQL 连接 | 测试使用内存 SQLite（`testutil.NewTestDBFull`）；生产 MySQL 的 N+1/并发行为未在真实库复现 |
+| 真实触发 gemini CLI | 本机未实际执行 `gemini -p` 编码改码流程（仅静态解析 + AST 语法校验） |
+| flutter analyze/test 真实回归 | 前端 Flutter 侧未在本轮验证（改动集中在 Go 后端 + PowerShell） |
+| 端到端 HTTP 链路（带 token 中间件）的实际请求 | handler 层通过单测间接覆盖，未发起真实 `POST /api/v1/internal/repair-tasks/next` 请求 |
+| `feedback_contents` 大 JSON payload 的实际体积/带宽 | 未压测 |
+
+---
+
+## 7. 附：关键证据
+
+- `go build ./...` exit 0。
+- `go test ./internal/...` 全部 `ok`。
+- `go test -count=1 -run TestRepairTask` 8 用例全 PASS（含 2 个新增用例）。
+- `repair-agent.ps1`：`Parser.ParseFile` 无语法错误（`PARSE OK - no syntax errors`）。
+
+**最终结论：本次「一键自动修复」增强改动正确，原有功能无退化，新增功能符合预期，可进入下一步（reviewer 评审）。**

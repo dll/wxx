@@ -235,6 +235,80 @@ func TestRepairTask_IllegalTransition_ReturnsError(t *testing.T) {
 	}
 }
 
+// insertFeedback 直接向 feedback 表插入一条反馈。
+func insertFeedback(t *testing.T, db *sql.DB, feedbackID, module, category, content string) {
+	t.Helper()
+	_, err := db.Exec(
+		`INSERT INTO feedback (feedback_id, user_id, username, category, module, content, status)
+		 VALUES (?, 1, 'tester', ?, ?, ?, 'pending')`,
+		feedbackID, category, module, content,
+	)
+	if err != nil {
+		t.Fatalf("插入反馈失败: %v", err)
+	}
+}
+
+// TestRepairTask_Payload_ContainsFeedbackContents 验证执行端 payload 包含反馈原文。
+func TestRepairTask_Payload_ContainsFeedbackContents(t *testing.T) {
+	svc, db := setupRepairTaskSvc(t)
+	insertFeedback(t, db, "fb-1", "对话 / 问答", "answer_error", "回答内容不准确，请修复")
+	insertTask(t, db, "rt-ct", model.RepairTaskApproved)
+
+	payload, err := svc.Claim(context.Background(), "dev-host", "abc", "repair/rt-ct")
+	if err != nil {
+		t.Fatalf("Claim 失败: %v", err)
+	}
+	if len(payload.FeedbackContents) != 1 {
+		t.Fatalf("期望 1 条 feedback_content，得到 %d", len(payload.FeedbackContents))
+	}
+	c := payload.FeedbackContents[0]
+	if c.FeedbackID != "fb-1" {
+		t.Errorf("feedback_id 应为 fb-1，得到 %s", c.FeedbackID)
+	}
+	if c.Content != "回答内容不准确，请修复" {
+		t.Errorf("content 不匹配，得到 %q", c.Content)
+	}
+	if c.Module == "" || c.Category == "" {
+		t.Errorf("module/category 不应为空，得到 module=%q category=%q", c.Module, c.Category)
+	}
+}
+
+// TestRepairTask_Payload_MissingFeedback_Degrades 单条反馈取不到时降级不崩溃。
+func TestRepairTask_Payload_MissingFeedback_Degrades(t *testing.T) {
+	svc, db := setupRepairTaskSvc(t)
+	// 只插入 fb-1，fb-missing 不存在
+	insertFeedback(t, db, "fb-1", "模块A", "suggestion", "建议优化文案")
+	// 插入一条包含两条 feedback（其中一条不存在）的任务
+	res, err := db.Exec(
+		`INSERT INTO feedback_repair_tasks
+		 (task_no, creator, feedback_ids, title, diagnosis, status)
+		 VALUES ('rt-miss', 'admin', '["fb-1","fb-missing"]', 't', '{}', 'approved')`,
+	)
+	if err != nil {
+		t.Fatalf("插入任务失败: %v", err)
+	}
+	_ = res
+
+	payload, err := svc.Claim(context.Background(), "dev", "c", "b")
+	if err != nil {
+		t.Fatalf("Claim 不应失败（降级）: %v", err)
+	}
+	if len(payload.FeedbackContents) != 2 {
+		t.Fatalf("期望 2 条 feedback_content（含降级空条目），得到 %d", len(payload.FeedbackContents))
+	}
+	// 第一条有原文
+	if payload.FeedbackContents[0].Content == "" {
+		t.Errorf("fb-1 的 content 不应为空")
+	}
+	// 第二条取不到：保留 feedback_id，content 留空
+	if payload.FeedbackContents[1].FeedbackID != "fb-missing" {
+		t.Errorf("missing 条目 feedback_id 应为 fb-missing，得到 %s", payload.FeedbackContents[1].FeedbackID)
+	}
+	if payload.FeedbackContents[1].Content != "" {
+		t.Errorf("missing 条目 content 应留空，得到 %q", payload.FeedbackContents[1].Content)
+	}
+}
+
 // errorsIsBadState 判断错误是否为状态机非法流转（ErrRepairTaskBadState，含 %w 包装）。
 func errorsIsBadState(err error) bool {
 	for e := err; e != nil; {

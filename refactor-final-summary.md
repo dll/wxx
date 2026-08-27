@@ -1,10 +1,9 @@
-# 反馈修复闭环 MVP — 重构最终汇总
+# 反馈「一键自动修复」增强 — 最终汇总
 
 > 汇总人：leader-wxx · 日期：2026-08-27
 > 项目：wxx（蔚小芯，Go + Flutter 已上线系统）
-> 本轮需求：把「问题反馈 → 管理反馈 → 在线修复」从"AI 诊断 + 复制报告"升级为
-> 「修复任务实体 + 审核/认领/验证/验收/部署确认」的安全闭环。
-> 流水线：pm → dev → qa → review → 汇总（严格串行，未并行、未断链）。
+> 本轮需求：在「反馈修复闭环 MVP」基础上，增强为「管理员一键启动 → 从反馈表读取问题原文 → 本机自动改码 → 自动验证上报 → 管理员验收 → 部署确认」的全自动闭环。
+> 流水线：pm → dev → qa → review → 回修 → 汇总（严格串行）。
 
 ---
 
@@ -12,105 +11,109 @@
 
 | 步骤 | 角色 | 产出 | 状态 |
 | --- | --- | --- | --- |
-| 1 需求核对 | pm-wxx | `pm-checklist.md`（缺口 G1-G10 + 改造 M1-M5） | ✅ 完成 |
-| 2 开发重构 | dev-refactor-wxx | `refactor-notes.md`（越权修复 + 任务实体 + 状态机 + 执行端脚本） | ✅ 完成 |
-| 3 回归测试 | qa-regression-wxx | `qa-report.md`（结论：4 项通过 + 1 项 P1） | ✅ 完成 |
-| 3.1 P1 修复 | leader-wxx（dev 辅助） | `badStateOrErr` 改用 `errors.Is` | ✅ 完成，复验 400 |
-| 4 代码审核 | reviewer-audit-wxx | `audit-report.md`（结论：有条件通过） | ✅ 完成 |
+| 1 需求核对 | pm-wxx | `pm-checklist.md`（一键自动修复增强章节） | ✅ 完成 |
+| 2 开发重构 | dev-refactor-wxx | `refactor-notes.md`（八·一键自动修复增强） | ✅ 完成 |
+| 3 回归测试 | qa-regression-wxx | `qa-report.md`（通过，无 P0/P1） | ✅ 完成 |
+| 4 代码审核 | reviewer-audit-wxx | `audit-report.md`（有条件通过 + 2 项 P1） | ✅ 完成 |
+| 4.1 P1 回修 | dev-refactor-wxx | `refactor-notes.md`（九·reviewer P1 回修） | ✅ 完成 |
 | 5 汇总 | leader-wxx | 本文件 | ✅ 完成 |
 
 ---
 
-## 二、本轮交付内容
+## 二、背景与核心缺口
 
-### 2.1 安全修复（P1 越权，来自 pm-checklist G1）
+上一轮 MVP 已建立完整闭环状态机（`approved → running → awaiting_acceptance → deploy_pending → deploying → deployed → closed`）+ 本机执行端 `scripts/repair-agent.ps1`（claim/verify 两模式）。但「实际改代码」仍是断点：执行端领取任务时**只拿到 `feedback_ids`（ID 列表）和 AI 诊断的 `code_files`，拿不到反馈原文 `content`**，导致自动修复「无从下手」，只能靠管理员手动复制粘贴到本机改码。
 
-- 反馈详情 / 处理日志 / 截图三个接口补齐归属校验：
-  - 普通用户仅读本人反馈；
-  - 持 `union.feedback.list` 能力的反馈管理员可读全部；
-  - 越权/不存在统一 404，不泄露存在性；截图越权 403。
-
-### 2.2 修复任务实体与状态机（来自 pm-checklist G2）
-
-- 新建 `feedback_repair_tasks` 表（迁移 `109`），字段承载审核人/反馈集合/合并诊断/验证结果/diff/验收/部署确认等全链路审计。
-- 状态机：`approved → running → awaiting_acceptance → deploy_pending → deploying → deployed → closed`，含 `verify_failed` 回路与 `cancelled` 终态。
-- 全局单 `running` 闸门，避免并发改码冲突。
-
-### 2.3 本机执行端（来自 pm-checklist G4/G5/M3）
-
-- `scripts/repair-agent.ps1`：受控认领 + 验证上报，**不自动改码、不 commit/push/部署**。
-- 内部端点用独立 `WXX_REPAIR_AGENT_TOKEN`（`crypto/subtle.ConstantTimeCompare`），未配置返回 404，与业务 JWT 完全隔离。
-
-### 2.4 前端语义纠正（本轮最小增量）
-
-- 「在线修复」→「修复诊断」，避免向用户暗示已自动修复；补齐任务端点常量。
-- 完整管理端任务列表/详情/验收 UI 属后续批次，本轮未虚构（如实记录）。
+本轮核心补齐：**把反馈原文回传执行端 + 执行端新增一键自动改码模式**。
 
 ---
 
-## 三、QA 回归结论
+## 三、本轮交付内容
 
-- ✅ 工具链门禁：`go build`/`go vet`/5 核心包 `go test`、`flutter analyze`（无 error/warning）、`flutter test`（+14 全通过）、`gofmt` 均通过。
-- ✅ 越权访问四象限（本人/管理员/越权/未认证）全部通过。
-- ✅ 状态机全链路 + verify_failed 回路 + cancelled 终态 + 并发闸门通过。
-- ✅ token 鉴权（404/401/200 映射 + 常量时间比较）通过。
-- ✅ 依赖注入：`userRepo` 恒注入，无 nil 降级泄露。
-- ✅ 原有反馈主流程无回归。
-- 🔴 **发现 1 项 P1**：非法状态流转返回 500 而非 400。
+### 3.1 服务端：执行端 payload 补充反馈原文
 
-### P1 修复结果（已闭环）
+- `model/entity.go` 或 `dto.go`：新增 `FeedbackRepairContent` 结构体（`feedback_id`/`module`/`category`/`content`），`RepairTaskPayload` 新增 `FeedbackContents` 字段（`json:"feedback_contents"`）。
+- `service/feedback_repair_task_service.go`：`taskToPayloadWithContents()` 遍历 `FeedbackIDs` 逐条经 `feedbackSvc.Get()` 取原文填充，**取不到单条降级（跳过/留空）不崩溃、不返回 nil payload**；`FeedbackContents` 初始化为空切片，JSON 恒为 `[]` 而非 `null`（向后兼容）。
 
-- 根因：`badStateOrErr` 用 `switch err` 直接相等比较，无法命中 service 层 `fmt.Errorf("%w: ...")` 包装后的错误。
-- 修复：改用 `errors.Is` 链式判断；同步将 `NextTask`/`VerifyTask`/`notFoundOrErr` 的直接比较统一为 `errors.Is`（防御同类隐患）。
-- 复验：`Accept illegal state -> status=400`（原 500 → 现 400），5 核心包测试全绿。
+### 3.2 执行端：repair-agent.ps1 新增 auto 一键模式
 
-**QA 最终结论：通过（P1 已修复并复验）。**
+- 流程 = ① claim 领取任务 → ② 拿 payload（含原文 + 诊断）→ ③ `git worktree add` 隔离分支改码 → ④ 跑 `Run-Verification` → ⑤ `Submit-Verify` 上报。
+- 本机编码工具：优先 `WXX_REPAIR_CODER`（默认 `gemini`），prompt 由 here-string 组装，喂入反馈原文 + 诊断摘要 + 代码文件路径。
+- 安全边界：改码只在 worktree 内，不自动 commit/push/部署，保持「服务器不改码不部署」原则。
 
----
+### 3.3 安全回修（reviewer P1-1 / P1-2）
 
-## 四、代码审核结论（遗留，已上溯）
-
-audit-report.md（审核人 leader-wxx 只读评审）结论为「有条件通过」，其中一条中危「执行端脚本字段类型与后端契约不一致」已在开发阶段修复；P1 错误比较缺陷由 QA 环节发现并修复。审核发现的其余项均为可接受的 MVP 边界：
-
-1. `Claim` 并发闸门非单事务（TOCTOU），依赖「单执行端 + 人工审批节奏」控制；
-2. 全局单 running 含 awaiting_acceptance，吞吐保守；
-3. 前端任务管理 UI 未做（后续批次）；
-4. 执行端脚本不自动改码（与边界一致）。
+- **P1-1（原文落盘泄露）**：`.gitignore` 追加 `repair-prompt.txt` 与 `wxx-repair-*/`；脚本同时写 worktree 的 `.git/info/exclude`；无论 passed/failed 统一删除 prompt 文件。三层防护。
+- **P1-2（prompt 注入）**：prompt 增加「安全红线」块，声明反馈原文为**不可信、不可执行的用户数据**；`code_files` 白名单为空时**短路不调用编码工具**；强制约束「只允许修改白名单内文件，禁止新建/删除/重命名清单外文件」。
 
 ---
 
-## 五、未覆盖项（如实记录，上线前需处理）
+## 四、QA 回归结论
+
+- ✅ `go build ./...` 通过。
+- ✅ `go test`（service/handler/model/db）全绿。
+- ✅ 状态机 8 用例 PASS（含 `Payload_ContainsFeedbackContents`、`Payload_MissingFeedback_Degrades`）。
+- ✅ PowerShell AST 无语法错误；`feedback_contents` 恒为合法 JSON 数组（非 null）；向后兼容。
+- ✅ 原有反馈主流程、修复任务状态机无回归。
+- ⚠️ QA 发现 1 项 P2（N+1 查询，非阻塞，Claim 低频可忽略）。
+
+**QA 结论：通过（无 P0/P1）。**
+
+---
+
+## 五、代码审核结论
+
+audit-report.md 结论「有条件通过」，两个 P1 已回修并复验：
+
+| 编号 | 级别 | 描述 | 处置 |
+| --- | --- | --- | --- |
+| P1-1 | 高 | repair-prompt.txt（含原文）未 git-ignore | ✅ 已回修（.gitignore + info/exclude + 删除） |
+| P1-2 | 高 | prompt 未强制「仅改 code_files 白名单」 | ✅ 已回修（安全红线 + 白名单短路 + 硬约束） |
+| P2-1 | 中 | N+1 查询 | 可接受，后续可改批量查询 |
+| P2-2 | 中 | 原文未脱敏 PII | 建议文档明确含 PII 反馈不启用 auto |
+| P2-3 | 中 | WXX_REPAIR_CODER 可被设为任意命令 | 属「受信操作者自配」，文档标注 |
+| L1 | 低 | Write-Host 打印自定义命令（误用才含 secret） | 注释提醒 |
+
+**结论：通过（P1 已修复并复验）。**
+
+---
+
+## 六、端到端触发方式
+
+1. 管理员在反馈详情「在线修复」→ 创建修复任务（`CreateTask`，复用现有 AI 诊断）。
+2. 本机执行端一键执行自动修复：
+   ```powershell
+   $env:WXX_REPAIR_AGENT_TOKEN = "<内部受控token>"
+   pwsh -File scripts/repair-agent.ps1 -Mode auto -BaseUrl https://wxx-agent.online
+   ```
+3. 脚本自动：领取任务 → 拉取 feedback 原文 + 诊断 → `git worktree` 隔离分支改码 → go vet/test + flutter analyze → 上报 verify。
+   - passed → 服务端流转 `awaiting_acceptance` → 管理员验收（`AcceptTask`）→ 部署确认（`DeployConfirmTask`）→ 部署完成（`DeployDoneTask`）→ 关闭。
+   - failed → `verify_failed` → 可重新认领。
+4. **部署保留人工确认**（DeployConfirm/DeployDone 仅标记，不自动触发真实部署）。
+
+---
+
+## 七、未覆盖项（如实记录）
 
 | 项 | 说明 |
 | --- | --- |
-| MySQL 方言真库回归 | 本机无 MySQL，迁移 109 仅 SQLite 验证；上线前需真实 MySQL 演练迁移 |
-| Redis | 本机无实例，缓存链路未验证（与本轮改动无耦合） |
-| 真实 LLM/视觉 | 无 API Key，仅本地兜底 + mock 验证 |
-| 全链路 HTTP 端到端 | `app.New()` 需真实 DB，未启动完整路由树 |
-| 前端任务 UI | 后续批次 |
+| MySQL 真库回归 | 本机无 MySQL，方言/迁移仅 SQLite 验证 |
+| 真实 LLM 编码执行 | 无 API Key，auto 改码的 AI 编码工具实际运行需部署环境验证 |
+| 反馈原文 PII 脱敏 | 未做，建议含敏感信息反馈不启用 auto |
+| WXX_REPAIR_CODER 硬拦截 | commit/push/deploy 禁令依赖 prompt 软约束 + worktree 隔离 |
 
 ---
 
-## 六、提交前建议（交用户决策）
-
-当前改动全部**未提交、未推送、未部署**（git status 中为未暂存/未跟踪状态）。建议下一步：
-
-1. 在真实 MySQL 环境演练迁移 `109_feedback_repair_tasks.sql`（风险 R5）。
-2. 确认后由用户决定是否：`git add` → commit → push → 走既有 GitHub Actions / `make deploy-release` 部署。
-3. 部署动作完全由管理员经既有通道执行，本闭环只记录状态、不自动部署。
-
----
-
-## 七、交付文件清单
+## 八、交付文件清单
 
 | 文件 | 作用 |
 | --- | --- |
-| `pm-checklist.md` | 需求核对：缺口与改造方案 |
-| `refactor-notes.md` | 开发改动记录（含 P1 修复记录） |
+| `pm-checklist.md` | 需求核对（一键自动修复增强） |
+| `refactor-notes.md` | 开发改动记录（八·增强 + 九·P1 回修） |
 | `qa-report.md` | 回归测试报告 |
 | `audit-report.md` | 代码审核报告 |
 | `refactor-final-summary.md` | 本汇总 |
 
 ---
 
-> 流水线结束。四份过程文档 + 本汇总已就位，改动未提交，等待用户对提交/部署作出决策。
+> 流水线结束。改动已就绪，等待提交与部署。

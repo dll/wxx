@@ -227,3 +227,7 @@ signing/
 # APK 分发走 GitHub Release + 服务器 downloads（保留最近3版），仓库不入库二进制
 frontend/web/downloads/*.apk
 frontend/build/web/downloads/
+
+# repair-agent auto 模式：反馈原文 prompt 与隔离 worktree（敏感数据，绝不入库）
+repair-prompt.txt
+wxx-repair-*/

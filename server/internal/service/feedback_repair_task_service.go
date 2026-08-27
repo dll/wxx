@@ -228,7 +228,7 @@ func (s *FeedbackRepairTaskService) Claim(ctx context.Context, workerHost, baseC
 	}
 	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[执行端] %s 领取任务 (base=%s branch=%s)", workerHost, baseCommit, branch))
 
-	payload := taskToPayload(t)
+	payload := s.taskToPayloadWithContents(t)
 	return payload, nil
 }
 
@@ -405,14 +405,15 @@ func taskToDTO(t *model.FeedbackRepairTask) *model.RepairTaskDTO {
 
 func taskToPayload(t *model.FeedbackRepairTask) *model.RepairTaskPayload {
 	p := &model.RepairTaskPayload{
-		TaskNo:      t.TaskNo,
-		Title:       t.Title,
-		Status:      t.Status,
-		FeedbackIDs: []string{},
-		BaseCommit:  t.BaseCommit,
-		Branch:      t.Branch,
-		LogText:     t.LogText,
-		CreatedAt:   t.CreatedAt,
+		TaskNo:           t.TaskNo,
+		Title:            t.Title,
+		Status:           t.Status,
+		FeedbackIDs:      []string{},
+		FeedbackContents: []model.FeedbackRepairContent{},
+		BaseCommit:       t.BaseCommit,
+		Branch:           t.Branch,
+		LogText:          t.LogText,
+		CreatedAt:        t.CreatedAt,
 	}
 	if t.FeedbackIDs != "" {
 		var ids []string
@@ -425,6 +426,26 @@ func taskToPayload(t *model.FeedbackRepairTask) *model.RepairTaskPayload {
 		if err := json.Unmarshal([]byte(t.Diagnosis), &diag); err == nil {
 			p.Diagnosis = &diag
 		}
+	}
+	return p
+}
+
+// taskToPayloadWithContents 生成执行端载荷并填充反馈原文（供 Claim 使用）。
+// 逐条取反馈原文，单条取不到仅跳过/留空，不阻断整体 payload。
+func (s *FeedbackRepairTaskService) taskToPayloadWithContents(t *model.FeedbackRepairTask) *model.RepairTaskPayload {
+	p := taskToPayload(t)
+	for _, fid := range p.FeedbackIDs {
+		item := model.FeedbackRepairContent{FeedbackID: fid}
+		fb, err := s.feedbackSvc.Get(fid)
+		if err != nil || fb == nil {
+			// 降级：该条反馈取不到，保留 feedback_id 但 content/module/category 留空
+			p.FeedbackContents = append(p.FeedbackContents, item)
+			continue
+		}
+		item.Module = fb.Module
+		item.Category = fb.Category
+		item.Content = fb.Content
+		p.FeedbackContents = append(p.FeedbackContents, item)
 	}
 	return p
 }
