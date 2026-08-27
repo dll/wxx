@@ -217,7 +217,7 @@ jobs:
             # 2. 保留回滚二进制(最近备份)
             sudo cp -f /opt/wxx/wxx-server /opt/wxx/wxx-server.rollback.$(date +%Y%m%d%H%M) 2>/dev/null || true
             sudo chmod +x /tmp/wxx-dist/wxx-server.new
-            # 3. 替换 + 重启
+            # 3. 替换 + 重启（严格模式：服务未激活/迁移未生效/健康检查失败 → 阻断部署）
             echo "--- stop wxx ---"
             sudo systemctl stop wxx
             sleep 2
@@ -225,9 +225,43 @@ jobs:
             echo "--- start wxx ---"
             sudo systemctl start wxx
             sleep 6
-            systemctl is-active wxx && echo "[OK] wxx active" || echo "[WARN] wxx 未激活"
+            # 3a. 服务必须激活，否则回滚旧二进制并阻断
+            if ! systemctl is-active --quiet wxx; then
+              echo "[ERROR] wxx 启动失败，回滚到上一版二进制"
+              ROLLBACK=$(ls -t /opt/wxx/wxx-server.rollback.* 2>/dev/null | head -1)
+              if [ -n "$ROLLBACK" ]; then
+                sudo cp "$ROLLBACK" /opt/wxx/wxx-server
+                sudo systemctl start wxx || true
+                echo "[ERROR] 已回滚到 $ROLLBACK"
+              fi
+              echo "--- 最近 50 行服务日志（排查迁移/启动失败根因）---"
+              sudo journalctl -u wxx -n 50 --no-pager || true
+              exit 1
+            fi
+            echo "[OK] wxx active"
+            # 3b. 显式验证迁移已生效：campus_checkin_steps 必须恢复 12 条 published 节点
+            DB_PW2=$(grep '^DB_PASSWORD=' /etc/wxx/env | cut -d= -f2-)
+            DB_NAME2=$(grep '^DB_NAME=' /etc/wxx/env | cut -d= -f2-)
+            PUB_COUNT=$(mysql -h127.0.0.1 -uwxx -p"$DB_PW2" "$DB_NAME2" -N -e "SELECT COUNT(*) FROM campus_checkin_steps WHERE status='published'" 2>/dev/null || echo "ERR")
+            echo "campus_checkin_steps published 数量 = $PUB_COUNT"
+            if [ "$PUB_COUNT" = "ERR" ] || [ "$PUB_COUNT" = "0" ]; then
+              echo "[ERROR] 迁移未生效：campus_checkin_steps 无 published 节点。请检查 _migrations 表与 110_restore_campus_steps.sql"
+              echo "--- 迁移记录表 tail ---"
+              mysql -h127.0.0.1 -uwxx -p"$DB_PW2" "$DB_NAME2" -e "SELECT id,filename,executed_at FROM _migrations ORDER BY id DESC LIMIT 5" 2>/dev/null || true
+              echo "--- 最近 50 行服务日志 ---"
+              sudo journalctl -u wxx -n 50 --no-pager || true
+              exit 1
+            fi
+            echo "[OK] 迁移验证通过：已恢复 $PUB_COUNT 条 published 报到节点"
+            # 3c. 健康检查显式阻断
             echo "--- 健康检查 ---"
-            curl -s -m 8 localhost:8080/health && echo "" || echo "[WARN] health check failed(忽略)"
+            if ! curl -s -m 8 localhost:8080/health; then
+              echo ""
+              echo "[ERROR] 健康检查失败，阻断部署"
+              exit 1
+            fi
+            echo ""
+            echo "[OK] 后端部署 + 迁移 + 健康检查全部通过"
             rm -rf /tmp/wxx-dist
 
 
