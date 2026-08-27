@@ -1317,10 +1317,8 @@ $printScript
     }
 
     chat.newChat();
+    // 先清空当前状态，再离开已删除详情页；不在导航后继续使用旧页面 context，避免空白/生命周期异常。
     context.go('/home');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('对话已删除')),
-    );
   }
 
   /// 保存问答对到知识库
