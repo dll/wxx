@@ -96,6 +96,67 @@ func TestKnowledgePackageRejectsTamperedHash(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestKnowledgePackageRejectsMissingSignature(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+	kbRepo := repository.NewKBRepo(db)
+	kbSvc := service.NewKBService(kbRepo, db)
+	pkgSvc := service.NewKnowledgePackageService(kbSvc, kbRepo)
+	pkgSvc.SetHMACSecret("test-hmac-secret")
+
+	_, err := kbRepo.Create(&model.KBResource{
+		ResourceID: "policy_test_unsigned", ResourceType: "Policy", OwnerScope: "school",
+		RoleScope: `[]`, Version: "v1", Status: "published",
+		Title: "无签名政策", Summary: "摘要", Content: "正文", UpdatedBy: "tester",
+	})
+	require.NoError(t, err)
+	zipData, _, err := pkgSvc.ExportPackage(context.Background(), "", "", "school", "", 10)
+	require.NoError(t, err)
+
+	unsigned := rewriteZipResource(t, zipData, "manifest.json", `"signature":`, `"signature_removed":`)
+	_, err = pkgSvc.ImportPackage(context.Background(), unsigned, testAdminUserCtx(), "trace-unsigned")
+	require.ErrorContains(t, err, "缺少强制 HMAC 签名")
+}
+
+func TestKnowledgePackageReplayReturnsOriginalResult(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+	kbRepo := repository.NewKBRepo(db)
+	kbSvc := service.NewKBService(kbRepo, db)
+	pkgSvc := service.NewKnowledgePackageService(kbSvc, kbRepo)
+	pkgSvc.SetHMACSecret("test-hmac-secret")
+
+	_, err := kbRepo.Create(&model.KBResource{
+		ResourceID: "policy_test_replay", ResourceType: "Policy", OwnerScope: "school",
+		RoleScope: `[]`, Version: "v1", Status: "published",
+		Title: "重放政策", Summary: "摘要", Content: "正文", UpdatedBy: "tester",
+	})
+	require.NoError(t, err)
+	zipData, manifest, err := pkgSvc.ExportPackage(context.Background(), "", "", "school", "", 10)
+	require.NoError(t, err)
+
+	first, err := pkgSvc.ImportPackage(context.Background(), zipData, testAdminUserCtx(), "trace-replay-1")
+	require.NoError(t, err)
+	second, err := pkgSvc.ImportPackage(context.Background(), zipData, testAdminUserCtx(), "trace-replay-2")
+	require.NoError(t, err)
+	require.Equal(t, manifest.PackageID, second.PackageID)
+	require.Equal(t, first.AppliedCount, second.AppliedCount)
+	require.Equal(t, "trace-replay-1", second.TraceID)
+	var receipts int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM knowledge_package_receipts WHERE package_id=?`, manifest.PackageID).Scan(&receipts))
+	require.Equal(t, 1, receipts)
+}
+
+func TestKnowledgePackageRequiresHMACSecret(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+	kbRepo := repository.NewKBRepo(db)
+	kbSvc := service.NewKBService(kbRepo, db)
+	pkgSvc := service.NewKnowledgePackageService(kbSvc, kbRepo)
+	_, _, err := pkgSvc.ExportPackage(context.Background(), "", "", "school", "", 10)
+	require.ErrorContains(t, err, "HMAC")
+}
+
 func TestKnowledgeImportChunkResume(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()

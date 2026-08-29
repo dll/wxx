@@ -563,6 +563,15 @@ class _CampusMapPageState extends State<CampusMapPage> {
 
   Future<void> _toggleNodeEditing(BuildContext messengerContext) async {
     if (!_editMode) {
+      if (_loadingSteps || _remoteIds.isEmpty) {
+        ScaffoldMessenger.of(messengerContext).showSnackBar(
+          const SnackBar(
+            content: Text('后端报到节点尚未加载完成，请检查登录状态和网络后重试'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
       setState(() => _editMode = true);
       ScaffoldMessenger.of(messengerContext).showSnackBar(
         const SnackBar(
@@ -1247,7 +1256,12 @@ class _CampusMapPageState extends State<CampusMapPage> {
         children: [
           PopupMenuButton<int>(
             tooltip: '切换校区',
-            onSelected: _switchCampus,
+            onOpened: () => _mapController.setVisible(false),
+            onCanceled: () => _mapController.setVisible(true),
+            onSelected: (index) {
+              _mapController.setVisible(true);
+              _switchCampus(index);
+            },
             itemBuilder: (_) => List.generate(
               _campuses.length,
               (i) => PopupMenuItem<int>(
@@ -1285,7 +1299,10 @@ class _CampusMapPageState extends State<CampusMapPage> {
           PopupMenuButton<String>(
             tooltip: '更多地图工具',
             icon: const Icon(Icons.more_horiz, size: 19),
+            onOpened: () => _mapController.setVisible(false),
+            onCanceled: () => _mapController.setVisible(true),
             onSelected: (value) {
+              _mapController.setVisible(true);
               switch (value) {
                 case 'zoom_in':
                   _mapController.zoomIn();

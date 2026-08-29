@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	dbutil "github.com/dll/wxx/server/internal/db"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/google/uuid"
@@ -23,6 +25,7 @@ import (
 type KnowledgePackageService struct {
 	kbSvc      *KBService
 	kbRepo     *repository.KBRepo
+	db         *sql.DB
 	secret     string
 	chunkStore *ImportChunkStore
 }
@@ -31,6 +34,7 @@ func NewKnowledgePackageService(kbSvc *KBService, kbRepo *repository.KBRepo) *Kn
 	return &KnowledgePackageService{
 		kbSvc:      kbSvc,
 		kbRepo:     kbRepo,
+		db:         kbRepo.DB(),
 		chunkStore: NewImportChunkStore(),
 	}
 }
@@ -45,6 +49,9 @@ func (s *KnowledgePackageService) ExportPackage(
 	resourceType, sinceCursor, callerScope, callerOwnerID string,
 	limit int,
 ) ([]byte, *model.KnowledgePackageManifest, error) {
+	if strings.TrimSpace(s.secret) == "" {
+		return nil, nil, fmt.Errorf("知识包 HMAC 密钥未配置，禁止导出")
+	}
 	if limit <= 0 {
 		limit = 1000
 	}
@@ -97,10 +104,8 @@ func (s *KnowledgePackageService) ExportPackage(
 		ResourcesSha256:   resourcesShaHex,
 		AttachmentsSha256: "",
 	}
-	if s.secret != "" {
-		manifest.SignAlg = "hmac-sha256"
-		manifest.Signature = computePackageSignature(s.secret, resourcesShaHex, "", untilCursor)
-	}
+	manifest.SignAlg = "hmac-sha256"
+	manifest.Signature = computePackageSignature(s.secret, resourcesShaHex, "", untilCursor)
 
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -127,6 +132,9 @@ func (s *KnowledgePackageService) ExportPackage(
 
 // ImportPackage 校验并导入标准 zip 知识包。
 func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []byte, userCtx *model.UserContext, traceID string) (*model.KBImportPackageResponse, error) {
+	if strings.TrimSpace(s.secret) == "" {
+		return nil, fmt.Errorf("知识包 HMAC 密钥未配置，禁止导入")
+	}
 	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, fmt.Errorf("知识包不是有效 zip: %w", err)
@@ -166,15 +174,42 @@ func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []b
 	if hex.EncodeToString(sum[:]) != manifest.ResourcesSha256 {
 		return nil, fmt.Errorf("resources.ndjson hash 校验失败")
 	}
-	if s.secret != "" && manifest.Signature != "" {
-		expected := computePackageSignature(s.secret, manifest.ResourcesSha256, manifest.AttachmentsSha256, manifest.UntilCursor)
-		if !hmac.Equal([]byte(manifest.Signature), []byte(expected)) {
-			return nil, fmt.Errorf("知识包 HMAC 签名校验失败")
+	if manifest.SignAlg != "hmac-sha256" || strings.TrimSpace(manifest.Signature) == "" {
+		return nil, fmt.Errorf("知识包缺少强制 HMAC 签名")
+	}
+	expected := computePackageSignature(s.secret, manifest.ResourcesSha256, manifest.AttachmentsSha256, manifest.UntilCursor)
+	if !hmac.Equal([]byte(manifest.Signature), []byte(expected)) {
+		return nil, fmt.Errorf("知识包 HMAC 签名校验失败")
+	}
+
+	// package_id 是协议级幂等键。先登记处理中状态，避免并发重放重复执行导入。
+	if cached, err := s.getPackageReceipt(manifest.PackageID); err != nil {
+		return nil, fmt.Errorf("查询知识包接收记录失败: %w", err)
+	} else if cached != nil {
+		if cached.Status == "completed" && cached.ResponseJSON != "" {
+			var cachedResp model.KBImportPackageResponse
+			if err := json.Unmarshal([]byte(cached.ResponseJSON), &cachedResp); err != nil {
+				return nil, fmt.Errorf("知识包接收记录损坏: %w", err)
+			}
+			return &cachedResp, nil
 		}
+		return nil, fmt.Errorf("知识包正在处理或此前处理失败，禁止重复执行 package_id=%s", manifest.PackageID)
+	} else if claimed, err := s.createPackageReceipt(manifest, traceID); err != nil {
+		// 并发请求可能已经抢先登记；重新读取并按幂等语义处理。
+		if cached, readErr := s.getPackageReceipt(manifest.PackageID); readErr == nil && cached != nil && cached.Status == "completed" && cached.ResponseJSON != "" {
+			var cachedResp model.KBImportPackageResponse
+			if jsonErr := json.Unmarshal([]byte(cached.ResponseJSON), &cachedResp); jsonErr == nil {
+				return &cachedResp, nil
+			}
+		}
+		return nil, fmt.Errorf("登记知识包接收记录失败: %w", err)
+	} else if !claimed {
+		return nil, fmt.Errorf("知识包正在处理或此前处理失败，禁止重复执行 package_id=%s", manifest.PackageID)
 	}
 
 	resp, err := s.kbSvc.ImportResources(ctx, string(ndjsonData), userCtx)
 	if err != nil {
+		_, _ = s.db.Exec(`UPDATE knowledge_package_receipts SET status='failed', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE package_id=?`, err.Error(), manifest.PackageID)
 		return nil, fmt.Errorf("知识包导入落库失败: %w", err)
 	}
 
@@ -189,7 +224,7 @@ func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []b
 		}
 	}
 
-	return &model.KBImportPackageResponse{
+	result := &model.KBImportPackageResponse{
 		Code:          0,
 		Message:       "导入完成",
 		PackageID:     manifest.PackageID,
@@ -200,7 +235,44 @@ func (s *KnowledgePackageService) ImportPackage(ctx context.Context, zipData []b
 		UntilCursor:   manifest.UntilCursor,
 		Warnings:      warnings,
 		TraceID:       traceID,
-	}, nil
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("序列化知识包接收结果失败: %w", err)
+	}
+	if _, err := s.db.Exec(`UPDATE knowledge_package_receipts SET status='completed', response_json=?, updated_at=CURRENT_TIMESTAMP WHERE package_id=?`, string(encoded), manifest.PackageID); err != nil {
+		return nil, fmt.Errorf("更新知识包接收记录失败: %w", err)
+	}
+	return result, nil
+}
+
+type packageReceipt struct {
+	Status       string
+	ResponseJSON string
+	ErrorMessage string
+}
+
+func (s *KnowledgePackageService) getPackageReceipt(packageID string) (*packageReceipt, error) {
+	var receipt packageReceipt
+	err := s.db.QueryRow(`SELECT status, response_json, error_message FROM knowledge_package_receipts WHERE package_id=?`, packageID).Scan(&receipt.Status, &receipt.ResponseJSON, &receipt.ErrorMessage)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &receipt, nil
+}
+
+func (s *KnowledgePackageService) createPackageReceipt(manifest model.KnowledgePackageManifest, traceID string) (bool, error) {
+	result, err := s.db.Exec(dbutil.InsertIgnore(dbutil.DriverOf(s.db))+` knowledge_package_receipts
+		(package_id, producer, signature, trace_id, status, response_json)
+		VALUES (?, ?, ?, ?, 'processing', '')`, manifest.PackageID, manifest.Producer, manifest.Signature, traceID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 func writeZipEntry(zw *zip.Writer, name string, data []byte) error {

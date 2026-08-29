@@ -17,6 +17,9 @@ type KBRepo struct {
 	mysql bool // MySQL 方言标志：FTS5/json_each 等 SQLite 特性不可用
 }
 
+// DB 返回底层数据库连接，供需要与知识库写入共享持久化边界的协议服务使用。
+func (r *KBRepo) DB() *sql.DB { return r.db }
+
 // NewKBRepo 创建知识库 repo
 func NewKBRepo(db *sql.DB) *KBRepo {
 	return &KBRepo{db: db, mysql: dbutil.IsMySQL(db)}
@@ -731,7 +734,7 @@ func (r *KBRepo) ListSince(resourceType, sinceCursor, callerScope, callerOwnerID
 			content, source_link, source_version,
 			effective_at, expired_at, tags, remark,
 			updated_by, created_at, updated_at
-		 FROM kb_resources WHERE status = 'published'`
+		 FROM kb_resources WHERE status IN ('published', 'retired')`
 	args := []interface{}{}
 
 	if resourceType != "" {
