@@ -624,6 +624,24 @@ func (r *UserRepo) SetConsented(userID int64, consented bool) error {
 	return err
 }
 
+// RecordConsent 写入可追溯授权事件，并同步旧字段供兼容中间件读取。
+func (r *UserRepo) RecordConsent(userID int64, policyVersion, purpose, vendor, source, traceID string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`INSERT INTO consent_ledger
+		(user_id, policy_version, purpose, vendor, action, source, trace_id)
+		VALUES (?, ?, ?, ?, 'granted', ?, ?)`, userID, policyVersion, purpose, vendor, source, traceID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE users SET consented = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // UpdateRole 更新用户角色
 // 安全修复 S-01：角色变更递增 token_version 使旧令牌失效。
 func (r *UserRepo) UpdateRole(userID int64, role string) error {

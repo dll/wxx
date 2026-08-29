@@ -1,9 +1,12 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 本地存储工具，封装 SharedPreferences
 /// 用于持久化 JWT Token、用户信息、能力清单等
 class Storage {
   static const String _keyToken = 'jwt_token';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static String? _token;
   static const String _keyUsername = 'username';
   static const String _keyRole = 'role';
   static const String _keyDisplayName = 'display_name';
@@ -34,13 +37,28 @@ class Storage {
   /// 初始化（在 main 中调用）
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _token = await _secureStorage.read(key: _keyToken);
+    // 一次性迁移旧版本 SharedPreferences 中的 bearer token，然后删除明文副本。
+    final legacyToken = _prefs.getString(_keyToken);
+    if ((_token == null || _token!.isEmpty) && legacyToken != null && legacyToken.isNotEmpty) {
+      await _secureStorage.write(key: _keyToken, value: legacyToken);
+      _token = legacyToken;
+    }
+    if (legacyToken != null) {
+      await _prefs.remove(_keyToken);
+    }
   }
 
   // ── Token ──
-  static String? get token => _prefs.getString(_keyToken);
-  static Future<void> setToken(String token) =>
-      _prefs.setString(_keyToken, token);
-  static Future<void> clearToken() => _prefs.remove(_keyToken);
+  static String? get token => _token;
+  static Future<void> setToken(String token) async {
+    await _secureStorage.write(key: _keyToken, value: token);
+    _token = token;
+  }
+  static Future<void> clearToken() async {
+    await _secureStorage.delete(key: _keyToken);
+    _token = null;
+  }
   static bool get isLoggedIn => token != null && token!.isNotEmpty;
 
   // ── 用户信息 ──
@@ -118,7 +136,7 @@ class Storage {
 
   /// 清除所有登录信息
   static Future<void> clearAll() async {
-    await _prefs.remove(_keyToken);
+    await clearToken();
     await _prefs.remove(_keyUsername);
     await _prefs.remove(_keyRole);
     await _prefs.remove(_keyOwnerScope);

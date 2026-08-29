@@ -516,7 +516,7 @@ func isKnownSSORole(role string) bool {
 
 // RecordConsent 记录用户同意隐私政策与用户协议
 // 安全修复 SEC-02：将同意状态持久化到数据库 consented 列，供 RequireConsent 中间件放行。
-func (s *AuthService) RecordConsent(userID int64) error {
+func (s *AuthService) RecordConsent(userID int64, policyVersion, purpose, vendor, source, traceID string) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		log.Printf("查询用户失败(consent): %v", err)
@@ -526,7 +526,16 @@ func (s *AuthService) RecordConsent(userID int64) error {
 		log.Printf("用户不存在(consent): id=%d", userID)
 		return fmt.Errorf("用户不存在")
 	}
-	if err := s.userRepo.SetConsented(userID, true); err != nil {
+	if strings.TrimSpace(policyVersion) == "" {
+		policyVersion = "2026-08-29"
+	}
+	if strings.TrimSpace(purpose) == "" {
+		purpose = "general_service"
+	}
+	if strings.TrimSpace(source) == "" {
+		source = "api"
+	}
+	if err := s.userRepo.RecordConsent(userID, policyVersion, purpose, vendor, source, traceID); err != nil {
 		log.Printf("持久化同意状态失败: user=%s err=%v", user.Username, err)
 		return fmt.Errorf("持久化同意状态失败: %w", err)
 	}

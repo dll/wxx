@@ -38,8 +38,11 @@ dependencies:
   # 状态管理
   provider: ^6.1.0
 
-  # 本地存储（Token、偏好缓存）
+  # 本地偏好缓存（不存储 bearer token）
   shared_preferences: ^2.3.0
+
+  # 系统安全存储（JWT 等敏感会话凭据）
+  flutter_secure_storage: ^9.2.2
 
   # 声明式路由
   go_router: ^14.1.0

@@ -29,6 +29,13 @@ type loginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type consentRequest struct {
+	PolicyVersion string `json:"policy_version"`
+	Purpose       string `json:"purpose"`
+	Vendor        string `json:"vendor"`
+	Source        string `json:"source"`
+}
+
 // Login 账号密码登录。
 // POST /api/v1/auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -152,8 +159,14 @@ func (h *AuthHandler) Consent(c *gin.Context) {
 		return
 	}
 
-	// 更新用户同意状态
-	if err := h.authSvc.RecordConsent(userCtx.UserID); err != nil {
+	var req consentRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			util.FailBadRequest(c, "授权参数格式错误")
+			return
+		}
+	}
+	if err := h.authSvc.RecordConsent(userCtx.UserID, req.PolicyVersion, req.Purpose, req.Vendor, req.Source, middleware.GetTraceID(c)); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
 			Code:    500,
 			Message: "记录同意状态失败",
