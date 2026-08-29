@@ -18,18 +18,24 @@ import (
 
 // SearchResult 检索结果（与 repository.SearchResult 对齐）
 type SearchResult struct {
-	ResourceID   string  `json:"resource_id"`
-	Title        string  `json:"title"`
-	Summary      string  `json:"summary"`
-	Content      string  `json:"content"`
-	ResourceType string  `json:"resource_type"` // Policy/Process/FAQ/Activity
-	OwnerScope   string  `json:"owner_scope"`
-	Score        float64 `json:"score"`       // BM25 原始分
-	TrustScore   float64 `json:"trust_score"` // 加权后置信度（CE-09）
-	Snippet      string  `json:"snippet"`     // 命中片段（CE-07）
-	EffectiveAt  string  `json:"effective_at"`
-	ExpiredAt    string  `json:"expired_at"`
-	IsStructured bool    `json:"is_structured"` // 结构化匹配结果（高于 FTS 优先级）
+	ResourceID    string  `json:"resource_id"`
+	Title         string  `json:"title"`
+	Summary       string  `json:"summary"`
+	Content       string  `json:"content"`
+	ResourceType  string  `json:"resource_type"` // Policy/Process/FAQ/Activity
+	OwnerScope    string  `json:"owner_scope"`
+	OwnerID       string  `json:"owner_id"`
+	RoleScope     string  `json:"role_scope"`
+	Version       string  `json:"version"`
+	SourceLink    string  `json:"source_link"`
+	SourceVersion string  `json:"source_version"`
+	Tags          string  `json:"tags"`
+	Score         float64 `json:"score"`       // BM25 原始分
+	TrustScore    float64 `json:"trust_score"` // 加权后置信度（CE-09）
+	Snippet       string  `json:"snippet"`     // 命中片段（CE-07）
+	EffectiveAt   string  `json:"effective_at"`
+	ExpiredAt     string  `json:"expired_at"`
+	IsStructured  bool    `json:"is_structured"` // 结构化匹配结果（高于 FTS 优先级）
 }
 
 // QueryRequest 检索请求
@@ -58,16 +64,22 @@ type KBSearcher interface {
 
 // KBSearchItem 知识库搜索条目（适配 repository 返回）
 type KBSearchItem struct {
-	ResourceID   string
-	Title        string
-	Summary      string
-	Content      string
-	ResourceType string
-	OwnerScope   string
-	Score        float64
-	EffectiveAt  string
-	ExpiredAt    string
-	IsStructured bool // 结构化匹配结果标记
+	ResourceID    string
+	Title         string
+	Summary       string
+	Content       string
+	ResourceType  string
+	OwnerScope    string
+	OwnerID       string
+	RoleScope     string
+	Version       string
+	SourceLink    string
+	SourceVersion string
+	Tags          string
+	Score         float64
+	EffectiveAt   string
+	ExpiredAt     string
+	IsStructured  bool // 结构化匹配结果标记
 }
 
 // HistoryProvider 历史消息提供接口（CE-10）
@@ -148,17 +160,23 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 		}
 
 		sr := &SearchResult{
-			ResourceID:   item.ResourceID,
-			Title:        item.Title,
-			Summary:      item.Summary,
-			Content:      item.Content,
-			ResourceType: item.ResourceType,
-			OwnerScope:   item.OwnerScope,
-			Score:        item.Score,
-			EffectiveAt:  item.EffectiveAt,
-			ExpiredAt:    item.ExpiredAt,
-			Snippet:      extractSnippet(item.Content, req.Question),
-			IsStructured: item.IsStructured,
+			ResourceID:    item.ResourceID,
+			Title:         item.Title,
+			Summary:       item.Summary,
+			Content:       item.Content,
+			ResourceType:  item.ResourceType,
+			OwnerScope:    item.OwnerScope,
+			OwnerID:       item.OwnerID,
+			RoleScope:     item.RoleScope,
+			Version:       item.Version,
+			SourceLink:    item.SourceLink,
+			SourceVersion: item.SourceVersion,
+			Tags:          item.Tags,
+			Score:         item.Score,
+			EffectiveAt:   item.EffectiveAt,
+			ExpiredAt:     item.ExpiredAt,
+			Snippet:       extractSnippet(item.Content, req.Question),
+			IsStructured:  item.IsStructured,
 		}
 		sr.TrustScore = computeTrustScore(sr)
 		results = append(results, sr)

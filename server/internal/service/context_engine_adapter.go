@@ -38,6 +38,9 @@ func toContextEngineItems(items []*repository.SearchResult) []context_engine.KBS
 			ResourceID: item.Resource.ResourceID, Title: item.Resource.Title,
 			Summary: item.Resource.Summary, Content: item.Resource.Content,
 			ResourceType: item.Resource.ResourceType, OwnerScope: item.Resource.OwnerScope,
+			OwnerID: item.Resource.OwnerID, RoleScope: item.Resource.RoleScope,
+			Version: item.Resource.Version, SourceLink: item.Resource.SourceLink,
+			SourceVersion: item.Resource.SourceVersion, Tags: item.Resource.Tags,
 			Score: item.Score, EffectiveAt: valueOrEmpty(item.Resource.EffectiveAt),
 			ExpiredAt: valueOrEmpty(item.Resource.ExpiredAt), IsStructured: item.IsStructured,
 		})
@@ -50,6 +53,13 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func stringPtrOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 type contextEngineHistory struct {
@@ -100,6 +110,9 @@ func (s *ChatService) retrieveWithContextEngine(ctx context.Context, userCtx *mo
 		items = append(items, &repository.SearchResult{Resource: model.KBResource{
 			ResourceID: item.ResourceID, Title: item.Title, Summary: item.Summary,
 			Content: item.Content, ResourceType: item.ResourceType, OwnerScope: item.OwnerScope,
+			OwnerID: item.OwnerID, RoleScope: item.RoleScope, Version: item.Version,
+			SourceLink: item.SourceLink, SourceVersion: item.SourceVersion, Tags: item.Tags,
+			EffectiveAt: stringPtrOrNil(item.EffectiveAt), ExpiredAt: stringPtrOrNil(item.ExpiredAt),
 		}, Score: item.Score, IsStructured: item.IsStructured})
 	}
 	return items
