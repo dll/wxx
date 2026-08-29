@@ -93,20 +93,25 @@ Write-Output ""
 
 # ── 1. 构建 Web ──
 Write-Output ">>> [1/2] 构建 Web..."
-$env:FLUTTER_STORAGE_BASE_URL = "https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com"
+if (-not $env:FLUTTER_STORAGE_BASE_URL) {
+    Write-Warning "未设置 FLUTTER_STORAGE_BASE_URL，将使用 Flutter 官方默认资源源。"
+}
 Set-Location $frontend
 # 注入三家地图 AK：百度/高德/腾讯，校园导航页根据 provider 选择使用。
+if ([string]::IsNullOrWhiteSpace($env:BAIDU_MAP_AK) -or [string]::IsNullOrWhiteSpace($env:GAODE_MAP_AK) -or [string]::IsNullOrWhiteSpace($env:TENXUN_MAP_AK)) {
+    throw "构建前必须设置 BAIDU_MAP_AK、GAODE_MAP_AK、TENXUN_MAP_AK"
+}
 flutter build web --release `
-  --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO `
-  --dart-define=GAODE_MAP_AK=a2f48050b8ec16aca88db4d25c035fe6 `
-  --dart-define=TENXUN_MAP_AK=E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR *>> $buildLog
+  --dart-define=BAIDU_MAP_AK=$env:BAIDU_MAP_AK `
+  --dart-define=GAODE_MAP_AK=$env:GAODE_MAP_AK `
+  --dart-define=TENXUN_MAP_AK=$env:TENXUN_MAP_AK *>> $buildLog
 $webOk = $LASTEXITCODE -eq 0
 if (-not $webOk) {
     Write-Output "  WARN Web 首次构建失败（常见 Pub 缓存异常），使用 --no-pub 重试..."
     flutter build web --release --no-pub `
-      --dart-define=BAIDU_MAP_AK=OUouSU6WbYExGTlnDEFqqruhTH60KAwO `
-      --dart-define=GAODE_MAP_AK=a2f48050b8ec16aca88db4d25c035fe6 `
-      --dart-define=TENXUN_MAP_AK=E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR *>> $buildLog
+      --dart-define=BAIDU_MAP_AK=$env:BAIDU_MAP_AK `
+      --dart-define=GAODE_MAP_AK=$env:GAODE_MAP_AK `
+      --dart-define=TENXUN_MAP_AK=$env:TENXUN_MAP_AK *>> $buildLog
     $webOk = $LASTEXITCODE -eq 0
 }
 
