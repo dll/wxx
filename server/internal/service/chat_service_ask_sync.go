@@ -63,7 +63,7 @@ func (s *ChatService) askSync(ctx context.Context, userCtx *model.UserContext, s
 	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID)
 
 	// ── 3. 结构化优先检索（MED-KB1）＋ 3.5 相关性预检 ──
-	searchResults := s.retrieveWithRelevance(userCtx, question, traceID)
+	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
 
 	// ── MED-KB2：检索 + 多智能体均无结果时，跳过 LLM 调用 ──
 	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0

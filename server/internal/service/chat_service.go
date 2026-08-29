@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/dll/wxx/server/internal/context_engine"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/ports"
@@ -22,6 +23,7 @@ type ChatService struct {
 	orchestrator   ports.AgentOrchestrator // 多智能体编排器（agentID 为空时启用，可选注入）
 	tokenStatsSvc  *TokenStatsService      // 可选：词元统计服务
 	modelConfigSvc *ModelConfigService     // 可选：用户 AI 模型配置（默认 provider/Key/模型名覆盖）
+	contextEngine  *context_engine.Engine  // 统一知识检索管道
 }
 
 // NewChatService 创建问答服务（依赖通过 Outbound Port 接口注入）
@@ -33,11 +35,12 @@ func NewChatService(
 	llmClient llm.ChatClient,
 ) *ChatService {
 	return &ChatService{
-		sessionRepo: sessionRepo,
-		messageRepo: messageRepo,
-		kbRepo:      kbRepo,
-		agentRepo:   agentRepo,
-		llmClient:   llmClient,
+		sessionRepo:   sessionRepo,
+		messageRepo:   messageRepo,
+		kbRepo:        kbRepo,
+		agentRepo:     agentRepo,
+		llmClient:     llmClient,
+		contextEngine: newProductionContextEngine(kbRepo, messageRepo),
 	}
 }
 

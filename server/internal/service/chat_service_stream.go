@@ -9,7 +9,6 @@ import (
 	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/util"
 	"github.com/google/uuid"
 )
@@ -62,22 +61,8 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
 	}
 
-	// ── 检索（结构化优先 → FTS 兜底 → 相关性过滤）──
-	structuredResults, err := s.kbRepo.SearchStructured(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
-	if err != nil {
-		log.Printf("结构化检索失败 [trace=%s]: %v", traceID, err)
-	}
-	var searchResults []*repository.SearchResult
-	if len(structuredResults) >= 3 {
-		searchResults = structuredResults
-	} else {
-		ftsResults, ftsErr := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
-		if ftsErr != nil {
-			log.Printf("FTS/BM25 检索失败 [trace=%s]: %v", traceID, ftsErr)
-		}
-		searchResults = mergeStructuredAndFTS(structuredResults, ftsResults)
-	}
-	searchResults = filterLowRelevanceResults(searchResults, question)
+	// ── Context Engine 统一检索：结构化优先 → FTS/BM25 兜底 → 过期/低相关过滤 ──
+	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
 
 	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0
 	if len(searchResults) == 0 && !hasAgentResult {
