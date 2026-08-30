@@ -57,6 +57,9 @@ type SearchResult struct {
 	LowConfidence bool
 	// IsStructured 标记：来自结构化检索（title/category/tags 匹配），具有最高优先级
 	IsStructured bool
+	// Snippet 瞬态标记（不落库）：Context Engine 提取的命中片段（CE-07/A2），
+	// 供 AnswerCard 来源展示"命中段落"，优先于摘要。
+	Snippet string
 }
 
 // Search 全文检索，使用 FTS5/BM25 算法（增强精准度版）

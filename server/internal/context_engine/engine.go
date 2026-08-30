@@ -1,10 +1,7 @@
 // Package context_engine 知识检索管道（Context Engine）。
-// 核心流程：意图分类 → 结构化查询 → FTS/BM25 检索 → 来源加权重排 → 上下文拼装 → 来源附加。
+// 核心流程：意图分类 → 查询改写 → 结构化查询 → FTS/BM25 检索 → 来源加权重排
+// （信任分 × 意图加权，可插拔 Reranker）→ 上下文拼装 → 来源附加。
 // 暴露统一的 Query 接口供 service 层调用，handler 禁止直接使用。
-//
-// ⚠️ 实验性/未接线：本包当前为独立实现，尚未接入生产问答链路。
-// 生产链路走 agent/major_agent.go + kbRepo.Search（结构化优先 + FTS）。
-// 如需启用结构化召回升级，将本包 Query 接入 chat_service 即可。
 package context_engine
 
 import (
@@ -97,6 +94,7 @@ type HistoryMessage struct {
 type Engine struct {
 	searcher KBSearcher
 	history  HistoryProvider
+	reranker Reranker // 可选：初排后重排（CE-A2）
 }
 
 // New 创建 Context Engine 实例
@@ -107,7 +105,11 @@ func New(searcher KBSearcher, history HistoryProvider) *Engine {
 	}
 }
 
-// Query 执行完整检索管道：意图分类 → 结构化优先检索 → FTS/BM25 兜底 → 加权重排 → 拼装上下文
+// SetReranker 注入可插拔重排器（nil = 仅初排）
+func (e *Engine) SetReranker(r Reranker) { e.reranker = r }
+
+// Query 执行完整检索管道：意图分类 → 查询改写 → 结构化优先检索 → FTS/BM25 兜底
+// → 加权重排（信任分 × 意图加权）→ 拼装上下文
 func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, error) {
 	if req.TopK <= 0 {
 		req.TopK = 5
@@ -122,8 +124,28 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 		return &QueryResult{Intent: intent}, nil
 	}
 
+	// ── 1.5 历史预取 + 查询改写（CE-A2）──
+	// 历史一次获取，既用于指代消解改写，也用于上下文拼装（避免重复查询）
+	var recentUserMsg string
+	var historyMsgs []HistoryMessage
+	if e.history != nil && req.SessionID != "" {
+		if msgs, err := e.history.GetRecentMessages(req.SessionID, 10); err == nil {
+			historyMsgs = msgs
+			for i := len(msgs) - 1; i >= 0; i-- {
+				if msgs[i].Role == "user" {
+					recentUserMsg = msgs[i].Content
+					break
+				}
+			}
+		}
+	}
+	searchQuery := RewriteQuery(req.Question, recentUserMsg)
+	if searchQuery == "" {
+		searchQuery = req.Question
+	}
+
 	// ── 2. 结构化优先检索 ──
-	// 按 title/category/tags 直接匹配，不依赖 FTS5 索引
+	// 按 title/category/tags 直接匹配，不依赖 FTS5 索引（使用原始问题，保证标题精确命中）
 	structuredItems, err := e.searcher.SearchStructured(req.Question, req.OwnerScope, req.OwnerID, req.Role, req.TopK)
 	if err != nil {
 		log.Warn("结构化检索失败，回退 FTS", "err", err)
@@ -136,11 +158,11 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	var ftsItems []KBSearchItem
 	if len(structuredItems) < structuredThreshold {
 		ftsLimit := req.TopK * 2
-		ftsItems, err = e.searcher.Search(req.Question, req.OwnerScope, req.OwnerID, req.Role, ftsLimit)
+		ftsItems, err = e.searcher.Search(searchQuery, req.OwnerScope, req.OwnerID, req.Role, ftsLimit)
 		if err != nil {
 			log.Warn("FTS 检索失败", "err", err)
 		}
-		log.Info("FTS/BM25 检索结果", "count", len(ftsItems))
+		log.Info("FTS/BM25 检索结果", "count", len(ftsItems), "query", searchQuery)
 	} else {
 		log.Info("结构化结果充足，跳过 FTS/BM25", "count", len(structuredItems))
 	}
@@ -185,13 +207,19 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	// 按 TrustScore 排序（降序），结构化结果自带 -100 基准分确保排最前
 	sortByTrust(results)
 
+	// ── 5.5 意图加权 + 可插拔重排（CE-A2） ──
+	applyIntentBoost(results, intent)
+	if e.reranker != nil {
+		results = e.reranker.Rerank(req.Question, results)
+	}
+
 	// 截取 TopK
 	if len(results) > req.TopK {
 		results = results[:req.TopK]
 	}
 
 	// ── 6. 上下文拼装（CE-10：智能历史选取） ──
-	contextStr := e.buildContext(req, results, intent)
+	contextStr := e.buildContext(req, results, intent, historyMsgs)
 
 	return &QueryResult{
 		Results:    results,
@@ -222,8 +250,9 @@ func (e *Engine) mergeStructuredAndFTS(structured, fts []KBSearchItem, question 
 	return merged
 }
 
-// buildContext 拼装 LLM 上下文（知识 + 相关历史）
-func (e *Engine) buildContext(req *QueryRequest, results []*SearchResult, intent Intent) string {
+// buildContext 拼装 LLM 上下文（知识 + 相关历史）。
+// historyMsgs 为 Query 中已预取的历史（CE-A2：一次取用，改写与拼装共享）。
+func (e *Engine) buildContext(req *QueryRequest, results []*SearchResult, intent Intent, historyMsgs []HistoryMessage) string {
 	var sb strings.Builder
 
 	// 知识上下文
@@ -245,17 +274,14 @@ func (e *Engine) buildContext(req *QueryRequest, results []*SearchResult, intent
 	}
 
 	// CE-10: 历史消息选取（相关性优先，不固定 6 条）
-	if e.history != nil && req.SessionID != "" {
-		msgs, err := e.history.GetRecentMessages(req.SessionID, 10)
-		if err == nil && len(msgs) > 0 {
-			relevant := selectRelevantHistory(msgs, req.Question, 4)
-			if len(relevant) > 0 {
-				sb.WriteString("【对话历史（相关片段）】\n")
-				for _, m := range relevant {
-					sb.WriteString(fmt.Sprintf("%s: %s\n", m.Role, m.Content))
-				}
-				sb.WriteString("\n")
+	if len(historyMsgs) > 0 && req.SessionID != "" {
+		relevant := selectRelevantHistory(historyMsgs, req.Question, 4)
+		if len(relevant) > 0 {
+			sb.WriteString("【对话历史（相关片段）】\n")
+			for _, m := range relevant {
+				sb.WriteString(fmt.Sprintf("%s: %s\n", m.Role, m.Content))
 			}
+			sb.WriteString("\n")
 		}
 	}
 

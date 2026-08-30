@@ -39,3 +39,16 @@
 - **推进建议**：后续可将 `context_engine` 作为生产路径的检索内核（通过 `KBSearcher`/`HistoryProvider` 适配器接入），并删除 chat_service 内联副本，消除双实现。
 
 > 2026-08-03 全面核查见 `docs/蔚小芯学生教育工作需要全面分析.md`。
+
+## CE 2.0 增量（2026-08-30 发布冲刺，A2）
+
+`context_engine` 已于 commit ced3f61 接入生产问答链路（`ChatService.retrieveWithContextEngine`，
+含 Temporal 降级路径）。本次增量（全部规则式，零 LLM 成本）：
+
+| 能力 | 实现 | 说明 |
+|------|------|------|
+| 查询改写（CE-A2） | `rewrite.go` `RewriteQuery` | 剥口语装饰词 + 指代消解（结合最近历史话题）+ 空白归一；仅用于 FTS 召回，原始问题保留给意图/结构化检索 |
+| 意图加权 | `scoring.go` `applyIntentBoost` | `IntentToResourceTypes` 偏好类型 TrustScore ×1.15，分类结果首次反馈进排序 |
+| 可插拔重排 | `scoring.go` `Reranker` 接口 + `Engine.SetReranker` | 默认仅初排；可接 LLM listwise / 交叉编码器 |
+| 命中片段贯通 | `SearchResult.Snippet`（瞬态）→ `AnswerCard.Sources[].Snippet` | 来源卡展示"命中段落"，优先于摘要（此前引擎算了片段但 service 层丢弃） |
+| 历史一次取用 | `Engine.Query` 预取历史 | 改写与 CE-10 拼装共享，省一次查询 |

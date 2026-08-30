@@ -42,6 +42,32 @@ func sortByTrust(results []*SearchResult) {
 	})
 }
 
+// ── CE-A2: 意图加权 + 可插拔重排 ──
+
+// applyIntentBoost 按意图偏好资源类型对 TrustScore 加权（偏好 ×1.15，其余不变）。
+// 意图分类已由 ClassifyIntent 完成；此处把分类结果反馈进排序，提升命中率。
+func applyIntentBoost(results []*SearchResult, intent Intent) {
+	preferred := IntentToResourceTypes(intent)
+	if len(preferred) == 0 {
+		return
+	}
+	match := make(map[string]bool, len(preferred))
+	for _, t := range preferred {
+		match[t] = true
+	}
+	for _, r := range results {
+		if match[r.ResourceType] {
+			r.TrustScore *= 1.15
+		}
+	}
+}
+
+// Reranker 可插拔重排器（CE-A2）：对初排（信任分 + 意图加权）后的结果重排。
+// 默认无 rerank；可接入 LLM listwise / 交叉编码器实现（成本可控时启用）。
+type Reranker interface {
+	Rerank(question string, results []*SearchResult) []*SearchResult
+}
+
 // ── CE-07: 命中片段提取 ──
 
 // extractSnippet 从内容中提取与查询最相关的片段

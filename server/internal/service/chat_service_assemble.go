@@ -236,6 +236,19 @@ func (s *ChatService) buildAnswerCard(content string, results []*repository.Sear
 		}
 	}
 
+	// A2：来源展示优先用命中片段（Snippet，指向与问题最相关的段落），无则回退摘要
+	for _, r := range results {
+		if r.Snippet == "" {
+			continue
+		}
+		for i := range card.Sources {
+			if card.Sources[i].ResourceID == r.Resource.ResourceID &&
+				card.Sources[i].Version == r.Resource.Version {
+				card.Sources[i].Snippet = r.Snippet
+			}
+		}
+	}
+
 	// 按相关度降序排序（RelevanceScore 越大越相关）
 	sort.Slice(card.Sources, func(i, j int) bool {
 		return card.Sources[i].RelevanceScore > card.Sources[j].RelevanceScore

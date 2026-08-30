@@ -113,7 +113,7 @@ func (s *ChatService) retrieveWithContextEngine(ctx context.Context, userCtx *mo
 			OwnerID: item.OwnerID, RoleScope: item.RoleScope, Version: item.Version,
 			SourceLink: item.SourceLink, SourceVersion: item.SourceVersion, Tags: item.Tags,
 			EffectiveAt: stringPtrOrNil(item.EffectiveAt), ExpiredAt: stringPtrOrNil(item.ExpiredAt),
-		}, Score: item.Score, IsStructured: item.IsStructured})
+		}, Score: item.Score, IsStructured: item.IsStructured, Snippet: item.Snippet})
 	}
 	return items
 }
