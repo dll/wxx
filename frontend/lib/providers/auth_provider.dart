@@ -7,6 +7,7 @@ import '../config/router.dart';
 import '../main.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/api_error.dart';
 import '../utils/storage.dart';
 
 /// 认证状态管理
@@ -272,39 +273,23 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _loginErrorMessage(Object error) {
-    if (error is! DioException) {
-      return '登录失败，请稍后重试';
+    // 登录领域特化文案优先：先透传后端业务 message，再按状态码给出可操作提示
+    if (error is DioException) {
+      final responseMessage = _responseMessage(error.response?.data);
+      if (responseMessage != null && responseMessage.isNotEmpty) {
+        return responseMessage;
+      }
+      switch (error.response?.statusCode) {
+        case 400:
+          return '请输入完整的账号和密码';
+        case 401:
+          return '账号或密码错误';
+        case 403:
+          return '账号尚未启用或已被停用';
+      }
     }
-
-    final response = error.response;
-    final responseMessage = _responseMessage(response?.data);
-    if (responseMessage != null && responseMessage.isNotEmpty) {
-      return responseMessage;
-    }
-
-    switch (response?.statusCode) {
-      case 400:
-        return '请输入完整的账号和密码';
-      case 401:
-        return '账号或密码错误';
-      case 403:
-        return '账号尚未启用或已被停用';
-      case 502:
-      case 503:
-      case 504:
-        return '登录服务暂时不可用，请稍后重试';
-    }
-
-    switch (error.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return '登录请求超时，请稍后重试';
-      case DioExceptionType.connectionError:
-        return '暂时无法连接登录服务，请检查网络后重试';
-      default:
-        return '登录失败，请稍后重试';
-    }
+    // 其余网络层场景（超时/断网/限流/5xx）统一走全局错误映射，避免重复维护 switch
+    return friendlyApiError(error, fallback: '登录失败，请稍后重试');
   }
 
   String? _responseMessage(dynamic data) {

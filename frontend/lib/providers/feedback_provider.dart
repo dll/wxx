@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import '../utils/api_error.dart';
 
 /// 用户反馈状态管理
 class FeedbackProvider extends ChangeNotifier {
@@ -285,7 +286,7 @@ class FeedbackProvider extends ChangeNotifier {
           : null;
       _error = serverMessage?.isNotEmpty == true
           ? serverMessage!
-          : _friendlyRequestError(e, '提交反馈');
+          : friendlyApiError(e, fallback: '提交反馈失败，请稍后重试');
       notifyListeners();
       return false;
     } catch (_) {
@@ -394,23 +395,6 @@ class FeedbackProvider extends ChangeNotifier {
       _error = 'AI 诊断请求失败: $e';
       notifyListeners();
       return null;
-    }
-  }
-
-  String _friendlyRequestError(DioException error, String action) {
-    switch (error.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return '$action超时，请稍后重试';
-      case DioExceptionType.connectionError:
-        return '暂时无法连接服务，请检查网络后重试';
-      default:
-        final status = error.response?.statusCode;
-        if (status == 502 || status == 503 || status == 504) {
-          return '服务暂时不可用，请稍后重试';
-        }
-        return '$action失败，请稍后重试';
     }
   }
 }
