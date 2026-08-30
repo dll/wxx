@@ -1,38 +1,24 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
-// UserNotificationHandler 用户站内通知 HTTP handler
+// UserNotificationHandler 用户站内通知 HTTP handler（P4-d：SQL 已下沉 UserNotificationRepo）
 type UserNotificationHandler struct {
-	db *sql.DB
+	repo *repository.UserNotificationRepo
 }
 
 // NewUserNotificationHandler 创建用户站内通知 handler
-func NewUserNotificationHandler(db *sql.DB) *UserNotificationHandler {
-	return &UserNotificationHandler{db: db}
-}
-
-// UserNotification 站内通知结构体
-type UserNotification struct {
-	ID          int64  `json:"id"`
-	UserID      int64  `json:"user_id"`
-	Title       string `json:"title"`
-	Content     string `json:"content"`
-	Type        string `json:"type"`
-	RelatedType string `json:"related_type"`
-	RelatedID   int64  `json:"related_id"`
-	IsRead      int    `json:"is_read"`
-	CreatedAt   string `json:"created_at"`
+func NewUserNotificationHandler(repo *repository.UserNotificationRepo) *UserNotificationHandler {
+	return &UserNotificationHandler{repo: repo}
 }
 
 // ═══════════════════════════════════════════════
@@ -44,82 +30,23 @@ type UserNotification struct {
 func (h *UserNotificationHandler) ListNotifications(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-		})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
 		return
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	notifType := c.Query("type")
-
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	offset := (page - 1) * pageSize
 
-	var where []string
-	var args []interface{}
-	where = append(where, "user_id = ?")
-	args = append(args, userCtx.UserID)
-
-	if notifType != "" {
-		where = append(where, "type = ?")
-		args = append(args, notifType)
-	}
-	whereSQL := strings.Join(where, " AND ")
-
-	// 查询未读总数
-	var unreadCount int
-	err := h.db.QueryRow("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0", userCtx.UserID).Scan(&unreadCount)
+	items, total, unread, err := h.repo.ListByUser(userCtx.UserID, c.Query("type"), page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "查询未读数量失败",
-		})
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询通知列表失败"})
 		return
-	}
-
-	// 查询总数
-	var total int
-	err = h.db.QueryRow("SELECT COUNT(*) FROM user_notifications WHERE "+whereSQL, args...).Scan(&total)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "查询通知列表失败",
-		})
-		return
-	}
-
-	// 查询列表
-	rows, err := h.db.Query(
-		"SELECT id, user_id, title, content, type, related_type, related_id, is_read, created_at "+
-			"FROM user_notifications WHERE "+whereSQL+" ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
-		append(args, pageSize, offset)...,
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "查询通知列表失败",
-		})
-		return
-	}
-	defer rows.Close()
-
-	items := make([]UserNotification, 0)
-	for rows.Next() {
-		var notif UserNotification
-		err := rows.Scan(&notif.ID, &notif.UserID, &notif.Title, &notif.Content, &notif.Type,
-			&notif.RelatedType, &notif.RelatedID, &notif.IsRead, &notif.CreatedAt)
-		if err != nil {
-			continue
-		}
-		items = append(items, notif)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -127,7 +54,7 @@ func (h *UserNotificationHandler) ListNotifications(c *gin.Context) {
 		"total":        total,
 		"page":         page,
 		"page_size":    pageSize,
-		"unread_count": unreadCount,
+		"unread_count": unread,
 	})
 }
 
@@ -136,26 +63,17 @@ func (h *UserNotificationHandler) ListNotifications(c *gin.Context) {
 func (h *UserNotificationHandler) GetUnreadCount(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-		})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
 		return
 	}
 
-	var unreadCount int
-	err := h.db.QueryRow("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0", userCtx.UserID).Scan(&unreadCount)
+	unread, err := h.repo.CountUnread(userCtx.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "查询未读数量失败",
-		})
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询未读数量失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"unread_count": unreadCount,
-	})
+	c.JSON(http.StatusOK, gin.H{"unread_count": unread})
 }
 
 // MarkAsRead 标记单条通知为已读
@@ -163,47 +81,27 @@ func (h *UserNotificationHandler) GetUnreadCount(c *gin.Context) {
 func (h *UserNotificationHandler) MarkAsRead(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-		})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: "无效的通知ID",
-		})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "无效的通知ID"})
 		return
 	}
 
-	result, err := h.db.Exec(
-		"UPDATE user_notifications SET is_read = 1 WHERE id = ? AND user_id = ?",
-		id, userCtx.UserID,
-	)
+	affected, err := h.repo.MarkRead(id, userCtx.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "标记已读失败",
-		})
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "标记已读失败"})
+		return
+	}
+	if affected == 0 {
+		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "通知不存在"})
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		c.JSON(http.StatusNotFound, model.ErrorResponse{
-			Code:    404,
-			Message: "通知不存在",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "已标记为已读",
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "已标记为已读"})
 }
 
 // MarkAllAsRead 全部标记为已读
@@ -211,28 +109,16 @@ func (h *UserNotificationHandler) MarkAsRead(c *gin.Context) {
 func (h *UserNotificationHandler) MarkAllAsRead(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
-		c.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Code:    401,
-			Message: "未认证",
-		})
+		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未认证"})
 		return
 	}
 
-	_, err := h.db.Exec(
-		"UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0",
-		userCtx.UserID,
-	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Code:    500,
-			Message: "标记全部已读失败",
-		})
+	if err := h.repo.MarkAllRead(userCtx.UserID); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "标记全部已读失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "全部标记为已读",
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "全部标记为已读"})
 }
 
 // ═══════════════════════════════════════════════
@@ -250,46 +136,20 @@ type sendNotificationReq struct {
 func (h *UserNotificationHandler) SendSystemNotification(c *gin.Context) {
 	var req sendNotificationReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Code:    400,
-			Message: "标题和内容不能为空",
-		})
+		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "标题和内容不能为空"})
 		return
 	}
 
 	if len(req.TargetUsers) == 0 {
-		// 全体用户：从 users 表中获取所有用户ID
-		rows, err := h.db.Query("SELECT id FROM users WHERE status = 'active'")
+		ids, err := h.repo.ActiveUserIDs()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-				Code:    500,
-				Message: "获取用户列表失败",
-			})
+			c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "获取用户列表失败"})
 			return
 		}
-		defer rows.Close()
-
-		var userIDs []int64
-		for rows.Next() {
-			var id int64
-			if err := rows.Scan(&id); err == nil {
-				userIDs = append(userIDs, id)
-			}
-		}
-		req.TargetUsers = userIDs
+		req.TargetUsers = ids
 	}
 
-	// 批量插入通知
-	sendCount := 0
-	for _, userID := range req.TargetUsers {
-		_, err := h.db.Exec(
-			"INSERT INTO user_notifications (user_id, title, content, type, related_type, related_id, is_read) VALUES (?, ?, ?, 'system', '', 0, 0)",
-			userID, req.Title, req.Content,
-		)
-		if err == nil {
-			sendCount++
-		}
-	}
+	sendCount := h.repo.SendBulk(req.Title, req.Content, req.TargetUsers)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "发送成功",
@@ -302,36 +162,12 @@ func (h *UserNotificationHandler) SendSystemNotification(c *gin.Context) {
 func (h *UserNotificationHandler) AdminListNotifications(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	nType := c.Query("type")
-	offset := (page - 1) * pageSize
 
-	query := `SELECT id, user_id, title, content, type, related_type, related_id, is_read, created_at
-	          FROM user_notifications WHERE 1=1`
-	args := []interface{}{}
-	if nType != "" {
-		query += ` AND type = ?`
-		args = append(args, nType)
-	}
-	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
-	args = append(args, pageSize, offset)
-
-	rows, err := h.db.Query(query, args...)
+	list, total, err := h.repo.AdminList(c.Query("type"), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询通知列表失败"})
 		return
 	}
-	defer rows.Close()
-
-	var list []UserNotification
-	for rows.Next() {
-		var n UserNotification
-		if err := rows.Scan(&n.ID, &n.UserID, &n.Title, &n.Content, &n.Type, &n.RelatedType, &n.RelatedID, &n.IsRead, &n.CreatedAt); err == nil {
-			list = append(list, n)
-		}
-	}
-
-	var total int
-	_ = h.db.QueryRow(`SELECT COUNT(*) FROM user_notifications WHERE 1=1`).Scan(&total)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success", "data": list,
@@ -347,24 +183,22 @@ func (h *UserNotificationHandler) AdminDeleteNotification(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "无效的通知ID"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM user_notifications WHERE id = ?`, id)
+	affected, err := h.repo.AdminDelete(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除通知失败"})
 		return
 	}
-	affected, _ := res.RowsAffected()
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": affected})
 }
 
 // AdminClearNotifications 清空全部通知（管理端）
 // DELETE /api/v1/admin/notifications
 func (h *UserNotificationHandler) AdminClearNotifications(c *gin.Context) {
-	res, err := h.db.Exec(`DELETE FROM user_notifications`)
+	affected, err := h.repo.AdminClear()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "清空通知失败"})
 		return
 	}
-	affected, _ := res.RowsAffected()
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "deleted": affected})
 }
 
