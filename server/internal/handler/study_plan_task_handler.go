@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,10 +8,11 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
-// 学习任务 + AI 生成计划 handler（从 study_plan_handler.go 按业务域拆分）
+// 学习任务 + AI 生成计划 handler（从 study_plan_handler.go 按业务域拆分；SQL 已下沉 StudyPlanRepo）
 func (h *StudyPlanHandler) AddTask(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
@@ -25,16 +25,13 @@ func (h *StudyPlanHandler) AddTask(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.getPlanByID(planID, userCtx.UserID)
-	if err == sql.ErrNoRows {
+	if _, err := h.studyPlanRepo.GetPlanByID(planID, userCtx.UserID); err == repository.ErrPlanNotFound {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "学习计划不存在"})
 		return
-	}
-	if err != nil {
+	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询学习计划失败"})
 		return
 	}
-	_ = existing
 
 	var req CreatePlanTaskInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,21 +44,14 @@ func (h *StudyPlanHandler) AddTask(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().Format("2006-01-02 15:04:05")
-	res, err := h.db.Exec(
-		"INSERT INTO study_plan_tasks (plan_id, course_id, course_name, title, description, scheduled_date, scheduled_duration, actual_duration, status, sort_order, created_at) "+
-			"VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?)",
-		planID, req.CourseID, req.CourseName, req.Title, req.Description, req.ScheduledDate,
-		req.ScheduledDuration, req.SortOrder, now,
-	)
+	taskID, err := h.studyPlanRepo.CreateTask(planID, req.CourseID, req.CourseName, req.Title, req.Description, req.ScheduledDate, req.ScheduledDuration, req.SortOrder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "添加任务失败"})
 		return
 	}
-	taskID, _ := res.LastInsertId()
 
 	// 添加任务后，刷新计划进度
-	h.recalcPlanProgress(planID)
+	h.studyPlanRepo.RecalcPlanProgress(planID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -75,7 +65,6 @@ func (h *StudyPlanHandler) AddTask(c *gin.Context) {
 			"scheduled_date": req.ScheduledDate,
 			"status":         "pending",
 			"sort_order":     req.SortOrder,
-			"created_at":     now,
 		},
 	})
 }
@@ -100,7 +89,7 @@ func (h *StudyPlanHandler) UpdateTask(c *gin.Context) {
 	}
 
 	// 校验计划归属
-	if _, err := h.getPlanByID(planID, userCtx.UserID); err == sql.ErrNoRows {
+	if _, err := h.studyPlanRepo.GetPlanByID(planID, userCtx.UserID); err == repository.ErrPlanNotFound {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "学习计划不存在"})
 		return
 	} else if err != nil {
@@ -129,49 +118,29 @@ func (h *StudyPlanHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 
-	var scheduledDuration, actualDuration, sortOrder sql.NullInt64
-	if req.ScheduledDuration != nil {
-		scheduledDuration = sql.NullInt64{Int64: int64(*req.ScheduledDuration), Valid: true}
+	fields := repository.TaskUpdateFields{
+		Title:             req.Title,
+		Description:       req.Description,
+		ScheduledDate:     req.ScheduledDate,
+		ScheduledDuration: req.ScheduledDuration,
+		ActualDuration:    req.ActualDuration,
+		Status:            req.Status,
+		Evidence:          req.Evidence,
+		Reflection:        req.Reflection,
+		SortOrder:         req.SortOrder,
 	}
-	if req.ActualDuration != nil {
-		actualDuration = sql.NullInt64{Int64: int64(*req.ActualDuration), Valid: true}
-	}
-	if req.SortOrder != nil {
-		sortOrder = sql.NullInt64{Int64: int64(*req.SortOrder), Valid: true}
-	}
-
-	res, err := h.db.Exec(
-		"UPDATE study_plan_tasks SET "+
-			"title = COALESCE(NULLIF(?, ''), title), "+
-			"description = COALESCE(NULLIF(?, ''), description), "+
-			"scheduled_date = COALESCE(NULLIF(?, ''), scheduled_date), "+
-			"scheduled_duration = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_duration END, "+
-			"actual_duration = CASE WHEN ? IS NOT NULL THEN ? ELSE actual_duration END, "+
-			"status = COALESCE(NULLIF(?, ''), status), "+
-			"evidence = COALESCE(NULLIF(?, ''), evidence), "+
-			"reflection = COALESCE(NULLIF(?, ''), reflection), "+
-			"sort_order = CASE WHEN ? IS NOT NULL THEN ? ELSE sort_order END "+
-			"WHERE id = ? AND plan_id = ?",
-		req.Title, req.Description, req.ScheduledDate,
-		scheduledDuration, scheduledDuration,
-		actualDuration, actualDuration,
-		req.Status,
-		req.Evidence, req.Reflection,
-		sortOrder, sortOrder,
-		taskID, planID,
-	)
+	affected, err := h.studyPlanRepo.UpdateTask(taskID, planID, fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新任务失败"})
 		return
 	}
-	affected, _ := res.RowsAffected()
 	if affected == 0 {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "任务不存在"})
 		return
 	}
 
 	// 任务状态变更后，重新计算计划进度
-	h.recalcPlanProgress(planID)
+	h.studyPlanRepo.RecalcPlanProgress(planID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -195,31 +164,10 @@ func (h *StudyPlanHandler) GetPlansOverview(c *gin.Context) {
 	}
 
 	planTypes := []string{"weekly", "monthly", "quarterly", "semester", "yearly", "four_year"}
-	overview := make([]*PlanOverviewItem, 0, len(planTypes))
-
-	for _, pt := range planTypes {
-		item := &PlanOverviewItem{PlanType: pt}
-		// 计划数与平均进度
-		_ = h.db.QueryRow(
-			"SELECT COUNT(*), COALESCE(AVG(progress), 0) FROM study_plans WHERE user_id = ? AND plan_type = ?",
-			userCtx.UserID, pt,
-		).Scan(&item.PlanCount, &item.Progress)
-
-		// 任务统计：通过 JOIN 关联到该用户该类型的所有计划
-		var done int
-		_ = h.db.QueryRow(
-			"SELECT COUNT(*), COALESCE(SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END), 0) "+
-				"FROM study_plan_tasks t JOIN study_plans p ON t.plan_id = p.id "+
-				"WHERE p.user_id = ? AND p.plan_type = ?",
-			userCtx.UserID, pt,
-		).Scan(&item.TaskTotal, &done)
-		item.TaskDone = done
-
-		if item.TaskDone > 0 && item.TaskTotal > 0 {
-			// 任务完成进度优先于平均进度
-			item.Progress = float64(item.TaskDone) / float64(item.TaskTotal) * 100
-		}
-		overview = append(overview, item)
+	overview, err := h.studyPlanRepo.PlansOverview(userCtx.UserID, planTypes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询计划概览失败"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -296,11 +244,11 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		return
 	}
 
-	plan, _ := h.getPlanByID(result.PlanID, userCtx.UserID)
+	plan, _ := h.studyPlanRepo.GetPlanByID(result.PlanID, userCtx.UserID)
 	if plan != nil {
-		tasks, _ := h.listTasksByPlan(result.PlanID)
+		tasks, _ := h.studyPlanRepo.ListTasksByPlan(result.PlanID)
 		plan.Tasks = tasks
-		h.fillPlanTaskStats(plan)
+		h.studyPlanRepo.FillPlanTaskStats(plan)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -312,10 +260,3 @@ func (h *StudyPlanHandler) AIGeneratePlan(c *gin.Context) {
 		"output_tokens": result.OutputTokens,
 	})
 }
-
-// ═══════════════════════════════════════════════
-// 辅助函数
-// ═══════════════════════════════════════════════
-
-// resolveCurrentCalendar 解析当前学期校历与教学周
-// 优先返回 start_date <= today <= end_date 的学期；若不在任何学期内（如暑假），返回最近的已完成或即将开始的学期

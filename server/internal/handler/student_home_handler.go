@@ -200,14 +200,14 @@ func (h *StudentHandler) getUserInfo(userID int64) HomeStudentUserInfo {
 }
 
 // resolveCurrentCalendar 获取当前学期校历与教学周
-func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
+func (h *StudentHandler) resolveCurrentCalendar() (*model.AcademicCalendar, int) {
 	if h.db == nil {
 		return nil, 0
 	}
 
 	today := time.Now().Format("2006-01-02")
 
-	calendar := &AcademicCalendar{}
+	calendar := &model.AcademicCalendar{}
 	err := h.db.QueryRow(
 		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
 			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
@@ -225,7 +225,7 @@ func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
 		return nil, 0
 	}
 
-	calendar = &AcademicCalendar{}
+	calendar = &model.AcademicCalendar{}
 	err = h.db.QueryRow(
 		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
 			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
@@ -243,7 +243,7 @@ func (h *StudentHandler) resolveCurrentCalendar() (*AcademicCalendar, int) {
 		return nil, 0
 	}
 
-	calendar = &AcademicCalendar{}
+	calendar = &model.AcademicCalendar{}
 	err = h.db.QueryRow(
 		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
 			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
@@ -282,7 +282,7 @@ func calcHomeCurrentWeek(startDate, today string) int {
 }
 
 // getTodayCourses 获取今日课程
-func (h *StudentHandler) getTodayCourses(userID int64, weekday int, calendar *AcademicCalendar) []HomeStudentCourse {
+func (h *StudentHandler) getTodayCourses(userID int64, weekday int, calendar *model.AcademicCalendar) []HomeStudentCourse {
 	courses := make([]HomeStudentCourse, 0)
 	if h.db == nil || calendar == nil {
 		return courses
@@ -365,7 +365,7 @@ func (h *StudentHandler) getTodayTasks(userID int64, todayStr string) []HomeStud
 }
 
 // getUpcomingEvents 获取近期事件（未来7天 + 正在进行中的）
-func (h *StudentHandler) getUpcomingEvents(todayStr string, calendar *AcademicCalendar) []HomeStudentEvent {
+func (h *StudentHandler) getUpcomingEvents(todayStr string, calendar *model.AcademicCalendar) []HomeStudentEvent {
 	events := make([]HomeStudentEvent, 0)
 	if h.db == nil || calendar == nil {
 		return events

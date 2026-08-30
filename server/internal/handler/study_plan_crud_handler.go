@@ -1,62 +1,34 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
-// 学习计划 CRUD handler（从 study_plan_handler.go 按业务域拆分）
+// 学习计划 CRUD handler（从 study_plan_handler.go 按业务域拆分；SQL 已下沉 StudyPlanRepo）
 func (h *StudyPlanHandler) ListMyPlans(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
 		c.JSON(http.StatusUnauthorized, model.ErrorResponse{Code: 401, Message: "未获取到用户信息"})
 		return
 	}
-	planType := c.Query("plan_type")
 
-	var where []string
-	var args []interface{}
-	where = append(where, "user_id = ?")
-	args = append(args, userCtx.UserID)
-	if planType != "" {
-		where = append(where, "plan_type = ?")
-		args = append(args, planType)
-	}
-	whereSQL := strings.Join(where, " AND ")
-
-	rows, err := h.db.Query(
-		"SELECT id, user_id, title, plan_type, semester_code, start_date, end_date, goals_json, "+
-			"progress, ai_generated, status, linked_plan_id, created_at, updated_at "+
-			"FROM study_plans WHERE "+whereSQL+" ORDER BY created_at DESC, id DESC",
-		args...,
-	)
+	list, err := h.studyPlanRepo.ListPlansByUser(userCtx.UserID, c.Query("plan_type"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询学习计划失败"})
 		return
 	}
-	defer rows.Close()
-
-	var list []*StudyPlan
-	for rows.Next() {
-		plan, err := scanStudyPlan(rows)
-		if err != nil {
-			continue
-		}
-		list = append(list, plan)
-	}
 
 	// 批量获取任务统计
 	for _, plan := range list {
-		h.fillPlanTaskStats(plan)
+		h.studyPlanRepo.FillPlanTaskStats(plan)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -81,8 +53,8 @@ func (h *StudyPlanHandler) GetPlan(c *gin.Context) {
 		return
 	}
 
-	plan, err := h.getPlanByID(id, userCtx.UserID)
-	if err == sql.ErrNoRows {
+	plan, err := h.studyPlanRepo.GetPlanByID(id, userCtx.UserID)
+	if err == repository.ErrPlanNotFound {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "学习计划不存在"})
 		return
 	}
@@ -91,14 +63,13 @@ func (h *StudyPlanHandler) GetPlan(c *gin.Context) {
 		return
 	}
 
-	// 查询计划任务
-	tasks, err := h.listTasksByPlan(id)
+	tasks, err := h.studyPlanRepo.ListTasksByPlan(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询计划任务失败"})
 		return
 	}
 	plan.Tasks = tasks
-	h.fillPlanTaskStats(plan)
+	h.studyPlanRepo.FillPlanTaskStats(plan)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -148,7 +119,6 @@ func (h *StudyPlanHandler) CreatePlan(c *gin.Context) {
 	if req.PlanType == "" {
 		req.PlanType = "weekly"
 	}
-	// 校验 plan_type 合法性
 	if !isValidPlanType(req.PlanType) {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Code: 400, Message: "plan_type 取值无效"})
 		return
@@ -159,42 +129,28 @@ func (h *StudyPlanHandler) CreatePlan(c *gin.Context) {
 		goals = []string{}
 	}
 	goalsJSON, _ := json.Marshal(goals)
-	now := time.Now().Format("2006-01-02 15:04:05")
-	var semesterCode sql.NullString
-	if req.SemesterCode != "" {
-		semesterCode = sql.NullString{String: req.SemesterCode, Valid: true}
-	}
 
-	res, err := h.db.Exec(
-		"INSERT INTO study_plans (user_id, title, plan_type, semester_code, start_date, end_date, goals_json, progress, ai_generated, status, created_at, updated_at) "+
-			"VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'active', ?, ?)",
-		userCtx.UserID, req.Title, req.PlanType, semesterCode, req.StartDate, req.EndDate,
-		string(goalsJSON), now, now,
-	)
+	planID, err := h.studyPlanRepo.CreatePlan(userCtx.UserID, req.Title, req.PlanType, req.SemesterCode, req.StartDate, req.EndDate, string(goalsJSON))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "创建学习计划失败"})
 		return
 	}
-	planID, _ := res.LastInsertId()
 
 	// 批量插入任务
 	for _, t := range req.Tasks {
 		if t == nil {
 			continue
 		}
-		_, _ = h.db.Exec(
-			"INSERT INTO study_plan_tasks (plan_id, course_id, course_name, title, description, scheduled_date, scheduled_duration, actual_duration, status, sort_order, created_at) "+
-				"VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?)",
-			planID, t.CourseID, t.CourseName, t.Title, t.Description, t.ScheduledDate,
-			t.ScheduledDuration, t.SortOrder, now,
-		)
+		if _, err := h.studyPlanRepo.CreateTask(planID, t.CourseID, t.CourseName, t.Title, t.Description, t.ScheduledDate, t.ScheduledDuration, t.SortOrder); err != nil {
+			log.Printf("[WARN] 计划任务创建失败 plan_id=%d: %v", planID, err)
+		}
 	}
 
-	plan, _ := h.getPlanByID(planID, userCtx.UserID)
+	plan, _ := h.studyPlanRepo.GetPlanByID(planID, userCtx.UserID)
 	if plan != nil {
-		tasks, _ := h.listTasksByPlan(planID)
+		tasks, _ := h.studyPlanRepo.ListTasksByPlan(planID)
 		plan.Tasks = tasks
-		h.fillPlanTaskStats(plan)
+		h.studyPlanRepo.FillPlanTaskStats(plan)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -219,16 +175,13 @@ func (h *StudyPlanHandler) UpdatePlan(c *gin.Context) {
 	}
 
 	// 校验所属权
-	existing, err := h.getPlanByID(id, userCtx.UserID)
-	if err == sql.ErrNoRows {
+	if _, err := h.studyPlanRepo.GetPlanByID(id, userCtx.UserID); err == repository.ErrPlanNotFound {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "学习计划不存在"})
 		return
-	}
-	if err != nil {
+	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询学习计划失败"})
 		return
 	}
-	_ = existing
 
 	var req struct {
 		Title        string   `json:"title"`
@@ -255,42 +208,28 @@ func (h *StudyPlanHandler) UpdatePlan(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().Format("2006-01-02 15:04:05")
 	goalsJSON := ""
 	if req.Goals != nil {
 		b, _ := json.Marshal(req.Goals)
 		goalsJSON = string(b)
 	}
 
-	var progress sql.NullFloat64
-	if req.Progress != nil {
-		progress = sql.NullFloat64{Float64: *req.Progress, Valid: true}
+	fields := repository.PlanUpdateFields{
+		Title:        req.Title,
+		PlanType:     req.PlanType,
+		SemesterCode: req.SemesterCode,
+		StartDate:    req.StartDate,
+		EndDate:      req.EndDate,
+		GoalsJSON:    goalsJSON,
+		Status:       req.Status,
+		Progress:     req.Progress,
 	}
-
-	_, err = h.db.Exec(
-		"UPDATE study_plans SET title = COALESCE(NULLIF(?, ''), title), "+
-			"plan_type = COALESCE(NULLIF(?, ''), plan_type), "+
-			"semester_code = CASE WHEN ? <> '' THEN ? ELSE semester_code END, "+
-			"start_date = COALESCE(NULLIF(?, ''), start_date), "+
-			"end_date = COALESCE(NULLIF(?, ''), end_date), "+
-			"goals_json = CASE WHEN ? <> '' THEN ? ELSE goals_json END, "+
-			"status = COALESCE(NULLIF(?, ''), status), "+
-			"progress = CASE WHEN ? IS NOT NULL THEN ? ELSE progress END, "+
-			"updated_at = ? WHERE id = ? AND user_id = ?",
-		req.Title, req.PlanType,
-		req.SemesterCode, req.SemesterCode,
-		req.StartDate, req.EndDate,
-		goalsJSON, goalsJSON,
-		req.Status,
-		progress, progress,
-		now, id, userCtx.UserID,
-	)
-	if err != nil {
+	if err := h.studyPlanRepo.UpdatePlan(id, userCtx.UserID, fields); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "更新学习计划失败"})
 		return
 	}
 
-	plan, _ := h.getPlanByID(id, userCtx.UserID)
+	plan, _ := h.studyPlanRepo.GetPlanByID(id, userCtx.UserID)
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "学习计划更新成功",
@@ -312,12 +251,11 @@ func (h *StudyPlanHandler) DeletePlan(c *gin.Context) {
 		return
 	}
 
-	res, err := h.db.Exec("DELETE FROM study_plans WHERE id = ? AND user_id = ?", id, userCtx.UserID)
+	affected, err := h.studyPlanRepo.DeletePlan(id, userCtx.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除学习计划失败"})
 		return
 	}
-	affected, _ := res.RowsAffected()
 	if affected == 0 {
 		c.JSON(http.StatusNotFound, model.ErrorResponse{Code: 404, Message: "学习计划不存在或无权删除"})
 		return
