@@ -91,13 +91,13 @@ func newProductionContextEngine(kbRepo interface {
 	return context_engine.New(contextEngineSearcher{repo: kbRepo}, contextEngineHistory{repo: messageRepo})
 }
 
-func (s *ChatService) retrieveWithContextEngine(ctx context.Context, userCtx *model.UserContext, question string) []*repository.SearchResult {
+func (s *ChatService) retrieveWithContextEngine(ctx context.Context, userCtx *model.UserContext, sessionID, question string) []*repository.SearchResult {
 	if s.contextEngine == nil {
 		return s.retrieveWithRelevance(userCtx, question, "")
 	}
 	result, err := s.contextEngine.Query(ctx, &context_engine.QueryRequest{
 		Question: question, UserID: strconv.FormatInt(userCtx.UserID, 10), Role: userCtx.Role,
-		OwnerScope: userCtx.OwnerScope, OwnerID: userCtx.OwnerID, TopK: 5,
+		OwnerScope: userCtx.OwnerScope, OwnerID: userCtx.OwnerID, SessionID: sessionID, TopK: 5,
 	})
 	if err != nil {
 		return s.retrieveWithRelevance(userCtx, question, "")
@@ -113,7 +113,7 @@ func (s *ChatService) retrieveWithContextEngine(ctx context.Context, userCtx *mo
 			OwnerID: item.OwnerID, RoleScope: item.RoleScope, Version: item.Version,
 			SourceLink: item.SourceLink, SourceVersion: item.SourceVersion, Tags: item.Tags,
 			EffectiveAt: stringPtrOrNil(item.EffectiveAt), ExpiredAt: stringPtrOrNil(item.ExpiredAt),
-		}, Score: item.Score, IsStructured: item.IsStructured, Snippet: item.Snippet})
+		}, Score: item.Score, IsStructured: item.IsStructured, Snippet: item.Snippet, LowConfidence: item.LowConfidence})
 	}
 	return items
 }

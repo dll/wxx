@@ -34,7 +34,7 @@ func SyncDB(cfg *config.Config) error {
 	defer remoteDB.Close()
 
 	log.Println("━━━ Phase 1: Schema 迁移（Turso） ━━━")
-	if err := runMigrations(remoteDB, dbutil.DriverTurso); err != nil {
+	if err := runMigrations(remoteDB, dbutil.DriverTurso, nil); err != nil {
 		return fmt.Errorf("Turso 迁移失败: %w", err)
 	}
 

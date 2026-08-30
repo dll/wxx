@@ -290,9 +290,7 @@ func buildPhraseQuery(query string) string {
 	runes := []rune(query)
 	var parts []string
 	for _, r := range runes {
-		if r >= 0x4E00 && r <= 0x9FFF {
-			parts = append(parts, string(r))
-		} else if !isSpaceRune(r) {
+		if isFTSTokenRune(r) {
 			parts = append(parts, string(r))
 		}
 	}
@@ -309,9 +307,7 @@ func buildNearQuery(query string) string {
 	runes := []rune(query)
 	var parts []string
 	for _, r := range runes {
-		if r >= 0x4E00 && r <= 0x9FFF {
-			parts = append(parts, string(r))
-		} else if !isSpaceRune(r) {
+		if isFTSTokenRune(r) {
 			parts = append(parts, string(r))
 		}
 	}
@@ -335,13 +331,10 @@ func escapeFTS(s string) string {
 
 // buildLooseQuery 构建宽松 OR 匹配查询（兜底召回）
 func buildLooseQuery(query string) string {
-	query = escapeFTS(query)
 	runes := []rune(query)
 	var parts []string
 	for _, r := range runes {
-		if r >= 0x4E00 && r <= 0x9FFF {
-			parts = append(parts, string(r)+"*")
-		} else if !isSpaceRune(r) {
+		if isFTSTokenRune(r) {
 			parts = append(parts, string(r)+"*")
 		}
 	}
@@ -349,6 +342,15 @@ func buildLooseQuery(query string) string {
 		return ""
 	}
 	return strings.Join(parts, " OR ")
+}
+
+// isFTSTokenRune 判断字符是否可安全进入 FTS5 MATCH 表达式：
+// 仅允许 CJK 与 ASCII 字母/数字。标点（如 "3.2" 的 "."）与运算符字面量会导致语法错误。
+func isFTSTokenRune(r rune) bool {
+	if r >= 0x4E00 && r <= 0x9FFF {
+		return true
+	}
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
 func isSpaceRune(r rune) bool {

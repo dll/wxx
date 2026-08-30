@@ -1,10 +1,15 @@
 package context_engine
 
 import (
+	"log"
+	"os"
 	"sort"
 	"strings"
 	"unicode/utf8"
 )
+
+// debugScores 评测调参开关（WXX_DEBUG_SCORES=1 时打印全部候选得分）
+var debugScores = os.Getenv("WXX_DEBUG_SCORES") == "1"
 
 // ── CE-09: 来源可信度分层 ──
 // 按 resource_type 分层加权：Policy > Process > FAQ > Activity
@@ -66,6 +71,114 @@ func applyIntentBoost(results []*SearchResult, intent Intent) {
 // 默认无 rerank；可接入 LLM listwise / 交叉编码器实现（成本可控时启用）。
 type Reranker interface {
 	Rerank(question string, results []*SearchResult) []*SearchResult
+}
+
+// ── CE-02: 低相关性守卫（与 service 层 filterLowRelevanceResults 阈值语义一致） ──
+
+// relevanceThreshold 相关性阈值：标题/摘要/全文对问题 bigram 的加权覆盖率低于此值视为弱相关
+// （0.09：兼顾口语词面差异的容忍与弱相关拦截，评测集回归校准；泛词碰瓷由减半规则拦截）
+const relevanceThreshold = 0.09
+
+// minContentRatio 内容字段计入相关性所需的最小 bigram 覆盖率（防长文本单点误命中）
+const minContentRatio = 0.20
+
+// filterByRelevance 过滤低相关结果；全部低于阈值时保留最佳 1 条并标记 LowConfidence，
+// 让下游走兜底而非基于弱相关资料生成「确定」回答（CE-02）。
+// 结构化命中（标题/标签精确匹配）天然豁免。
+func filterByRelevance(results []*SearchResult, question string) []*SearchResult {
+	if len(results) == 0 || strings.TrimSpace(question) == "" {
+		return results
+	}
+
+	bigrams := extractChineseBigramsFromQuestion(question)
+	if len(bigrams) == 0 {
+		return results // 问题过短/无有效词组，不过滤
+	}
+
+	var filtered []*SearchResult
+	for _, r := range results {
+		// 不豁免结构化命中：结构化 LIKE 对泛化词召回偏宽，相关性公式自身
+		// 足以保护真实命中（标题精确匹配 → bigram 覆盖率高）。
+		score := calcDocRelevance(r, question, bigrams)
+		if score >= relevanceThreshold {
+			filtered = append(filtered, r)
+			continue
+		}
+		log.Printf("检索守卫过滤低相关: title=%q score=%.3f question=%q",
+			truncate(r.Title, 30), score, truncate(question, 30))
+	}
+	if debugScores {
+		for _, r := range results {
+			log.Printf("[评测调参] title=%q score=%.3f trust=%.3f question=%q",
+				truncate(r.Title, 30), calcDocRelevance(r, question, bigrams), r.TrustScore, truncate(question, 30))
+		}
+	}
+	if len(filtered) == 0 {
+		// 全部弱相关：保留信任分最高的一条，标记低置信
+		sortByTrust(results)
+		results[0].LowConfidence = true
+		filtered = results[:1]
+	}
+	return filtered
+}
+
+// calcDocRelevance 文档相关性（0-1）：标题 60% + 摘要 25% + 全文 15%。
+// 规则：① 内容字段覆盖率 < minContentRatio 时不计分（防长文本单点误命中）；
+// ② 仅标题命中且标题覆盖率不足（<0.4）时减半：如问"转专业管理办法"时所有含
+// "管理办法"的标题都会弱命中，但没有实质内容支撑，属泛词碰瓷。
+func calcDocRelevance(r *SearchResult, question string, bigrams []string) float64 {
+	titleScore := bigramMatchRatio(r.Title, bigrams)
+	summaryScore := bigramMatchRatio(r.Summary, bigrams)
+	contentScore := bigramMatchRatio(r.Content, bigrams)
+	if question != "" && strings.Contains(r.Title, question) {
+		titleScore = 1.0
+	}
+	if contentScore < minContentRatio {
+		contentScore = 0
+	}
+	score := titleScore*0.6 + summaryScore*0.25 + contentScore*0.15
+	if titleScore > 0 && titleScore < 0.4 && summaryScore == 0 && contentScore == 0 {
+		score *= 0.5
+	}
+	return score
+}
+
+// bigramMatchRatio 计算文本中命中的 bigram 比例
+func bigramMatchRatio(text string, bigrams []string) float64 {
+	if len(bigrams) == 0 {
+		return 0
+	}
+	matched := 0
+	for _, bg := range bigrams {
+		if strings.Contains(text, bg) {
+			matched++
+		}
+	}
+	return float64(matched) / float64(len(bigrams))
+}
+
+// extractChineseBigramsFromQuestion 从问题提取中文二元词组（去停用词后）
+func extractChineseBigramsFromQuestion(q string) []string {
+	cleaned := q
+	stopwords := []string{"什么", "怎么", "如何", "为什么", "哪", "哪里", "哪个",
+		"吗", "呢", "啊", "吧", "了", "的", "是", "有", "在", "我", "你", "他",
+		"要", "需要", "可以", "能", "能够", "请问", "麻烦", "一下", "它", "这个", "那个"}
+	for _, sw := range stopwords {
+		cleaned = strings.ReplaceAll(cleaned, sw, "")
+	}
+	runes := []rune(strings.TrimSpace(cleaned))
+	seen := make(map[string]bool)
+	var bigrams []string
+	for i := 0; i < len(runes)-1; i++ {
+		if runes[i] >= 0x4E00 && runes[i] <= 0x9FFF && runes[i+1] >= 0x4E00 && runes[i+1] <= 0x9FFF {
+			bg := string(runes[i : i+2])
+			if !seen[bg] {
+				seen[bg] = true
+				bigrams = append(bigrams, bg)
+			}
+		}
+	}
+	return bigrams
 }
 
 // ── CE-07: 命中片段提取 ──

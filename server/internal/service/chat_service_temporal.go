@@ -83,7 +83,7 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	}
 
 	// ── 2. Context Engine 统一检索（与主链路一致）──
-	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
+	searchResults := s.retrieveWithContextEngine(ctx, userCtx, sessionID, question)
 
 	// MED-KB2：无结果时跳过 LLM
 	if len(searchResults) == 0 {

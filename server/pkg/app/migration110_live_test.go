@@ -17,7 +17,7 @@ func TestMigration110_RestoreCampusSteps(t *testing.T) {
 	}
 	defer db.Close()
 
-	if err := runMigrations(db, dbutil.DriverSQLite); err != nil {
+	if err := runMigrations(db, dbutil.DriverSQLite, nil); err != nil {
 		t.Fatalf("runMigrations 失败: %v", err)
 	}
 

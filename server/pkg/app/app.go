@@ -89,7 +89,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	// ── 3. 自动迁移 ──
-	if err := runMigrations(db, driver); err != nil {
+	if err := runMigrations(db, driver, nil); err != nil {
 		return nil, err
 	}
 

@@ -33,6 +33,7 @@ type SearchResult struct {
 	EffectiveAt   string  `json:"effective_at"`
 	ExpiredAt     string  `json:"expired_at"`
 	IsStructured  bool    `json:"is_structured"` // 结构化匹配结果（高于 FTS 优先级）
+	LowConfidence bool    `json:"low_confidence"` // CE-02：弱相关强留标记，下游走兜底
 }
 
 // QueryRequest 检索请求
@@ -125,14 +126,15 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	}
 
 	// ── 1.5 历史预取 + 查询改写（CE-A2）──
-	// 历史一次获取，既用于指代消解改写，也用于上下文拼装（避免重复查询）
+	// 历史一次获取，既用于指代消解改写，也用于上下文拼装（避免重复查询）。
+	// 注意：当前问题在检索前已落库，故跳过与当前问题相同的消息，取上一轮用户输入。
 	var recentUserMsg string
 	var historyMsgs []HistoryMessage
 	if e.history != nil && req.SessionID != "" {
 		if msgs, err := e.history.GetRecentMessages(req.SessionID, 10); err == nil {
 			historyMsgs = msgs
 			for i := len(msgs) - 1; i >= 0; i-- {
-				if msgs[i].Role == "user" {
+				if msgs[i].Role == "user" && msgs[i].Content != req.Question {
 					recentUserMsg = msgs[i].Content
 					break
 				}
@@ -143,6 +145,7 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	if searchQuery == "" {
 		searchQuery = req.Question
 	}
+	log.Info("检索改写", "session", req.SessionID, "history_count", len(historyMsgs), "last_user", recentUserMsg, "rewritten", searchQuery)
 
 	// ── 2. 结构化优先检索 ──
 	// 按 title/category/tags 直接匹配，不依赖 FTS5 索引（使用原始问题，保证标题精确命中）
@@ -152,20 +155,15 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	}
 	log.Info("结构化检索结果", "count", len(structuredItems))
 
-	// ── 3. FTS/BM25 兜底（结构化结果不足时） ──
-	// 阈值：结构化命中 ≥ ceil(TopK/2) 时不再执行 FTS
-	structuredThreshold := (req.TopK + 1) / 2
-	var ftsItems []KBSearchItem
-	if len(structuredItems) < structuredThreshold {
-		ftsLimit := req.TopK * 2
-		ftsItems, err = e.searcher.Search(searchQuery, req.OwnerScope, req.OwnerID, req.Role, ftsLimit)
-		if err != nil {
-			log.Warn("FTS 检索失败", "err", err)
-		}
-		log.Info("FTS/BM25 检索结果", "count", len(ftsItems), "query", searchQuery)
-	} else {
-		log.Info("结构化结果充足，跳过 FTS/BM25", "count", len(structuredItems))
+	// ── 3. FTS/BM25 检索（始终执行，与结构化合并去重） ──
+	// 说明：结构化检索为 LIKE 召回且无强排序，弱命中（泛化词）不能代表无更优 FTS 结果；
+	// FTS5 本地索引开销为毫秒级，召回收益远大于成本（评测 A5 结论）。
+	ftsLimit := req.TopK * 2
+	ftsItems, ftsErr := e.searcher.Search(searchQuery, req.OwnerScope, req.OwnerID, req.Role, ftsLimit)
+	if ftsErr != nil {
+		log.Warn("FTS 检索失败", "err", ftsErr)
 	}
+	log.Info("FTS/BM25 检索结果", "count", len(ftsItems), "query", searchQuery)
 
 	// ── 4. 合并结果：结构化在前，FTS 在后 ──
 	merged := e.mergeStructuredAndFTS(structuredItems, ftsItems, req.Question)
@@ -207,8 +205,10 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResult, er
 	// 按 TrustScore 排序（降序），结构化结果自带 -100 基准分确保排最前
 	sortByTrust(results)
 
-	// ── 5.5 意图加权 + 可插拔重排（CE-A2） ──
+	// ── 5.5 意图加权 + 低相关守卫 + 可插拔重排（CE-A2 / CE-02） ──
 	applyIntentBoost(results, intent)
+	// CE-02 守卫基于改写后的检索词判定（与实际召回语义一致）
+	results = filterByRelevance(results, searchQuery)
 	if e.reranker != nil {
 		results = e.reranker.Rerank(req.Question, results)
 	}

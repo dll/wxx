@@ -78,9 +78,19 @@ func initDB(cfg *config.Config, dbPath string, driver dbutil.Driver) (*sql.DB, e
 	return db, nil
 }
 
+// RunMigrations 供测试/工具复用的导出入口（评测套件等需要与生产一致的建库行为）。
+// skip 可选：按文件名跳过指定迁移（如评测套件跳过内容种子，使用受控语料）。
+func RunMigrations(db *sql.DB, driver dbutil.Driver, skip ...string) error {
+	skipSet := make(map[string]bool, len(skip))
+	for _, s := range skip {
+		skipSet[s] = true
+	}
+	return runMigrations(db, driver, skipSet)
+}
+
 // runMigrations 从嵌入的迁移文件执行数据库迁移
 // MySQL 模式：对迁移 SQL 做 SQLite→MySQL 方言转换；FTS5 语句被跳过
-func runMigrations(db *sql.DB, driver dbutil.Driver) error {
+func runMigrations(db *sql.DB, driver dbutil.Driver, skip map[string]bool) error {
 	if driver == dbutil.DriverMySQL {
 		// MySQL 方言的迁移记录表
 		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (
@@ -112,6 +122,9 @@ func runMigrations(db *sql.DB, driver dbutil.Driver) error {
 	executed := 0
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		if skip[entry.Name()] {
 			continue
 		}
 

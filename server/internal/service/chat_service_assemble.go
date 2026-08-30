@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strings"
 
@@ -52,6 +53,11 @@ func (s *ChatService) askGenerateAndAssemble(ctx context.Context, userCtx *model
 
 	// ── 6. 构造 AnswerCard ──
 	card := s.buildAnswerCard(llmContent, searchResults, traceID, multiAgentResult)
+	if os.Getenv("WXX_DEBUG_SCORES") == "1" {
+		for _, s := range card.Sources {
+			log.Printf("[评测调参] 来源: id=%s title=%q", s.ResourceID, s.Title)
+		}
+	}
 
 	// 保存助手回复（原文落库，脱敏仅用于模型上下文）
 	s.saveAssistantMessage(sessionID, llmResp.Content, traceID)

@@ -42,7 +42,7 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID, traceID)
 
 	// ── Context Engine 统一检索：结构化优先 → FTS/BM25 兜底 → 过期/低相关过滤 ──
-	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
+	searchResults := s.retrieveWithContextEngine(ctx, userCtx, sessionID, question)
 
 	hasAgentResult := multiAgentResult != nil && multiAgentResult.AgentCount > 0 && len(multiAgentResult.Sources) > 0
 	if len(searchResults) == 0 && !hasAgentResult {

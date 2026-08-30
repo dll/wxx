@@ -412,7 +412,7 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 	defer db.Close()
 
 	// 首次执行全部迁移
-	if err := runMigrations(db, dbutil.DriverSQLite); err != nil {
+	if err := runMigrations(db, dbutil.DriverSQLite, nil); err != nil {
 		t.Fatalf("首次 runMigrations 失败: %v", err)
 	}
 
@@ -426,7 +426,7 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 	}
 
 	// 第二次执行：应全部跳过（不重新 INSERT）
-	if err := runMigrations(db, dbutil.DriverSQLite); err != nil {
+	if err := runMigrations(db, dbutil.DriverSQLite, nil); err != nil {
 		t.Fatalf("第二次 runMigrations 失败: %v", err)
 	}
 	var countAfterSecond int
@@ -451,7 +451,7 @@ func TestRunMigrationsCreatesSchema(t *testing.T) {
 	db.SetMaxOpenConns(1)
 	defer db.Close()
 
-	if err := runMigrations(db, dbutil.DriverSQLite); err != nil {
+	if err := runMigrations(db, dbutil.DriverSQLite, nil); err != nil {
 		t.Fatalf("runMigrations 失败: %v", err)
 	}
 	// 校验关键表存在
