@@ -60,7 +60,7 @@ func (s *ChatService) askSync(ctx context.Context, userCtx *model.UserContext, s
 	}
 
 	// ── 2. 多智能体协同编排（agentID 为空时启用）──
-	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID)
+	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID, traceID)
 
 	// ── 3. 结构化优先检索（MED-KB1）＋ 3.5 相关性预检 ──
 	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
@@ -101,24 +101,29 @@ func (s *ChatService) ensureSession(userCtx *model.UserContext, sessionID, quest
 	return sessionID, nil
 }
 
-// saveUserMessage 将用户本轮问题落库为 user 角色消息（忽略错误，与拆分前一致）。
+// saveUserMessage 将用户本轮问题落库为 user 角色消息（chat 链路统一入口）。
+// 落库失败必须记日志：聊天记录属于用户数据，静默丢失会破坏会话完整性且无法排障。
 func (s *ChatService) saveUserMessage(sessionID, question, traceID string) {
-	_ = s.messageRepo.Create(&model.Message{
+	if err := s.messageRepo.Create(&model.Message{
 		SessionID: sessionID,
 		Role:      "user",
 		Content:   question,
 		TraceID:   traceID,
-	})
+	}); err != nil {
+		log.Printf("[WARN] 保存用户消息失败 [trace=%s] session=%s: %v", traceID, sessionID, err)
+	}
 }
 
-// saveAssistantMessage 将助手回复落库为 assistant 角色消息（忽略错误，与拆分前一致）。
+// saveAssistantMessage 将助手回复落库为 assistant 角色消息（chat 链路统一入口）。
 func (s *ChatService) saveAssistantMessage(sessionID, content, traceID string) {
-	_ = s.messageRepo.Create(&model.Message{
+	if err := s.messageRepo.Create(&model.Message{
 		SessionID: sessionID,
 		Role:      "assistant",
 		Content:   content,
 		TraceID:   traceID,
-	})
+	}); err != nil {
+		log.Printf("[WARN] 保存助手消息失败 [trace=%s] session=%s: %v", traceID, sessionID, err)
+	}
 }
 
 // filterUserInput 用户输入内容安全过滤（必须在 LLM 调用与多智能体编排之前）。返回 true+分类表示需拦截。
@@ -131,9 +136,13 @@ func (s *ChatService) filterUserInput(question, traceID string) (string, bool) {
 }
 
 // runAgents 多智能体协同编排（步 2）：agentID 为空且注入编排器时执行，否则返回 nil（行为一致）。
-func (s *ChatService) runAgents(ctx context.Context, userCtx *model.UserContext, question, agentID string) *agent.MergedResult {
+// 编排失败记录日志后返回 nil：主链路退化为纯检索问答，不中断对话，但错误可排障。
+func (s *ChatService) runAgents(ctx context.Context, userCtx *model.UserContext, question, agentID, traceID string) *agent.MergedResult {
 	if agentID == "" && s.orchestrator != nil {
-		multiAgentResult, _ := s.orchestrator.Execute(ctx, question, userCtx)
+		multiAgentResult, err := s.orchestrator.Execute(ctx, question, userCtx)
+		if err != nil {
+			log.Printf("[WARN] 多智能体编排失败 [trace=%s] user=%d: %v", traceID, userCtx.UserID, err)
+		}
 		return multiAgentResult
 	}
 	return nil

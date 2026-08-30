@@ -3,16 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
-	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/temporal/workflows"
 	"github.com/dll/wxx/server/internal/util"
-	"github.com/google/uuid"
 	sdkclient "go.temporal.io/sdk/client"
 )
 
@@ -69,59 +66,24 @@ func (s *ChatService) askDirect(ctx context.Context, userCtx *model.UserContext,
 	return s.askDirectImpl(ctx, userCtx, sessionID, question, agentID, traceID)
 }
 
-// askDirectImpl 直接调用链路的实现（原 Ask() 方法的核心逻辑）
+// askDirectImpl 直接调用链路的实现（Temporal 降级路径，与 askSync 主链路共用会话/落库/过滤/检索逻辑）
 func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserContext, sessionID, question, agentID, traceID string) (*model.AnswerCard, string, error) {
-	// ── 1. 会话管理 ──
-	if sessionID == "" {
-		sessionID = uuid.New().String()
-		err := s.sessionRepo.Create(&model.Session{
-			SessionID: sessionID,
-			UserID:    userCtx.UserID,
-			Title:     defaultSessionTitle(question),
-		})
-		if err != nil {
-			return nil, "", fmt.Errorf("创建会话失败: %w", err)
-		}
-	} else {
-		session, err := s.sessionRepo.GetBySessionID(sessionID)
-		if err != nil {
-			return nil, "", fmt.Errorf("查询会话失败: %w", err)
-		}
-		if session == nil || session.UserID != userCtx.UserID {
-			return nil, "", fmt.Errorf("会话不存在或无权访问")
-		}
-		_ = s.sessionRepo.Touch(sessionID)
+	// ── 1. 会话管理（与 askSync 共用 ensureSession）──
+	sessionID, err := s.ensureSession(userCtx, sessionID, question)
+	if err != nil {
+		return nil, "", err
 	}
 
-	_ = s.messageRepo.Create(&model.Message{
-		SessionID: sessionID,
-		Role:      "user",
-		Content:   question,
-		TraceID:   traceID,
-	})
+	// 保存用户消息（统一落库入口，失败记日志）
+	s.saveUserMessage(sessionID, question, traceID)
 
 	// │ 内容安全过滤 —— 用户输入检查
-	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
-		log.Printf("用户输入过滤拦截 [trace=%s] category=%s reason=%s", traceID, fr.Category, fr.Reason)
-		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	if category, blocked := s.filterUserInput(question, traceID); blocked {
+		return s.buildBlockedAnswer(traceID, category), sessionID, nil
 	}
 
-	// ── 2. 结构化优先检索 ──
-	structuredResults, err := s.kbRepo.SearchStructured(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
-	if err != nil {
-		log.Printf("结构化检索失败 [trace=%s]: %v", traceID, err)
-	}
-
-	var searchResults []*repository.SearchResult
-	if len(structuredResults) >= 3 {
-		searchResults = structuredResults
-	} else {
-		ftsResults, ftsErr := s.kbRepo.Search(question, userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, 5)
-		if ftsErr != nil {
-			log.Printf("FTS/BM25 检索失败 [trace=%s]: %v", traceID, ftsErr)
-		}
-		searchResults = mergeStructuredAndFTS(structuredResults, ftsResults)
-	}
+	// ── 2. Context Engine 统一检索（与主链路一致）──
+	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
 
 	// MED-KB2：无结果时跳过 LLM
 	if len(searchResults) == 0 {
@@ -134,12 +96,7 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, nil)
 	if s.llmClient == nil {
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
-		_ = s.messageRepo.Create(&model.Message{
-			SessionID: sessionID,
-			Role:      "assistant",
-			Content:   card.Conclusion,
-			TraceID:   traceID,
-		})
+		s.saveAssistantMessage(sessionID, card.Conclusion, traceID)
 		return card, sessionID, nil
 	}
 
@@ -170,12 +127,7 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 	// ── 5. 构造 AnswerCard ──
 	card := s.buildAnswerCard(llmContent, searchResults, traceID, nil)
 
-	_ = s.messageRepo.Create(&model.Message{
-		SessionID: sessionID,
-		Role:      "assistant",
-		Content:   llmResp.Content,
-		TraceID:   traceID,
-	})
+	s.saveAssistantMessage(sessionID, llmResp.Content, traceID)
 
 	// 记录词元使用
 	if s.tokenStatsSvc != nil {

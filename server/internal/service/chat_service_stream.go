@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strings"
 
-	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/util"
@@ -26,40 +24,22 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 		}
 	}
 
-	// ── 会话管理 ──
-	if sessionID == "" {
-		sessionID = uuid.New().String()
-		if err := s.sessionRepo.Create(&model.Session{
-			SessionID: sessionID, UserID: userCtx.UserID, Title: defaultSessionTitle(question),
-		}); err != nil {
-			return nil, "", fmt.Errorf("创建会话失败: %w", err)
-		}
-	} else {
-		session, err := s.sessionRepo.GetBySessionID(sessionID)
-		if err != nil {
-			return nil, "", fmt.Errorf("查询会话失败: %w", err)
-		}
-		if session == nil || session.UserID != userCtx.UserID {
-			return nil, "", fmt.Errorf("会话不存在或无权访问")
-		}
-		_ = s.sessionRepo.Touch(sessionID)
+	// ── 会话管理（与 askSync 共用 ensureSession）──
+	sessionID, err := s.ensureSession(userCtx, sessionID, question)
+	if err != nil {
+		return nil, "", err
 	}
 
-	_ = s.messageRepo.Create(&model.Message{
-		SessionID: sessionID, Role: "user", Content: question, TraceID: traceID,
-	})
+	// 保存用户消息（统一落库入口，失败记日志）
+	s.saveUserMessage(sessionID, question, traceID)
 
 	// ── 内容安全过滤（用户输入） ──
-	if fr := util.CheckUserInput(question); fr.Action == util.FilterBlock {
-		log.Printf("用户输入过滤拦截 [trace=%s] category=%s", traceID, fr.Category)
-		return s.buildBlockedAnswer(traceID, fr.Category), sessionID, nil
+	if category, blocked := s.filterUserInput(question, traceID); blocked {
+		return s.buildBlockedAnswer(traceID, category), sessionID, nil
 	}
 
-	// ── 多智能体协同 ──
-	var multiAgentResult *agent.MergedResult
-	if agentID == "" && s.orchestrator != nil {
-		multiAgentResult, _ = s.orchestrator.Execute(ctx, question, userCtx)
-	}
+	// ── 多智能体协同（与 askSync 共用 runAgents）──
+	multiAgentResult := s.runAgents(ctx, userCtx, question, agentID, traceID)
 
 	// ── Context Engine 统一检索：结构化优先 → FTS/BM25 兜底 → 过期/低相关过滤 ──
 	searchResults := s.retrieveWithContextEngine(ctx, userCtx, question)
@@ -75,9 +55,7 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 	messages := s.buildMessages(ctx, sessionID, sanitizedQuestion, agentID, searchResults, multiAgentResult)
 	if s.llmClient == nil {
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
-		_ = s.messageRepo.Create(&model.Message{
-			SessionID: sessionID, Role: "assistant", Content: card.Conclusion, TraceID: traceID,
-		})
+		s.saveAssistantMessage(sessionID, card.Conclusion, traceID)
 		return card, sessionID, nil
 	}
 
@@ -93,9 +71,7 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 	if err != nil {
 		log.Printf("LLM 流式启动失败 [trace=%s]: %v", traceID, err)
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)
-		_ = s.messageRepo.Create(&model.Message{
-			SessionID: sessionID, Role: "assistant", Content: card.Conclusion, TraceID: traceID,
-		})
+		s.saveAssistantMessage(sessionID, card.Conclusion, traceID)
 		return card, sessionID, nil
 	}
 
@@ -127,9 +103,7 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 
 	card := s.buildAnswerCard(llmContent, searchResults, traceID, multiAgentResult)
 
-	_ = s.messageRepo.Create(&model.Message{
-		SessionID: sessionID, Role: "assistant", Content: llmContent, TraceID: traceID,
-	})
+	s.saveAssistantMessage(sessionID, llmContent, traceID)
 	if s.tokenStatsSvc != nil {
 		s.tokenStatsSvc.RecordUsage(userCtx.UserID, sessionID, s.llmClient.Name(), 0, 0)
 	}
