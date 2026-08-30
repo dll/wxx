@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
@@ -11,12 +12,16 @@ import (
 	"github.com/dll/wxx/server/internal/util"
 )
 
+// agentTimeout 单个子 Agent 的执行超时：防止慢 Agent 挂死拖垮整个对话链路。
+const agentTimeout = 30 * time.Second
+
 // Orchestrator 多智能体编排器
-// 负责：意图路由 → 并行执行子 Agent → 结果汇聚
+// 负责：意图路由 → 并行执行子 Agent（带超时与 panic 恢复）→ 结果汇聚
 type Orchestrator struct {
 	router *Router
 	merger *ResultMerger
 	agents map[string]Agent // 已注册的子 Agent
+	tools  *ToolRegistry    // A3：校园场景工具注册表
 	kbRepo *repository.KBRepo
 }
 
@@ -27,6 +32,7 @@ func NewOrchestrator(kbRepo *repository.KBRepo, llmClient llm.ChatClient) *Orche
 		router: NewRouter(),
 		merger: NewMerger(),
 		agents: make(map[string]Agent),
+		tools:  NewToolRegistry(),
 		kbRepo: kbRepo,
 	}
 
@@ -37,8 +43,14 @@ func NewOrchestrator(kbRepo *repository.KBRepo, llmClient llm.ChatClient) *Orche
 	o.Register(NewMajorAgent())
 	o.Register(NewEmotionAgent(llmClient))
 
+	// 注册校园场景工具（A3）：确定性数据查询
+	o.tools.Register(NewProcessNodeTool(kbRepo))
+
 	return o
 }
+
+// Tools 暴露工具注册表（供 Agent 与未来 function calling 使用）
+func (o *Orchestrator) Tools() *ToolRegistry { return o.tools }
 
 // Register 注册子 Agent（以 Key() 作为路由 key）
 func (o *Orchestrator) Register(agent Agent) {
@@ -46,7 +58,7 @@ func (o *Orchestrator) Register(agent Agent) {
 }
 
 // Execute 执行多智能体协同问答
-// 1. 路由 → 2. 并行执行 → 3. 结果汇聚
+// 1. 路由 → 2. 并行执行（单 Agent 超时 + panic 恢复）→ 3. 结果汇聚
 func (o *Orchestrator) Execute(ctx context.Context, question string, userCtx *model.UserContext) (*MergedResult, error) {
 	// 1. 意图路由
 	agentNames := o.router.Route(question)
@@ -64,6 +76,7 @@ func (o *Orchestrator) Execute(ctx context.Context, question string, userCtx *mo
 }
 
 // executeParallel 并行执行多个子 Agent
+// 稳定化（A3）：单个 Agent 失败/超时/panic 只降级为空结果，绝不影响其它 Agent 与主链路。
 func (o *Orchestrator) executeParallel(ctx context.Context, question string, userCtx *model.UserContext, agentNames []string) []*AgentResult {
 	var wg sync.WaitGroup
 	resultCh := make(chan *AgentResult, len(agentNames))
@@ -78,9 +91,22 @@ func (o *Orchestrator) executeParallel(ctx context.Context, question string, use
 		wg.Add(1)
 		go func(a Agent) {
 			defer wg.Done()
-			result, err := a.Execute(ctx, question, userCtx, o.kbRepo)
+			// panic 恢复：Agent 是独立 goroutine，裸 panic 会击穿 recover 中间件直接崩掉整个服务
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[ERROR] Agent panic 已恢复 [name=%s]: %v", a.Name(), r)
+					resultCh <- &AgentResult{AgentName: a.Name(), Content: "", Confidence: 0}
+				}
+			}()
+
+			start := time.Now()
+			// 单 Agent 超时：与主链路 ctx 解耦，慢 Agent 只损失自身结果
+			agentCtx, cancel := context.WithTimeout(ctx, agentTimeout)
+			defer cancel()
+
+			result, err := a.Execute(agentCtx, question, userCtx, o.kbRepo)
 			if err != nil {
-				log.Printf("Agent 执行失败 [name=%s]: %v", a.Name(), err)
+				log.Printf("Agent 执行失败 [name=%s] 耗时=%s: %v", a.Name(), time.Since(start).Round(time.Millisecond), err)
 				resultCh <- &AgentResult{
 					AgentName:  a.Name(),
 					Content:    "",
@@ -88,6 +114,7 @@ func (o *Orchestrator) executeParallel(ctx context.Context, question string, use
 				}
 				return
 			}
+			log.Printf("Agent 完成 [name=%s] 耗时=%s confidence=%.2f", a.Name(), time.Since(start).Round(time.Millisecond), result.Confidence)
 			resultCh <- result
 		}(agent)
 	}
