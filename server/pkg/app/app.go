@@ -456,7 +456,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	studyPlanSvc := service.NewStudyPlanService(db, llmClient)
 	studyPlanHandler := handler.NewStudyPlanHandler(db, studyPlanSvc)
 	userNotificationHandler := handler.NewUserNotificationHandler(db)
-	statsHandler := handler.NewStatsHandler(db)
+	statsHandler := handler.NewStatsHandler(repository.NewStatsRepo(db))
 	appVersionRepo := repository.NewAppVersionRepo(db)
 	appVersionService := service.NewAppVersionService(appVersionRepo)
 	appVersionHandler := handler.NewAppVersionHandler(appVersionService)
