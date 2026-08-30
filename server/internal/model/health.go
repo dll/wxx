@@ -52,3 +52,46 @@ type HealthDailyItem struct {
 	Note       string  `json:"note"`
 	CreatedAt  string  `json:"created_at"`
 }
+
+// HealthActivityItem 健康活动（含关注/报名统计与当前用户状态）
+type HealthActivityItem struct {
+	ActivityID     string `json:"activity_id"`
+	Title          string `json:"title"`
+	Category       string `json:"category"`
+	Description    string `json:"description"`
+	StartAt        string `json:"start_at"`
+	EndAt          string `json:"end_at"`
+	Venue          string `json:"venue"`
+	Organizer      string `json:"organizer"`
+	Capacity       int    `json:"capacity"`
+	SignupDeadline string `json:"signup_deadline"`
+	Status         string `json:"status"`
+	CreatorRole    string `json:"creator_role"`
+	// 关注/报名统计与当前用户状态
+	FavoriteCount int  `json:"favorite_count"`
+	SignupCount   int  `json:"signup_count"`
+	IsFavorite    bool `json:"is_favorite"`
+	IsSignup      bool `json:"is_signup"`
+}
+
+// ActivityReviewRow 活动复盘单行（报名/到场原始数）
+type ActivityReviewRow struct {
+	ActivityID  string `json:"activity_id"`
+	Title       string `json:"title"`
+	Category    string `json:"category"`
+	Venue       string `json:"venue"`
+	Organizer   string `json:"organizer"`
+	Status      string `json:"status"`
+	SignupCount int    `json:"signup_count"`
+	AttendCount int    `json:"attend_count"`
+	AttendRate  float64 `json:"attend_rate"`
+}
+
+// ActivitySignup 活动报名/到场名单条目
+type ActivitySignup struct {
+	UserID    int    `json:"user_id"`
+	Name      string `json:"name"` // display_name 优先，回退 username
+	Username  string `json:"username"`
+	Attended  bool   `json:"attended"`
+	CreatedAt string `json:"created_at"`
+}

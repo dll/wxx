@@ -452,7 +452,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	documentHandler := handler.NewDocumentHandler(docParseSvc)
 	graduationHandler := handler.NewGraduationHandler(graduationService)
 	studentFeaturesHandler := handler.NewStudentFeaturesHandler(studentFeaturesService)
-	educationHandler := handler.NewEducationHandler(db, repository.NewMentalHealthRepo(db), repository.NewCareerRepo(db), repository.NewHealthRepo(db))
+	educationHandler := handler.NewEducationHandler(db, repository.NewMentalHealthRepo(db), repository.NewCareerRepo(db), repository.NewHealthRepo(db), repository.NewHealthActivityRepo(db))
 	studyPlanSvc := service.NewStudyPlanService(db, llmClient)
 	studyPlanHandler := handler.NewStudyPlanHandler(repository.NewStudyPlanRepo(db), studyPlanSvc)
 	userNotificationHandler := handler.NewUserNotificationHandler(repository.NewUserNotificationRepo(db))
