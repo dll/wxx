@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/service"
 )
 
@@ -14,11 +15,12 @@ type StudentHandler struct {
 	personalitySvc *service.PersonalityService // 性格洞察服务，可为 nil
 	phase2Svc      *service.Phase2Service      // 阶段二真实数据服务（积分/问答），可为 nil
 	db             *sql.DB
+	profileRepo    *repository.StudentProfileRepo // P4-d：画像/头像数据访问
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
 func NewStudentHandler(svc *service.StudentService, db *sql.DB) *StudentHandler {
-	return &StudentHandler{svc: svc, db: db}
+	return &StudentHandler{svc: svc, db: db, profileRepo: repository.NewStudentProfileRepo(db)}
 }
 
 // SetTwinService 注入数字孪生服务（可选依赖，装配期调用）

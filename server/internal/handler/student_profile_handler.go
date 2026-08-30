@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -17,8 +15,9 @@ import (
 )
 
 // GET /api/v1/student/profile
-// 并发聚合：基础信息 + 五维孪生 + 性格 + 学业 + 竞赛 + 入党 + 社团 + 打卡 + 积分
+// 并发聚合：基础信息 + 学业 + 竞赛 + 入党 + 社团 + 打卡 + 积分
 // 错误容忍：单个子查询失败不影响整体，返回空数组/零值
+// SQL 已下沉 StudentProfileRepo（P4-d）
 func (h *StudentHandler) PersonalProfile(c *gin.Context) {
 	userCtx := middleware.GetUserContext(c)
 	if userCtx == nil {
@@ -49,64 +48,40 @@ func (h *StudentHandler) PersonalProfile(c *gin.Context) {
 
 	// 1. 基础信息（users 表）
 	query("basic_info", func() (interface{}, error) {
-		var college, major, className, enrollmentDate, enrollmentYear, status string
-		err := h.db.QueryRow(
-			"SELECT college, major, class_name, enrollment_date, enrollment_year, status FROM users WHERE id = ?",
-			userID,
-		).Scan(&college, &major, &className, &enrollmentDate, &enrollmentYear, &status)
+		info, err := h.profileRepo.GetBasicInfo(userID)
 		if err != nil {
 			return nil, err
 		}
 		return gin.H{
-			"college": college, "major": major, "class_name": className,
-			"enrollment_date": enrollmentDate, "enrollment_year": enrollmentYear, "status": status,
+			"college": info.College, "major": info.Major, "class_name": info.ClassName,
+			"enrollment_date": info.EnrollmentDate, "enrollment_year": info.EnrollmentYear, "status": info.Status,
 		}, nil
 	})
 
 	// 2. 学业成绩汇总（student_grades）
 	query("academic", func() (interface{}, error) {
-		var courseCount int
-		var credits, totalScore, gpa float64
-		var passedCount, totalCount int
-		err := h.db.QueryRow(
-			"SELECT COUNT(*), COALESCE(SUM(credits_earned),0), COALESCE(AVG(score),0), "+
-				"COALESCE(AVG(gpa),0), COALESCE(SUM(CASE WHEN passed=1 THEN 1 ELSE 0 END),0), COUNT(*) "+
-				"FROM student_grades WHERE user_id = ?",
-			fmt.Sprintf("%d", userID),
-		).Scan(&courseCount, &credits, &totalScore, &gpa, &passedCount, &totalCount)
+		s, err := h.profileRepo.GetAcademicSummary(userID)
 		if err != nil {
 			return nil, err
 		}
-		passRate := 0.0
-		if totalCount > 0 {
-			passRate = float64(passedCount) / float64(totalCount) * 100
-		}
 		return gin.H{
-			"course_count": courseCount, "total_credits": credits,
-			"avg_score": totalScore, "avg_gpa": gpa, "pass_rate": passRate,
+			"course_count": s.CourseCount, "total_credits": s.TotalCredit,
+			"avg_score": s.AvgScore, "avg_gpa": s.AvgGPA, "pass_rate": s.PassRate(),
 		}, nil
 	})
 
 	// 3. 竞赛报名（competition_registrations）
 	query("competitions", func() (interface{}, error) {
-		rows, err := h.db.Query(
-			"SELECT competition_id, student_name, team_name, advisor_name, status, award_level FROM competition_registrations WHERE user_id = ? ORDER BY id DESC LIMIT 10",
-			userID,
-		)
+		rows, err := h.profileRepo.ListCompetitions(userID, 10)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
-		var list []gin.H
-		for rows.Next() {
-			var cid int64
-			var studentName, teamName, advisor, status, award string
-			if err := rows.Scan(&cid, &studentName, &teamName, &advisor, &status, &award); err != nil {
-				continue
-			}
+		list := make([]gin.H, 0, len(rows))
+		for _, row := range rows {
 			list = append(list, gin.H{
-				"competition_id": cid, "student_name": studentName, "team_name": teamName,
-				"advisor_name": advisor, "status": status, "award_level": award,
+				"competition_id": row.CompetitionID, "student_name": row.StudentName,
+				"team_name": row.TeamName, "advisor_name": row.AdvisorName,
+				"status": row.Status, "award_level": row.AwardLevel,
 			})
 		}
 		return list, nil
@@ -114,64 +89,38 @@ func (h *StudentHandler) PersonalProfile(c *gin.Context) {
 
 	// 4. 入党进度（party_progress）
 	query("party", func() (interface{}, error) {
-		var currentStage, status string
-		var applyDate string
-		err := h.db.QueryRow(
-			"SELECT current_stage, status, COALESCE(apply_date,'') FROM party_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-			userID,
-		).Scan(&currentStage, &status, &applyDate)
+		p, err := h.profileRepo.GetPartyProgress(userID)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return gin.H{"current_stage": "", "status": "", "apply_date": ""}, nil
-			}
 			return nil, err
 		}
-		return gin.H{"current_stage": currentStage, "status": status, "apply_date": applyDate}, nil
+		return gin.H{"current_stage": p.CurrentStage, "status": p.Status, "apply_date": p.ApplyDate}, nil
 	})
 
 	// 5. 社团参与（club_members）
 	query("clubs", func() (interface{}, error) {
-		rows, err := h.db.Query(
-			"SELECT club_id, role, join_date FROM club_members WHERE user_id = ? AND (leave_date IS NULL OR leave_date = '') ORDER BY join_date DESC LIMIT 5",
-			userID,
-		)
+		rows, err := h.profileRepo.ListClubs(userID, 5)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
-		var list []gin.H
-		for rows.Next() {
-			var cid int64
-			var role, joinDate string
-			if err := rows.Scan(&cid, &role, &joinDate); err != nil {
-				continue
-			}
-			list = append(list, gin.H{"club_id": cid, "role": role, "join_date": joinDate})
+		list := make([]gin.H, 0, len(rows))
+		for _, row := range rows {
+			list = append(list, gin.H{"club_id": row.ClubID, "role": row.Role, "join_date": row.JoinDate})
 		}
 		return list, nil
 	})
 
 	// 6. 打卡记录（student_checkins）
 	query("checkin", func() (interface{}, error) {
-		var total int
-		var lastDate string
-		err := h.db.QueryRow(
-			"SELECT COUNT(*), COALESCE(MAX(check_date),'') FROM student_checkins WHERE user_id = ?",
-			userID,
-		).Scan(&total, &lastDate)
+		s, err := h.profileRepo.GetCheckinSummary(userID)
 		if err != nil {
 			return nil, err
 		}
-		return gin.H{"total_days": total, "last_date": lastDate}, nil
+		return gin.H{"total_days": s.TotalDays, "last_date": s.LastDate}, nil
 	})
 
 	// 7. 积分（student_points）
 	query("points", func() (interface{}, error) {
-		var total int
-		err := h.db.QueryRow(
-			"SELECT COALESCE(SUM(points),0) FROM student_points WHERE user_id = ?",
-			userID,
-		).Scan(&total)
+		total, err := h.profileRepo.GetPointsTotal(userID)
 		if err != nil {
 			return nil, err
 		}
@@ -241,10 +190,7 @@ func (h *StudentHandler) UploadAvatar(c *gin.Context) {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(bytes)
-	if _, err := h.db.Exec(
-		"UPDATE users SET avatar_base64 = ?, avatar_mime = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-		encoded, mime, userCtx.UserID,
-	); err != nil {
+	if err := h.profileRepo.UpdateAvatar(userCtx.UserID, encoded, mime); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存头像失败"})
 		return
 	}
@@ -263,12 +209,8 @@ func (h *StudentHandler) ServeAvatar(c *gin.Context) {
 		return
 	}
 
-	var b64, mime string
-	err := h.db.QueryRow(
-		"SELECT COALESCE(avatar_base64,''), COALESCE(avatar_mime,'image/png') FROM users WHERE id = ?",
-		userID,
-	).Scan(&b64, &mime)
-	if err != nil || b64 == "" {
+	b64, mime, err := h.profileRepo.GetAvatar(userID)
+	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
