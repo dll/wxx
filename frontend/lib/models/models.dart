@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+import '../config/api_config.dart';
+
 /// AnswerCard 统一回答结构，对齐后端 model.AnswerCard
 class AnswerCard {
   final String conclusion;
@@ -2864,7 +2866,7 @@ class PortalCredential {
 
   const PortalCredential({
     this.userId = 0,
-    this.portalUrl = 'https://my0.chzu.edu.cn/',
+    this.portalUrl = ApiConfig.schoolPortalUrl,
     this.portalAccount = '',
     this.bound = false,
     this.updatedAt = '',
@@ -2873,7 +2875,7 @@ class PortalCredential {
   factory PortalCredential.fromJson(Map<String, dynamic> json) {
     return PortalCredential(
       userId: json['user_id'] ?? 0,
-      portalUrl: json['portal_url'] ?? 'https://my0.chzu.edu.cn/',
+      portalUrl: json['portal_url'] ?? ApiConfig.schoolPortalUrl,
       portalAccount: json['portal_account'] ?? '',
       bound: json['bound'] ?? false,
       updatedAt: json['updated_at'] ?? '',

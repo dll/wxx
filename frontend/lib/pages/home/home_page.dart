@@ -520,9 +520,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showApkDownloadDialog(BuildContext context, ThemeData theme) {
-    final qrData = Uri.encodeComponent(ReleaseConfig.apkDownloadUrl);
-    final qrUrl =
-        'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$qrData&margin=10';
+    final qrUrl = ReleaseConfig.qrCodeUrl(ReleaseConfig.apkDownloadUrl, size: 240);
     showDialog(
       context: context,
       barrierDismissible: true,

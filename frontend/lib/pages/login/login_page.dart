@@ -236,8 +236,7 @@ class _LoginPageState extends State<LoginPage>
 
   /// 显示 APK 下载二维码
   void _showApkQrDialog(BuildContext context) {
-    final qrUrl =
-        'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${Uri.encodeComponent(ReleaseConfig.apkDownloadUrl)}&margin=10';
+    final qrUrl = ReleaseConfig.qrCodeUrl(ReleaseConfig.apkDownloadUrl);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1034,13 +1033,11 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
         final sessionId = data['session_id'] as String;
         _qrSessionId = sessionId;
         _qrPollSecret = data['poll_secret'] as String?;
-        // 二维码内容用 App Links URL：已安装 APK 的系统自动唤起本应用，
+        // 二维码内容用 App Links URL：已安装 APK 的系统自动唤起本应用；
         // 未安装则手机浏览器打开 Web（经 Caddy 重定向到 #/login?qr=xxx）。
-        final encodedUrl = Uri.encodeComponent(
-            'https://wxx-agent.online/qr-login?qr=$sessionId');
         setState(() {
-          _qrImageUrl =
-              'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
+          _qrImageUrl = ReleaseConfig.qrCodeUrl(
+              '${ReleaseConfig.webUrl}/qr-login?qr=$sessionId');
           _qrStatus = 'active';
           _message = '请使用手机扫描二维码，已安装APP将自动唤起，否则打开网页';
         });
@@ -1056,10 +1053,8 @@ class _QRCodeLoginPanelState extends State<_QRCodeLoginPanel> {
 
   /// 显示备用二维码
   void _showFallbackQR(String message) {
-    final encodedUrl = Uri.encodeComponent('${Uri.base.origin}/#/login');
     setState(() {
-      _qrImageUrl =
-          'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$encodedUrl&margin=10';
+      _qrImageUrl = ReleaseConfig.qrCodeUrl('${Uri.base.origin}/#/login');
       _qrStatus = 'active';
       _message = message;
     });

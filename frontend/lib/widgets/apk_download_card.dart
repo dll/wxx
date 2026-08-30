@@ -11,9 +11,7 @@ class ApkDownloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final qrData = Uri.encodeComponent(ReleaseConfig.apkDownloadUrl);
-    final qrUrl =
-        'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=$qrData&margin=10';
+    final qrUrl = ReleaseConfig.qrCodeUrl(ReleaseConfig.apkDownloadUrl);
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(

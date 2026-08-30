@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../providers/personal_detail_provider.dart';
 import '../../utils/portal_html_view.dart';
 import '../../utils/storage.dart';
@@ -94,7 +95,7 @@ class _PortalBrowsePageState extends State<PortalBrowsePage> {
     setState(() => _saving = true);
     final p = context.read<PersonalDetailProvider>();
     final ok = await p.savePortalCredential(
-      portalUrl: 'https://my0.chzu.edu.cn/',
+      portalUrl: ApiConfig.schoolPortalUrl,
       account: account,
       password: password,
     );

@@ -31,7 +31,7 @@ class _PersonalDetailDialogState extends State<PersonalDetailDialog>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
   final TextEditingController _portalUrl =
-      TextEditingController(text: 'https://my0.chzu.edu.cn/');
+      TextEditingController(text: ApiConfig.schoolPortalUrl);
   final TextEditingController _portalAccount = TextEditingController();
   final TextEditingController _portalPassword = TextEditingController();
   bool _pwdVisible = false;

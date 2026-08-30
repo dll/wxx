@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import 'release_config.dart';
+
 /// API 配置常量
 class ApiConfig {
   /// 后端基础地址
@@ -14,8 +16,11 @@ class ApiConfig {
       return 'http://localhost:8080';
     }
     if (kIsWeb) return '';
-    return 'https://wxx-agent.online';
+    return ReleaseConfig.webUrl;
   }
+
+  /// 学校教务门户默认地址（可在个人详情中由用户覆盖）
+  static const String schoolPortalUrl = 'https://my0.chzu.edu.cn/';
 
   /// 百度地图 AK（服务端校验域名白名单，固定随包分发，无需用户填写）。
   /// Web 与 Android 均使用同一常量，避免依赖 --dart-define 导致 APK 缺失。

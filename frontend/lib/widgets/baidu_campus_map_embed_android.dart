@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../config/release_config.dart';
+
 /// 非 Web 平台地图控制器（与 Web 端接口一致）。
 class BaiduCampusMapController {
   _BaiduCampusMapAndroidState? _st;
@@ -90,9 +92,9 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
   bool _ready = false;
 
   /// 根据 provider 返回对应地图 HTML 的线上地址。
-  /// 三套 HTML 均部署在 wxx-agent.online 的 /assets/ 下（Caddy 静态服务）。
+  /// 三套 HTML 均部署在正式域名（ReleaseConfig.webUrl）的 /assets/ 下（Caddy 静态服务）。
   String get _mapUrl {
-    final base = 'https://wxx-agent.online/assets';
+    final base = '${ReleaseConfig.webUrl}/assets';
     return switch (widget.provider) {
       'amap' => '$base/amap_campus_map.html?v=2',
       'tencent' => '$base/tencent_campus_map.html?v=2',
