@@ -59,15 +59,11 @@ func (s *ChatService) AskStream(ctx context.Context, userCtx *model.UserContext,
 		return card, sessionID, nil
 	}
 
-	// ── 流式调用 LLM ──
+	// ── 流式调用 LLM（A1 网关统一出口）──
 	req := &llm.ChatRequest{
 		Messages: messages, Temperature: 0.3, MaxTokens: 2048,
 	}
-	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
-		req.APIKey = override.APIKey
-		req.Model = override.Model
-	}
-	chunks, err := s.llmClient.Stream(ctx, req)
+	chunks, err := s.streamViaGateway(ctx, userCtx, sessionID, traceID, req)
 	if err != nil {
 		log.Printf("LLM 流式启动失败 [trace=%s]: %v", traceID, err)
 		card := s.fallbackAnswerWithSources(traceID, question, searchResults)

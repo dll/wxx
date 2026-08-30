@@ -7,6 +7,7 @@ import (
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/ports"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/temporal"
 	"github.com/google/uuid"
 )
@@ -23,6 +24,7 @@ type ChatService struct {
 	orchestrator   ports.AgentOrchestrator // 多智能体编排器（agentID 为空时启用，可选注入）
 	tokenStatsSvc  *TokenStatsService      // 可选：词元统计服务
 	modelConfigSvc *ModelConfigService     // 可选：用户 AI 模型配置（默认 provider/Key/模型名覆盖）
+	llmGateway     *LLMGateway             // A1：统一 LLM 出口（路由 + 调用审计）
 	contextEngine  *context_engine.Engine  // 统一知识检索管道
 }
 
@@ -40,6 +42,7 @@ func NewChatService(
 		kbRepo:        kbRepo,
 		agentRepo:     agentRepo,
 		llmClient:     llmClient,
+		llmGateway:    NewLLMGateway(llmClient),
 		contextEngine: newProductionContextEngine(kbRepo, messageRepo),
 	}
 }
@@ -47,11 +50,49 @@ func NewChatService(
 // SetModelConfigService 注入用户 AI 模型配置服务（可选）
 func (s *ChatService) SetModelConfigService(svc *ModelConfigService) {
 	s.modelConfigSvc = svc
+	if s.llmGateway != nil {
+		s.llmGateway.SetModelConfigService(svc)
+	}
+}
+
+// SetLLMCallLogRepo 注入 LLM 调用审计仓库（A1；nil = 仅控制台日志）
+func (s *ChatService) SetLLMCallLogRepo(repo *repository.LLMCallLogRepo) {
+	if s.llmGateway != nil {
+		s.llmGateway.SetCallLogRepo(repo)
+	}
+}
+
+// chatViaGateway 同步对话统一出口（A1）：路由 + 调用 + 审计。
+// 网关未初始化时（极端场景）退回直连语义，保证行为不劣化。
+func (s *ChatService) chatViaGateway(ctx context.Context, userCtx *model.UserContext, sessionID, traceID string, req *llm.ChatRequest) (*llm.ChatResponse, error) {
+	if s.llmGateway != nil {
+		return s.llmGateway.Chat(ctx, userCtx.UserID, sessionID, traceID, req)
+	}
+	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
+		req.APIKey = override.APIKey
+		req.Model = override.Model
+	}
+	return s.llmClient.Chat(ctx, req)
+}
+
+// streamViaGateway 流式对话统一出口（A1）：路由 + 调用 + 首包审计。
+func (s *ChatService) streamViaGateway(ctx context.Context, userCtx *model.UserContext, sessionID, traceID string, req *llm.ChatRequest) (<-chan llm.StreamChunk, error) {
+	if s.llmGateway != nil {
+		return s.llmGateway.Stream(ctx, userCtx.UserID, sessionID, traceID, req)
+	}
+	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
+		req.APIKey = override.APIKey
+		req.Model = override.Model
+	}
+	return s.llmClient.Stream(ctx, req)
 }
 
 // resolveUserLLMOverrides 解析用户自定义模型配置（default_provider + Key + 模型名 + 参数）。
 // 返回 nil 表示使用服务器默认配置。用户配置的模型/Key 会覆盖服务器默认。
 func (s *ChatService) resolveUserLLMOverrides(userID int64) *llm.ChatRequest {
+	if s.llmGateway != nil {
+		return s.llmGateway.resolveOverride(userID)
+	}
 	if s.modelConfigSvc == nil {
 		return nil
 	}

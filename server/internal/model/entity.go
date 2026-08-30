@@ -1034,3 +1034,19 @@ type AppVersion struct {
 	CreatedAt   string `json:"created_at" db:"created_at"`
 	UpdatedAt   string `json:"updated_at" db:"updated_at"`
 }
+
+// LLMCallLog LLM 调用审计日志（A1 网关落库，面向可观测与排障）
+type LLMCallLog struct {
+	ID           int64  `json:"id"`
+	TraceID      string `json:"trace_id"`
+	UserID       int64  `json:"user_id"`
+	SessionID    string `json:"session_id"`
+	Provider     string `json:"provider"`
+	Model        string `json:"model"`
+	PromptTokens int    `json:"prompt_tokens"`
+	OutputTokens int    `json:"output_tokens"`
+	LatencyMS    int64  `json:"latency_ms"`
+	Status       string `json:"status"` // ok / error
+	ErrorMsg     string `json:"error_msg"`
+	CreatedAt    string `json:"created_at"`
+}

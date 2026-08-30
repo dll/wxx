@@ -100,17 +100,13 @@ func (s *ChatService) askDirectImpl(ctx context.Context, userCtx *model.UserCont
 		return card, sessionID, nil
 	}
 
-	// ── 4. 调 LLM ──
+	// ── 4. 调 LLM（A1 网关统一出口）──
 	req := &llm.ChatRequest{
 		Messages:    messages,
 		Temperature: 0.3,
 		MaxTokens:   2048,
 	}
-	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
-		req.APIKey = override.APIKey
-		req.Model = override.Model
-	}
-	llmResp, err := s.llmClient.Chat(ctx, req)
+	llmResp, err := s.chatViaGateway(ctx, userCtx, sessionID, traceID, req)
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
 		return s.fallbackAnswerWithSources(traceID, question, searchResults), sessionID, nil

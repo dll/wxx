@@ -217,6 +217,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	modelConfigSvc := service.NewModelConfigService(modelConfigRepo)
 	// 用户模型配置（default_provider + Key + 模型名）参与对话：覆盖服务器默认
 	chatSvc.SetModelConfigService(modelConfigSvc)
+	// A1 AI 运行基座：LLM 调用审计日志（trace_id 贯穿、路由结果、延迟、用量）
+	chatSvc.SetLLMCallLogRepo(repository.NewLLMCallLogRepo(db))
 	tokenStatsSvc := service.NewTokenStatsService(tokenUsageRepo, userRepo, cfg.DailyChatQuotaPerUser, cfg.MonthlyChatQuotaPerUser, cfg.MonthlyTokenQuotaPerUser)
 	// 绑定自备 Key 的用户豁免系统 token 额度
 	tokenStatsSvc.SetModelConfigService(modelConfigSvc)

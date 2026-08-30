@@ -27,18 +27,14 @@ func (s *ChatService) askGenerateAndAssemble(ctx context.Context, userCtx *model
 		return card, sessionID, nil
 	}
 
-	// ── 5. 调 LLM ──
-	// 用户自定义模型配置（default_provider + Key + 模型名）优先覆盖服务器默认
+	// ── 5. 调 LLM（A1 网关统一出口：用户路由 + 调用审计）──
+	// 问答场景用低温度，减少编造
 	req := &llm.ChatRequest{
 		Messages:    messages,
-		Temperature: 0.3, // 问答场景用低温度，减少编造
+		Temperature: 0.3,
 		MaxTokens:   2048,
 	}
-	if override := s.resolveUserLLMOverrides(userCtx.UserID); override != nil {
-		req.APIKey = override.APIKey
-		req.Model = override.Model
-	}
-	llmResp, err := s.llmClient.Chat(ctx, req)
+	llmResp, err := s.chatViaGateway(ctx, userCtx, sessionID, traceID, req)
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
 		// 返回兜底回答，但保留搜索到的 sources
