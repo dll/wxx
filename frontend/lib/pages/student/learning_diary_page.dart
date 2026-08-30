@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
-import '../../widgets/error_view.dart';
+import '../../widgets/feature_page_scaffold.dart';
 import '../../widgets/md_text.dart';
 
 class LearningDiaryPage extends StatefulWidget {
@@ -23,16 +23,12 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<StudentFeatureProvider>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI 学习日记')),
-      body: RefreshIndicator(
-        onRefresh: () => provider.fetchLearningDiary(),
-        child: provider.loading
-            ? const Center(child: CircularProgressIndicator())
-            : provider.error.isNotEmpty
-                ? ErrorView.error(message: provider.error, onRetry: () => provider.fetchLearningDiary())
-                : _buildContent(theme, provider),
-      ),
+    return FeaturePageScaffold(
+      title: 'AI 学习日记',
+      loading: provider.loading,
+      error: provider.error.isEmpty ? null : provider.error,
+      onRefresh: () => provider.fetchLearningDiary(),
+      contentBuilder: (_) => _buildContent(theme, provider),
     );
   }
 
