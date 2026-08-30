@@ -31,16 +31,15 @@ func (r *GraduationRepo) ListAdvisors(college string, page, pageSize int) ([]*mo
 		args = append(args, college)
 	}
 
-	whereStr := strings.Join(where, " AND ")
+	whereSQL := buildWhereClause(where)
 
 	var total int
-	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM advisors WHERE %s", whereStr)
-	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM advisors %s", whereSQL), args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("统计导师数量失败: %w", err)
 	}
 
-	offset := (page - 1) * pageSize
-	querySQL := fmt.Sprintf("SELECT id, name, advisor_id, title, college, department, research_areas, max_students, is_active, created_at, updated_at FROM advisors WHERE %s ORDER BY name LIMIT ? OFFSET ?", whereStr)
+	offset := pageOffset(page, pageSize)
+	querySQL := fmt.Sprintf("SELECT id, name, advisor_id, title, college, department, research_areas, max_students, is_active, created_at, updated_at FROM advisors %s ORDER BY name LIMIT ? OFFSET ?", whereSQL)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.Query(querySQL, args...)
@@ -109,22 +108,21 @@ func (r *GraduationRepo) ListTopics(college, major, difficulty, status string, b
 		args = append(args, batch)
 	}
 
-	whereStr := strings.Join(where, " AND ")
+	whereSQL := buildWhereClause(where)
 
 	var total int
-	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM thesis_topics WHERE %s", whereStr)
-	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM thesis_topics %s", whereSQL), args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("统计选题数量失败: %w", err)
 	}
 
-	offset := (page - 1) * pageSize
+	offset := pageOffset(page, pageSize)
 	querySQL := fmt.Sprintf(`
-		SELECT t.id, t.title, t.advisor_id, a.name as advisor_name, t.college, t.major, t.topic_type, t.nature, 
-		       t.result_form, t.difficulty, t.description, t.requirements, t.keywords, 
+		SELECT t.id, t.title, t.advisor_id, a.name as advisor_name, t.college, t.major, t.topic_type, t.nature,
+		       t.result_form, t.difficulty, t.description, t.requirements, t.keywords,
 		       t.max_students, t.selected_count, t.batch, t.status, t.created_at, t.updated_at
-		FROM thesis_topics t 
-		LEFT JOIN advisors a ON t.advisor_id = a.id 
-		WHERE %s ORDER BY t.created_at DESC LIMIT ? OFFSET ?`, whereStr)
+		FROM thesis_topics t
+		LEFT JOIN advisors a ON t.advisor_id = a.id
+		%s ORDER BY t.created_at DESC LIMIT ? OFFSET ?`, whereSQL)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.Query(querySQL, args...)
@@ -233,7 +231,7 @@ func (r *GraduationRepo) DeleteTopic(id int64) error {
 
 // ListSelections 获取学生选题列表
 func (r *GraduationRepo) ListSelections(topicID int64, batch, page, pageSize int) ([]*model.StudentTopicSelection, int, error) {
-	where := []string{"1=1"}
+	where := []string{}
 	args := []interface{}{}
 
 	if topicID > 0 {
@@ -245,23 +243,22 @@ func (r *GraduationRepo) ListSelections(topicID int64, batch, page, pageSize int
 		args = append(args, batch)
 	}
 
-	whereStr := strings.Join(where, " AND ")
+	whereSQL := buildWhereClause(where)
 
 	var total int
-	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM student_topic_selections WHERE %s", whereStr)
-	if err := r.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM student_topic_selections %s", whereSQL), args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("统计选题记录数量失败: %w", err)
 	}
 
-	offset := (page - 1) * pageSize
+	offset := pageOffset(page, pageSize)
 	querySQL := fmt.Sprintf(`
 		SELECT s.id, s.user_id, s.student_id, s.student_name, s.college, s.major, s.class_name, s.batch,
-		       s.topic_id, t.title as topic_name, s.advisor_id, a.name as advisor_name, 
+		       s.topic_id, t.title as topic_name, s.advisor_id, a.name as advisor_name,
 		       s.status, s.preference_order, s.reason, s.confirmed_at, s.created_at, s.updated_at
 		FROM student_topic_selections s
 		LEFT JOIN thesis_topics t ON s.topic_id = t.id
 		LEFT JOIN advisors a ON s.advisor_id = a.id
-		WHERE %s ORDER BY s.preference_order LIMIT ? OFFSET ?`, whereStr)
+		%s ORDER BY s.preference_order LIMIT ? OFFSET ?`, whereSQL)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.Query(querySQL, args...)
