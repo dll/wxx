@@ -39,6 +39,14 @@ func NewFeedbackRepairTaskService(repo *repository.FeedbackRepairTaskRepo, feedb
 	return &FeedbackRepairTaskService{repo: repo, feedbackSvc: feedbackSvc}
 }
 
+// appendLog 追加任务操作日志（统一入口）。写日志失败仅告警不回滚主流程，
+// 但必须留痕可排障：审计日志静默丢失会破坏"修复全链路可追溯"的产品要求。
+func (s *FeedbackRepairTaskService) appendLog(taskID int64, line string) {
+	if err := s.repo.AppendLog(taskID, line); err != nil {
+		log.Printf("[WARN] 追加修复任务日志失败 task_id=%d: %v", taskID, err)
+	}
+}
+
 // validTransitions 状态机合法流转表
 var validTransitions = map[string][]string{
 	model.RepairTaskApproved:           {model.RepairTaskRunning, model.RepairTaskCancelled},
@@ -143,7 +151,7 @@ func (s *FeedbackRepairTaskService) Create(ctx context.Context, creator string, 
 
 	// 审计：为每条反馈追加 repair_task_created 日志
 	for _, fid := range ids {
-		_ = s.feedbackSvc.feedbackRepo.AddLog(fid, "repair_task_created", creator,
+		s.feedbackSvc.addLog(fid, "repair_task_created", creator,
 			fmt.Sprintf("已创建修复任务 %s", task.TaskNo))
 	}
 
@@ -199,7 +207,7 @@ func (s *FeedbackRepairTaskService) Cancel(taskNo, operator string) (*model.Repa
 	if err := s.repo.UpdateStatus(t.ID, model.RepairTaskCancelled); err != nil {
 		return nil, fmt.Errorf("取消任务失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[系统] %s 取消了任务", operator))
+	s.appendLog(t.ID, fmt.Sprintf("[系统] %s 取消了任务", operator))
 	return s.Get(taskNo)
 }
 
@@ -226,7 +234,7 @@ func (s *FeedbackRepairTaskService) Claim(ctx context.Context, workerHost, baseC
 	if err := s.repo.UpdateClaim(t.ID, model.RepairTaskRunning, workerHost, baseCommit, branch); err != nil {
 		return nil, fmt.Errorf("认领任务失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[执行端] %s 领取任务 (base=%s branch=%s)", workerHost, baseCommit, branch))
+	s.appendLog(t.ID, fmt.Sprintf("[执行端] %s 领取任务 (base=%s branch=%s)", workerHost, baseCommit, branch))
 
 	payload := s.taskToPayloadWithContents(t)
 	return payload, nil
@@ -282,7 +290,7 @@ func (s *FeedbackRepairTaskService) Accept(taskNo, acceptedBy, note string) (*mo
 	if err := s.repo.UpdateAccept(t.ID, model.RepairTaskDeployPending, acceptedBy, note); err != nil {
 		return nil, fmt.Errorf("验收任务失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[验收] %s 验收任务，备注：%s", acceptedBy, note))
+	s.appendLog(t.ID, fmt.Sprintf("[验收] %s 验收任务，备注：%s", acceptedBy, note))
 	return s.Get(taskNo)
 }
 
@@ -301,7 +309,7 @@ func (s *FeedbackRepairTaskService) Reject(taskNo, rejectedBy, reason string) (*
 	if err := s.repo.UpdateReject(t.ID, model.RepairTaskVerifyFailed, rejectedBy, reason); err != nil {
 		return nil, fmt.Errorf("驳回任务失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[驳回] %s 驳回任务，原因：%s", rejectedBy, reason))
+	s.appendLog(t.ID, fmt.Sprintf("[驳回] %s 驳回任务，原因：%s", rejectedBy, reason))
 	return s.Get(taskNo)
 }
 
@@ -320,7 +328,7 @@ func (s *FeedbackRepairTaskService) DeployConfirm(taskNo, confirmedBy, deployRef
 	if err := s.repo.UpdateDeployConfirm(t.ID, model.RepairTaskDeploying, confirmedBy, deployRef); err != nil {
 		return nil, fmt.Errorf("确认部署失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[部署确认] %s 开始部署：%s", confirmedBy, deployRef))
+	s.appendLog(t.ID, fmt.Sprintf("[部署确认] %s 开始部署：%s", confirmedBy, deployRef))
 	return s.Get(taskNo)
 }
 
@@ -339,7 +347,7 @@ func (s *FeedbackRepairTaskService) DeployDone(taskNo, doneBy, reply string, res
 	if err := s.repo.UpdateDeployDone(t.ID, model.RepairTaskDeployed); err != nil {
 		return nil, fmt.Errorf("登记部署完成失败: %w", err)
 	}
-	_ = s.repo.AppendLog(t.ID, fmt.Sprintf("[部署完成] %s 确认已上线", doneBy))
+	s.appendLog(t.ID, fmt.Sprintf("[部署完成] %s 确认已上线", doneBy))
 
 	if resolveFeedback {
 		// 复用现有 Resolve 自带状态机 + 站内通知
@@ -353,7 +361,7 @@ func (s *FeedbackRepairTaskService) DeployDone(taskNo, doneBy, reply string, res
 	if err := s.repo.UpdateDeployDone(t.ID, model.RepairTaskClosed); err != nil {
 		log.Printf("[repair-task] 标记关闭失败（不影响部署记录）task=%s err=%v", taskNo, err)
 	}
-	_ = s.repo.AppendLog(t.ID, "[系统] 任务已关闭")
+	s.appendLog(t.ID, "[系统] 任务已关闭")
 	return s.Get(taskNo)
 }
 

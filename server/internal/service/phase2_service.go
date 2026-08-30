@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/dll/wxx/server/internal/repository"
 )
@@ -107,7 +108,9 @@ func (s *Phase2Service) CreateQAPost(userID int64, title, content, category stri
 	if err != nil {
 		return 0, err
 	}
-	_ = s.repo.AddPoints(userID, 10, "发布问题："+title, "qa_post")
+	if err := s.repo.AddPoints(userID, 10, "发布问题："+title, "qa_post"); err != nil {
+		log.Printf("[WARN] 发布问题加分失败 user_id=%d: %v", userID, err)
+	}
 	return id, nil
 }
 
@@ -122,7 +125,9 @@ func (s *Phase2Service) AnswerPost(postID, userID int64, content string) (int64,
 	if err != nil {
 		return 0, err
 	}
-	_ = s.repo.AddPoints(userID, 15, "回答他人问题", "qa_answer")
+	if err := s.repo.AddPoints(userID, 15, "回答他人问题", "qa_answer"); err != nil {
+		log.Printf("[WARN] 回答问题加分失败 user_id=%d: %v", userID, err)
+	}
 	return id, nil
 }
 
@@ -133,7 +138,9 @@ func (s *Phase2Service) ListAnswers(postID int64) ([]map[string]interface{}, err
 
 // GetPost 帖子详情（含浏览数自增）
 func (s *Phase2Service) GetPost(postID int64) (*repository.QAPost, error) {
-	_ = s.repo.IncrementPostViews(postID)
+	if err := s.repo.IncrementPostViews(postID); err != nil {
+		log.Printf("[WARN] 帖子浏览量自增失败 post_id=%d: %v", postID, err)
+	}
 	return s.repo.GetQAPost(postID)
 }
 

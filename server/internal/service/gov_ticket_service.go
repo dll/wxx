@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
@@ -48,6 +49,14 @@ type GovTicketService struct {
 // NewGovTicketService 创建督办工单服务
 func NewGovTicketService(repo *repository.GovTicketRepo, kpi *repository.SecretaryOutcomeRepo) *GovTicketService {
 	return &GovTicketService{repo: repo, kpi: kpi}
+}
+
+// addLog 追加工单操作日志（统一入口）。写日志失败仅告警不回滚主流程，
+// 但必须留痕可排障：督办工单的状态流转依赖日志可追溯。
+func (s *GovTicketService) addLog(ticketID int64, action string, opID int64, opName, detail string) {
+	if err := s.repo.AddLog(ticketID, action, opID, opName, detail); err != nil {
+		log.Printf("[WARN] 追加工单日志失败 ticket_id=%d action=%s: %v", ticketID, action, err)
+	}
 }
 
 // CreateTicket 创建督办工单（治理洞察类）。
@@ -103,10 +112,10 @@ func (s *GovTicketService) CreateTicket(ctx context.Context, req *repository.Gov
 	if err != nil {
 		return 0, err
 	}
-	_ = s.repo.AddLog(id, "created", req.CreatedBy, req.CreatedByName, "创建督办工单")
+	s.addLog(id, "created", req.CreatedBy, req.CreatedByName, "创建督办工单")
 	// 若创建时即带分派对象，直接记为分派
 	if req.AssigneeID > 0 && req.AssigneeName != "" {
-		_ = s.repo.AddLog(id, "assigned", req.CreatedBy, req.CreatedByName,
+		s.addLog(id, "assigned", req.CreatedBy, req.CreatedByName,
 			fmt.Sprintf("分派给 %s(%s)", req.AssigneeName, req.AssigneeRole))
 	}
 	return id, nil
@@ -165,10 +174,10 @@ func (s *GovTicketService) CreateFromKPI(ctx context.Context, kpiKey, ownerID st
 	if err != nil {
 		return 0, err
 	}
-	_ = s.repo.AddLog(id, "created", req.CreatedBy, req.CreatedByName,
+	s.addLog(id, "created", req.CreatedBy, req.CreatedByName,
 		fmt.Sprintf("从育人 KPI %s(%s) 生成补料督办工单", kpiKey, label))
 	if req.AssigneeID > 0 && req.AssigneeName != "" {
-		_ = s.repo.AddLog(id, "assigned", req.CreatedBy, req.CreatedByName,
+		s.addLog(id, "assigned", req.CreatedBy, req.CreatedByName,
 			fmt.Sprintf("分派给 %s(%s)", req.AssigneeName, req.AssigneeRole))
 	}
 	return id, nil

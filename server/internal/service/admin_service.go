@@ -270,7 +270,10 @@ func (s *AdminService) BatchUpdateStatus(ids []int64, status string, operator st
 	// 注意：须在更新前读取 before，更新后再读会得到新状态
 	beforeMap := map[int64]string{}
 	if s.auditRepo != nil {
-		beforeMap, _ = s.userRepo.GetStatusesByIDs(ids)
+		var gerr error
+		if beforeMap, gerr = s.userRepo.GetStatusesByIDs(ids); gerr != nil {
+			log.Printf("[WARN] 读取用户状态快照失败（本次操作将无法生成恢复快照）: %v", gerr)
+		}
 	}
 	count, err := s.userRepo.BatchUpdateStatus(ids, status)
 	if err != nil {
@@ -282,13 +285,15 @@ func (s *AdminService) BatchUpdateStatus(ids []int64, status string, operator st
 			if before == "" || before == status {
 				continue
 			}
-			_ = s.auditRepo.CreateSnapshot(&model.AuditSnapshot{
+			if err := s.auditRepo.CreateSnapshot(&model.AuditSnapshot{
 				OpTable:    "users",
 				RecordID:   fmt.Sprintf("%d", id),
 				Operation:  "user.status",
 				BeforeJSON: before,
 				AfterJSON:  status,
-			})
+			}); err != nil {
+				log.Printf("[WARN] 写入用户状态恢复快照失败 record=%d: %v", id, err)
+			}
 		}
 	}
 	log.Printf("批量更新用户状态 count=%d status=%s by=%s", count, status, operator)

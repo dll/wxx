@@ -49,6 +49,21 @@ func (s *FeedbackService) SetRepairRepo(repo *repository.FeedbackRepairRepo) {
 	s.repairRepo = repo
 }
 
+// addLog 追加反馈操作日志（统一入口）。写日志失败仅告警不回滚主流程，
+// 但必须留痕可排障：反馈处置链要求可追溯，静默丢失会破坏审计闭环。
+func (s *FeedbackService) addLog(feedbackID, action, operator, detail string) {
+	if err := s.feedbackRepo.AddLog(feedbackID, action, operator, detail); err != nil {
+		log.Printf("[WARN] 追加反馈日志失败 feedback_id=%s action=%s: %v", feedbackID, action, err)
+	}
+}
+
+// appendRepairLog 追加 AI 修复工单日志（统一入口，失败告警留痕）。
+func (s *FeedbackService) appendRepairLog(jobID int64, line string) {
+	if err := s.repairRepo.AppendLog(jobID, line); err != nil {
+		log.Printf("[WARN] 追加修复工单日志失败 job_id=%d: %v", jobID, err)
+	}
+}
+
 // SetAnswerErrorHook 注入"回答有误"反馈钩子（如失效 FAQ 缓存）
 // 钩子在反馈成功保存后异步执行，不影响反馈提交结果
 func (s *FeedbackService) SetAnswerErrorHook(fn func(messageID, content string)) {
@@ -204,7 +219,7 @@ func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator str
 		if err != nil {
 			log.Printf("反馈修复工单创建失败 feedback_id=%s err=%v", feedbackID, err)
 		} else {
-			_ = s.repairRepo.AppendLog(jobID, "初始化修复工单，开始 AI 诊断")
+			s.appendRepairLog(jobID, "初始化修复工单，开始 AI 诊断")
 		}
 	}
 	finish := func(status, stage, detail string, files []string) {
@@ -212,10 +227,16 @@ func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator str
 			return
 		}
 		if filesJSON, ferr := json.Marshal(files); ferr == nil {
-			_ = s.repairRepo.SetEditedFiles(jobID, string(filesJSON))
+			if err := s.repairRepo.SetEditedFiles(jobID, string(filesJSON)); err != nil {
+				log.Printf("[WARN] 修复工单写入编辑文件失败 job_id=%d: %v", jobID, err)
+			}
 		}
-		_ = s.repairRepo.UpdateStage(jobID, stage)
-		_ = s.repairRepo.Finalize(jobID, status, detail)
+		if err := s.repairRepo.UpdateStage(jobID, stage); err != nil {
+			log.Printf("[WARN] 修复工单更新阶段失败 job_id=%d stage=%s: %v", jobID, stage, err)
+		}
+		if err := s.repairRepo.Finalize(jobID, status, detail); err != nil {
+			log.Printf("[WARN] 修复工单收尾失败 job_id=%d status=%s: %v", jobID, status, err)
+		}
 	}
 
 	resp := &model.AIRepairResponse{Module: fb.Module}
@@ -286,7 +307,7 @@ func (s *FeedbackService) AIRepair(ctx context.Context, feedbackID, operator str
 		resp.Summary+" ｜ 根因："+resp.RootCause, resp.CodeFiles)
 
 	// 记录处理日志
-	_ = s.feedbackRepo.AddLog(feedbackID, "ai_repair", operator, "AI 在线修复诊断")
+	s.addLog(feedbackID, "ai_repair", operator, "AI 在线修复诊断")
 
 	resp.RunID = runID
 	return resp, nil
@@ -430,7 +451,7 @@ func (s *FeedbackService) Submit(userID int64, username string, req *model.Feedb
 		fb.FeedbackID, fb.Category, fb.ScreenshotURL != "", username)
 
 	// 记录处理日志
-	_ = s.feedbackRepo.AddLog(fb.FeedbackID, "submit", username, "用户提交反馈")
+	s.addLog(fb.FeedbackID, "submit", username, "用户提交反馈")
 
 	// 仅 "回答有误" 类反馈触发钩子（异步，不影响响应）
 	if req.Category == "answer_error" && s.onAnswerError != nil {
@@ -576,7 +597,7 @@ func (s *FeedbackService) Resolve(feedbackID, resolvedBy, status, reply string) 
 	if reply != "" {
 		detail += fmt.Sprintf("，回复：%s", reply)
 	}
-	_ = s.feedbackRepo.AddLog(feedbackID, action, resolvedBy, detail)
+	s.addLog(feedbackID, action, resolvedBy, detail)
 
 	log.Printf("反馈已处理 feedback_id=%s status=%s reply=%s by=%s",
 		feedbackID, status, reply, resolvedBy)
@@ -671,7 +692,7 @@ func (s *FeedbackService) LinkResource(feedbackID, resourceID, note, operator st
 	if note != "" {
 		detail += fmt.Sprintf("，备注：%s", note)
 	}
-	_ = s.feedbackRepo.AddLog(feedbackID, "link_resource", operator, detail)
+	s.addLog(feedbackID, "link_resource", operator, detail)
 
 	log.Printf("反馈已关联知识资源 feedback_id=%s resource_id=%s by=%s",
 		feedbackID, resourceID, operator)
@@ -710,7 +731,7 @@ func (s *FeedbackService) Rate(feedbackID string, userID int64, rating int, comm
 	if comment != "" {
 		detail += fmt.Sprintf("，评价：%s", comment)
 	}
-	_ = s.feedbackRepo.AddLog(feedbackID, "rate", fb.Username, detail)
+	s.addLog(feedbackID, "rate", fb.Username, detail)
 
 	log.Printf("反馈已评价 feedback_id=%s rating=%d by=user_%d",
 		feedbackID, rating, userID)
