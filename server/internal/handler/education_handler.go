@@ -16,16 +16,17 @@ import (
 )
 
 // EducationHandler 学生教育三大模块（就业指导、学业学习、心理健康）HTTP handler
-// P4-d 进行中：心理健康/就业域 SQL 已下沉对应 Repo，其余域后续按同范式迁移
+// P4-d 进行中：心理健康/就业/健康域 SQL 已下沉对应 Repo，其余域后续按同范式迁移
 type EducationHandler struct {
 	db         *sql.DB
 	mentalRepo *repository.MentalHealthRepo
 	careerRepo *repository.CareerRepo
+	healthRepo *repository.HealthRepo
 }
 
 // NewEducationHandler 创建教育模块 handler
-func NewEducationHandler(db *sql.DB, mentalRepo *repository.MentalHealthRepo, careerRepo *repository.CareerRepo) *EducationHandler {
-	return &EducationHandler{db: db, mentalRepo: mentalRepo, careerRepo: careerRepo}
+func NewEducationHandler(db *sql.DB, mentalRepo *repository.MentalHealthRepo, careerRepo *repository.CareerRepo, healthRepo *repository.HealthRepo) *EducationHandler {
+	return &EducationHandler{db: db, mentalRepo: mentalRepo, careerRepo: careerRepo, healthRepo: healthRepo}
 }
 
 // generateID 生成简短唯一 ID（前缀 + 随机 hex）
