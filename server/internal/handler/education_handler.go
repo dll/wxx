@@ -11,17 +11,20 @@ import (
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
+	"github.com/dll/wxx/server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
 // EducationHandler 学生教育三大模块（就业指导、学业学习、心理健康）HTTP handler
+// P4-d 进行中：心理健康域 SQL 已下沉 MentalHealthRepo，其余域后续按同范式迁移
 type EducationHandler struct {
-	db *sql.DB
+	db         *sql.DB
+	mentalRepo *repository.MentalHealthRepo
 }
 
 // NewEducationHandler 创建教育模块 handler
-func NewEducationHandler(db *sql.DB) *EducationHandler {
-	return &EducationHandler{db: db}
+func NewEducationHandler(db *sql.DB, mentalRepo *repository.MentalHealthRepo) *EducationHandler {
+	return &EducationHandler{db: db, mentalRepo: mentalRepo}
 }
 
 // generateID 生成简短唯一 ID（前缀 + 随机 hex）

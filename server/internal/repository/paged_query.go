@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // buildWhereClause 拼接 WHERE 子句。
@@ -59,4 +60,9 @@ func pageOffset(page, pageSize int) int {
 		pageSize = 20
 	}
 	return (page - 1) * pageSize
+}
+
+// nowString 当前本地时间戳（"2006-01-02 15:04:05"，与库内时间格式一致）。
+func nowString() string {
+	return time.Now().Format("2006-01-02 15:04:05")
 }
