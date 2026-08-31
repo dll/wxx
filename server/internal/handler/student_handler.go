@@ -16,11 +16,12 @@ type StudentHandler struct {
 	phase2Svc      *service.Phase2Service      // 阶段二真实数据服务（积分/问答），可为 nil
 	db             *sql.DB
 	profileRepo    *repository.StudentProfileRepo // P4-d：画像/头像数据访问
+	studyPlanRepo  *repository.StudyPlanRepo      // P4-d：校历/计划/任务查询
 }
 
 // NewStudentHandler 创建学生 handler。svc 可为 nil（兼容旧调用），此时所有 AI 功能走兜底
 func NewStudentHandler(svc *service.StudentService, db *sql.DB) *StudentHandler {
-	return &StudentHandler{svc: svc, db: db, profileRepo: repository.NewStudentProfileRepo(db)}
+	return &StudentHandler{svc: svc, db: db, profileRepo: repository.NewStudentProfileRepo(db), studyPlanRepo: repository.NewStudyPlanRepo(db)}
 }
 
 // SetTwinService 注入数字孪生服务（可选依赖，装配期调用）

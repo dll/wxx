@@ -215,3 +215,44 @@ func (r *StudentProfileRepo) GetAvatar(userID string) (string, string, error) {
 	}
 	return b64, mime, nil
 }
+
+// HomeUserInfo 首页用户信息。
+type HomeUserInfo struct {
+	DisplayName    string
+	Username       string
+	College        string
+	Major          string
+	EnrollmentYear string
+}
+
+// GetHomeUserInfo 首页用户信息（无记录返回 ErrProfileNotFound）。
+func (r *StudentProfileRepo) GetHomeUserInfo(userID int64) (*HomeUserInfo, error) {
+	info := &HomeUserInfo{}
+	var displayName, username, college, major, enrollmentYear sql.NullString
+	err := r.db.QueryRow(
+		"SELECT display_name, username, college, major, enrollment_year FROM users WHERE id = ?",
+		userID,
+	).Scan(&displayName, &username, &college, &major, &enrollmentYear)
+	if err == sql.ErrNoRows {
+		return nil, ErrProfileNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if displayName.Valid {
+		info.DisplayName = displayName.String
+	}
+	if username.Valid {
+		info.Username = username.String
+	}
+	if college.Valid {
+		info.College = college.String
+	}
+	if major.Valid {
+		info.Major = major.String
+	}
+	if enrollmentYear.Valid {
+		info.EnrollmentYear = enrollmentYear.String
+	}
+	return info, nil
+}

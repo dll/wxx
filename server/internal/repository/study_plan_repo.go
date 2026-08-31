@@ -524,3 +524,129 @@ func calcCurrentWeek(startDate, today string) int {
 	days := int(now.Sub(start).Hours() / 24)
 	return days/7 + 1
 }
+
+// ── 学生首页聚合（student_home_handler 专用查询）──
+
+// TodayCourseRow 今日课程行（节次由调用方换算时间段）。
+type TodayCourseRow struct {
+	CourseName  string
+	Location    string
+	Teacher     string
+	Color       string
+	StartPeriod int
+	EndPeriod   int
+}
+
+// ListTodayCourses 指定学期星期的课程（按节次排序）。
+func (r *StudyPlanRepo) ListTodayCourses(userID int64, semesterCode string, weekday int) ([]*TodayCourseRow, error) {
+	rows, err := r.db.Query(
+		"SELECT course_name, start_period, end_period, location, teacher, color "+
+			"FROM course_schedules WHERE user_id = ? AND semester_code = ? AND weekday = ? "+
+			"ORDER BY start_period ASC, id ASC",
+		userID, semesterCode, weekday,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]*TodayCourseRow, 0)
+	for rows.Next() {
+		row := &TodayCourseRow{}
+		var courseName, location, teacher, color sql.NullString
+		if err := rows.Scan(&courseName, &row.StartPeriod, &row.EndPeriod, &location, &teacher, &color); err != nil {
+			continue
+		}
+		row.CourseName = courseName.String
+		row.Location = location.String
+		row.Teacher = teacher.String
+		row.Color = color.String
+		list = append(list, row)
+	}
+	return list, rows.Err()
+}
+
+// TodayTaskRow 今日任务行。
+type TodayTaskRow struct {
+	ID       int64
+	Title    string
+	PlanID   int64
+	Status   string
+	Duration int
+}
+
+// ListTodayTasks 用户指定日期的计划任务。
+func (r *StudyPlanRepo) ListTodayTasks(userID int64, date string) ([]*TodayTaskRow, error) {
+	rows, err := r.db.Query(
+		"SELECT t.id, t.title, t.plan_id, t.status, t.scheduled_duration "+
+			"FROM study_plan_tasks t JOIN study_plans p ON t.plan_id = p.id "+
+			"WHERE p.user_id = ? AND t.scheduled_date = ? "+
+			"ORDER BY t.sort_order ASC, t.id ASC",
+		userID, date,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]*TodayTaskRow, 0)
+	for rows.Next() {
+		row := &TodayTaskRow{}
+		var title sql.NullString
+		var duration sql.NullInt64
+		if err := rows.Scan(&row.ID, &title, &row.PlanID, &row.Status, &duration); err != nil {
+			continue
+		}
+		row.Title = title.String
+		row.Duration = int(duration.Int64)
+		list = append(list, row)
+	}
+	return list, rows.Err()
+}
+
+// UpcomingEventRow 近期事件行（ID/名称/类型/开始日）。
+type UpcomingEventRow struct {
+	ID        int64
+	EventName string
+	EventType string
+	StartDate string
+}
+
+// ListUpcomingEvents 未来窗口内的学期事件（end_date 可空）。
+func (r *StudyPlanRepo) ListUpcomingEvents(semesterCode, fromDate, toDate string) ([]*UpcomingEventRow, error) {
+	rows, err := r.db.Query(
+		"SELECT id, event_name, event_type, start_date "+
+			"FROM academic_calendar_events WHERE semester_code = ? "+
+			"AND (start_date <= ? AND (end_date >= ? OR end_date IS NULL)) "+
+			"ORDER BY start_date ASC, id ASC LIMIT 10",
+		semesterCode, toDate, fromDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]*UpcomingEventRow, 0)
+	for rows.Next() {
+		row := &UpcomingEventRow{}
+		var eventName, eventType, startDate sql.NullString
+		if err := rows.Scan(&row.ID, &eventName, &row.EventType, &startDate); err != nil {
+			continue
+		}
+		row.EventName = eventName.String
+		row.EventType = eventType.String
+		row.StartDate = startDate.String
+		list = append(list, row)
+	}
+	return list, rows.Err()
+}
+
+// CountActivePlans 进行中的学习计划数。
+func (r *StudyPlanRepo) CountActivePlans(userID int64) (int, error) {
+	var count int
+	err := r.db.QueryRow(
+		"SELECT COUNT(*) FROM study_plans WHERE user_id = ? AND status = 'active'",
+		userID,
+	).Scan(&count)
+	return count, err
+}

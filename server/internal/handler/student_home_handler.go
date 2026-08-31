@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"time"
@@ -159,7 +158,7 @@ func (h *StudentHandler) Home(c *gin.Context) {
 	})
 }
 
-// getUserInfo 获取用户信息
+// getUserInfo 获取用户信息（SQL 已下沉 StudentProfileRepo，P4-d）
 func (h *StudentHandler) getUserInfo(userID int64) HomeStudentUserInfo {
 	info := HomeStudentUserInfo{
 		Name:      "同学",
@@ -168,136 +167,51 @@ func (h *StudentHandler) getUserInfo(userID int64) HomeStudentUserInfo {
 		Major:     "",
 		Grade:     "",
 	}
-	if h.db == nil {
+	if h.profileRepo == nil {
 		return info
 	}
 
-	var displayName, username, college, major, enrollmentYear sql.NullString
-	err := h.db.QueryRow(
-		"SELECT display_name, username, college, major, enrollment_year FROM users WHERE id = ?",
-		userID,
-	).Scan(&displayName, &username, &college, &major, &enrollmentYear)
+	u, err := h.profileRepo.GetHomeUserInfo(userID)
 	if err != nil {
 		log.Printf("获取用户信息失败 user_id=%d: %v", userID, err)
 		return info
 	}
-	if displayName.Valid {
-		info.Name = displayName.String
+	if u.DisplayName != "" {
+		info.Name = u.DisplayName
 	}
-	if username.Valid {
-		info.StudentID = username.String
-	}
-	if college.Valid {
-		info.College = college.String
-	}
-	if major.Valid {
-		info.Major = major.String
-	}
-	if enrollmentYear.Valid && enrollmentYear.String != "" {
-		info.Grade = enrollmentYear.String + "级"
+	info.StudentID = u.Username
+	info.College = u.College
+	info.Major = u.Major
+	if u.EnrollmentYear != "" {
+		info.Grade = u.EnrollmentYear + "级"
 	}
 	return info
 }
 
-// resolveCurrentCalendar 获取当前学期校历与教学周
+// resolveCurrentCalendar 获取当前学期校历与教学周（复用 StudyPlanRepo，P4-d 消重）
 func (h *StudentHandler) resolveCurrentCalendar() (*model.AcademicCalendar, int) {
-	if h.db == nil {
+	if h.studyPlanRepo == nil {
 		return nil, 0
 	}
-
-	today := time.Now().Format("2006-01-02")
-
-	calendar := &model.AcademicCalendar{}
-	err := h.db.QueryRow(
-		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
-			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
-			"FROM academic_calendars WHERE start_date <= ? AND end_date >= ? ORDER BY id DESC LIMIT 1",
-		today, today,
-	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
-		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
-		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
-		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
-	if err == nil {
-		return calendar, calcHomeCurrentWeek(calendar.StartDate, today)
-	}
-	if err != sql.ErrNoRows {
-		log.Printf("查询当前学期校历失败: %v", err)
-		return nil, 0
-	}
-
-	calendar = &model.AcademicCalendar{}
-	err = h.db.QueryRow(
-		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
-			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
-			"FROM academic_calendars WHERE start_date > ? ORDER BY start_date ASC LIMIT 1",
-		today,
-	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
-		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
-		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
-		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
-	if err == nil {
-		return calendar, 0
-	}
-	if err != sql.ErrNoRows {
-		log.Printf("查询未来学期校历失败: %v", err)
-		return nil, 0
-	}
-
-	calendar = &model.AcademicCalendar{}
-	err = h.db.QueryRow(
-		"SELECT id, academic_year, semester, semester_code, semester_name, start_date, end_date, "+
-			"register_date, total_weeks, week_start_day, status, created_at, updated_at "+
-			"FROM academic_calendars WHERE end_date < ? ORDER BY end_date DESC LIMIT 1",
-		today,
-	).Scan(&calendar.ID, &calendar.AcademicYear, &calendar.Semester, &calendar.SemesterCode,
-		&calendar.SemesterName, &calendar.StartDate, &calendar.EndDate,
-		&calendar.RegisterDate, &calendar.TotalWeeks, &calendar.WeekStartDay,
-		&calendar.Status, &calendar.CreatedAt, &calendar.UpdatedAt)
-	if err == sql.ErrNoRows {
-		log.Printf("无任何校历记录")
-		return nil, 0
-	}
+	calendar, week, err := h.studyPlanRepo.ResolveCurrentCalendar()
 	if err != nil {
-		log.Printf("查询过往学期校历失败: %v", err)
+		log.Printf("解析当前校历失败: %v", err)
 		return nil, 0
 	}
-	return calendar, 0
+	return calendar, week
 }
 
-// calcHomeCurrentWeek 计算当前教学周
-func calcHomeCurrentWeek(startDate, today string) int {
-	start, err := time.Parse("2006-01-02", startDate)
-	if err != nil {
-		return 0
-	}
-	now, err := time.Parse("2006-01-02", today)
-	if err != nil {
-		return 0
-	}
-	if now.Before(start) {
-		return 0
-	}
-	days := int(now.Sub(start).Hours() / 24)
-	return days/7 + 1
-}
-
-// getTodayCourses 获取今日课程
+// getTodayCourses 获取今日课程（节次→时间段映射留在展示层）
 func (h *StudentHandler) getTodayCourses(userID int64, weekday int, calendar *model.AcademicCalendar) []HomeStudentCourse {
 	courses := make([]HomeStudentCourse, 0)
-	if h.db == nil || calendar == nil {
+	if h.studyPlanRepo == nil || calendar == nil {
 		return courses
 	}
 
-	rows, err := h.db.Query(
-		"SELECT course_name, start_period, end_period, location, teacher, color "+
-			"FROM course_schedules WHERE user_id = ? AND semester_code = ? AND weekday = ? "+
-			"ORDER BY start_period ASC, id ASC",
-		userID, calendar.SemesterCode, weekday,
-	)
+	rows, err := h.studyPlanRepo.ListTodayCourses(userID, calendar.SemesterCode, weekday)
 	if err != nil {
 		return courses
 	}
-	defer rows.Close()
 
 	periodTimes := []string{
 		"", "08:00-08:45", "08:55-09:40",
@@ -307,58 +221,44 @@ func (h *StudentHandler) getTodayCourses(userID int64, weekday int, calendar *mo
 		"19:00-19:45", "19:55-20:40",
 	}
 
-	for rows.Next() {
-		var courseName, location, teacher, color sql.NullString
-		var startPeriod, endPeriod int
-		if err := rows.Scan(&courseName, &startPeriod, &endPeriod, &location, &teacher, &color); err != nil {
-			continue
-		}
+	for _, row := range rows {
 		timeStr := ""
-		if startPeriod >= 1 && startPeriod <= 10 && endPeriod >= startPeriod && endPeriod <= 10 {
-			startTime := periodTimes[startPeriod][:5]
-			endTime := periodTimes[endPeriod][6:]
+		if row.StartPeriod >= 1 && row.StartPeriod <= 10 && row.EndPeriod >= row.StartPeriod && row.EndPeriod <= 10 {
+			startTime := periodTimes[row.StartPeriod][:5]
+			endTime := periodTimes[row.EndPeriod][6:]
 			timeStr = startTime + "-" + endTime
 		}
 		courses = append(courses, HomeStudentCourse{
-			CourseName: courseName.String,
+			CourseName: row.CourseName,
 			Time:       timeStr,
-			Location:   location.String,
-			Teacher:    teacher.String,
-			Color:      color.String,
+			Location:   row.Location,
+			Teacher:    row.Teacher,
+			Color:      row.Color,
 		})
 	}
 	return courses
 }
 
-// getTodayTasks 获取今日任务
+// getTodayTasks 获取今日任务（SQL 已下沉 StudyPlanRepo，P4-d）
 func (h *StudentHandler) getTodayTasks(userID int64, todayStr string) []HomeStudentTask {
 	tasks := make([]HomeStudentTask, 0)
-	if h.db == nil {
+	if h.studyPlanRepo == nil {
 		return tasks
 	}
 
-	rows, err := h.db.Query(
-		"SELECT t.id, t.title, t.plan_id, t.status, t.scheduled_duration "+
-			"FROM study_plan_tasks t JOIN study_plans p ON t.plan_id = p.id "+
-			"WHERE p.user_id = ? AND t.scheduled_date = ? "+
-			"ORDER BY t.sort_order ASC, t.id ASC",
-		userID, todayStr,
-	)
+	rows, err := h.studyPlanRepo.ListTodayTasks(userID, todayStr)
 	if err != nil {
 		log.Printf("查询今日任务失败 user_id=%d: %v", userID, err)
 		return tasks
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var title sql.NullString
-		var duration sql.NullInt64
+	for _, row := range rows {
 		task := HomeStudentTask{}
-		if err := rows.Scan(&task.ID, &title, &task.PlanID, &task.Status, &duration); err != nil {
-			continue
-		}
-		task.Title = title.String
-		task.Duration = int(duration.Int64)
+		task.ID = row.ID
+		task.Title = row.Title
+		task.PlanID = row.PlanID
+		task.Status = row.Status
+		task.Duration = row.Duration
 		tasks = append(tasks, task)
 	}
 	return tasks
@@ -367,65 +267,48 @@ func (h *StudentHandler) getTodayTasks(userID int64, todayStr string) []HomeStud
 // getUpcomingEvents 获取近期事件（未来7天 + 正在进行中的）
 func (h *StudentHandler) getUpcomingEvents(todayStr string, calendar *model.AcademicCalendar) []HomeStudentEvent {
 	events := make([]HomeStudentEvent, 0)
-	if h.db == nil || calendar == nil {
+	if h.studyPlanRepo == nil || calendar == nil {
 		return events
 	}
 
-	fromDate := todayStr
 	toDate := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
-
-	rows, err := h.db.Query(
-		"SELECT id, event_name, event_type, start_date, end_date "+
-			"FROM academic_calendar_events WHERE semester_code = ? "+
-			"AND (start_date <= ? AND (end_date >= ? OR end_date IS NULL)) "+
-			"ORDER BY start_date ASC, id ASC LIMIT 10",
-		calendar.SemesterCode, toDate, fromDate,
-	)
+	rows, err := h.studyPlanRepo.ListUpcomingEvents(calendar.SemesterCode, todayStr, toDate)
 	if err != nil {
 		return events
 	}
-	defer rows.Close()
 
 	today, _ := time.Parse("2006-01-02", todayStr)
 
-	for rows.Next() {
-		var eventName, eventType, startDate sql.NullString
-		var endDate sql.NullString
-		var id int64
-		if err := rows.Scan(&id, &eventName, &eventType, &startDate, &endDate); err != nil {
-			continue
-		}
-		start, err := time.Parse("2006-01-02", startDate.String)
+	for _, row := range rows {
+		start, err := time.Parse("2006-01-02", row.StartDate)
 		if err != nil {
 			continue
 		}
 		daysLeft := int(start.Sub(today).Hours() / 24)
 		events = append(events, HomeStudentEvent{
-			ID:        id,
-			EventName: eventName.String,
-			EventType: eventType.String,
-			StartDate: startDate.String,
+			ID:        row.ID,
+			EventName: row.EventName,
+			EventType: row.EventType,
+			StartDate: row.StartDate,
 			DaysLeft:  daysLeft,
 		})
 	}
 	return events
 }
 
-// getHomeStats 获取首页统计数据
+// getHomeStats 获取首页统计数据（SQL 已下沉 StudyPlanRepo，P4-d）
 func (h *StudentHandler) getHomeStats(userID int64) HomeStudentStats {
 	stats := HomeStudentStats{}
-	if h.db == nil {
+	if h.studyPlanRepo == nil {
 		return stats
 	}
 
-	// 进行中的学习计划数
-	countErr := h.db.QueryRow(
-		"SELECT COUNT(*) FROM study_plans WHERE user_id = ? AND status = 'active'",
-		userID,
-	).Scan(&stats.PlansInProgress)
-	if countErr != nil {
-		log.Printf("获取首页统计失败 user_id=%d: %v", userID, countErr)
+	count, err := h.studyPlanRepo.CountActivePlans(userID)
+	if err != nil {
+		log.Printf("获取首页统计失败 user_id=%d: %v", userID, err)
+		return stats
 	}
+	stats.PlansInProgress = count
 
 	return stats
 }
