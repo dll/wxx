@@ -35,7 +35,7 @@ func (s *ChatService) askGenerateAndAssemble(ctx context.Context, userCtx *model
 		Temperature: 0.3,
 		MaxTokens:   2048,
 	}
-	llmResp, err := s.chatViaGateway(ctx, userCtx, sessionID, traceID, req)
+	llmResp, err := s.chatWithToolLoop(ctx, userCtx, sessionID, traceID, req)
 	if err != nil {
 		log.Printf("LLM 调用失败 [trace=%s]: %v", traceID, err)
 		// 返回兜底回答，但保留搜索到的 sources

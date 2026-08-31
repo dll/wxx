@@ -189,6 +189,10 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	forecastSvc := service.NewForecastService(db, forecastRepo, emotionRepo, feedbackRepo, llmClient)
 
 	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, llmClient)
+	// A3 function calling：校园场景工具注册表（独立于编排器，供 LLM 工具循环使用）
+	toolRegistry := agent.NewToolRegistry()
+	toolRegistry.Register(agent.NewProcessNodeTool(kbRepo))
+	chatSvc.SetToolRegistry(toolRegistry)
 	if llmClient != nil {
 		if einoOrch, err := agent.NewEinoOrchestrator(kbRepo, llmClient); err == nil {
 			chatSvc.SetOrchestrator(einoOrch)

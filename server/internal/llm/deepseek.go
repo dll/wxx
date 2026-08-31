@@ -64,6 +64,7 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 		Messages:    req.Messages,
 		Temperature: req.Temperature,
 		MaxTokens:   req.MaxTokens,
+		Tools:       req.Tools,
 	}
 
 	// 设置默认值
@@ -126,6 +127,7 @@ func (c *DeepSeekClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 		FinishReason: openAIResp.Choices[0].FinishReason,
 		PromptTokens: openAIResp.Usage.PromptTokens,
 		OutputTokens: openAIResp.Usage.CompletionTokens,
+		ToolCalls:    openAIResp.Choices[0].Message.ToolCalls,
 	}, nil
 }
 
@@ -242,11 +244,12 @@ func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk 
 // ── OpenAI 兼容的请求/响应结构 ──
 
 type openAIRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Temperature float64       `json:"temperature,omitempty"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Stream      bool          `json:"stream,omitempty"`
+	Model       string          `json:"model"`
+	Messages    []ChatMessage   `json:"messages"`
+	Temperature float64         `json:"temperature,omitempty"`
+	MaxTokens   int             `json:"max_tokens,omitempty"`
+	Stream      bool            `json:"stream,omitempty"`
+	Tools       []ToolFunction  `json:"tools,omitempty"`
 }
 
 type openAIResponse struct {

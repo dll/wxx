@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/dll/wxx/server/internal/agent"
 	"github.com/dll/wxx/server/internal/context_engine"
 	"github.com/dll/wxx/server/internal/llm"
 	"github.com/dll/wxx/server/internal/model"
@@ -25,6 +26,7 @@ type ChatService struct {
 	tokenStatsSvc  *TokenStatsService      // 可选：词元统计服务
 	modelConfigSvc *ModelConfigService     // 可选：用户 AI 模型配置（默认 provider/Key/模型名覆盖）
 	llmGateway     *LLMGateway             // A1：统一 LLM 出口（路由 + 调用审计）
+	toolRegistry   *agent.ToolRegistry     // A3：function calling 工具注册表（可为 nil）
 	contextEngine  *context_engine.Engine  // 统一知识检索管道
 }
 
