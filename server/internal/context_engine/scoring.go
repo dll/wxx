@@ -82,6 +82,10 @@ const relevanceThreshold = 0.09
 // minContentRatio 内容字段计入相关性所需的最小 bigram 覆盖率（防长文本单点误命中）
 const minContentRatio = 0.20
 
+// strongContentRatio 强正文证据阈值：内容覆盖率达标即视为相关（答案常在正文细节，
+// 标题/摘要与口语问法天然词面不同，加权公式会结构性低估，评测集回归校准）
+const strongContentRatio = 0.40
+
 // filterByRelevance 过滤低相关结果；全部低于阈值时保留最佳 1 条并标记 LowConfidence，
 // 让下游走兜底而非基于弱相关资料生成「确定」回答（CE-02）。
 // 结构化命中（标题/标签精确匹配）天然豁免。
@@ -100,6 +104,10 @@ func filterByRelevance(results []*SearchResult, question string) []*SearchResult
 		// 不豁免结构化命中：结构化 LIKE 对泛化词召回偏宽，相关性公式自身
 		// 足以保护真实命中（标题精确匹配 → bigram 覆盖率高）。
 		score := calcDocRelevance(r, question, bigrams)
+		// 强正文证据：问题 bigram 大半命中正文 → 直接视为相关（CE-A2 评测校准）
+		if bigramMatchRatio(r.Content, bigrams) >= strongContentRatio {
+			score = relevanceThreshold
+		}
 		if score >= relevanceThreshold {
 			filtered = append(filtered, r)
 			continue
