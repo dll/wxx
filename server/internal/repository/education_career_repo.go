@@ -261,3 +261,129 @@ func (r *CareerRepo) ListInterviewQuestions(category, industry string, page, pag
 	}
 	return list, total, rows.Err()
 }
+
+// ── 管理端 ──
+
+// AdminPolicyItem 管理端政策列表项（含状态，不含正文）
+type AdminPolicyItem struct {
+	ID        int64  `json:"id"`
+	PolicyID  string `json:"policy_id"`
+	Title     string `json:"title"`
+	Category  string `json:"category"`
+	Level     string `json:"level"`
+	Source    string `json:"source"`
+	Summary   string `json:"summary"`
+	Status    string `json:"status"`
+	ViewCount int    `json:"view_count"`
+	CreatedAt string `json:"created_at"`
+}
+
+// AdminListPolicies 管理端政策列表（含非 active，可按分类过滤）。
+func (r *CareerRepo) AdminListPolicies(category string, page, pageSize int) ([]AdminPolicyItem, int, error) {
+	where := []string{}
+	args := []interface{}{}
+	if category != "" {
+		where = append(where, "category = ?")
+		args = append(args, category)
+	}
+	whereSQL := buildWhereClause(where)
+
+	var total int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM career_policies "+whereSQL, args...).Scan(&total); err != nil {
+		log.Printf("[WARN] 管理端政策总数统计失败: %v", err)
+	}
+
+	rows, err := r.db.Query(
+		`SELECT id, policy_id, title, category, level, source, summary, status, view_count, created_at
+		 FROM career_policies `+whereSQL+` ORDER BY id DESC LIMIT ? OFFSET ?`,
+		append(args, pageSize, pageOffset(page, pageSize))...,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	list := make([]AdminPolicyItem, 0)
+	for rows.Next() {
+		var it AdminPolicyItem
+		if err := rows.Scan(&it.ID, &it.PolicyID, &it.Title, &it.Category, &it.Level, &it.Source, &it.Summary, &it.Status, &it.ViewCount, &it.CreatedAt); err == nil {
+			list = append(list, it)
+		}
+	}
+	return list, total, rows.Err()
+}
+
+// AdminCreatePolicy 新增政策。
+func (r *CareerRepo) AdminCreatePolicy(policyID, title, category, level, source, content, summary, tags, status string) error {
+	_, err := r.db.Exec(
+		`INSERT INTO career_policies (policy_id, title, category, level, source, content, summary, tags, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		policyID, title, category, level, source, content, summary, tags, status,
+	)
+	return err
+}
+
+// AdminDeletePolicy 删除政策。
+func (r *CareerRepo) AdminDeletePolicy(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM career_policies WHERE id = ?`, id)
+	return err
+}
+
+// AdminJobItem 管理端职位列表项。
+type AdminJobItem struct {
+	ID           int64  `json:"id"`
+	JobID        string `json:"job_id"`
+	CompanyName  string `json:"company_name"`
+	PositionName string `json:"position_name"`
+	PositionType string `json:"position_type"`
+	Industry     string `json:"industry"`
+	SalaryMin    int    `json:"salary_min"`
+	SalaryMax    int    `json:"salary_max"`
+	Location     string `json:"location"`
+	Education    string `json:"education"`
+	Status       string `json:"status"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// AdminListJobs 管理端职位列表。
+func (r *CareerRepo) AdminListJobs(page, pageSize int) ([]AdminJobItem, int, error) {
+	var total int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM job_postings`).Scan(&total); err != nil {
+		log.Printf("[WARN] 管理端职位总数统计失败: %v", err)
+	}
+
+	rows, err := r.db.Query(
+		`SELECT id, job_id, company_name, position_name, position_type, industry, salary_min, salary_max, location, education, status, created_at
+		 FROM job_postings ORDER BY id DESC LIMIT ? OFFSET ?`,
+		pageSize, pageOffset(page, pageSize),
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	list := make([]AdminJobItem, 0)
+	for rows.Next() {
+		var it AdminJobItem
+		if err := rows.Scan(&it.ID, &it.JobID, &it.CompanyName, &it.PositionName, &it.PositionType, &it.Industry, &it.SalaryMin, &it.SalaryMax, &it.Location, &it.Education, &it.Status, &it.CreatedAt); err == nil {
+			list = append(list, it)
+		}
+	}
+	return list, total, rows.Err()
+}
+
+// AdminCreateJob 新增招聘信息。
+func (r *CareerRepo) AdminCreateJob(jobID, companyName, positionName, positionType, industry, location, education, description, requirement, status string) error {
+	_, err := r.db.Exec(
+		`INSERT INTO job_postings (job_id, company_name, position_name, position_type, industry, location, education, description, requirement, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		jobID, companyName, positionName, positionType, industry, location, education, description, requirement, status,
+	)
+	return err
+}
+
+// AdminDeleteJob 删除招聘信息。
+func (r *CareerRepo) AdminDeleteJob(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM job_postings WHERE id = ?`, id)
+	return err
+}

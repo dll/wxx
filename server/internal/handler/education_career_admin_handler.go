@@ -4,73 +4,24 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/gin-gonic/gin"
 )
 
-// 管理端：就业指导内容管理（学校/学院管理员）
-// ═══════════════════════════════════════════════
+// 管理端：就业指导内容管理（学校/学院管理员）；SQL 已下沉 CareerRepo（P4-d）
 
 // AdminListCareerPolicies 管理端就业政策列表（含非 active）
 // GET /api/v1/career/admin/policies?page=&page_size=&category=
 func (h *EducationHandler) AdminListCareerPolicies(c *gin.Context) {
-	category := c.Query("category")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
 
-	var where []string
-	var args []interface{}
-	if category != "" {
-		where = append(where, "category = ?")
-		args = append(args, category)
-	}
-	whereSQL := ""
-	if len(where) > 0 {
-		whereSQL = "WHERE " + strings.Join(where, " AND ")
-	}
-
-	var total int
-	_ = h.db.QueryRow(`SELECT COUNT(*) FROM career_policies `+whereSQL, args...).Scan(&total)
-
-	rows, err := h.db.Query(
-		`SELECT id, policy_id, title, category, level, source, summary, status, view_count, created_at
-		 FROM career_policies `+whereSQL+` ORDER BY id DESC LIMIT ? OFFSET ?`,
-		append(args, pageSize, offset)...,
-	)
+	list, total, err := h.careerRepo.AdminListPolicies(c.Query("category"), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询就业政策失败"})
 		return
-	}
-	defer rows.Close()
-
-	type item struct {
-		ID        int64  `json:"id"`
-		PolicyID  string `json:"policy_id"`
-		Title     string `json:"title"`
-		Category  string `json:"category"`
-		Level     string `json:"level"`
-		Source    string `json:"source"`
-		Summary   string `json:"summary"`
-		Status    string `json:"status"`
-		ViewCount int    `json:"view_count"`
-		CreatedAt string `json:"created_at"`
-	}
-	var list []item
-	for rows.Next() {
-		var it item
-		if err := rows.Scan(&it.ID, &it.PolicyID, &it.Title, &it.Category, &it.Level, &it.Source, &it.Summary, &it.Status, &it.ViewCount, &it.CreatedAt); err == nil {
-			list = append(list, it)
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list, "total": total})
@@ -110,12 +61,8 @@ func (h *EducationHandler) AdminCreateCareerPolicy(c *gin.Context) {
 	if req.Status == "" {
 		req.Status = "active"
 	}
-	_, err := h.db.Exec(
-		`INSERT INTO career_policies (policy_id, title, category, level, source, content, summary, tags, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		req.PolicyID, req.Title, req.Category, req.Level, req.Source, req.Content, req.Summary, req.Tags, req.Status,
-	)
-	if err != nil {
+
+	if err := h.careerRepo.AdminCreatePolicy(req.PolicyID, req.Title, req.Category, req.Level, req.Source, req.Content, req.Summary, req.Tags, req.Status); err != nil {
 		log.Printf("新增就业政策失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增政策失败"})
 		return
@@ -127,7 +74,7 @@ func (h *EducationHandler) AdminCreateCareerPolicy(c *gin.Context) {
 // DELETE /api/v1/career/admin/policies/:id
 func (h *EducationHandler) AdminDeleteCareerPolicy(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if _, err := h.db.Exec(`DELETE FROM career_policies WHERE id = ?`, id); err != nil {
+	if err := h.careerRepo.AdminDeletePolicy(id); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除政策失败"})
 		return
 	}
@@ -139,48 +86,11 @@ func (h *EducationHandler) AdminDeleteCareerPolicy(c *gin.Context) {
 func (h *EducationHandler) AdminListJobPostings(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
 
-	var total int
-	_ = h.db.QueryRow(`SELECT COUNT(*) FROM job_postings`).Scan(&total)
-
-	rows, err := h.db.Query(
-		`SELECT id, job_id, company_name, position_name, position_type, industry, salary_min, salary_max, location, education, status, created_at
-		 FROM job_postings ORDER BY id DESC LIMIT ? OFFSET ?`,
-		pageSize, offset,
-	)
+	list, total, err := h.careerRepo.AdminListJobs(page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "查询招聘信息失败"})
 		return
-	}
-	defer rows.Close()
-
-	type item struct {
-		ID           int64  `json:"id"`
-		JobID        string `json:"job_id"`
-		CompanyName  string `json:"company_name"`
-		PositionName string `json:"position_name"`
-		PositionType string `json:"position_type"`
-		Industry     string `json:"industry"`
-		SalaryMin    int    `json:"salary_min"`
-		SalaryMax    int    `json:"salary_max"`
-		Location     string `json:"location"`
-		Education    string `json:"education"`
-		Status       string `json:"status"`
-		CreatedAt    string `json:"created_at"`
-	}
-	var list []item
-	for rows.Next() {
-		var it item
-		if err := rows.Scan(&it.ID, &it.JobID, &it.CompanyName, &it.PositionName, &it.PositionType, &it.Industry, &it.SalaryMin, &it.SalaryMax, &it.Location, &it.Education, &it.Status, &it.CreatedAt); err == nil {
-			list = append(list, it)
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": list, "total": total})
@@ -211,12 +121,9 @@ func (h *EducationHandler) AdminCreateJobPosting(c *gin.Context) {
 	if req.Status == "" {
 		req.Status = "active"
 	}
-	_, err := h.db.Exec(
-		`INSERT INTO job_postings (job_id, company_name, position_name, position_type, industry, location, education, description, requirement, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"job-"+strconv.FormatInt(time.Now().Unix(), 10), req.CompanyName, req.PositionName, req.PositionType, req.Industry, req.Location, req.Education, req.Description, req.Requirement, req.Status,
-	)
-	if err != nil {
+
+	jobID := "job-" + strconv.FormatInt(time.Now().Unix(), 10)
+	if err := h.careerRepo.AdminCreateJob(jobID, req.CompanyName, req.PositionName, req.PositionType, req.Industry, req.Location, req.Education, req.Description, req.Requirement, req.Status); err != nil {
 		log.Printf("新增招聘信息失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "新增招聘信息失败"})
 		return
@@ -228,7 +135,7 @@ func (h *EducationHandler) AdminCreateJobPosting(c *gin.Context) {
 // DELETE /api/v1/career/admin/jobs/:id
 func (h *EducationHandler) AdminDeleteJobPosting(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if _, err := h.db.Exec(`DELETE FROM job_postings WHERE id = ?`, id); err != nil {
+	if err := h.careerRepo.AdminDeleteJob(id); err != nil {
 		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Code: 500, Message: "删除招聘信息失败"})
 		return
 	}
