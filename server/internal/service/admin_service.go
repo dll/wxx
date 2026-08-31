@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/util"
@@ -134,7 +135,13 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, op
 		}
 		user.DisplayName = name
 	}
-	if req.Role != nil {
+	if req.Roles != nil {
+		// 多角色（全量替换）：主角色取权限最高者；userRepo.Update 内部同步 user_roles
+		user.Roles = req.Roles
+		if p := auth.PrimaryRole(req.Roles); p != "" {
+			user.Role = p
+		}
+	} else if req.Role != nil {
 		user.Role = *req.Role
 	}
 	if req.Position != nil {
@@ -164,10 +171,23 @@ func (s *AdminService) UpdateUser(userID int64, req *model.UserUpdateRequest, op
 //   - college_admin 只能管理本院（owner_id/college 匹配）用户，且不能授予/转为
 //     sys_admin / school_admin 等校级管理员角色，也不能修改其他管理员。
 //   - sys_admin / school_admin 可管理任意角色。
+//   - 多角色（2026-09-01）：授予的 roles 逐个过单角色规则校验。
 func (s *AdminService) checkRoleChangeAuth(operator *model.UserContext, target *model.User, req *model.UserUpdateRequest) error {
 	// 操作者必须有效
 	if operator == nil {
 		return fmt.Errorf("缺少操作者信息")
+	}
+
+	// 多角色全量替换：逐个角色过单角色校验（任一角色不允许即拒绝）
+	if req.Roles != nil {
+		for _, r := range req.Roles {
+			rReq := &model.UserUpdateRequest{Role: &r}
+			if err := s.checkRoleChangeAuth(operator, target, rReq); err != nil {
+				return err
+			}
+		}
+		req.Role = nil // 已逐个校验通过，后续跳过单角色校验
+		return nil
 	}
 
 	// 任何人不能改系统管理员
@@ -312,11 +332,12 @@ func (s *AdminService) BatchResetPassword(ids []int64, newPassword, operator str
 	if err != nil {
 		return 0, fmt.Errorf("密码加密失败: %w", err)
 	}
+	// 任务3（2026-09-01）：批量重置同样置位强制改密（repo 内置 must_change_password=1）
 	count, err := s.userRepo.BatchResetPassword(ids, string(hash))
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("批量重置密码 count=%d by=%s", count, operator)
+	log.Printf("批量重置密码 count=%d by=%s（已置位强制改密）", count, operator)
 	return count, nil
 }
 

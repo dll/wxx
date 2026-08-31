@@ -2,10 +2,11 @@ package model
 
 // User 用户，对应 users 表
 type User struct {
-	ID              int64  `json:"id" db:"id"`
-	Username        string `json:"username" db:"username"`                                 // 用户名（唯一）
-	DisplayName     string `json:"display_name" db:"display_name"`                         // 显示名
-	Role            string `json:"role" db:"role"`                                         // 角色枚举
+	ID              int64    `json:"id" db:"id"`
+	Username        string   `json:"username" db:"username"`                                 // 用户名（唯一）
+	DisplayName     string   `json:"display_name" db:"display_name"`                         // 显示名
+	Role            string   `json:"role" db:"role"`                                         // 主角色枚举（多角色时取权限最高者，兼容字段）
+	Roles           []string `json:"roles,omitempty" db:"-"`                                 // 全部角色（含主角色；来自 user_roles 表，非本表字段）
 	Position        string `json:"position" db:"position"`                                 // 职务（与角色正交，如主席/部长/干事等）
 	OwnerScope      string `json:"owner_scope" db:"owner_scope"`                           // 归属范围：school/college/class
 	OwnerID         string `json:"owner_id" db:"owner_id"`                                 // 归属 ID

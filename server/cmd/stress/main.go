@@ -118,7 +118,7 @@ func setupApp() *stressApp {
 	}
 
 	cfg := &config.Config{JWTSecret: "stress-secret-32chars-minimum", JWTExpireHours: 24}
-	authSvc := service.NewAuthService(cfg, userRepo)
+	authSvc := service.NewAuthService(cfg, userRepo, repository.NewSettingsRepo(db))
 	kbSvc := service.NewKBService(kbRepo, db)
 	chatSvc := service.NewChatService(sessionRepo, messageRepo, kbRepo, agentRepo, mockLLM)
 

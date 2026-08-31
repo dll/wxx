@@ -30,6 +30,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (CapabilityUtils.has(Capability.collegeUserRead)) {
         context.read<AdminProvider>().searchUsers(refresh: true);
+        // 学生活动统计面板（任务6：注册/登录/打卡）
+        context.read<AdminProvider>().fetchUserActivityStats();
       }
     });
     _scrollController.addListener(_onScroll);
@@ -89,11 +91,79 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 _buildSearchBar(),
                 if (_showAdvancedFilter) _buildAdvancedFilter(),
                 _buildStatsBar(),
+                _buildUserActivityPanel(canManage || canResetPwd),
                 if (canManage || canResetPwd) _buildBatchActionBar(),
                 Expanded(child: _buildUserList()),
               ],
             )
           : _buildImportOnly(context, canImport),
+    );
+  }
+
+  /// 学生活动统计面板（任务6）：注册/登录/打卡概览 + 推送给 120001（任务7）
+  Widget _buildUserActivityPanel(bool canNotify) {
+    return Consumer<AdminProvider>(
+      builder: (_, provider, __) {
+        final s = provider.userActivityStats;
+        if (s == null) {
+          return const SizedBox.shrink();
+        }
+        int numOf(String key) => (s[key] as num?)?.toInt() ?? 0;
+        final items = [
+          ('累计注册', numOf('registered_total')),
+          ('待审核', numOf('pending_approval')),
+          ('今日登录', numOf('login_today_users')),
+          ('今日打卡', numOf('checkin_today')),
+        ];
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              for (final item in items) ...[
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${item.$2}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              )),
+                      Text(item.$1,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              )),
+                    ],
+                  ),
+                ),
+              ],
+              if (canNotify)
+                IconButton(
+                  tooltip: '推送统计摘要通知给胡老师（120001）',
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final n = await provider.notifyUserActivityStats();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(n > 0
+                            ? '统计摘要已推送给胡老师（120001）'
+                            : '推送失败，请稍后重试'),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

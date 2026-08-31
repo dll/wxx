@@ -188,7 +188,45 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  // ── 用户管理 ──
+  // ── 学生活动统计（注册/登录/打卡，2026-09-01）──
+  Map<String, dynamic>? _userActivityStats;
+  bool _userActivityLoading = false;
+
+  Map<String, dynamic>? get userActivityStats => _userActivityStats;
+  bool get userActivityLoading => _userActivityLoading;
+
+  Future<void> fetchUserActivityStats() async {
+    if (_userActivityLoading) return;
+    _userActivityLoading = true;
+    notifyListeners();
+    try {
+      final res = await _api.get(ApiConfig.adminUserActivityStats);
+      final data = res.data;
+      if (data['code'] == 0 && data['data'] != null) {
+        _userActivityStats = (data['data'] as Map).cast<String, dynamic>();
+      }
+    } catch (_) {
+      // 静默失败：统计面板不阻塞用户管理主功能
+    } finally {
+      _userActivityLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 推送统计摘要通知（任务7：默认推送给 120001 胡老师）
+  Future<int> notifyUserActivityStats() async {
+    try {
+      final res = await _api.post(ApiConfig.adminUserActivityStatsNotify, data: <String, dynamic>{});
+      final data = res.data;
+      if (data['code'] == 0 && data['data'] != null) {
+        final r = (data['data'] as Map).cast<String, dynamic>();
+        return (r['send_count'] as num?)?.toInt() ?? 0;
+      }
+    } catch (_) {}
+    return -1;
+  }
+
+  // ── 用户管理（列表/高级查询）──
 
   /// 搜索用户（高级查询，分页刷新）
   Future<void> searchUsers({bool refresh = false}) async {

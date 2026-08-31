@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/model"
 )
 
@@ -52,6 +53,9 @@ func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := r.attachRoles(user); err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 
@@ -75,7 +79,22 @@ func (r *UserRepo) GetByID(id int64) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := r.attachRoles(user); err != nil {
+		return nil, err
+	}
 	return user, nil
+}
+
+// attachRoles 附带 user_roles 多角色信息（无记录时保持 nil，兼容单角色旧数据）
+func (r *UserRepo) attachRoles(user *model.User) error {
+	roles, err := r.GetRoles(user.ID)
+	if err != nil {
+		return err
+	}
+	if len(roles) > 0 {
+		user.Roles = roles
+	}
+	return nil
 }
 
 // List 分页查询用户列表，支持 role/owner_scope/owner_id 过滤
@@ -348,7 +367,8 @@ func (r *UserRepo) BatchResetPassword(ids []int64, hash string) (int64, error) {
 	}
 	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
 	// 安全修复 S-01：批量改密递增 token_version，登出相关用户所有旧会话。
-	query := fmt.Sprintf(`UPDATE users SET password_hash=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id IN (%s)`, placeholders)
+	// 任务3（2026-09-01）：管理员重置的密码视为初始密码，同时置位 must_change_password 强制首次登录改密。
+	query := fmt.Sprintf(`UPDATE users SET password_hash=?, must_change_password=1, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id IN (%s)`, placeholders)
 
 	args := make([]interface{}, 0, len(ids)+1)
 	args = append(args, hash)
@@ -462,7 +482,16 @@ func (r *UserRepo) Update(user *model.User) error {
 		`UPDATE users SET role=?, position=?, owner_scope=?, owner_id=?, display_name=?, status=?, token_version = token_version + 1, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
 		user.Role, user.Position, user.OwnerScope, user.OwnerID, user.DisplayName, user.Status, user.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// 多角色：同步 user_roles 关联表（nil 表示本次不改动角色关联）
+	if user.Roles != nil {
+		if err := r.ReplaceRoles(user.ID, user.Roles, ""); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Create 创建用户，返回新用户 ID
@@ -649,7 +678,81 @@ func (r *UserRepo) UpdateRole(userID int64, role string) error {
 		`UPDATE users SET role = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		role, userID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// 多角色：单字段改角色视为"仅保留该角色"，同步关联表
+	return r.ReplaceRoles(userID, []string{role}, "")
+}
+
+// ── 多角色（user_roles 关联表，2026-09-01）───────────────────────────
+
+// GetRoles 查询用户全部角色（无记录返回空切片，非 error）
+func (r *UserRepo) GetRoles(userID int64) ([]string, error) {
+	rows, err := r.db.Query(`SELECT role FROM user_roles WHERE user_id = ? ORDER BY id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	roles := []string{}
+	for rows.Next() {
+		var role string
+		if err := rows.Scan(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	return roles, rows.Err()
+}
+
+// ReplaceRoles 全量替换用户角色关联（去重去空；主角色同步为权限最高者，变化时吊销旧令牌）。
+// grantedBy 为审计人；传空表示系统内部同步（迁移/审核流）。
+// 角色合法性由调用方校验（admin_service.checkRoleChangeAuth）。
+func (r *UserRepo) ReplaceRoles(userID int64, roles []string, grantedBy string) error {
+	seen := make(map[string]bool)
+	clean := make([]string, 0, len(roles))
+	for _, role := range roles {
+		role = strings.TrimSpace(role)
+		if role == "" || seen[role] {
+			continue
+		}
+		seen[role] = true
+		clean = append(clean, role)
+	}
+
+	primary := auth.PrimaryRole(clean)
+	var currentRole string
+	if err := r.db.QueryRow(`SELECT role FROM users WHERE id = ?`, userID).Scan(&currentRole); err != nil {
+		return fmt.Errorf("查询用户主角色失败: %w", err)
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM user_roles WHERE user_id = ?`, userID); err != nil {
+		return err
+	}
+	for _, role := range clean {
+		if _, err := tx.Exec(
+			`INSERT INTO user_roles (user_id, role, granted_by) VALUES (?, ?, ?)`,
+			userID, role, grantedBy,
+		); err != nil {
+			return err
+		}
+	}
+
+	if primary != "" && primary != currentRole {
+		if _, err := tx.Exec(
+			`UPDATE users SET role = ?, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+			primary, userID,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // UpdateUsernameAndRole 更新用户名和角色（游客审核通过用）
@@ -707,9 +810,19 @@ func (r *UserRepo) Delete(userID int64) error {
 
 // UpdatePassword 更新用户密码哈希
 // 安全修复 S-01：改密递增 token_version，登出该用户所有旧会话（含被盗令牌）。
+// UpdatePassword 更新密码（用户自助改密：清除 must_change_password 标记）
 func (r *UserRepo) UpdatePassword(userID int64, hash string) error {
 	_, err := r.db.Exec(
 		`UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		hash, userID,
+	)
+	return err
+}
+
+// ResetPasswordWithFlag 管理员重置密码（置位 must_change_password=1，强制首次登录改密）
+func (r *UserRepo) ResetPasswordWithFlag(userID int64, hash string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		hash, userID,
 	)
 	return err

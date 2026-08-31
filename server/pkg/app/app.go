@@ -183,7 +183,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	}
 
 	// Service 层
-	authSvc := service.NewAuthService(cfg, userRepo)
+	authSvc := service.NewAuthService(cfg, userRepo, settingsRepo)
 	sessionSvc := service.NewSessionService(sessionRepo, messageRepo)
 	kbSvc := service.NewKBService(kbRepo, db)
 	forecastSvc := service.NewForecastService(db, forecastRepo, emotionRepo, feedbackRepo, llmClient)
@@ -490,6 +490,7 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 		feedbackH:           feedbackHandler,
 		modelConfigH:        modelConfigHandler,
 		tokenStatsH:         tokenStatsHandler,
+		userActivityStatsH:  handler.NewUserActivityStatsHandler(repository.NewUserActivityStatsRepo(db), repository.NewUserNotificationRepo(db), userRepo),
 		studentH:            studentHandler,
 		counselorH:          counselorHandler,
 		teacherH:            teacherHandler,

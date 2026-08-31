@@ -36,7 +36,7 @@ func newAuthServiceForTest(t *testing.T, username, password, status string) *Aut
 	return NewAuthService(&config.Config{
 		JWTSecret:      "test-secret-key",
 		JWTExpireHours: 2,
-	}, repo)
+	}, repo, repository.NewSettingsRepo(db))
 }
 
 func TestAuthService_LoginByUsername_WithPassword(t *testing.T) {
@@ -107,7 +107,7 @@ func TestProfileDetail_StudentFindsCounselor(t *testing.T) {
 		t.Fatalf("补 phone 失败: %v", err)
 	}
 
-	svc := NewAuthService(&config.Config{}, repo)
+	svc := NewAuthService(&config.Config{}, repo, repository.NewSettingsRepo(db))
 	stu, _ := repo.GetByUsername("stu1")
 	detail, err := svc.GetProfileDetail(stu.ID)
 	if err != nil {

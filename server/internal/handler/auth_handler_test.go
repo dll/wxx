@@ -43,7 +43,7 @@ func setupAuthTestRouter(t *testing.T) (*gin.Engine, *config.Config) {
 			t.Fatalf("创建登录测试用户失败: %v", err)
 		}
 	}
-	authSvc := service.NewAuthService(cfg, userRepo)
+	authSvc := service.NewAuthService(cfg, userRepo, repository.NewSettingsRepo(db))
 	authHandler := NewAuthHandler(authSvc)
 
 	r := gin.New()

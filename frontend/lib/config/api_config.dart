@@ -88,6 +88,11 @@ class ApiConfig {
 
   // ── 管理端 ──
   static const String adminDashboard = '$apiPrefix/admin/stats/dashboard';
+  // 学生活动统计（注册/登录/打卡，2026-09-01）
+  static const String adminUserActivityStats =
+      '$apiPrefix/admin/stats/user-activity';
+  static const String adminUserActivityStatsNotify =
+      '$apiPrefix/admin/stats/user-activity/notify';
   static const String adminMetrics = '$apiPrefix/admin/metrics';
   static const String adminFallbackQuestions =
       '$apiPrefix/admin/metrics/fallback-questions';

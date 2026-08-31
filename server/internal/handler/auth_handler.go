@@ -405,11 +405,20 @@ func (h *AuthHandler) GetCapabilities(c *gin.Context) {
 		return
 	}
 
-	caps := auth.CapabilitiesOf(user.Role)
+	// 多角色（2026-09-01）：能力取全部角色的并集；单角色用户 Roles 为空时回退主角色
+	caps := auth.CapabilitiesOfAny(user.Roles)
+	if len(user.Roles) == 0 {
+		caps = auth.CapabilitiesOf(user.Role)
+	}
 	// 转 string 切片便于 JSON 序列化
 	strCaps := make([]string, len(caps))
 	for i, c := range caps {
 		strCaps[i] = string(c)
+	}
+
+	roles := user.Roles
+	if roles == nil {
+		roles = []string{user.Role}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -417,6 +426,7 @@ func (h *AuthHandler) GetCapabilities(c *gin.Context) {
 		"message": "success",
 		"data": gin.H{
 			"role":         user.Role,
+			"roles":        roles,
 			"capabilities": strCaps,
 		},
 	})

@@ -127,6 +127,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			UserID:       claims.UserID,
 			Username:     claims.Username,
 			Role:         claims.Role,
+			Roles:        claims.Roles, // 旧 token 无 roles 字段时为 nil，各判定点回退单 Role
 			OwnerScope:   claims.OwnerScope,
 			OwnerID:      claims.OwnerID,
 			DisplayName:  claims.DisplayName,

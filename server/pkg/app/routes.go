@@ -433,6 +433,10 @@ func setupRouter(d *deps) *gin.Engine {
 			admin := secured.Group("/admin")
 			{
 				admin.GET("/stats/dashboard", auth.RequireCapability(auth.CollegeMetricsRead), d.statsH.GetDashboardStats)
+	// 学生活动统计（任务5，2026-09-01）：注册/登录/打卡聚合
+	admin.GET("/stats/user-activity", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.GetStats)
+	// 统计播报（任务7）：站内通知推送给 120001（默认）或指定用户
+	admin.POST("/stats/user-activity/notify", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.Notify)
 				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), d.adminH.GetMetrics)
 				admin.GET("/metrics/fallback-questions", auth.RequireCapability(auth.CollegeMetricsRead), d.adminH.TopFallbackQuestions)
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), d.adminH.ListUsers)

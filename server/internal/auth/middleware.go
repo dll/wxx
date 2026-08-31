@@ -25,7 +25,8 @@ func RequireCapability(cap Capability) gin.HandlerFunc {
 			return
 		}
 
-		if !HasCapability(user.Role, cap) {
+		// 多角色：任一角色（含继承）命中即放行；单角色用户 Roles 为空时回退 Role
+		if !HasAnyRole(user.Roles, cap) && !HasCapability(user.Role, cap) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"code":    403,
 				"message": "权限不足，缺少能力：" + string(cap),
@@ -51,7 +52,8 @@ func RequireAnyCapability(caps ...Capability) gin.HandlerFunc {
 		}
 
 		for _, cap := range caps {
-			if HasCapability(user.Role, cap) {
+			// 多角色：任一角色命中该能力即放行
+			if HasAnyRole(user.Roles, cap) || HasCapability(user.Role, cap) {
 				c.Next()
 				return
 			}

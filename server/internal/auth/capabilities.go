@@ -468,6 +468,64 @@ func RoleMatches(role, target string) bool {
 	return roleReaches(role, target, visited)
 }
 
+// ── 多角色支持（2026-09-01，user_roles 关联表 + 权限并集）──
+//
+// 设计：users.role 保留为主角色（兼容存量单角色代码/JWT），user_roles 表
+// 记录全部角色。权限判定取各角色能力的并集：主角色通过本文件原有函数判定，
+// 多角色通过下列 *Any 变体判定。
+
+// HasAnyRole 任一角色拥有该能力即 true（能力并集判定）
+func HasAnyRole(roles []string, cap Capability) bool {
+	for _, r := range roles {
+		if HasCapability(r, cap) {
+			return true
+		}
+	}
+	return false
+}
+
+// CapabilitiesOfAny 多角色能力并集（去重，结果顺序无保证）
+func CapabilitiesOfAny(roles []string) []Capability {
+	caps := make(map[Capability]bool)
+	for _, r := range roles {
+		for _, c := range CapabilitiesOf(r) {
+			caps[c] = true
+		}
+	}
+	result := make([]Capability, 0, len(caps))
+	for c := range caps {
+		result = append(result, c)
+	}
+	return result
+}
+
+// RoleMatchesAny 任一角色命中目标角色即 true（含各角色自身的继承链）
+func RoleMatchesAny(roles []string, target string) bool {
+	for _, r := range roles {
+		if RoleMatches(r, target) {
+			return true
+		}
+	}
+	return false
+}
+
+// PrimaryRole 从角色列表中选出"权限最高"者作为主角色（兼容 users.role 单字段）。
+// 权衡依据 roleReaches：若 A 的继承链可达 B，则 A 不低于 B；取首个"不被任何其它
+// 角色严格高于"的角色。未知角色视为最低。
+func PrimaryRole(roles []string) string {
+	if len(roles) == 0 {
+		return ""
+	}
+	primary := roles[0]
+	for _, r := range roles[1:] {
+		// r 严格高于 primary（r 可达 primary 且 primary 不可达 r）→ 换主
+		if RoleMatches(r, primary) && !RoleMatches(primary, r) {
+			primary = r
+		}
+	}
+	return primary
+}
+
 func roleReaches(role, target string, visited map[string]bool) bool {
 	if visited[role] {
 		return false

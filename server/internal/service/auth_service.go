@@ -45,8 +45,9 @@ func maskPhone(phone string) string {
 
 // AuthService 认证业务服务
 type AuthService struct {
-	cfg      *config.Config
-	userRepo *repository.UserRepo
+	cfg          *config.Config
+	userRepo     *repository.UserRepo
+	settingsRepo *repository.SettingsRepo
 }
 
 // ErrUserNotFound 用户不存在 sentinel error，调用方可用 errors.Is 识别后单独处理
@@ -60,10 +61,11 @@ var ErrAccountUnavailable = errors.New("账号不可用")
 var ErrSSONotConfigured = errors.New("SSO 未配置")
 
 // NewAuthService 创建认证服务
-func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo) *AuthService {
+func NewAuthService(cfg *config.Config, userRepo *repository.UserRepo, settingsRepo *repository.SettingsRepo) *AuthService {
 	return &AuthService{
-		cfg:      cfg,
-		userRepo: userRepo,
+		cfg:          cfg,
+		userRepo:     userRepo,
+		settingsRepo: settingsRepo,
 	}
 }
 
@@ -164,9 +166,18 @@ func (s *AuthService) GetProfileDetail(userID int64) (*ProfileDetail, error) {
 	return d, nil
 }
 
-// GuestRegisterEnabled 游客手机注册是否开放（预研期默认关闭，账号走管理员导入）。
+// GuestRegisterEnabled 游客（学生）手机注册是否开放。
+// 任务4（2026-09-01）：支持两级开关 —— 环境变量 ENABLE_GUEST_REGISTER 或
+// 管理端功能开关 feature.guest_register（system_settings 表，实时生效无需重启）；
+// 任一开启即开放注册，注册账号一律 pending 待管理员审核。
 func (s *AuthService) GuestRegisterEnabled() bool {
-	return s.cfg.EnableGuestRegister
+	if s.cfg.EnableGuestRegister {
+		return true
+	}
+	if v, err := s.settingsRepo.Get("feature.guest_register"); err == nil {
+		return v == "true" || v == "1"
+	}
+	return false
 }
 
 // LoginResult 登录结果
@@ -626,6 +637,7 @@ func (s *AuthService) ChangePassword(userID int64, oldPassword, newPassword stri
 }
 
 // ResetPassword 管理员重置用户密码（仅 sys_admin 可用，调用方已做角色校验）
+// 任务3（2026-09-01）：重置后的密码视为初始密码，置位强制改密标记。
 func (s *AuthService) ResetPassword(adminID int64, targetUserID int64, newPassword string) error {
 	if len(newPassword) < 6 {
 		return fmt.Errorf("新密码长度不能少于 6 位")
@@ -644,11 +656,11 @@ func (s *AuthService) ResetPassword(adminID int64, targetUserID int64, newPasswo
 		return fmt.Errorf("密码加密失败: %w", err)
 	}
 
-	if err := s.userRepo.UpdatePassword(targetUserID, string(hash)); err != nil {
+	if err := s.userRepo.ResetPasswordWithFlag(targetUserID, string(hash)); err != nil {
 		return fmt.Errorf("重置密码失败: %w", err)
 	}
 
-	log.Printf("管理员重置密码: adminID=%d targetUser=%s", adminID, targetUser.Username)
+	log.Printf("管理员重置密码（已置位强制改密）: adminID=%d targetUser=%s", adminID, targetUser.Username)
 	return nil
 }
 

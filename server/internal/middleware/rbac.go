@@ -46,8 +46,14 @@ func RequireRole(minRole string) gin.HandlerFunc {
 			return
 		}
 
-		userLevel, exists := roleHierarchy[user.Role]
-		if !exists {
+		userLevel := 0
+		// 多角色：取所有角色中的最高层级；单角色用户 Roles 为空时回退 Role
+		for _, r := range append([]string{user.Role}, user.Roles...) {
+			if lv, ok := roleHierarchy[r]; ok && lv > userLevel {
+				userLevel = lv
+			}
+		}
+		if userLevel == 0 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"code":    403,
 				"message": "未知用户角色",
@@ -85,7 +91,17 @@ func RequireRoles(roles ...string) gin.HandlerFunc {
 			return
 		}
 
-		if !allowed[user.Role] {
+		// 多角色：任一角色命中即放行；单角色用户 Roles 为空时回退 Role
+		ok := allowed[user.Role]
+		if !ok {
+			for _, r := range user.Roles {
+				if allowed[r] {
+					ok = true
+					break
+				}
+			}
+		}
+		if !ok {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"code":    403,
 				"message": "该操作不允许当前角色访问",

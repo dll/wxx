@@ -173,7 +173,7 @@ func BenchmarkLoginByUsername(b *testing.B) {
 		JWTExpireHours: 24,
 	}
 	userRepo := repository.NewUserRepo(db)
-	authSvc := NewAuthService(cfg, userRepo)
+	authSvc := NewAuthService(cfg, userRepo, repository.NewSettingsRepo(db))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

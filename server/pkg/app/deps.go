@@ -34,6 +34,7 @@ type deps struct {
 	feedbackH           *handler.FeedbackHandler
 	modelConfigH        *handler.ModelConfigHandler
 	tokenStatsH         *handler.TokenStatsHandler
+	userActivityStatsH  *handler.UserActivityStatsHandler
 	studentH            *handler.StudentHandler
 	counselorH          *handler.CounselorHandler
 	teacherH            *handler.TeacherHandler

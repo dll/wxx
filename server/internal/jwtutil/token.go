@@ -12,16 +12,17 @@ import (
 
 // CustomClaims JWT 载荷
 type CustomClaims struct {
-	UserID       int64  `json:"user_id"`
-	Username     string `json:"username"`
-	Role         string `json:"role"`
-	OwnerScope   string `json:"owner_scope"`
-	OwnerID      string `json:"owner_id"`
-	DisplayName  string `json:"display_name"`
-	Consented    bool   `json:"consented"`
-	TokenVersion int    `json:"tv"`
-	Status       string `json:"status"` // 账号状态：active/pending/rejected/disabled，用于中间件即时校验
-	Grade        int    `json:"grade"`  // 学生年级（1~4，按入学年份推导；非学生/未知为 0）
+	UserID       int64    `json:"user_id"`
+	Username     string   `json:"username"`
+	Role         string   `json:"role"`
+	Roles        []string `json:"roles,omitempty"` // 全部角色（多角色用户非空；旧 token 无此字段）
+	OwnerScope   string   `json:"owner_scope"`
+	OwnerID      string   `json:"owner_id"`
+	DisplayName  string   `json:"display_name"`
+	Consented    bool     `json:"consented"`
+	TokenVersion int      `json:"tv"`
+	Status       string   `json:"status"` // 账号状态：active/pending/rejected/disabled，用于中间件即时校验
+	Grade        int      `json:"grade"`  // 学生年级（1~4，按入学年份推导；非学生/未知为 0）
 	jwt.RegisteredClaims
 }
 
@@ -36,6 +37,7 @@ func GenerateToken(cfg *config.Config, user *model.User) (string, error) {
 		UserID:       user.ID,
 		Username:     user.Username,
 		Role:         user.Role,
+		Roles:        user.Roles, // 多角色：全量写入 JWT；单角色用户为 nil（JSON omitempty）
 		OwnerScope:   user.OwnerScope,
 		OwnerID:      user.OwnerID,
 		DisplayName:  user.DisplayName,
