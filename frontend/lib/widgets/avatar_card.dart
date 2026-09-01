@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../models/avatar_config.dart';
+import '../services/voice/voice_service.dart';
 import 'avatar_painter.dart';
 
 /// 数字人形象卡片 — 动画特效 + 磨砂背景 + 五维分数叠加层。
@@ -19,7 +20,10 @@ class AvatarCard extends StatefulWidget {
 class _AvatarCardState extends State<AvatarCard>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller;
+  late final VoiceService _voice;
+  late final ValueNotifier<int> _dimensionIndex;
   bool _visible = true;
+  bool _speaking = false;
 
   AvatarConfig get config => widget.config;
 
@@ -31,6 +35,9 @@ class _AvatarCardState extends State<AvatarCard>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat();
+    _voice = VoiceService();
+    _dimensionIndex = ValueNotifier<int>(0);
+    _cycleDimensions();
     // 监听应用生命周期：页面不可见时暂停动画，减少持续重绘
     WidgetsBinding.instance.addObserver(this);
   }
@@ -39,7 +46,38 @@ class _AvatarCardState extends State<AvatarCard>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
+    _dimensionIndex.dispose();
+    _voice.dispose();
     super.dispose();
+  }
+
+  Future<void> _cycleDimensions() async {
+    while (mounted) {
+      await Future<void>.delayed(const Duration(seconds: 4));
+      if (mounted) _dimensionIndex.value = (_dimensionIndex.value + 1) % 5;
+    }
+  }
+
+  List<({String name, double score})> get _dimensions => [
+        (name: '学业', score: config.academic),
+        (name: '能力', score: config.ability),
+        (name: '思想', score: config.ideological),
+        (name: '情感', score: config.emotional),
+        (name: '社交', score: config.social),
+      ];
+
+  Future<void> _speakCurrentDimension() async {
+    if (_speaking) {
+      _voice.stopPlayback();
+      setState(() => _speaking = false);
+      return;
+    }
+    final d = _dimensions[_dimensionIndex.value];
+    setState(() => _speaking = true);
+    final data = await _voice.textToSpeech(
+        '蔚小芯成长画像播报：${d.name}维度，当前记录分数约${d.score.toStringAsFixed(0)}分。这个指标用于帮助你了解成长方向，不代表对你的定义。');
+    if (data != null && data.isNotEmpty) await _voice.playAudio(data);
+    if (mounted) setState(() => _speaking = false);
   }
 
   @override
@@ -150,12 +188,16 @@ class _AvatarCardState extends State<AvatarCard>
               ),
             ),
 
-            // 底部五维分数叠加层
+            // 底部五维循环指标 + 语音播报
             Positioned(
               left: 16,
               right: 16,
               bottom: 12,
-              child: _buildDimensionBar(theme),
+              child: ValueListenableBuilder<int>(
+                valueListenable: _dimensionIndex,
+                builder: (context, index, _) =>
+                    _buildDimensionBar(theme, index),
+              ),
             ),
           ],
         ),
@@ -215,15 +257,10 @@ class _AvatarCardState extends State<AvatarCard>
     );
   }
 
-  /// 底部五维迷你进度条
-  Widget _buildDimensionBar(ThemeData theme) {
-    final dims = [
-      ('学业', config.academic),
-      ('能力', config.ability),
-      ('思想', config.ideological),
-      ('情感', config.emotional),
-      ('社交', config.social),
-    ];
+  /// 底部指标循环展示：每 4 秒聚焦一个维度，同时保留五维总览。
+  Widget _buildDimensionBar(ThemeData theme, int activeIndex) {
+    final dims = _dimensions;
+    final active = dims[activeIndex];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -233,49 +270,75 @@ class _AvatarCardState extends State<AvatarCard>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (label, score) in dims) ...[
-            Row(
-              children: [
-                SizedBox(
-                  width: 34,
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                        fontSize: 10, color: Colors.white70),
-                  ),
-                ),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      value: (score / 100).clamp(0.0, 1.0),
-                      minHeight: 5,
-                      backgroundColor: Colors.white.withOpacity(0.15),
-                      valueColor: AlwaysStoppedAnimation(
-                        Color.lerp(
-                          const Color(0xFF64B5F6),
-                          const Color(0xFF42A5F5),
-                          (score / 100).clamp(0.0, 1.0),
-                        )!,
+          Row(children: [
+            const Icon(Icons.insights, size: 14, color: Colors.white70),
+            const SizedBox(width: 5),
+            Expanded(
+                child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 450),
+                    child: Text(
+                        '${active.name} · ${active.score.toStringAsFixed(0)}分',
+                        key: ValueKey(activeIndex),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)))),
+            IconButton(
+                onPressed: _speakCurrentDimension,
+                icon: Icon(
+                    _speaking
+                        ? Icons.stop_circle_outlined
+                        : Icons.volume_up_outlined,
+                    color: Colors.white,
+                    size: 18),
+                tooltip: _speaking ? '停止播报' : '播报当前维度',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
+          ]),
+          const SizedBox(height: 5),
+          ...dims.map((d) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 34,
+                      child: Text(
+                        d.name,
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.white70),
                       ),
                     ),
-                  ),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: (d.score / 100).clamp(0.0, 1.0),
+                          minHeight: 5,
+                          backgroundColor: Colors.white.withOpacity(0.15),
+                          valueColor: AlwaysStoppedAnimation(
+                            Color.lerp(
+                              const Color(0xFF64B5F6),
+                              const Color(0xFF42A5F5),
+                              (d.score / 100).clamp(0.0, 1.0),
+                            )!,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        d.score.toStringAsFixed(0),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: 28,
-                  child: Text(
-                    score.toStringAsFixed(0),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 3),
-          ],
+              )),
         ],
       ),
     );

@@ -55,7 +55,11 @@ class AvatarPainter extends CustomPainter {
       ..shader = ui.Gradient.linear(
         Offset(0, 0),
         Offset(0, h),
-        [primary.withOpacity(0.20), primary.withOpacity(0.05), secondary.withOpacity(0.10)],
+        [
+          primary.withOpacity(0.20),
+          primary.withOpacity(0.05),
+          secondary.withOpacity(0.10)
+        ],
       );
     canvas.drawRect(Offset.zero & size, bg);
 
@@ -108,7 +112,8 @@ class AvatarPainter extends CustomPainter {
       for (int c = 0; c < 5; c++) {
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(wx + c * bw * 0.15, wy + r * h * 0.035, bw * 0.08, h * 0.022),
+            Rect.fromLTWH(
+                wx + c * bw * 0.15, wy + r * h * 0.035, bw * 0.08, h * 0.022),
             const Radius.circular(1.5),
           ),
           win,
@@ -152,11 +157,18 @@ class AvatarPainter extends CustomPainter {
     canvas.save();
     canvas.translate(0, floatY);
 
-    // 学位服身体
+    // 人体打散组装：每个动画周期前 25% 让头部、身体从两侧归位，
+    // 之后进入呼吸/眨眼/粒子循环，形成“蔚小芯正在组装自己”的陪伴感。
+    final assembly = t < 0 ? 1.0 : (t / 0.25).clamp(0.0, 1.0);
+    final ease = Curves.easeOut.transform(assembly);
+    canvas.save();
+    canvas.translate((1 - ease) * -w * 0.24, (1 - ease) * h * 0.08);
     _drawBody(canvas, cx, bodyTop, w, h);
-
-    // 星星头 + 帽子 + 表情
+    canvas.restore();
+    canvas.save();
+    canvas.translate((1 - ease) * w * 0.24, (1 - ease) * -h * 0.10);
     _drawStarHead(canvas, cx, bodyTop, w, h);
+    canvas.restore();
 
     canvas.restore();
   }
@@ -167,7 +179,8 @@ class AvatarPainter extends CustomPainter {
     // 脉冲：t 驱动 0.9~1.1 缩放
     final pulse = t >= 0 ? 1.0 + sin(t * 2 * pi) * 0.10 : 1.0;
     final ring = Paint()
-      ..color = Colors.white.withOpacity((0.25 + glow * 0.30) * (t >= 0 ? 1.0 + sin(t * 2 * pi) * 0.15 : 1.0))
+      ..color = Colors.white.withOpacity(
+          (0.25 + glow * 0.30) * (t >= 0 ? 1.0 + sin(t * 2 * pi) * 0.15 : 1.0))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     final r = w * 0.20 * pulse;
@@ -199,19 +212,22 @@ class AvatarPainter extends CustomPainter {
     final body = Path()
       ..moveTo(cx - w * 0.17, bodyTop)
       ..lineTo(cx - w * 0.22, bodyTop + h * 0.34)
-      ..quadraticBezierTo(cx, bodyTop + h * 0.40, cx + w * 0.22, bodyTop + h * 0.34)
+      ..quadraticBezierTo(
+          cx, bodyTop + h * 0.40, cx + w * 0.22, bodyTop + h * 0.34)
       ..lineTo(cx + w * 0.17, bodyTop)
       ..close();
     canvas.drawPath(body, Paint()..color = gown);
 
     // 衣摆（深色边）
-    final hem = Paint()..color = gown.withOpacity( 0.85);
+    final hem = Paint()..color = gown.withOpacity(0.85);
     canvas.drawPath(
       Path()
         ..moveTo(cx - w * 0.22, bodyTop + h * 0.34)
-        ..quadraticBezierTo(cx, bodyTop + h * 0.40, cx + w * 0.22, bodyTop + h * 0.34)
+        ..quadraticBezierTo(
+            cx, bodyTop + h * 0.40, cx + w * 0.22, bodyTop + h * 0.34)
         ..lineTo(cx + w * 0.24, bodyTop + h * 0.365)
-        ..quadraticBezierTo(cx, bodyTop + h * 0.42, cx - w * 0.24, bodyTop + h * 0.365)
+        ..quadraticBezierTo(
+            cx, bodyTop + h * 0.42, cx - w * 0.24, bodyTop + h * 0.365)
         ..close(),
       hem,
     );
@@ -242,7 +258,7 @@ class AvatarPainter extends CustomPainter {
         Paint()..color = const Color(0xFFE53935));
 
     // 手臂（学位服袖）
-    final sleeve = Paint()..color = gown.withOpacity( 0.85);
+    final sleeve = Paint()..color = gown.withOpacity(0.85);
     // 左袖
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -274,20 +290,24 @@ class AvatarPainter extends CustomPainter {
       final by = bodyTop + h * 0.24;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromCenter(center: Offset(bx, by), width: w * 0.20, height: h * 0.10),
+            Rect.fromCenter(
+                center: Offset(bx, by), width: w * 0.20, height: h * 0.10),
             const Radius.circular(3)),
         book,
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromCenter(center: Offset(bx, by), width: w * 0.16, height: h * 0.085),
+            Rect.fromCenter(
+                center: Offset(bx, by), width: w * 0.16, height: h * 0.085),
             const Radius.circular(2)),
         page,
       );
       canvas.drawLine(
         Offset(bx, by - h * 0.04),
         Offset(bx, by + h * 0.04),
-        Paint()..color = Colors.grey.shade300..strokeWidth = 1.5,
+        Paint()
+          ..color = Colors.grey.shade300
+          ..strokeWidth = 1.5,
       );
     }
 
@@ -299,14 +319,17 @@ class AvatarPainter extends CustomPainter {
         ..strokeWidth = 2.5;
       final mx = cx + w * 0.15;
       final my = bodyTop + h * 0.035;
-      canvas.drawLine(Offset(cx + w * 0.06, bodyTop), Offset(mx, my - h * 0.02), ribbon);
+      canvas.drawLine(
+          Offset(cx + w * 0.06, bodyTop), Offset(mx, my - h * 0.02), ribbon);
       canvas.drawCircle(Offset(mx, my), w * 0.032, medal);
       canvas.drawCircle(
           Offset(mx, my),
           w * 0.032,
-          Paint()..color = medal.color..style = PaintingStyle.stroke..strokeWidth = 1.5);
-      canvas.drawPath(
-          _starPoints(Offset(mx, my), w * 0.015, w * 0.007),
+          Paint()
+            ..color = medal.color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5);
+      canvas.drawPath(_starPoints(Offset(mx, my), w * 0.015, w * 0.007),
           Paint()..color = Colors.white);
     }
 
@@ -316,14 +339,14 @@ class AvatarPainter extends CustomPainter {
       final bx = cx - w * 0.14;
       final by = bodyTop + h * 0.05;
       canvas.drawCircle(Offset(bx, by), w * 0.026, badge);
-      canvas.drawPath(
-          _starPoints(Offset(bx, by), w * 0.015, w * 0.006),
+      canvas.drawPath(_starPoints(Offset(bx, by), w * 0.015, w * 0.006),
           Paint()..color = Colors.white);
     }
   }
 
   // ── 五角星头 + 帽子 + 表情 ──
-  void _drawStarHead(Canvas canvas, double cx, double bodyTop, double w, double h) {
+  void _drawStarHead(
+      Canvas canvas, double cx, double bodyTop, double w, double h) {
     final headW = w * 0.30;
     final headH = h * 0.24;
     final headCenter = Offset(cx, bodyTop - headH / 2 - h * 0.03);
@@ -353,8 +376,8 @@ class AvatarPainter extends CustomPainter {
 
     // 腮红（社交分越高越明显）
     final blush = Paint()
-      ..color = const Color(0xFFFF8A80)
-          .withOpacity(0.25 + config.social / 100 * 0.3);
+      ..color =
+          const Color(0xFFFF8A80).withOpacity(0.25 + config.social / 100 * 0.3);
     canvas.drawOval(
         Rect.fromCenter(
             center: Offset(cx - headW * 0.30, headCenter.dy + headH * 0.12),
@@ -377,7 +400,8 @@ class AvatarPainter extends CustomPainter {
     final eyeHeight = isBlinking ? h * 0.012 : h * 0.045; // 闭眼变细
     final eyeWhite = Paint()..color = Colors.white;
     final iris = Paint()
-      ..color = Color.lerp(const Color(0xFF1565C0), const Color(0xFF00ACC1), eyeBright)!;
+      ..color = Color.lerp(
+          const Color(0xFF1565C0), const Color(0xFF00ACC1), eyeBright)!;
     final pupil = Paint()..color = const Color(0xFF37474F);
     for (final side in [-1, 1]) {
       final ex = cx + side * headW * 0.23;
@@ -390,9 +414,7 @@ class AvatarPainter extends CustomPainter {
         canvas.drawCircle(Offset(ex, eyeY), w * 0.022, iris);
         canvas.drawCircle(Offset(ex, eyeY), w * 0.011, pupil);
         // 高光
-        canvas.drawCircle(
-            Offset(ex - w * 0.008, eyeY - h * 0.008),
-            w * 0.006,
+        canvas.drawCircle(Offset(ex - w * 0.008, eyeY - h * 0.008), w * 0.006,
             Paint()..color = Colors.white.withOpacity(0.5 + eyeBright * 0.5));
       }
     }
@@ -410,15 +432,19 @@ class AvatarPainter extends CustomPainter {
             center: Offset(cx, mouthY + h * 0.004),
             width: w * 0.09,
             height: h * 0.04),
-        pi * 0.15, pi * 0.7, false, mouthPaint,
+        pi * 0.15,
+        pi * 0.7,
+        false,
+        mouthPaint,
       );
     } else {
       canvas.drawArc(
         Rect.fromCenter(
-            center: Offset(cx, mouthY),
-            width: w * 0.07,
-            height: h * 0.022),
-        pi * 0.2, pi * 0.6, false, mouthPaint,
+            center: Offset(cx, mouthY), width: w * 0.07, height: h * 0.022),
+        pi * 0.2,
+        pi * 0.6,
+        false,
+        mouthPaint,
       );
     }
 
@@ -441,10 +467,8 @@ class AvatarPainter extends CustomPainter {
               width: headW * 0.20,
               height: headH * 0.16),
           frame);
-      canvas.drawLine(
-          Offset(cx - headW * 0.02, lensY),
-          Offset(cx + headW * 0.02, lensY),
-          frame);
+      canvas.drawLine(Offset(cx - headW * 0.02, lensY),
+          Offset(cx + headW * 0.02, lensY), frame);
     }
 
     // 帽子（角色区分）
@@ -452,14 +476,16 @@ class AvatarPainter extends CustomPainter {
   }
 
   // ── 帽子 ──
-  void _drawHat(Canvas canvas, Offset headCenter, double headW, double headH, double w, double h) {
+  void _drawHat(Canvas canvas, Offset headCenter, double headW, double headH,
+      double w, double h) {
     final top = headCenter.dy - headH * 0.62;
     if (config.hatStyle == 'chinese') {
       // 中式学位帽（教师）：红色圆顶 + 金边
       final cap = Paint()..color = const Color(0xFFB71C1C);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(headCenter.dx - headW * 0.38, top - h * 0.035, headW * 0.76, headH * 0.16),
+          Rect.fromLTWH(headCenter.dx - headW * 0.38, top - h * 0.035,
+              headW * 0.76, headH * 0.16),
           Radius.circular(headH * 0.10),
         ),
         cap,
@@ -467,15 +493,14 @@ class AvatarPainter extends CustomPainter {
       // 金色镶边
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(headCenter.dx - headW * 0.38, top - h * 0.035, headW * 0.76, headH * 0.06),
+          Rect.fromLTWH(headCenter.dx - headW * 0.38, top - h * 0.035,
+              headW * 0.76, headH * 0.06),
           Radius.circular(headH * 0.04),
         ),
         Paint()..color = const Color(0xFFFFD54F),
       );
       // 顶珠
-      canvas.drawCircle(
-          Offset(headCenter.dx, top - h * 0.045),
-          w * 0.018,
+      canvas.drawCircle(Offset(headCenter.dx, top - h * 0.045), w * 0.018,
           Paint()..color = const Color(0xFFFFC107));
     } else {
       // 学士帽（学生）：黑色方帽 + 帽穗
@@ -492,7 +517,8 @@ class AvatarPainter extends CustomPainter {
       // 帽筒
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(headCenter.dx - headW * 0.34, top - h * 0.02, headW * 0.68, headH * 0.12),
+          Rect.fromLTWH(headCenter.dx - headW * 0.34, top - h * 0.02,
+              headW * 0.68, headH * 0.12),
           Radius.circular(headH * 0.05),
         ),
         cap,
@@ -508,10 +534,8 @@ class AvatarPainter extends CustomPainter {
         Offset(headCenter.dx + headW * 0.42, top + h * 0.08),
         tassel,
       );
-      canvas.drawCircle(
-          Offset(headCenter.dx + headW * 0.42, top + h * 0.08),
-          w * 0.015,
-          Paint()..color = const Color(0xFFFFC107));
+      canvas.drawCircle(Offset(headCenter.dx + headW * 0.42, top + h * 0.08),
+          w * 0.015, Paint()..color = const Color(0xFFFFC107));
     }
   }
 
@@ -548,8 +572,7 @@ class AvatarPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(Offset(cx, cy), r, ring);
-    canvas.drawPath(
-        _starPoints(Offset(cx, cy), r * 0.55, r * 0.24),
+    canvas.drawPath(_starPoints(Offset(cx, cy), r * 0.55, r * 0.24),
         Paint()..color = primary.withOpacity(0.4));
 
     final tp = TextPainter(
@@ -588,7 +611,8 @@ class AvatarPainter extends CustomPainter {
       Rect.fromLTWH(w * 0.62, 12, tp.width + padX * 2, tp.height + padY * 2),
       const Radius.circular(999),
     );
-    canvas.drawRRect(rect, Paint()..color = const Color(0xFF1565C0).withOpacity(0.75));
+    canvas.drawRRect(
+        rect, Paint()..color = const Color(0xFF1565C0).withOpacity(0.75));
     tp.paint(canvas, Offset(w * 0.62 + padX, 12 + padY));
   }
 
