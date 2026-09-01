@@ -229,7 +229,6 @@ type projectInput struct {
 	FundsInvolved   bool   `json:"funds_involved"`
 	ComplexityLayer int    `json:"complexity_layer"`
 	TeamMode        string `json:"team_mode"`
-	IsDemo          bool   `json:"is_demo"`
 }
 
 func (in *projectInput) normalizeAndValidate(submit bool) (string, int) {
@@ -444,20 +443,14 @@ func (h *VOPCHandler) CreateProject(c *gin.Context) {
 		serverError(c, "项目保存失败")
 		return
 	}
-	if err = execOne(tx, `INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, id, u.UserID, "owner"); err != nil {
-		serverError(c, "项目成员初始化失败")
+	if err = seedOwnerAndMilestones(tx, id, u.UserID); err != nil {
+		serverError(c, "项目脚手架初始化失败")
 		return
 	}
 	roles := []struct{ k, n string }{{"project_manager", "产品经理向导"}, {"market_user", "市场与用户向导"}, {"product_solution", "产品与方案向导"}, {"execution", "交付执行向导"}}
 	for _, r := range roles {
 		if err = execOne(tx, `INSERT INTO vopc_ai_roles(project_id,role_key,role_name) VALUES(?,?,?)`, id, r.k, r.n); err != nil {
 			serverError(c, "虚拟向导初始化失败")
-			return
-		}
-	}
-	for i := 0; i < 5; i++ {
-		if err = execOne(tx, `INSERT INTO vopc_milestones(project_id,stage,required_evidence) VALUES(?,?,?)`, id, fmt.Sprintf("G%d", i), milestoneEvidence(i)); err != nil {
-			serverError(c, "里程碑初始化失败")
 			return
 		}
 	}
@@ -492,20 +485,15 @@ func (h *VOPCHandler) CreateDemoProject(c *gin.Context) {
 		serverError(c, "演示项目创建失败")
 		return
 	}
-	if err = execOne(tx, `INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, id, u.UserID, "owner"); err != nil {
-		serverError(c, "演示团队初始化失败")
+	if err = seedOwnerAndMilestones(tx, id, u.UserID); err != nil {
+		serverError(c, "演示项目脚手架初始化失败")
 		return
 	}
 	roles := []struct{ k, n string }{{"project_manager", "产品经理向导"}, {"architecture", "架构与后端向导"}, {"frontend", "前端体验向导"}, {"qa", "测试质量向导"}, {"retrospective", "交付复盘向导"}}
+	allStages, _ := json.Marshal(gStages)
 	for i, r := range roles {
-		if err = execOne(tx, `INSERT INTO vopc_ai_roles(project_id,role_key,role_name,responsible_stages,responsibilities,sort_order) VALUES(?,?,?,?,?,?)`, id, r.k, r.n, `["G0","G1","G2","G3","G4"]`, "提供模拟模板与检查清单，不执行真实操作。", i); err != nil {
+		if err = execOne(tx, `INSERT INTO vopc_ai_roles(project_id,role_key,role_name,responsible_stages,responsibilities,sort_order) VALUES(?,?,?,?,?,?)`, id, r.k, r.n, string(allStages), "提供模拟模板与检查清单，不执行真实操作。", i); err != nil {
 			serverError(c, "演示团队初始化失败")
-			return
-		}
-	}
-	for i := 0; i < 5; i++ {
-		if err = execOne(tx, `INSERT INTO vopc_milestones(project_id,stage,required_evidence) VALUES(?,?,?)`, id, fmt.Sprintf("G%d", i), milestoneEvidence(i)); err != nil {
-			serverError(c, "演示阶段初始化失败")
 			return
 		}
 	}
@@ -541,7 +529,7 @@ func (h *VOPCHandler) AdvanceSimulation(c *gin.Context) {
 		return
 	}
 	idx := stageIndexOf(stage)
-	if idx < 0 || idx >= 4 {
+	if idx < 0 || idx >= len(gStages)-1 {
 		c.JSON(http.StatusConflict, gin.H{"code": 409, "message": "模拟项目已完成，请查看复盘"})
 		return
 	}
@@ -579,6 +567,20 @@ func execOne(tx *sql.Tx, q string, args ...any) error {
 func writeEvent(tx *sql.Tx, id, actor int64, action, before, after, detail string) error {
 	payload, _ := json.Marshal(gin.H{"before": before, "after": after, "detail": detail})
 	return execOne(tx, `INSERT INTO vopc_events(project_id,actor_user_id,action,detail) VALUES(?,?,?,?)`, id, actor, action, string(payload))
+}
+
+// seedOwnerAndMilestones 写入项目发起人成员记录与 G0–G4 五个里程碑占位。
+// 真实项目与演示项目的这部分脚手架完全一致，抽出以免两处各改一遍。
+func seedOwnerAndMilestones(tx *sql.Tx, projectID, ownerID int64) error {
+	if err := execOne(tx, `INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, projectID, ownerID, "owner"); err != nil {
+		return err
+	}
+	for i := range gStages {
+		if err := execOne(tx, `INSERT INTO vopc_milestones(project_id,stage,required_evidence) VALUES(?,?,?)`, projectID, gStages[i], milestoneEvidence(i)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *VOPCHandler) GetProject(c *gin.Context) {

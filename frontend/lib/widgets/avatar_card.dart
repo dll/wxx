@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -21,7 +22,8 @@ class _AvatarCardState extends State<AvatarCard>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller;
   late final VoiceService _voice;
-  late final ValueNotifier<int> _dimensionIndex;
+  Timer? _cycleTimer;
+  int _dimensionIndex = 0;
   bool _visible = true;
   bool _speaking = false;
 
@@ -36,8 +38,7 @@ class _AvatarCardState extends State<AvatarCard>
       duration: const Duration(milliseconds: 3000),
     )..repeat();
     _voice = VoiceService();
-    _dimensionIndex = ValueNotifier<int>(0);
-    _cycleDimensions();
+    _startDimensionCycle();
     // 监听应用生命周期：页面不可见时暂停动画，减少持续重绘
     WidgetsBinding.instance.addObserver(this);
   }
@@ -45,17 +46,24 @@ class _AvatarCardState extends State<AvatarCard>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopDimensionCycle();
     _controller.dispose();
-    _dimensionIndex.dispose();
     _voice.dispose();
     super.dispose();
   }
 
-  Future<void> _cycleDimensions() async {
-    while (mounted) {
-      await Future<void>.delayed(const Duration(seconds: 4));
-      if (mounted) _dimensionIndex.value = (_dimensionIndex.value + 1) % 5;
-    }
+  /// 启动维度轮播：每 4 秒聚焦下一个维度。
+  /// 用可取消的 Timer 而非 while 循环，dispose 与切后台时都能确定性停止。
+  void _startDimensionCycle() {
+    _cycleTimer ??= Timer.periodic(const Duration(seconds: 4), (_) {
+      setState(
+          () => _dimensionIndex = (_dimensionIndex + 1) % _dimensions.length);
+    });
+  }
+
+  void _stopDimensionCycle() {
+    _cycleTimer?.cancel();
+    _cycleTimer = null;
   }
 
   List<({String name, double score})> get _dimensions => [
@@ -72,7 +80,7 @@ class _AvatarCardState extends State<AvatarCard>
       setState(() => _speaking = false);
       return;
     }
-    final d = _dimensions[_dimensionIndex.value];
+    final d = _dimensions[_dimensionIndex];
     setState(() => _speaking = true);
     final data = await _voice.textToSpeech(
         '蔚小芯成长画像播报：${d.name}维度，当前记录分数约${d.score.toStringAsFixed(0)}分。这个指标用于帮助你了解成长方向，不代表对你的定义。');
@@ -87,8 +95,11 @@ class _AvatarCardState extends State<AvatarCard>
     _visible = visible;
     if (visible) {
       _controller.repeat();
+      _startDimensionCycle();
     } else {
       _controller.stop();
+      // 不可见时同时停掉维度轮播，避免后台无谓重建
+      _stopDimensionCycle();
     }
   }
 
@@ -193,11 +204,7 @@ class _AvatarCardState extends State<AvatarCard>
               left: 16,
               right: 16,
               bottom: 12,
-              child: ValueListenableBuilder<int>(
-                valueListenable: _dimensionIndex,
-                builder: (context, index, _) =>
-                    _buildDimensionBar(theme, index),
-              ),
+              child: _buildDimensionBar(theme, _dimensionIndex),
             ),
           ],
         ),

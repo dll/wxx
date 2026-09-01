@@ -354,62 +354,9 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 智能体选择器 — 紧凑单行横向 chips，贴合输入区上方的消息流，避免高大堆叠
-  Widget _buildAgentSelector(ChatProvider chat, ThemeData theme) {
-    if (chat.agents.isEmpty) return const SizedBox.shrink();
-
-    final agents = chat.agents;
-    return Container(
-      color: theme.colorScheme.surface,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-      child: Row(
-        children: [
-          Icon(Icons.smart_toy_outlined,
-              size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          // 智能体 chips 单行横向滚动，高度紧凑
-          Expanded(
-            child: SizedBox(
-              height: 34,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: agents.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    final selected = chat.selectedAgentId == null;
-                    return _buildAgentOption(
-                      theme,
-                      icon: Icons.auto_awesome,
-                      label: '默认',
-                      color: theme.colorScheme.primary,
-                      selected: selected,
-                      onTap: () => chat.selectAgent(null),
-                    );
-                  }
-                  final agent = agents[index - 1];
-                  final selected = chat.selectedAgentId == agent.agentId;
-                  return _buildAgentOption(
-                    theme,
-                    icon: _agentIcon(agent.agentType),
-                    label: agent.name,
-                    color: _agentColor(agent.agentType),
-                    selected: selected,
-                    onTap: () =>
-                        chat.selectAgent(selected ? null : agent.agentId),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAgentWorkspace(ChatProvider chat, ThemeData theme) {
     final agents = chat.agents.take(5).toList();
-    if (agents.isEmpty) return _buildAgentSelector(chat, theme);
+    if (agents.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
@@ -479,7 +426,7 @@ class _ChatPageState extends State<ChatPage> {
                                     : theme.colorScheme.onSurface)),
                         Text(
                             agent.description.isEmpty
-                                ? _agentSubtitle(agent.agentType)
+                                ? agent.typeLabel
                                 : agent.description,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -492,67 +439,6 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       ]),
-    );
-  }
-
-  String _agentSubtitle(String type) {
-    switch (type) {
-      case 'policy':
-        return '政策说明';
-      case 'process':
-        return '办事流程';
-      case 'emotion':
-        return '成长陪伴';
-      case 'major':
-        return '专业规划';
-      default:
-        return '校园问答';
-    }
-  }
-
-  /// 单个智能体选项（图标 + 名称 + 选中态描边）
-  Widget _buildAgentOption(
-    ThemeData theme, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: selected ? color.withOpacity(0.14) : theme.colorScheme.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? color : theme.colorScheme.outlineVariant,
-              width: selected ? 1.6 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(icon,
-                  size: 18,
-                  color: selected ? color : theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? color : theme.colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

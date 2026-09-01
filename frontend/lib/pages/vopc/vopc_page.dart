@@ -142,13 +142,14 @@ class _VopcPageState extends State<VopcPage> {
   }
 
   Future<void> _createDemo() async {
-    final id = await context.read<VopcProvider>().createDemoProject();
+    final p = context.read<VopcProvider>();
+    final id = await p.createDemoProject();
     if (!mounted) return;
     if (id != null) {
       context.push('/vopc/projects/$id');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(context.read<VopcProvider>().error ?? '模拟项目创建失败')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(p.error ?? '模拟项目创建失败')));
     }
   }
 

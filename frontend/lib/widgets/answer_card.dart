@@ -30,9 +30,22 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
   final Set<int> _expandedSourceIndices = {};
   int? _highlightedSourceIndex;
 
+  /// 视频地址判定（提到 static，避免每个列表项重复编译正则）
+  static final RegExp _videoUrlPattern =
+      RegExp(r'\.(mp4|webm|mov)(\?|$)', caseSensitive: false);
+
+  /// 去重后的媒体地址：build 的显隐判断与 _buildMediaSection 共用同一份口径，
+  /// 避免"非空列表"与"非空白地址"两套条件不一致导致空白间距。
+  List<String> get mediaUrls => widget.card.stepDetails
+      .expand((s) => s.mediaUrls)
+      .where((url) => url.trim().isNotEmpty)
+      .toSet()
+      .toList();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final media = mediaUrls;
 
     return Semantics(
       label: 'AI 回答卡片',
@@ -53,10 +66,9 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
                 _buildConclusionWithCitations(theme),
 
               // 多模态内容：后端流程步骤可携带图片/视频地址，回答中直接以媒体卡片呈现。
-              if (widget.card.stepDetails
-                  .any((s) => s.mediaUrls.isNotEmpty)) ...[
+              if (media.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _buildMediaSection(theme),
+                _buildMediaSection(theme, media),
               ],
 
               // 参与智能体（D4-3 透明分层展示）：仅当后端下发了 agents 列表时显示，
@@ -270,13 +282,7 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
     );
   }
 
-  Widget _buildMediaSection(ThemeData theme) {
-    final urls = widget.card.stepDetails
-        .expand((s) => s.mediaUrls)
-        .where((url) => url.trim().isNotEmpty)
-        .toSet()
-        .toList();
-    if (urls.isEmpty) return const SizedBox.shrink();
+  Widget _buildMediaSection(ThemeData theme, List<String> urls) {
     return _buildSection(
       context,
       icon: Icons.perm_media_outlined,
@@ -289,9 +295,7 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (_, index) {
             final url = urls[index];
-            final isVideo =
-                RegExp(r'\.(mp4|webm|mov)(\?|$)', caseSensitive: false)
-                    .hasMatch(url);
+            final isVideo = _videoUrlPattern.hasMatch(url);
             return Container(
               width: 180,
               clipBehavior: Clip.antiAlias,
