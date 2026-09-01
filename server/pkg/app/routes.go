@@ -133,6 +133,8 @@ func setupRouter(d *deps) *gin.Engine {
 
 		// 知识大厅（公开，仅返回全校公开已发布资源）
 		v1.GET("/knowledge/public", d.kbH.BrowseKnowledgePublic)
+		// 公开功能开关（仅返回 feature.*，不包含敏感配置）
+		v1.GET("/public/feature-switches", d.adminH.GetPublicFeatureSwitches)
 
 		// 需要 JWT 认证
 		secured := v1.Group("/")
@@ -460,9 +462,6 @@ func setupRouter(d *deps) *gin.Engine {
 				admin.POST("/users/batch/delete", auth.RequireCapability(auth.SchoolUserUpdate), d.adminH.BatchDelete)
 				admin.GET("/settings", auth.RequireCapability(auth.SystemSettingsWrite), d.adminH.GetSettings)
 				admin.PUT("/settings", auth.RequireCapability(auth.SystemSettingsWrite), d.adminH.UpdateSettings)
-				// 公开功能开关：登录用户可读（管理员在 /admin/settings 里改 feature.* 键）
-				secured.GET("/public/feature-switches", d.adminH.GetPublicFeatureSwitches)
-
 				// 应用版本管理（sys_admin）
 				admin.GET("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), d.appVersionH.ListVersions)
 				admin.POST("/app-versions", auth.RequireCapability(auth.SystemSettingsWrite), d.appVersionH.CreateVersion)

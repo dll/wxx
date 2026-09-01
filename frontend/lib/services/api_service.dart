@@ -44,8 +44,11 @@ class ApiService {
         handler.next(options);
       },
       onError: (error, handler) {
+        // 仅当本地确实持有令牌时才触发会话重置。
+        // 未登录页面访问公开/可选接口收到 401，不应清空状态或反复跳转登录页。
         if (error.response?.statusCode == 401 &&
-            error.requestOptions.path != ApiConfig.login) {
+            error.requestOptions.path != ApiConfig.login &&
+            Storage.isLoggedIn) {
           onUnauthorized?.call();
           handler.resolve(Response(
             requestOptions: error.requestOptions,
