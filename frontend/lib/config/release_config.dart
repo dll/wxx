@@ -6,7 +6,7 @@
 class ReleaseConfig {
   static const String version = '0.0.30';
   static const int buildNumber = 30;
-  static const String releaseDate = '2026-09-01';
+  static const String releaseDate = '2026-09-02';
   static const String apkFileName = '蔚小芯-v0.0.30.apk';
   static const String apkDownloadUrl = 'https://github.com/dll/wxx/releases/latest/download/weixiaoxin.apk';
   static const String webUrl = 'https://wxx-agent.online';
