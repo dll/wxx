@@ -15,7 +15,7 @@ func TestPhase3_ImportSchedules_ResolveOwnerByUsername(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	t.Cleanup(func() { db.Close() })
 
-	// 建 course_schedules 表（testutil 未含迁移 037）
+	// 建 course_schedules 表（testutil 未含迁移 037；含 owner_username 模拟迁移 116）
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS course_schedules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL,
@@ -29,6 +29,7 @@ func TestPhase3_ImportSchedules_ResolveOwnerByUsername(t *testing.T) {
 		location TEXT,
 		teacher TEXT,
 		color TEXT DEFAULT '#1565C0',
+		owner_username TEXT NOT NULL DEFAULT '',
 		created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 		UNIQUE(user_id, course_id, weekday, start_period, semester_code)
 	)`); err != nil {
@@ -38,7 +39,7 @@ func TestPhase3_ImportSchedules_ResolveOwnerByUsername(t *testing.T) {
 	userRepo := repository.NewUserRepo(db)
 	// 教师 120001、学生 2023001
 	tid, _ := userRepo.Create(&model.User{Username: "120001", DisplayName: "胡老师", Role: "teacher", OwnerScope: "college", OwnerID: "cs", Status: "active"})
-	sid, _ := userRepo.Create(&model.User{Username: "2023001", DisplayName: "张同学", Role: "student", OwnerScope: "college", OwnerID: "cs", Status: "active"})
+	_, _ = userRepo.Create(&model.User{Username: "2023001", DisplayName: "张同学", Role: "student", OwnerScope: "college", OwnerID: "cs", Status: "active"})
 
 	dataRepo := repository.NewDataImportRepo(db)
 	svc := NewPhase3Service(dataRepo)
@@ -58,9 +59,17 @@ func TestPhase3_ImportSchedules_ResolveOwnerByUsername(t *testing.T) {
 	if info.ID != tid {
 		t.Fatalf("120001 应解析为 tid=%d，得到 %d", tid, info.ID)
 	}
+	// 校验挂到了教师账号（120001 的 user_id）：
+	// 表内含迁移 037 种子课表（user 1 的 CS101）；这里只验证存在 tid 名下的 CS101 行。
 	list, _ := dataRepo.ListSchedules("")
-	if list[0]["user_id"] != int64(tid) {
-		t.Fatalf("课表应挂到教师 user_id=%d，实际 %v", tid, list[0]["user_id"])
+	foundCS := false
+	for _, s := range list {
+		if s["course_id"] == "CS101" && s["user_id"] == int64(tid) {
+			foundCS = true
+		}
+	}
+	if !foundCS {
+		t.Fatalf("应存在挂到教师 user_id=%d 的 CS101 课表，当前列表 %v", tid, list)
 	}
 
 	// 2）未知 username → 拒绝，不创建
@@ -89,5 +98,37 @@ func TestPhase3_ImportSchedules_ResolveOwnerByUsername(t *testing.T) {
 	if len(res4.Errors) != 0 {
 		t.Fatalf("学生 username 导入应成功: %+v", res4)
 	}
-	_ = sid
+
+	// 5）模拟历史错挂：把教师课表直接以错误 user_id 写入（owner_username=120001）
+	// 后通过归位接口修正——验证 owner_username 追溯归位
+	if _, err := db.Exec(`INSERT INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, weeks_pattern, location, teacher, owner_username)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		99999, "CS_HIST", "错挂课", "2025-2026-2", 2, 1, 2, "1-16", "X", "胡老师", "120001"); err != nil {
+		t.Fatalf("插入历史错挂课表失败: %v", err)
+	}
+	affected, total, err := svc.ReassignSchedulesByUsername("120001")
+	if err != nil {
+		t.Fatalf("归位失败: %v", err)
+	}
+	// 归位目标：该工号名下全部课表（CS101 已正确 + CS_HIST 错挂，共 2 条）
+	if affected != 2 {
+		t.Fatalf("应归位 2 条（CS101 已正确 + CS_HIST 错挂），得到 %d", affected)
+	}
+	if total != 2 {
+		t.Fatalf("该工号名下应有 2 条课表，得到 %d", total)
+	}
+	// 校验已归位到教师正确账号
+	list2, _ := dataRepo.ListSchedules("")
+	found := false
+	for _, s := range list2 {
+		if s["course_id"] == "CS_HIST" {
+			found = true
+			if s["user_id"] != int64(tid) {
+				t.Fatalf("历史错挂课表应归位到教师 user_id=%d，实际 %v", tid, s["user_id"])
+			}
+		}
+	}
+	if !found {
+		t.Fatal("未找到历史错挂课表")
+	}
 }

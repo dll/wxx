@@ -527,6 +527,9 @@ class ApiConfig {
   static const String adminGradesImport = '$apiPrefix/admin/grades/import';
   static const String adminSchedulesImport =
       '$apiPrefix/admin/schedules/import';
+  /// 按工号归位课表（彻底修复历史错挂课程显示）
+  static const String adminSchedulesReassign =
+      '$apiPrefix/admin/schedules/reassign';
   static const String studentScheduleImport =
       '$apiPrefix/student/schedule/import';
 

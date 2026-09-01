@@ -15,11 +15,13 @@ class _DataImportPageState extends State<DataImportPage> {
   final ApiService _api = ApiService();
   final _gradeCtrl = TextEditingController();
   final _scheduleCtrl = TextEditingController();
+  final _reassignCtrl = TextEditingController();
   bool _gradeLoading = false;
   bool _scheduleLoading = false;
+  bool _reassignLoading = false;
   String _gradeResult = '';
   String _scheduleResult = '';
-
+  String _reassignResult = '';
   static const _gradeExample = '''
 {
   "grades": [
@@ -58,6 +60,7 @@ class _DataImportPageState extends State<DataImportPage> {
   void dispose() {
     _gradeCtrl.dispose();
     _scheduleCtrl.dispose();
+    _reassignCtrl.dispose();
     super.dispose();
   }
 
@@ -84,6 +87,33 @@ class _DataImportPageState extends State<DataImportPage> {
       setState(() => _scheduleResult = '导入失败：$e');
     } finally {
       setState(() => _scheduleLoading = false);
+    }
+  }
+
+  /// 按工号归位课表：把该工号名下所有课表挂到正确账号，覆盖历史错挂
+  Future<void> _reassign() async {
+    final username = _reassignCtrl.text.trim();
+    if (username.isEmpty) return;
+    setState(() { _reassignLoading = true; _reassignResult = ''; });
+    try {
+      final res = await _api.post(ApiConfig.adminSchedulesReassign,
+          data: {'username': username});
+      final data = res.data;
+      final code = data is Map ? data['code'] : null;
+      if (code != 0) {
+        setState(() => _reassignResult =
+            '归位失败：${data is Map ? (data['message'] ?? '') : res.data}');
+        return;
+      }
+      final d = data is Map ? data['data'] : null;
+      final reassigned = d is Map ? (d['reassigned'] ?? 0) : 0;
+      final total = d is Map ? (d['total'] ?? 0) : 0;
+      setState(() => _reassignResult =
+          '已归位 $reassigned 条课表到账号 $username（该账号课表共 $total 条）');
+    } catch (e) {
+      setState(() => _reassignResult = '归位失败：$e');
+    } finally {
+      setState(() => _reassignLoading = false);
     }
   }
 
@@ -145,7 +175,51 @@ class _DataImportPageState extends State<DataImportPage> {
           ),
           const SizedBox(height: 8),
           _buildScheduleHelp(theme),
+          const SizedBox(height: 16),
+          _buildReassignSection(theme),
         ],
+      ),
+    );
+  }
+
+  /// 按工号归位课表：彻底修复历史课表挂错账号
+  Widget _buildReassignSection(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.sync_problem, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text('课表归位（修复课程显示）', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            '若某用户登录后课表不对（历史按错误 user_id 导入），输入该用户的学号/工号，\n系统会把他/她名下所有课表重新归位到正确账号。',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _reassignCtrl,
+            decoration: const InputDecoration(
+              labelText: '学号 / 工号',
+              hintText: '例如：120001',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _reassignLoading ? null : _reassign,
+              icon: _reassignLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.sync),
+              label: Text(_reassignLoading ? '归位中…' : '按工号归位课表'),
+            ),
+          ),
+          if (_reassignResult.isNotEmpty) ...[const SizedBox(height: 8), Text(_reassignResult, style: theme.textTheme.bodySmall)],
+        ]),
       ),
     );
   }
@@ -153,7 +227,8 @@ class _DataImportPageState extends State<DataImportPage> {
   /// 课表字段说明：帮助辅导员/教务员填对 JSON（准确性第一）
   Widget _buildScheduleHelp(ThemeData theme) {
     const rows = [
-      ('user_id', '学生用户 ID（数字）'),
+      ('username', '学号/工号（推荐，稳定键，课表挂到该账号）'),
+      ('user_id', '内部用户ID（数字，可选；username 优先，填错会被忽略）'),
       ('course_id', '课程编号（用于去重，如 CS103）'),
       ('course_name', '课程名称，如 数据结构'),
       ('semester_code', '学期代码，如 2025-2026-2'),

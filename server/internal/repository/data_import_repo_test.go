@@ -109,8 +109,20 @@ func TestDataImportRepo_Schedules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSchedules 失败: %v", err)
 	}
-	if len(list) != 2 {
-		t.Fatalf("课表应为 2 条，实际 %d", len(list))
+	// 库内含迁移 037 的种子课表；这里验证 upsert 生效（CS101 已更新、CS102 已新增），而非精确条数
+	foundCS101, foundCS102 := false, false
+	for _, s := range list {
+		switch s["course_id"] {
+		case "CS101":
+			if s["course_name"] == "数据结构" {
+				foundCS101 = true
+			}
+		case "CS102":
+			foundCS102 = true
+		}
+	}
+	if !foundCS101 || !foundCS102 {
+		t.Fatalf("upsert 未生效：应含已更新的 CS101(数据结构) 与新增 CS102，实际 %v", list)
 	}
 }
 

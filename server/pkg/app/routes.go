@@ -510,6 +510,8 @@ func setupRouter(d *deps) *gin.Engine {
 				// ── 数据底座导入（成绩/课表，college_admin+）──
 				admin.POST("/grades/import", auth.RequireCapability(auth.CollegeUserRead), d.dataImportH.ImportGrades)
 				admin.POST("/schedules/import", auth.RequireCapability(auth.BatchScheduleImport), d.dataImportH.ImportSchedules)
+				// 按工号归位课表（彻底修复历史错挂课程显示）
+				admin.POST("/schedules/reassign", auth.RequireCapability(auth.BatchScheduleImport), d.dataImportH.ReassignSchedules)
 
 				// ── 校园报到步骤管理（college_admin+）──
 				campusAdmin := admin.Group("/campus")

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/repository"
@@ -61,6 +62,30 @@ func (h *DataImportHandler) ImportSchedules(c *gin.Context) {
 	}
 	res := h.phase3.ImportSchedules(req.Schedules)
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": res})
+}
+
+// ReassignSchedules 按工号归位课表（彻底修复历史错挂的课程显示）。
+// POST /api/v1/admin/schedules/reassign  body: {"username":"120001"}
+// 把 course_schedules.owner_username=该工号 的所有课表 user_id 改为工号解析出的正确账号，
+// 覆盖历史按错误 user_id 导入的课表。返回受影响条数与该工号名下课表总数。
+func (h *DataImportHandler) ReassignSchedules(c *gin.Context) {
+	if h.phase3 == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "数据服务未就绪"})
+		return
+	}
+	var req struct {
+		Username string `json:"username" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Username) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误：需要 username(工号/学号)"})
+		return
+	}
+	affected, total, err := h.phase3.ReassignSchedulesByUsername(req.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"reassigned": affected, "total": total, "username": req.Username}})
 }
 
 // ImportMySchedule 学生个人导入自己的课表（角色化导入：仅限导入本人课表）

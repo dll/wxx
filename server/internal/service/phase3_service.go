@@ -215,6 +215,36 @@ func (s *Phase3Service) resolveScheduleOwner(r *repository.ScheduleRow) (int64, 
 	return 0, fmt.Errorf("课表归属缺失：需提供 username 或 user_id")
 }
 
+// ReassignSchedulesByUsername 将课表按工号归位到正确账号（彻底修复历史错挂）。
+// 运营通过新的 username 导入后，owner_username 已记录工号；此接口把该工号名下
+// 所有已导入课表（含历史错挂的）的 user_id 改为由工号解析出的正确账号。
+// 返回 (受影响条数, 该工号名下当前课表数, err)。
+func (s *Phase3Service) ReassignSchedulesByUsername(username string) (int64, int, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return 0, 0, fmt.Errorf("工号/学号不能为空")
+	}
+	if s.userRepo == nil {
+		return 0, 0, fmt.Errorf("归属解析不可用（userRepo 未注入）")
+	}
+	u, err := s.userRepo.GetByUsername(username)
+	if err != nil {
+		return 0, 0, fmt.Errorf("查询账号失败: %v", err)
+	}
+	if u == nil {
+		return 0, 0, fmt.Errorf("账号不存在: %s", username)
+	}
+	affected, err := s.repo.ReassignSchedulesByOwnerUsername(username, u.ID)
+	if err != nil {
+		return 0, 0, err
+	}
+	total, err := s.repo.CountSchedulesByOwnerUsername(username)
+	if err != nil {
+		return affected, 0, err
+	}
+	return affected, total, nil
+}
+
 // ── 教辅真实数据 ──
 
 // GetScheduleConflicts 基于真实课表检测排课冲突（同教室/同教师/同班级 同时段）
