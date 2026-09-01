@@ -52,6 +52,13 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
               if (widget.card.conclusion.isNotEmpty)
                 _buildConclusionWithCitations(theme),
 
+              // 多模态内容：后端流程步骤可携带图片/视频地址，回答中直接以媒体卡片呈现。
+              if (widget.card.stepDetails
+                  .any((s) => s.mediaUrls.isNotEmpty)) ...[
+                const SizedBox(height: 12),
+                _buildMediaSection(theme),
+              ],
+
               // 参与智能体（D4-3 透明分层展示）：仅当后端下发了 agents 列表时显示，
               // 缺失/为空则整行隐藏，不影响既有布局与交互。
               if (widget.card.agents.isNotEmpty) ...[
@@ -258,6 +265,67 @@ class _AnswerCardWidgetState extends State<AnswerCardWidget>
         a: TextStyle(
           color: theme.colorScheme.primary,
           decoration: TextDecoration.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaSection(ThemeData theme) {
+    final urls = widget.card.stepDetails
+        .expand((s) => s.mediaUrls)
+        .where((url) => url.trim().isNotEmpty)
+        .toSet()
+        .toList();
+    if (urls.isEmpty) return const SizedBox.shrink();
+    return _buildSection(
+      context,
+      icon: Icons.perm_media_outlined,
+      title: '相关图文资料（${urls.length}）',
+      child: SizedBox(
+        height: 128,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: urls.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, index) {
+            final url = urls[index];
+            final isVideo =
+                RegExp(r'\.(mp4|webm|mov)(\?|$)', caseSensitive: false)
+                    .hasMatch(url);
+            return Container(
+              width: 180,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(fit: StackFit.expand, children: [
+                if (!isVideo)
+                  Image.network(url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                          child: Icon(Icons.broken_image_outlined,
+                              color: theme.colorScheme.outline)))
+                else
+                  Center(
+                      child: Icon(Icons.play_circle_fill,
+                          size: 46, color: theme.colorScheme.primary)),
+                Positioned(
+                    left: 8,
+                    bottom: 7,
+                    child: Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: Icon(
+                          isVideo
+                              ? Icons.videocam_outlined
+                              : Icons.image_outlined,
+                          size: 14),
+                      label: Text(isVideo ? '视频资料' : '图片资料',
+                          style: const TextStyle(fontSize: 11)),
+                    )),
+              ]),
+            );
+          },
         ),
       ),
     );

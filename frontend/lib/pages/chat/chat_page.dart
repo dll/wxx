@@ -265,8 +265,8 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
-          // 智能体选择器
-          _buildAgentSelector(chat, theme),
+          // 五个专用智能体工作台：始终可见、可切换，并突出当前能力边界
+          _buildAgentWorkspace(chat, theme),
 
           // 消息列表
           Expanded(
@@ -405,6 +405,109 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildAgentWorkspace(ChatProvider chat, ThemeData theme) {
+    final agents = chat.agents.take(5).toList();
+    if (agents.isEmpty) return _buildAgentSelector(chat, theme);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border:
+            Border(bottom: BorderSide(color: theme.colorScheme.outlineVariant)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.auto_awesome, size: 17, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text('选择问芯智能体',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w800)),
+          const Spacer(),
+          Text('收藏回答可随时复用',
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.outline)),
+        ]),
+        const SizedBox(height: 9),
+        SizedBox(
+          height: 76,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: agents.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final agent = agents[i];
+              final selected = chat.selectedAgentId == agent.agentId;
+              final color = _agentColor(agent.agentType);
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => chat.selectAgent(agent.agentId),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 112,
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? color.withOpacity(0.13)
+                        : theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color:
+                            selected ? color : theme.colorScheme.outlineVariant,
+                        width: selected ? 1.8 : 1),
+                  ),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Icon(_agentIcon(agent.agentType),
+                              size: 20, color: color),
+                          const Spacer(),
+                          if (selected)
+                            Icon(Icons.check_circle, size: 16, color: color),
+                        ]),
+                        const Spacer(),
+                        Text(agent.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: selected
+                                    ? color
+                                    : theme.colorScheme.onSurface)),
+                        Text(
+                            agent.description.isEmpty
+                                ? _agentSubtitle(agent.agentType)
+                                : agent.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall
+                                ?.copyWith(color: theme.colorScheme.outline)),
+                      ]),
+                ),
+              );
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  String _agentSubtitle(String type) {
+    switch (type) {
+      case 'policy':
+        return '政策说明';
+      case 'process':
+        return '办事流程';
+      case 'emotion':
+        return '成长陪伴';
+      case 'major':
+        return '专业规划';
+      default:
+        return '校园问答';
+    }
   }
 
   /// 单个智能体选项（图标 + 名称 + 选中态描边）
