@@ -65,6 +65,33 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	util.SuccessWithMessage(c, result, "登录成功")
 }
 
+// switchRoleRequest 角色切换请求
+// POST /api/v1/user/switch-role
+func (h *AuthHandler) SwitchRole(c *gin.Context) {
+	userCtx := middleware.GetUserContext(c)
+	if userCtx == nil {
+		util.FailUnauthorized(c, "未认证")
+		return
+	}
+
+	var req struct {
+		Role string `json:"role" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.FailBadRequest(c, "目标角色不能为空")
+		return
+	}
+
+	result, err := h.authSvc.SwitchRole(userCtx.UserID, req.Role)
+	if err != nil {
+		log.Printf("切换角色失败 user_id=%d role=%s: %v", userCtx.UserID, req.Role, err)
+		util.FailBadRequest(c, err.Error())
+		return
+	}
+
+	util.SuccessWithMessage(c, result, "ok")
+}
+
 type ssoCallbackRequest struct {
 	Ticket string `json:"ticket" binding:"required"`
 }
@@ -108,6 +135,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 		"username":     userCtx.Username,
 		"display_name": userCtx.DisplayName,
 		"role":         userCtx.Role,
+		"roles":        userCtx.Roles,
 		"owner_scope":  userCtx.OwnerScope,
 		"owner_id":     userCtx.OwnerID,
 		"consented":    userCtx.Consented,

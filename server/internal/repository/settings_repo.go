@@ -42,9 +42,12 @@ func (r *SettingsRepo) GetAll() ([]*model.SystemSetting, error) {
 
 // Upsert 插入或更新配置项
 func (r *SettingsRepo) Upsert(key, value, updatedBy string) error {
-	stmt := "INSERT INTO system_settings (`key`, `value`, updated_by, updated_at) " +
+	// 注意：用 `value` 反引号会阻止 AdaptForDriver 的 excluded 正则匹配（MySQL 下写入失败）。
+	// 统一用不带反引号的裸标识符，方言适配层 (dialect.go) 会将 excluded.X 转为 VALUES(X)、
+	// ON CONFLICT 转为 ON DUPLICATE KEY UPDATE，使 SQLite/MySQL 双端 Upsert 一致生效。
+	stmt := "INSERT INTO system_settings (`key`, value, updated_by, updated_at) " +
 		"VALUES (?, ?, ?, CURRENT_TIMESTAMP) " +
-		"ON CONFLICT(`key`) DO UPDATE SET `value`=excluded.`value`, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP"
+		"ON CONFLICT(`key`) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP"
 	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		key, value, updatedBy,
 	)

@@ -125,6 +125,10 @@ var (
 	// 运行时 DML 适配（AdaptForDriver 用）
 	// SQLite ON CONFLICT(...) DO UPDATE SET → MySQL ON DUPLICATE KEY UPDATE
 	onConflictRe = regexp.MustCompile(`(?i)ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET`)
+	// SQLite ON CONFLICT(...) DO NOTHING → MySQL INSERT IGNORE（整句改写，见 ToMySQL 步骤 9）
+	// 形如：`INSERT INTO <表> <列清单> SELECT ... ON CONFLICT(k) DO NOTHING`。
+	// 组1 = `INSERT INTO` 之后到 `ON CONFLICT` 之前的内容；替换为 `INSERT IGNORE INTO <组1>`。
+	onConflictNothingRe = regexp.MustCompile(`(?is)^(?:\(?INSERT\s+INTO\s+)([a-z_][a-z0-9_]*.*?)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+NOTHING\s*$`)
 	// SQLite excluded.col → MySQL VALUES(col)
 	excludedRe = regexp.MustCompile(`(?i)\bexcluded\.([a-z_][a-z0-9_]*)`)
 	// SQLite || 拼接 → MySQL CONCAT(a, b)
@@ -262,6 +266,22 @@ func ToMySQL(stmt string) string {
 			}
 		}
 		return prefix + strings.Join(parts, ", ") + ")"
+	})
+
+	// 9. SQLite ON CONFLICT(...) DO NOTHING（幂等插入）→ MySQL
+	// MySQL 无 ON CONFLICT；整句改写为 INSERT IGNORE ... 并去掉尾部冲突子句。
+	// 形如: INSERT INTO t (cols) SELECT ... FROM ... ON CONFLICT(k) DO NOTHING;
+	// （execSQL 已按分号切分，语句不含尾部 ';'）
+	s = onConflictNothingRe.ReplaceAllStringFunc(s, func(m string) string {
+		if !strings.Contains(strings.ToUpper(m), "ON CONFLICT") {
+			return m
+		}
+		split := onConflictNothingRe.FindStringSubmatch(m)
+		if len(split) < 2 {
+			return m
+		}
+		afterInto := split[1] // `INSERT INTO` 之后、` ON CONFLICT` 之前的内容
+		return "INSERT IGNORE INTO " + afterInto
 	})
 
 	return s

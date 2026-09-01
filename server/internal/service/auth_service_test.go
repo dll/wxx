@@ -82,6 +82,48 @@ func TestAuthService_LoginByUsername_RejectsDisabledAccount(t *testing.T) {
 	}
 }
 
+// TestAuthService_SwitchRole 多角色切换（2026-09-01 用户反馈③）：
+//   1) 目标角色属于该用户可成功切换并重签 JWT，Roles 保持全量；
+//   2) 目标角色不属于该用户（且非主角色）应拒绝；未知角色应拒绝。
+func TestAuthService_SwitchRole(t *testing.T) {
+	svc := newAuthServiceForTest(t, "switch-role", "pass123456", "active")
+	user, err := svc.userRepo.GetByUsername("switch-role")
+	if err != nil || user == nil {
+		t.Fatalf("查询测试用户失败: %v", err)
+	}
+
+	// 赋予多角色：college_admin（主） + counselor
+	roles := []string{"college_admin", "counselor"}
+	if err := svc.userRepo.ReplaceRoles(user.ID, roles, "test"); err != nil {
+		t.Fatalf("ReplaceRoles 失败: %v", err)
+	}
+
+	// 切换为本属角色 counselor → 成功
+	res, err := svc.SwitchRole(user.ID, "counselor")
+	if err != nil {
+		t.Fatalf("切换至本属角色应成功: %v", err)
+	}
+	if res.Role != "counselor" {
+		t.Fatalf("切换后主角色应为 counselor，得到 %q", res.Role)
+	}
+	if len(res.Roles) != 2 {
+		t.Fatalf("切换后 Roles 应保持全量(2)，得到 %v", res.Roles)
+	}
+	if res.Token == "" {
+		t.Fatal("切换后应返回新 JWT")
+	}
+
+	// 切换为不属于该用户的角色 guest → 拒绝（guest 不在 college_admin 继承链上）
+	if _, err := svc.SwitchRole(user.ID, "guest"); err == nil {
+		t.Fatal("切换至非本属角色应报错，实际成功")
+	}
+
+	// 未知角色 → 拒绝
+	if _, err := svc.SwitchRole(user.ID, "nonexistent_role"); err == nil {
+		t.Fatal("未知角色切换应报错，实际成功")
+	}
+}
+
 // TestProfileDetail_StudentFindsCounselor 校验学生个人信息详情能聚合出辅导员联系人
 func TestProfileDetail_StudentFindsCounselor(t *testing.T) {
 	db := testutil.NewTestDB(t)

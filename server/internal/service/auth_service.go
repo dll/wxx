@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dll/wxx/server/internal/config"
+	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
@@ -182,11 +183,12 @@ func (s *AuthService) GuestRegisterEnabled() bool {
 
 // LoginResult 登录结果
 type LoginResult struct {
-	Token              string `json:"token"`
-	ExpiresIn          int    `json:"expires_in"` // 过期时间（秒）
-	DisplayName        string `json:"display_name"`
-	Role               string `json:"role"`
-	MustChangePassword bool   `json:"must_change_password"` // 首次登录需强制改密
+	Token              string   `json:"token"`
+	ExpiresIn          int      `json:"expires_in"` // 过期时间（秒）
+	DisplayName        string   `json:"display_name"`
+	Role               string   `json:"role"`
+	Roles              []string `json:"roles,omitempty"` // 全部角色（多角色用户；单角色为 nil）
+	MustChangePassword bool     `json:"must_change_password"` // 首次登录需强制改密
 }
 
 // SendCode 发送短信验证码（开发环境：仅日志，后续对接短信通道）
@@ -269,6 +271,7 @@ func (s *AuthService) GuestRegister(displayName, phone, code string) (*LoginResu
 		ExpiresIn:   s.cfg.JWTExpireHours * 3600,
 		DisplayName: user.DisplayName,
 		Role:        user.Role,
+		Roles:       user.Roles,
 	}, nil
 }
 
@@ -412,6 +415,7 @@ func (s *AuthService) LoginBySSOTicket(ctx context.Context, ticket string) (*Log
 		ExpiresIn:   s.cfg.JWTExpireHours * 3600,
 		DisplayName: user.DisplayName,
 		Role:        user.Role,
+		Roles:       user.Roles,
 	}, nil
 }
 
@@ -441,7 +445,7 @@ func (s *AuthService) loginSSOMock(ticket string) (*LoginResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LoginResult{Token: token, ExpiresIn: s.cfg.JWTExpireHours * 3600, DisplayName: user.DisplayName, Role: user.Role}, nil
+	return &LoginResult{Token: token, ExpiresIn: s.cfg.JWTExpireHours * 3600, DisplayName: user.DisplayName, Role: user.Role, Roles: user.Roles}, nil
 }
 
 func (s *AuthService) ssoExchangeToken(ctx context.Context, ticket string) (map[string]interface{}, error) {
@@ -595,6 +599,51 @@ func (s *AuthService) LoginByUsername(username string, _ string, password string
 		ExpiresIn:          s.cfg.JWTExpireHours * 3600,
 		DisplayName:        user.DisplayName,
 		Role:               user.Role,
+		Roles:              user.Roles,
+		MustChangePassword: user.MustChangePwd == 1,
+	}, nil
+}
+
+// SwitchRole 多角色用户切换当前生效角色：校验目标角色确属于该用户，
+// 随后以「目标角色作为主角色」重签 JWT（roles 保持全量不变）。
+// 返回新令牌与目标角色；非多角色或无权限返回错误。
+// 2026-09-01（用户反馈③）：权限计算本取各角色能力并集，切换仅改变
+// 前端菜单/页面渲染所依据的 users.role，不缩减排能。
+func (s *AuthService) SwitchRole(userID int64, targetRole string) (*LoginResult, error) {
+	targetRole = strings.TrimSpace(targetRole)
+	if targetRole == "" {
+		return nil, fmt.Errorf("目标角色不能为空")
+	}
+	if !auth.IsKnownRole(targetRole) {
+		return nil, fmt.Errorf("未知角色: %s", targetRole)
+	}
+
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	// 目标角色必须属于该用户
+	if !auth.RoleMatchesAny(user.Roles, targetRole) && targetRole != user.Role {
+		return nil, fmt.Errorf("该用户不具备角色: %s", targetRole)
+	}
+
+	// 以目标角色为主角色重签（保留全量 roles）
+	user.Role = targetRole
+	token, err := jwtutil.GenerateToken(s.cfg, user)
+	if err != nil {
+		return nil, fmt.Errorf("重签 token 失败: %w", err)
+	}
+
+	return &LoginResult{
+		Token:              token,
+		ExpiresIn:          s.cfg.JWTExpireHours * 3600,
+		DisplayName:        user.DisplayName,
+		Role:               targetRole,
+		Roles:              user.Roles,
 		MustChangePassword: user.MustChangePwd == 1,
 	}, nil
 }

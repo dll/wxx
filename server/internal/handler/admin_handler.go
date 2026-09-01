@@ -92,12 +92,17 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	// 范围过滤：college_admin 只能看本院用户
+	// 范围过滤：college_admin 只能看本院用户（按 owner_scope 过滤，但**不强制 owner_id**）。
+	// 背景（2026-09-01）：学生导入时 owner_id = 学院名，而 college_admin 账号的 owner_id
+	// 未必与之一致；若强制 owner_id 过滤，会导致已导入的 600+ 学生在列表与统计中全部不可见。
+	// 因此仅收紧 owner_scope，保留跨学院名差异的容错。
 	queryScope := ownerScope
 	queryOwnerID := ownerID
 	if userCtx.Role == "college_admin" {
-		queryScope = userCtx.OwnerScope
-		queryOwnerID = userCtx.OwnerID
+		if queryScope == "" {
+			queryScope = "college"
+		}
+		queryOwnerID = ""
 	}
 
 	users, total, err := h.adminSvc.ListUsers(role, queryScope, queryOwnerID, page, pageSize)
@@ -242,8 +247,11 @@ func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
 	ownerScope := c.Query("owner_scope")
 	ownerID := c.Query("owner_id")
 	if userCtx.Role == "college_admin" {
-		ownerScope = userCtx.OwnerScope
-		ownerID = userCtx.OwnerID
+		// 与 ListUsers 一致：仅收紧 scope 与 owner_scope，不强制 owner_id（见 ListUsers 注释）
+		if ownerScope == "" {
+			ownerScope = "college"
+		}
+		ownerID = ""
 	}
 
 	q := &model.UserQuery{

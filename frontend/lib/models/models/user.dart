@@ -5,6 +5,7 @@ class UserProfile {
   final int id;
   final String username;
   final String role;
+  final List<String> roles;
   final String displayName;
   final String college;
   final String major;
@@ -28,6 +29,7 @@ class UserProfile {
     required this.id,
     required this.username,
     required this.role,
+    this.roles = const [],
     required this.displayName,
     this.college = '',
     this.major = '',
@@ -55,6 +57,7 @@ class UserProfile {
       id: data['id'] ?? 0,
       username: data['username'] ?? '',
       role: data['role'] ?? 'student',
+      roles: (data['roles'] as List?)?.cast<String>() ?? const [],
       displayName: data['display_name'] ?? data['username'] ?? '',
       college: data['college'] ?? data['owner_id'] ?? '',
       major: data['major'] ?? '',

@@ -22,9 +22,12 @@ class _ProfileFeature {
   final String title;
   final String subtitle;
   final String route;
+  /// true 时仅在「功能开关」Tab 出现（不渲染为普通功能卡片）；默认 false
+  final bool switchOnly;
 
   const _ProfileFeature(this.key, this.category, this.icon, this.title,
-      this.subtitle, this.route);
+      this.subtitle, this.route,
+      {this.switchOnly = false});
 }
 
 /// 个人中心页
@@ -153,6 +156,11 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () => context.go('/my-logs'),
           ),
         ),
+
+        const SizedBox(height: 8),
+
+        // 多角色切换（2026-09-01）：用户具备多个角色时显示
+        _buildRoleSwitcher(context, auth),
 
         const SizedBox(height: 8),
 
@@ -770,7 +778,94 @@ class _ProfilePageState extends State<ProfilePage> {
         if (role == 'sys_admin')
           _ProfileFeature('ai_briefing_admin', '管理服务', Icons.newspaper,
               'AI 简讯管理', '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
+        // 注册开关（2026-09-01 用户反馈④）：仅出现在「功能开关」Tab，不渲染为功能卡片。
+        // 持久化到后端 feature.guest_register，控制游客/学生手机注册是否开放。
+        if (_canAccessAdmin(role))
+          _ProfileFeature(
+            'guest_register',
+            '管理服务',
+            Icons.app_registration,
+            '注册开放',
+            '是否允许新用户（游客/学生）注册账号',
+            '',
+            switchOnly: true,
+          ),
       ];
+
+  /// 多角色切换卡片（2026-09-01）：用户账号具备 >1 个角色时显示，
+  /// 点击切换以目标角色为主角色重新签发 JWT，前端据此重绘菜单/页面。
+  Widget _buildRoleSwitcher(BuildContext context, AuthProvider auth) {
+    final theme = Theme.of(context);
+    final roles = (auth.profile?.roles.isNotEmpty ?? false)
+        ? auth.profile!.roles
+        : (Storage.roles.isNotEmpty ? Storage.roles : null);
+    final current = auth.profile?.role ?? Storage.role ?? '';
+    if (roles == null || roles.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    String label(String r) {
+      const map = {
+        'sys_admin': '系统管理员',
+        'school_admin': '学校管理员',
+        'college_admin': '学院管理员',
+        'counselor': '辅导员',
+        'student_union': '学生会',
+        'student': '学生',
+        'teacher': '教师',
+        'assistant': '教辅',
+      };
+      return map[r] ?? r;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.swap_horiz,
+                    color: theme.colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
+                const Text('切换身份',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final r in roles)
+                  ChoiceChip(
+                    label: Text(label(r)),
+                    selected: r == current,
+                    onSelected: r == current
+                        ? null
+                        : (_) async {
+                            final (ok, msg) = await auth.switchRole(r);
+                            if (!context.mounted) return;
+                            if (!ok) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg)),
+                              );
+                            }
+                          },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildFeatureTabs(BuildContext context, String? role) {
     final all = _featuresFor(role);
@@ -862,7 +957,7 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(12),
       children: [
         for (final f in features)
-          _buildMenuCard(context, f.icon, f.title, f.subtitle, f.route)
+          if (!f.switchOnly) _buildMenuCard(context, f.icon, f.title, f.subtitle, f.route)
       ],
     );
   }

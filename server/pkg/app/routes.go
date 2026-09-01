@@ -397,6 +397,7 @@ func setupRouter(d *deps) *gin.Engine {
 
 			secured.GET("/user/profile", d.authH.Profile)
 			secured.GET("/user/profile/detail", d.authH.ProfileDetail)
+			secured.POST("/user/switch-role", d.authH.SwitchRole)
 			secured.GET("/user/ai-key", d.authH.GetAIKey)
 			secured.PUT("/user/ai-key", d.authH.SaveAIKey)
 			secured.DELETE("/user/ai-key", d.authH.ClearAIKey)

@@ -156,6 +156,7 @@ class AuthProvider extends ChangeNotifier {
           ownerScope: _profile!.ownerScope,
           ownerId: _profile!.ownerId,
           status: _profile!.status,
+          roles: _profile!.roles,
         );
         // 同步入学年份到年级主题（登录/刷新资料时自动切换主题）
         final year = _profile!.enrollmentYear;
@@ -261,6 +262,39 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 多角色切换：以目标角色为主角色重签 JWT 并刷新用户信息与能力清单（2026-09-01）
+  /// 返回 (成功, 错误信息)。仅在用户具备 >1 个角色时调用。
+  Future<(bool, String)> switchRole(String targetRole) async {
+    try {
+      final resp = await _api.post(
+        ApiConfig.switchRole,
+        data: {'role': targetRole},
+      );
+      final data = resp.data;
+      final code = data is Map ? data['code'] : null;
+      if (code != 0) {
+        final msg = (data is Map && data['message'] != null)
+            ? data['message'].toString()
+            : '角色切换失败';
+        return (false, msg);
+      }
+      final token = (data is Map && data['data'] is Map)
+          ? (data['data'] as Map)['token']?.toString()
+          : null;
+      if (token == null || token.isEmpty) {
+        return (false, '未获取到新令牌');
+      }
+      await Storage.setToken(token);
+      await fetchProfile();
+      return (true, '');
+    } on DioException catch (e) {
+      final msg = _responseMessage(e.response?.data) ?? '网络异常，角色切换失败';
+      return (false, msg);
+    } catch (e) {
+      return (false, '角色切换失败');
     }
   }
 

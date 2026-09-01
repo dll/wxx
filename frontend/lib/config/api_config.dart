@@ -37,6 +37,9 @@ class ApiConfig {
   // ── 接口路径 ──
   static const String login = '$apiPrefix/auth/login';
   static const String profile = '$apiPrefix/user/profile';
+
+  /// 多角色切换（2026-09-01）：POST {role}，返回新 JWT
+  static const String switchRole = '$apiPrefix/user/switch-role';
   static const String consent = '$apiPrefix/user/consent';
   static const String chat = '$apiPrefix/chat';
   static const String chatStream = '$apiPrefix/chat/stream';

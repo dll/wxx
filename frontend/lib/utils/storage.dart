@@ -9,6 +9,7 @@ class Storage {
   static String? _token;
   static const String _keyUsername = 'username';
   static const String _keyRole = 'role';
+  static const String _keyRoles = 'roles';
   static const String _keyDisplayName = 'display_name';
   static const String _keyOwnerScope = 'owner_scope';
   static const String _keyOwnerId = 'owner_id';
@@ -69,6 +70,12 @@ class Storage {
   static String? get ownerId => _prefs.getString(_keyOwnerId);
   static String? get userStatus => _prefs.getString(_keyUserStatus);
 
+  /// 全部角色（多角色用户；单角色为 [role]）
+  static List<String> get roles =>
+      _prefs.getStringList(_keyRoles) ?? const [];
+  static Future<void> setRoles(List<String> rs) =>
+      _prefs.setStringList(_keyRoles, rs);
+
   static Future<void> setUserInfo({
     required String username,
     required String role,
@@ -76,6 +83,7 @@ class Storage {
     String ownerScope = '',
     String ownerId = '',
     String status = 'active',
+    List<String> roles = const [],
   }) async {
     await _prefs.setString(_keyUsername, username);
     await _prefs.setString(_keyRole, role);
@@ -83,6 +91,7 @@ class Storage {
     await _prefs.setString(_keyOwnerScope, ownerScope);
     await _prefs.setString(_keyOwnerId, ownerId);
     await _prefs.setString(_keyUserStatus, status);
+    await _prefs.setStringList(_keyRoles, roles);
   }
 
   // ── 首次启动 ──
@@ -139,6 +148,7 @@ class Storage {
     await clearToken();
     await _prefs.remove(_keyUsername);
     await _prefs.remove(_keyRole);
+    await _prefs.remove(_keyRoles);
     await _prefs.remove(_keyOwnerScope);
     await _prefs.remove(_keyOwnerId);
     await _prefs.remove(_keyUserStatus);
