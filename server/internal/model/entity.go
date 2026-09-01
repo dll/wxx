@@ -7,37 +7,37 @@ type User struct {
 	DisplayName     string   `json:"display_name" db:"display_name"`                         // 显示名
 	Role            string   `json:"role" db:"role"`                                         // 主角色枚举（多角色时取权限最高者，兼容字段）
 	Roles           []string `json:"roles,omitempty" db:"-"`                                 // 全部角色（含主角色；来自 user_roles 表，非本表字段）
-	Position        string `json:"position" db:"position"`                                 // 职务（与角色正交，如主席/部长/干事等）
-	OwnerScope      string `json:"owner_scope" db:"owner_scope"`                           // 归属范围：school/college/class
-	OwnerID         string `json:"owner_id" db:"owner_id"`                                 // 归属 ID
-	College         string `json:"college" db:"college"`                                   // 学院
-	Major           string `json:"major" db:"major"`                                       // 专业
-	ClassName       string `json:"class_name" db:"class_name"`                             // 班级
-	EnrollmentDate  string `json:"enrollment_date" db:"enrollment_date"`                   // 入学日期
-	EnrollmentYear  string `json:"enrollment_year" db:"enrollment_year"`                   // 入学年份
-	Gender          string `json:"gender" db:"gender"`                                     // 性别：男/女
-	Campus          string `json:"campus" db:"campus"`                                     // 校区（默认会峰校区）
-	EducationLevel  string `json:"education_level" db:"education_level"`                   // 学历层次：本科等
-	StudyDuration   string `json:"study_duration" db:"study_duration"`                     // 学制：4 等
-	ExpectedGrad    string `json:"expected_graduation_date" db:"expected_graduation_date"` // 预期毕业时间
-	StudyMode       string `json:"study_mode" db:"study_mode"`                             // 学习形式：普通全日制等
-	Ethnicity       string `json:"ethnicity" db:"ethnicity"`                               // 民族：汉族等
-	PoliticalStatus string `json:"political_status" db:"political_status"`                 // 政治面貌
-	BirthDate       string `json:"birth_date" db:"birth_date"`                             // 出生年月（隐私字段）
-	Phone           string `json:"phone" db:"phone"`                                       // 手机号
-	Wechat          string `json:"wechat" db:"wechat"`                                     // 微信号
-	QQ              string `json:"qq" db:"qq"`                                             // QQ
-	Email           string `json:"email" db:"email"`                                       // 邮箱
-	PasswordHash    string `json:"-" db:"password_hash"`                                   // bcrypt 密码哈希；可登录账号不得为空
-	VoiceEnabled    int    `json:"voice_enabled" db:"voice_enabled"`                       // 语音开关：0=关闭 1=开启
-	Status          string `json:"status" db:"status"`                                     // active/pending/rejected/disabled
-	TokenVersion    int    `json:"-" db:"token_version"`                                   // JWT 令牌版本，+1 即吊销该用户所有旧令牌
-	Consented       int    `json:"consented" db:"consented"`                               // 是否已同意隐私政策与用户协议：0=否 1=是
-	MustChangePwd   int    `json:"must_change_password" db:"must_change_password"`         // 首次登录是否需强制改密：1=是
-	AIAPIKeyEnc     string `json:"-" db:"ai_api_key_enc"`                                  // 用户自备 API Key（AES 加密，永不输出）
-	AIKeyProvider   string `json:"ai_key_provider" db:"ai_key_provider"`                   // zhipu / deepseek
-	CreatedAt       string `json:"created_at" db:"created_at"`
-	UpdatedAt       string `json:"updated_at" db:"updated_at"`
+	Position        string   `json:"position" db:"position"`                                 // 职务（与角色正交，如主席/部长/干事等）
+	OwnerScope      string   `json:"owner_scope" db:"owner_scope"`                           // 归属范围：school/college/class
+	OwnerID         string   `json:"owner_id" db:"owner_id"`                                 // 归属 ID
+	College         string   `json:"college" db:"college"`                                   // 学院
+	Major           string   `json:"major" db:"major"`                                       // 专业
+	ClassName       string   `json:"class_name" db:"class_name"`                             // 班级
+	EnrollmentDate  string   `json:"enrollment_date" db:"enrollment_date"`                   // 入学日期
+	EnrollmentYear  string   `json:"enrollment_year" db:"enrollment_year"`                   // 入学年份
+	Gender          string   `json:"gender" db:"gender"`                                     // 性别：男/女
+	Campus          string   `json:"campus" db:"campus"`                                     // 校区（默认会峰校区）
+	EducationLevel  string   `json:"education_level" db:"education_level"`                   // 学历层次：本科等
+	StudyDuration   string   `json:"study_duration" db:"study_duration"`                     // 学制：4 等
+	ExpectedGrad    string   `json:"expected_graduation_date" db:"expected_graduation_date"` // 预期毕业时间
+	StudyMode       string   `json:"study_mode" db:"study_mode"`                             // 学习形式：普通全日制等
+	Ethnicity       string   `json:"ethnicity" db:"ethnicity"`                               // 民族：汉族等
+	PoliticalStatus string   `json:"political_status" db:"political_status"`                 // 政治面貌
+	BirthDate       string   `json:"birth_date" db:"birth_date"`                             // 出生年月（隐私字段）
+	Phone           string   `json:"phone" db:"phone"`                                       // 手机号
+	Wechat          string   `json:"wechat" db:"wechat"`                                     // 微信号
+	QQ              string   `json:"qq" db:"qq"`                                             // QQ
+	Email           string   `json:"email" db:"email"`                                       // 邮箱
+	PasswordHash    string   `json:"-" db:"password_hash"`                                   // bcrypt 密码哈希；可登录账号不得为空
+	VoiceEnabled    int      `json:"voice_enabled" db:"voice_enabled"`                       // 语音开关：0=关闭 1=开启
+	Status          string   `json:"status" db:"status"`                                     // active/pending/rejected/disabled
+	TokenVersion    int      `json:"-" db:"token_version"`                                   // JWT 令牌版本，+1 即吊销该用户所有旧令牌
+	Consented       int      `json:"consented" db:"consented"`                               // 是否已同意隐私政策与用户协议：0=否 1=是
+	MustChangePwd   int      `json:"must_change_password" db:"must_change_password"`         // 首次登录是否需强制改密：1=是
+	AIAPIKeyEnc     string   `json:"-" db:"ai_api_key_enc"`                                  // 用户自备 API Key（AES 加密，永不输出）
+	AIKeyProvider   string   `json:"ai_key_provider" db:"ai_key_provider"`                   // zhipu / deepseek
+	CreatedAt       string   `json:"created_at" db:"created_at"`
+	UpdatedAt       string   `json:"updated_at" db:"updated_at"`
 }
 
 // CanViewPrivate 判断角色是否能查看其他用户的私密信息。

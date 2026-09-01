@@ -76,14 +76,14 @@ type HealthActivityItem struct {
 
 // ActivityReviewRow 活动复盘单行（报名/到场原始数）
 type ActivityReviewRow struct {
-	ActivityID  string `json:"activity_id"`
-	Title       string `json:"title"`
-	Category    string `json:"category"`
-	Venue       string `json:"venue"`
-	Organizer   string `json:"organizer"`
-	Status      string `json:"status"`
-	SignupCount int    `json:"signup_count"`
-	AttendCount int    `json:"attend_count"`
+	ActivityID  string  `json:"activity_id"`
+	Title       string  `json:"title"`
+	Category    string  `json:"category"`
+	Venue       string  `json:"venue"`
+	Organizer   string  `json:"organizer"`
+	Status      string  `json:"status"`
+	SignupCount int     `json:"signup_count"`
+	AttendCount int     `json:"attend_count"`
 	AttendRate  float64 `json:"attend_rate"`
 }
 

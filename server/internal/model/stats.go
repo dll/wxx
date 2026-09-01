@@ -3,9 +3,9 @@ package model
 
 // DashboardStats 仪表盘统计数据
 type DashboardStats struct {
-	Users     UserStats      `json:"users"`
-	Knowledge KnowledgeStats `json:"knowledge"`
-	Chat      ChatStats      `json:"chat"`
+	Users     UserStats              `json:"users"`
+	Knowledge KnowledgeStats         `json:"knowledge"`
+	Chat      ChatStats              `json:"chat"`
 	Feedback  DashboardFeedbackStats `json:"feedback"`
 }
 

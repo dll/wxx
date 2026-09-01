@@ -4,9 +4,9 @@ import "context"
 
 // ChatMessage LLM 对话消息
 type ChatMessage struct {
-	Role       string     `json:"role"`              // system/user/assistant/tool
-	Content    string     `json:"content"`           // 消息内容
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"` // assistant 发起的工具调用（回放用）
+	Role       string     `json:"role"`                   // system/user/assistant/tool
+	Content    string     `json:"content"`                // 消息内容
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // assistant 发起的工具调用（回放用）
 	ToolCallID string     `json:"tool_call_id,omitempty"` // role=tool 时对应调用 ID
 }
 
@@ -32,12 +32,12 @@ type ToolCall struct {
 
 // ChatRequest LLM 请求参数
 type ChatRequest struct {
-	Messages    []ChatMessage   `json:"messages"`
-	Temperature float64         `json:"temperature,omitempty"` // 温度参数，0-2
-	MaxTokens   int             `json:"max_tokens,omitempty"`  // 最大生成 token 数
-	APIKey      string          `json:"-"`                     // 可选：用户自备 Key 覆盖（额度耗尽/自配场景）
-	Model       string          `json:"-"`                     // 可选：用户配置的模型名覆盖（如 deepseek-v4-flash）
-	Tools       []ToolFunction  `json:"-"`                     // 可选：function calling 工具清单（A3）
+	Messages    []ChatMessage  `json:"messages"`
+	Temperature float64        `json:"temperature,omitempty"` // 温度参数，0-2
+	MaxTokens   int            `json:"max_tokens,omitempty"`  // 最大生成 token 数
+	APIKey      string         `json:"-"`                     // 可选：用户自备 Key 覆盖（额度耗尽/自配场景）
+	Model       string         `json:"-"`                     // 可选：用户配置的模型名覆盖（如 deepseek-v4-flash）
+	Tools       []ToolFunction `json:"-"`                     // 可选：function calling 工具清单（A3）
 }
 
 // ChatResponse LLM 响应

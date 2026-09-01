@@ -19,19 +19,19 @@ import (
 
 // ToolArgs 工具入参
 type ToolArgs struct {
-	Question string             // 用户问题（原文）
-	OwnerScope string           // 权限范围（school/college/class）
+	Question   string // 用户问题（原文）
+	OwnerScope string // 权限范围（school/college/class）
 	OwnerID    string
 	Role       string
-	Limit    int                // 返回条数上限（默认 5）
-	Extra    map[string]string  // 工具自定义参数
+	Limit      int               // 返回条数上限（默认 5）
+	Extra      map[string]string // 工具自定义参数
 }
 
 // ToolResult 工具出参
 type ToolResult struct {
-	Content string          `json:"content"`           // 面向 LLM 的结构化文本
-	Sources []model.Source  `json:"sources,omitempty"` // 可引用来源（与 AnswerCard.Sources 同构）
-	Data    []map[string]string `json:"data,omitempty"` // 结构化字段（如步骤名/地点/时限）
+	Content string              `json:"content"`           // 面向 LLM 的结构化文本
+	Sources []model.Source      `json:"sources,omitempty"` // 可引用来源（与 AnswerCard.Sources 同构）
+	Data    []map[string]string `json:"data,omitempty"`    // 结构化字段（如步骤名/地点/时限）
 }
 
 // Tool 校园场景工具接口
@@ -112,8 +112,10 @@ func NewProcessNodeTool(kbRepo *repository.KBRepo) *ProcessNodeTool {
 	return &ProcessNodeTool{kbRepo: kbRepo, limit: 3}
 }
 
-func (t *ProcessNodeTool) Name() string        { return "query_process_steps" }
-func (t *ProcessNodeTool) Description() string { return "查询办事流程的步骤、材料、办理地点与时限（入学/请假/毕业/补考等）" }
+func (t *ProcessNodeTool) Name() string { return "query_process_steps" }
+func (t *ProcessNodeTool) Description() string {
+	return "查询办事流程的步骤、材料、办理地点与时限（入学/请假/毕业/补考等）"
+}
 
 func (t *ProcessNodeTool) Execute(ctx context.Context, args ToolArgs) (*ToolResult, error) {
 	limit := args.Limit

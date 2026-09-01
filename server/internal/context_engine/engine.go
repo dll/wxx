@@ -32,7 +32,7 @@ type SearchResult struct {
 	Snippet       string  `json:"snippet"`     // 命中片段（CE-07）
 	EffectiveAt   string  `json:"effective_at"`
 	ExpiredAt     string  `json:"expired_at"`
-	IsStructured  bool    `json:"is_structured"` // 结构化匹配结果（高于 FTS 优先级）
+	IsStructured  bool    `json:"is_structured"`  // 结构化匹配结果（高于 FTS 优先级）
 	LowConfidence bool    `json:"low_confidence"` // CE-02：弱相关强留标记，下游走兜底
 }
 

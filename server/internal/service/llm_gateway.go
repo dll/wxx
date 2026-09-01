@@ -19,8 +19,8 @@ import (
 
 // LLMGateway 统一 LLM 出口。
 type LLMGateway struct {
-	client   llm.ChatClient           // 服务器默认客户端（可含 FailoverClient 容灾）
-	modelCfg *ModelConfigService      // 可选：用户级模型路由
+	client   llm.ChatClient             // 服务器默认客户端（可含 FailoverClient 容灾）
+	modelCfg *ModelConfigService        // 可选：用户级模型路由
 	callLog  *repository.LLMCallLogRepo // 可选：调用审计落库
 }
 

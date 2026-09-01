@@ -114,6 +114,7 @@ func RequireUserActivityStatsRead() gin.HandlerFunc {
 // resolveScope 依据当前操作者解析统计数据的范围：
 //   - college_admin：仅本院（按 users.college 过滤），防止跨学院统计泄漏
 //   - sys/school_admin：全校（空范围）
+//
 // 返回 (scopeType, scopeID)；scopeType=college 时 scopeID 为操作者学院名。
 func (h *UserActivityStatsHandler) resolveScope(c *gin.Context) (string, string) {
 	uc := middleware.GetUserContext(c)

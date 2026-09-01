@@ -531,13 +531,13 @@ type UserListResponse struct {
 
 // UserUpdateRequest 修改用户请求
 type UserUpdateRequest struct {
-	DisplayName *string `json:"display_name"`
-	Role        *string `json:"role" binding:"omitempty,oneof=sys_admin school_admin college_admin counselor teacher assistant student_union student guest"`
+	DisplayName *string  `json:"display_name"`
+	Role        *string  `json:"role" binding:"omitempty,oneof=sys_admin school_admin college_admin counselor teacher assistant student_union student guest"`
 	Roles       []string `json:"roles" binding:"omitempty,dive,oneof=sys_admin school_admin college_admin counselor teacher assistant student_union student guest"` // 多角色（全量替换；非空时覆盖 Role）
-	Position    *string `json:"position"`
-	OwnerScope  *string `json:"owner_scope" binding:"omitempty,oneof=school college class"`
-	OwnerID     *string `json:"owner_id"`
-	Status      *string `json:"status" binding:"omitempty,oneof=active disabled pending rejected"`
+	Position    *string  `json:"position"`
+	OwnerScope  *string  `json:"owner_scope" binding:"omitempty,oneof=school college class"`
+	OwnerID     *string  `json:"owner_id"`
+	Status      *string  `json:"status" binding:"omitempty,oneof=active disabled pending rejected"`
 }
 
 // AuditListResponse 审计日志列表响应

@@ -133,7 +133,7 @@ func extractTopic(msg string) string {
 	best := []rune{}
 	current := []rune{}
 	for _, r := range runes {
-		if (r >= 0x4E00 && r <= 0x9FFF) {
+		if r >= 0x4E00 && r <= 0x9FFF {
 			current = append(current, r)
 		} else {
 			if len(current) > len(best) {

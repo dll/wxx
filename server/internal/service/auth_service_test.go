@@ -83,8 +83,8 @@ func TestAuthService_LoginByUsername_RejectsDisabledAccount(t *testing.T) {
 }
 
 // TestAuthService_SwitchRole 多角色切换（2026-09-01 用户反馈③）：
-//   1) 目标角色属于该用户可成功切换并重签 JWT，Roles 保持全量；
-//   2) 目标角色不属于该用户（且非主角色）应拒绝；未知角色应拒绝。
+//  1. 目标角色属于该用户可成功切换并重签 JWT，Roles 保持全量；
+//  2. 目标角色不属于该用户（且非主角色）应拒绝；未知角色应拒绝。
 func TestAuthService_SwitchRole(t *testing.T) {
 	svc := newAuthServiceForTest(t, "switch-role", "pass123456", "active")
 	user, err := svc.userRepo.GetByUsername("switch-role")

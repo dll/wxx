@@ -28,12 +28,12 @@ func NewTwinService(repo *repository.TwinRepo, userRepo *repository.UserRepo, ll
 
 // TwinDimension 单维度结果
 type TwinDimension struct {
-	Key           string  `json:"key"`            // academic/ability/ideological/emotional/social
-	Name          string  `json:"name"`           // 中文维度名
-	Score         float64 `json:"score"`          // 0-100（无数据时为 0）
-	Level         string  `json:"level"`          // 优秀/良好/待提升/数据积累中
-	Desc          string  `json:"desc"`           // 该维度简述
-	DataAvailable bool    `json:"data_available"` // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
+	Key           string   `json:"key"`                // academic/ability/ideological/emotional/social
+	Name          string   `json:"name"`               // 中文维度名
+	Score         float64  `json:"score"`              // 0-100（无数据时为 0）
+	Level         string   `json:"level"`              // 优秀/良好/待提升/数据积累中
+	Desc          string   `json:"desc"`               // 该维度简述
+	DataAvailable bool     `json:"data_available"`     // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
 	Evidence      []string `json:"evidence,omitempty"` // 生成该维度结论所依据的真实指标
 }
 
@@ -42,9 +42,9 @@ type TwinResult struct {
 	UserID         int64           `json:"user_id"`
 	DisplayName    string          `json:"display_name"`
 	ProfileVersion string          `json:"profile_version"`
-	GrowthStage    string          `json:"growth_stage"`    // 入学适应/能力发展/方向选择/毕业衔接
-	ProfileTag     string          `json:"profile_tag"`     // 基于真实数据生成的成长标签
-	DataCoverage   float64         `json:"data_coverage"`   // 五维中有真实数据的比例
+	GrowthStage    string          `json:"growth_stage"`  // 入学适应/能力发展/方向选择/毕业衔接
+	ProfileTag     string          `json:"profile_tag"`   // 基于真实数据生成的成长标签
+	DataCoverage   float64         `json:"data_coverage"` // 五维中有真实数据的比例
 	OverallScore   float64         `json:"overall_score"` // 五维加权总分
 	Dimensions     []TwinDimension `json:"dimensions"`
 	Interpretation string          `json:"interpretation"` // AI/规则状态解读
@@ -128,7 +128,7 @@ func computeDimensions(m *repository.TwinRawMetrics) []TwinDimension {
 		mk("ability", "能力", ability, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount), fmt.Sprintf("竞赛参与 %d 次", m.CompetitionCount), fmt.Sprintf("规划完成 %d/%d", m.PlanDoneCount, m.PlanCount)),
 		mk("ideological", "思想", ideological, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount), fmt.Sprintf("党建学习 %d 条", m.PartyStudyCount)),
 		mk("emotional", "情感", emotional, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount), fmt.Sprintf("心情记录 %d 条", m.EmotionLogCount)),
-		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount), fmt.Sprintf("社团 %d 个、活动 %d 次", m.ClubCount, m.ActivityRegCount)), 
+		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount), fmt.Sprintf("社团 %d 个、活动 %d 次", m.ClubCount, m.ActivityRegCount)),
 	}
 	if !emotionalDataAvailable {
 		dims[3].Level = "数据积累中"

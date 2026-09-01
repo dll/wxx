@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/auth"
+	"github.com/dll/wxx/server/internal/config"
 	"github.com/dll/wxx/server/internal/jwtutil"
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/repository"
@@ -187,7 +187,7 @@ type LoginResult struct {
 	ExpiresIn          int      `json:"expires_in"` // 过期时间（秒）
 	DisplayName        string   `json:"display_name"`
 	Role               string   `json:"role"`
-	Roles              []string `json:"roles,omitempty"` // 全部角色（多角色用户；单角色为 nil）
+	Roles              []string `json:"roles,omitempty"`      // 全部角色（多角色用户；单角色为 nil）
 	MustChangePassword bool     `json:"must_change_password"` // 首次登录需强制改密
 }
 

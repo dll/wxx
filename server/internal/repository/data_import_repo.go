@@ -145,17 +145,17 @@ func gradeLevelOf(score float64) string {
 // 避免运营按内部自增 user_id 导入教师/学生课表时填错导致课程挂到错误账号；
 // 二者都提供时以 Username 解析出的 user_id 为权威（忽略传入 user_id，防止不一致）。
 type ScheduleRow struct {
-	Username      string `json:"username"` // 学号/工号（稳定键，推荐）；与 user_id 二选一
-	UserID        int64  `json:"user_id"`  // 内部自增 ID（兼容旧接口，username 缺省/为空时使用）
-	CourseID      string `json:"course_id"`
-	CourseName    string `json:"course_name"`
-	SemesterCode  string `json:"semester_code"`
-	Weekday       int    `json:"weekday"`
-	StartPeriod   int    `json:"start_period"`
-	EndPeriod     int    `json:"end_period"`
-	WeeksPattern  string `json:"weeks_pattern"`
-	Location      string `json:"location"`
-	Teacher       string `json:"teacher"`
+	Username     string `json:"username"` // 学号/工号（稳定键，推荐）；与 user_id 二选一
+	UserID       int64  `json:"user_id"`  // 内部自增 ID（兼容旧接口，username 缺省/为空时使用）
+	CourseID     string `json:"course_id"`
+	CourseName   string `json:"course_name"`
+	SemesterCode string `json:"semester_code"`
+	Weekday      int    `json:"weekday"`
+	StartPeriod  int    `json:"start_period"`
+	EndPeriod    int    `json:"end_period"`
+	WeeksPattern string `json:"weeks_pattern"`
+	Location     string `json:"location"`
+	Teacher      string `json:"teacher"`
 }
 
 // UpsertSchedule 幂等写入课表（按 user+course+weekday+period 去重）。

@@ -244,12 +244,12 @@ func parseOpenAIStream(ctx context.Context, r io.ReadCloser) <-chan StreamChunk 
 // ── OpenAI 兼容的请求/响应结构 ──
 
 type openAIRequest struct {
-	Model       string          `json:"model"`
-	Messages    []ChatMessage   `json:"messages"`
-	Temperature float64         `json:"temperature,omitempty"`
-	MaxTokens   int             `json:"max_tokens,omitempty"`
-	Stream      bool            `json:"stream,omitempty"`
-	Tools       []ToolFunction  `json:"tools,omitempty"`
+	Model       string         `json:"model"`
+	Messages    []ChatMessage  `json:"messages"`
+	Temperature float64        `json:"temperature,omitempty"`
+	MaxTokens   int            `json:"max_tokens,omitempty"`
+	Stream      bool           `json:"stream,omitempty"`
+	Tools       []ToolFunction `json:"tools,omitempty"`
 }
 
 type openAIResponse struct {
