@@ -291,3 +291,63 @@ func TestUserRepo_UpsertFromContext_ActiveAllowed(t *testing.T) {
 		t.Error("consented 应以数据库为准为 true")
 	}
 }
+
+// TestUserRepo_UpsertFromContext_RefreshStaleRoles 回归（2026-09-01 多角色安全审计）：
+// 旧令牌携带登录时刻的 roles；当数据库 roles 变化（如被移除某角色）而主角色未变时，
+// 中间件必须以数据库 user_roles 覆盖 userCtx.Roles，否则被移除角色的旧令牌
+// 仍能通过 HasAnyRole 并集判定行使已撤销的能力。
+func TestUserRepo_UpsertFromContext_RefreshStaleRoles(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+
+	repo := NewUserRepo(db)
+	id, err := repo.Create(&model.User{
+		Username:    "multi_user",
+		DisplayName: "多角色用户",
+		Role:        "college_admin",
+		OwnerScope:  "college",
+		OwnerID:     "cs",
+		Status:      "active",
+	})
+	if err != nil {
+		t.Fatalf("创建用户失败: %v", err)
+	}
+
+	// 初始多角色：college_admin（主）+ counselor
+	if err := repo.ReplaceRoles(id, []string{"college_admin", "counselor"}, "test"); err != nil {
+		t.Fatalf("ReplaceRoles 失败: %v", err)
+	}
+
+	// 模拟旧令牌：登录时携全量 roles
+	ctx := &model.UserContext{
+		UserID:       id,
+		Username:     "multi_user",
+		Role:         "college_admin",
+		Roles:        []string{"college_admin", "counselor"},
+		TokenVersion: 0,
+	}
+	if err := repo.UpsertFromContext(ctx); err != nil {
+		t.Fatalf("UpsertFromContext 失败: %v", err)
+	}
+	if len(ctx.Roles) != 2 {
+		t.Fatalf("初始多角色应刷新为 2 个，得到 %v", ctx.Roles)
+	}
+
+	// 移除 counselor（主角色不变），旧令牌仍携 counselor → 中间件须刷新为仅 college_admin
+	if err := repo.ReplaceRoles(id, []string{"college_admin"}, "test"); err != nil {
+		t.Fatalf("二次 ReplaceRoles 失败: %v", err)
+	}
+	ctx2 := &model.UserContext{
+		UserID:       id,
+		Username:     "multi_user",
+		Role:         "college_admin",
+		Roles:        []string{"college_admin", "counselor"}, // 仍未移除的旧 token 内容
+		TokenVersion: 0,
+	}
+	if err := repo.UpsertFromContext(ctx2); err != nil {
+		t.Fatalf("二次 UpsertFromContext 失败: %v", err)
+	}
+	if len(ctx2.Roles) != 1 || ctx2.Roles[0] != "college_admin" {
+		t.Fatalf("移除角色后旧令牌 roles 应以数据库刷新，得到 %v", ctx2.Roles)
+	}
+}

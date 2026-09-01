@@ -4,8 +4,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/auth"
+	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +30,8 @@ const notifyTargetUsername = "120001"
 // GetStats 获取学生注册/登录/打卡统计
 // GET /api/v1/admin/stats/user-activity
 func (h *UserActivityStatsHandler) GetStats(c *gin.Context) {
-	stats, err := h.repo.GetUserActivityStats()
+	scopeType, scopeID := h.resolveScope(c)
+	stats, err := h.repo.GetUserActivityStats(scopeType, scopeID)
 	if err != nil {
 		log.Printf("查询学生活动统计失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -48,7 +51,8 @@ func (h *UserActivityStatsHandler) GetStats(c *gin.Context) {
 // Notify 将统计摘要以站内通知推送给 120001（胡老师）或指定用户
 // POST /api/v1/admin/stats/user-activity/notify  body: {"target_users":[...]}（可省略）
 func (h *UserActivityStatsHandler) Notify(c *gin.Context) {
-	stats, err := h.repo.GetUserActivityStats()
+	scopeType, scopeID := h.resolveScope(c)
+	stats, err := h.repo.GetUserActivityStats(scopeType, scopeID)
 	if err != nil {
 		log.Printf("查询学生活动统计失败（推送）: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -105,4 +109,26 @@ func buildUserActivityBrief(s *repository.UserActivityStats) string {
 // RequireUserActivityStatsRead 学生活动统计查看权限（college_admin 及以上）
 func RequireUserActivityStatsRead() gin.HandlerFunc {
 	return auth.RequireCapability(auth.CollegeMetricsRead)
+}
+
+// resolveScope 依据当前操作者解析统计数据的范围：
+//   - college_admin：仅本院（按 users.college 过滤），防止跨学院统计泄漏
+//   - sys/school_admin：全校（空范围）
+// 返回 (scopeType, scopeID)；scopeType=college 时 scopeID 为操作者学院名。
+func (h *UserActivityStatsHandler) resolveScope(c *gin.Context) (string, string) {
+	uc := middleware.GetUserContext(c)
+	if uc == nil || uc.Role != "college_admin" {
+		// 未登录或 sys/school_admin 及更高：全校数据
+		return "", ""
+	}
+	// 解析操作者学院归属
+	op, err := h.userRepo.GetByID(uc.UserID)
+	if err != nil || op == nil {
+		return "college", ""
+	}
+	college := strings.TrimSpace(op.College)
+	if college == "" {
+		college = strings.TrimSpace(op.OwnerID)
+	}
+	return "college", college
 }

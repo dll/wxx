@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/dll/wxx/server/internal/model"
@@ -21,6 +22,20 @@ type AdminHandler struct {
 // NewAdminHandler 创建管理端 handler
 func NewAdminHandler(adminSvc *service.AdminService, authSvc *service.AuthService) *AdminHandler {
 	return &AdminHandler{adminSvc: adminSvc, authSvc: authSvc}
+}
+
+// resolveOperatorCollege 解析操作者（college_admin 及以上）的学院归属，用于强制本院范围。
+// 返回操作者账号的 college 字段；为空时回退 owner_id；仍为空返回""（调用方退化为仅限 college 域）。
+// 2026-09-01：college_admin 学生列表/统计/字典下拉必须锁定本院，避免跨学院数据泄漏。
+func (h *AdminHandler) resolveOperatorCollege(userID int64) (string, error) {
+	opUser, err := h.authSvc.GetProfile(userID)
+	if err != nil || opUser == nil {
+		return "", err
+	}
+	if c := strings.TrimSpace(opUser.College); c != "" {
+		return c, nil
+	}
+	return strings.TrimSpace(opUser.OwnerID), nil
 }
 
 // GetPublicFeatureSwitches 公开功能开关（登录用户可读）
@@ -92,17 +107,21 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	// 范围过滤：college_admin 只能看本院用户（按 owner_scope 过滤，但**不强制 owner_id**）。
-	// 背景（2026-09-01）：学生导入时 owner_id = 学院名，而 college_admin 账号的 owner_id
-	// 未必与之一致；若强制 owner_id 过滤，会导致已导入的 600+ 学生在列表与统计中全部不可见。
-	// 因此仅收紧 owner_scope，保留跨学院名差异的容错。
+	// 范围过滤：college_admin 只能看本院用户。
+	// 背景（2026-09-01）：学生导入时 owner_id=学院名，而 college_admin 账号 owner_id 未必一致，
+	// 若强制 owner_id 过滤会导致已导入的 600+ 学生在列表/统计中不可见。
+	// 修复：按操作者自身 college 定位归属，owner_id=操作者学院 + owner_scope=college；
+	// 显式传入且与操作者学院一致时沿用，否则以操作者学院为准（禁止跨学院查看）。
 	queryScope := ownerScope
 	queryOwnerID := ownerID
 	if userCtx.Role == "college_admin" {
 		if queryScope == "" {
 			queryScope = "college"
 		}
-		queryOwnerID = ""
+		opCollege, _ := h.resolveOperatorCollege(userCtx.UserID)
+		if opCollege != "" {
+			queryOwnerID = opCollege
+		}
 	}
 
 	users, total, err := h.adminSvc.ListUsers(role, queryScope, queryOwnerID, page, pageSize)
@@ -246,12 +265,18 @@ func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
 
 	ownerScope := c.Query("owner_scope")
 	ownerID := c.Query("owner_id")
+	collegeFilter := c.Query("college")
 	if userCtx.Role == "college_admin" {
-		// 与 ListUsers 一致：仅收紧 scope 与 owner_scope，不强制 owner_id（见 ListUsers 注释）
+		// 与 ListUsers 一致：college_admin 仅能查看本院用户。
+		// 高级查询以 college 列为精确归属键：强制 college=操作者学院（导入时学生 college=院系名），
+		// owner_scope 同时收紧为 college；owner_id 不强扭（其值未必与学院列一致，避免误过滤）。
+		// 前端若传其他 college 一律被覆盖，杜绝跨学院查看。
 		if ownerScope == "" {
 			ownerScope = "college"
 		}
-		ownerID = ""
+		if opCollege, _ := h.resolveOperatorCollege(userCtx.UserID); opCollege != "" {
+			collegeFilter = opCollege
+		}
 	}
 
 	q := &model.UserQuery{
@@ -259,7 +284,7 @@ func (h *AdminHandler) ListUsersAdvanced(c *gin.Context) {
 		Role:           c.Query("role"),
 		OwnerScope:     ownerScope,
 		OwnerID:        ownerID,
-		College:        c.Query("college"),
+		College:        collegeFilter,
 		Major:          c.Query("major"),
 		ClassName:      c.Query("class_name"),
 		EnrollmentYear: c.Query("enrollment_year"),
@@ -311,8 +336,11 @@ func (h *AdminHandler) GetUserDict(c *gin.Context) {
 	ownerScope := ""
 	ownerID := ""
 	if userCtx.Role == "college_admin" {
-		ownerScope = userCtx.OwnerScope
-		ownerID = userCtx.OwnerID
+		// 与 ListUsers 一致：字典（学院/专业/班级/年级）下拉仅限本院
+		ownerScope = "college"
+		if opCollege, _ := h.resolveOperatorCollege(userCtx.UserID); opCollege != "" {
+			ownerID = opCollege
+		}
 	}
 
 	values, err := h.adminSvc.GetUserDictValues(column, role, ownerScope, ownerID)

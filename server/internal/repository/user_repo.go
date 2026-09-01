@@ -593,6 +593,14 @@ func (r *UserRepo) UpsertFromContext(userCtx *model.UserContext) error {
 		// 安全修复 SEC-02：同意状态以数据库为权威，供 RequireConsent 中间件判断
 		userCtx.Consented = existing.Consented == 1
 
+		// 安全修复（2026-09-01 审计）：多角色以数据库为唯一权威。
+		// 令牌只携带登录时刻的 roles；若之后 roles 变化但主角色未变（ReplaceRoles 只在主角色
+		// 变更时递增 token_version），旧令牌仍携旧 roles 数组。此处强制以数据库 user_roles 覆盖，
+		// 杜绝被移除角色的旧令牌继续通过 HasAnyRole 并集判定行使已撤销的能力。
+		if dbRoles, err := r.GetRoles(existing.ID); err == nil && len(dbRoles) > 0 {
+			userCtx.Roles = dbRoles
+		}
+
 		// 4) 仅刷新 updated_at 以标记活跃，不写回任何权限字段。
 		// 节流：同一用户 5 分钟内只写一次，避免高 QPS 下每个请求都触发 UPDATE。
 		now := time.Now()

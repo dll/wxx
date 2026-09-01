@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -59,121 +60,140 @@ type UserActivityDayItem struct {
 const loginResourceFilter = `action = 'POST' AND resource = '/api/v1/auth/login'`
 
 // GetUserActivityStats 汇总学生注册/登录/打卡统计（近7日趋势 + 当日概览）。
-func (r *UserActivityStatsRepo) GetUserActivityStats() (*UserActivityStats, error) {
+// scopeType/scopeID：数据范围过滤。
+//   - scopeType="" → 全校数据（sys_admin/school_admin）
+//   - scopeType="college", scopeID=学院名 → 仅该学院学生（college_admin，防跨学院统计泄漏）
+func (r *UserActivityStatsRepo) GetUserActivityStats(scopeType, scopeID string) (*UserActivityStats, error) {
 	s := &UserActivityStats{}
 	day := func(offset int) string { return nowDate(-offset) }
 
-	// ── 注册统计 ──
+	// 学院过滤子句：注册/打卡按 users.college / student_checkins 关联用户；登录按 users id 关联
+	collegeClause := ""
+	if scopeType == "college" && strings.TrimSpace(scopeID) != "" {
+		collegeClause = " AND college = ?"
+	}
+
+	// ── 注册统计（users.college）──
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student')`,
-	).Scan(&s.RegisteredTotal); err != nil {
+		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student')`+collegeClause,
+		regArgs(collegeClause, scopeID)...).Scan(&s.RegisteredTotal); err != nil {
 		return nil, err
 	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM users WHERE role = 'guest' AND status = 'pending'`,
-	).Scan(&s.PendingApproval); err != nil {
+		`SELECT COUNT(*) FROM users WHERE role = 'guest' AND status = 'pending'`+collegeClause,
+		regArgs(collegeClause, scopeID)...).Scan(&s.PendingApproval); err != nil {
 		return nil, err
 	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student') AND date(created_at) >= ?`, day(0),
-	).Scan(&s.RegisteredToday); err != nil {
+		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student') AND date(created_at) >= ?`+collegeClause,
+		append([]interface{}{day(0)}, regArgs(collegeClause, scopeID)...)...).Scan(&s.RegisteredToday); err != nil {
 		return nil, err
 	}
 	monthStart := day(0)[:7] + "-01"
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student') AND date(created_at) >= ?`, monthStart,
-	).Scan(&s.RegisteredMonth); err != nil {
+		`SELECT COUNT(*) FROM users WHERE role IN ('guest','student') AND date(created_at) >= ?`+collegeClause,
+		append([]interface{}{monthStart}, regArgs(collegeClause, scopeID)...)...).Scan(&s.RegisteredMonth); err != nil {
 		return nil, err
 	}
 
-	// ── 登录统计（audit_logs 按 username 关联 users）──
+	// ── 登录统计（audit_logs 按 username 关联 users → 按 college 过滤）──
+	loginJoin := ""
+	loginWhere := loginResourceFilter
+	loginArgs := []interface{}{}
+	if collegeClause != "" {
+		loginJoin = ` JOIN users u ON u.username = a.username`
+		loginWhere += ` AND u.college = ?`
+		loginArgs = append(loginArgs, scopeID)
+	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*), COUNT(DISTINCT a.username) FROM audit_logs a
-		 WHERE `+loginResourceFilter+` AND a.result_code = 200 AND date(a.created_at) >= ?`, day(0),
-	).Scan(&s.LoginTodayCount, &s.LoginTodayUsers); err != nil {
+		`SELECT COUNT(*), COUNT(DISTINCT a.username) FROM audit_logs a `+loginJoin+
+			` WHERE `+loginWhere+` AND a.result_code = 200 AND date(a.created_at) >= ?`,
+		append(loginArgs, day(0))...).Scan(&s.LoginTodayCount, &s.LoginTodayUsers); err != nil {
 		return nil, err
 	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(DISTINCT a.username) FROM audit_logs a
-		 WHERE `+loginResourceFilter+` AND a.result_code = 200 AND date(a.created_at) >= ?`, day(6),
-	).Scan(&s.Login7dUsers); err != nil {
+		`SELECT COUNT(DISTINCT a.username) FROM audit_logs a `+loginJoin+
+			` WHERE `+loginWhere+` AND a.result_code = 200 AND date(a.created_at) >= ?`,
+		append(loginArgs, day(6))...).Scan(&s.Login7dUsers); err != nil {
 		return nil, err
 	}
 
-	// ── 打卡统计 ──
+	// ── 打卡统计（student_checkins 关联 users → 按 college 过滤）──
+	checkinJoin := ""
+	checkinCollege := ""
+	checkinArgs := []interface{}{}
+	if collegeClause != "" {
+		checkinJoin = ` JOIN users u ON u.id = sc.user_id`
+		checkinCollege = ` AND u.college = ?`
+		checkinArgs = append(checkinArgs, scopeID)
+	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM student_checkins WHERE check_date = ?`, day(0),
-	).Scan(&s.CheckinToday); err != nil {
+		`SELECT COUNT(*) FROM student_checkins sc `+checkinJoin+` WHERE sc.check_date = ?`+checkinCollege,
+		append([]interface{}{day(0)}, checkinArgs...)...).Scan(&s.CheckinToday); err != nil {
 		return nil, err
 	}
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM student_checkins WHERE check_date = ?`, day(1),
-	).Scan(&s.CheckinYesterday); err != nil {
+		`SELECT COUNT(*) FROM student_checkins sc `+checkinJoin+` WHERE sc.check_date = ?`+checkinCollege,
+		append([]interface{}{day(1)}, checkinArgs...)...).Scan(&s.CheckinYesterday); err != nil {
 		return nil, err
 	}
 	var checkin7d int
 	if err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM student_checkins WHERE check_date >= ?`, day(6),
-	).Scan(&checkin7d); err != nil {
+		`SELECT COUNT(*) FROM student_checkins sc `+checkinJoin+` WHERE sc.check_date >= ?`+checkinCollege,
+		append([]interface{}{day(6)}, checkinArgs...)...).Scan(&checkin7d); err != nil {
 		return nil, err
 	}
 	s.Checkin7dAvg = float64(checkin7d) / 7.0
 
 	// ── 近7日趋势 ──
 	regs := map[string]int{}
-	rows, err := r.db.Query(
+	trendRows, err := r.db.Query(
 		`SELECT date(created_at), COUNT(*) FROM users
-		 WHERE role IN ('guest','student') AND date(created_at) >= ? GROUP BY date(created_at)`, day(6),
-	)
+		 WHERE role IN ('guest','student') AND date(created_at) >= ?`+collegeClause+` GROUP BY date(created_at)`,
+		append([]interface{}{day(6)}, regArgs(collegeClause, scopeID)...)...)
 	if err != nil {
 		return nil, err
 	}
-	for rows.Next() {
+	logins := map[string]int{}
+	loginUsers := map[string]int{}
+	checkins := map[string]int{}
+	handleTrend := func(rows *sql.Rows, fn func(date string, n, u int)) {
+		defer rows.Close()
+		for rows.Next() {
+			var d string
+			var n, u int
+			if err := rows.Scan(&d, &n, &u); err != nil {
+				continue
+			}
+			fn(d, n, u)
+		}
+	}
+	for trendRows.Next() {
 		var d string
 		var n int
-		if err := rows.Scan(&d, &n); err != nil {
-			break
+		if err := trendRows.Scan(&d, &n); err != nil {
+			continue
 		}
 		regs[d] = n
 	}
-	rows.Close()
+	trendRows.Close()
 
-	logins := map[string]int{}
-	loginUsers := map[string]int{}
-	rows, err = r.db.Query(
-		`SELECT date(a.created_at), COUNT(*), COUNT(DISTINCT a.username) FROM audit_logs a
-		 WHERE `+loginResourceFilter+` AND a.result_code = 200 AND date(a.created_at) >= ? GROUP BY date(a.created_at)`, day(6),
-	)
+	loginTrendRows, err := r.db.Query(
+		`SELECT date(a.created_at), COUNT(*), COUNT(DISTINCT a.username) FROM audit_logs a `+loginJoin+
+			` WHERE `+loginWhere+` AND a.result_code = 200 AND date(a.created_at) >= ? GROUP BY date(a.created_at)`,
+		append(loginArgs, day(6))...)
 	if err != nil {
 		return nil, err
 	}
-	for rows.Next() {
-		var d string
-		var n, u int
-		if err := rows.Scan(&d, &n, &u); err != nil {
-			break
-		}
-		logins[d] = n
-		loginUsers[d] = u
-	}
-	rows.Close()
+	handleTrend(loginTrendRows, func(d string, n, u int) { logins[d] = n; loginUsers[d] = u })
 
-	checkins := map[string]int{}
-	rows, err = r.db.Query(
-		`SELECT check_date, COUNT(*) FROM student_checkins WHERE check_date >= ? GROUP BY check_date`, day(6),
-	)
+	checkinTrendRows, err := r.db.Query(
+		`SELECT sc.check_date, COUNT(*) FROM student_checkins sc `+checkinJoin+` WHERE sc.check_date >= ?`+checkinCollege+` GROUP BY sc.check_date`,
+		append([]interface{}{day(6)}, checkinArgs...)...)
 	if err != nil {
 		return nil, err
 	}
-	for rows.Next() {
-		var d string
-		var n int
-		if err := rows.Scan(&d, &n); err != nil {
-			break
-		}
-		checkins[d] = n
-	}
-	rows.Close()
+	handleTrend(checkinTrendRows, func(d string, n, u int) { checkins[d] = n })
 
 	for i := 6; i >= 0; i-- {
 		d := day(i)
@@ -186,6 +206,14 @@ func (r *UserActivityStatsRepo) GetUserActivityStats() (*UserActivityStats, erro
 		})
 	}
 	return s, nil
+}
+
+// regArgs 返回注册口径的学院过滤参数（collegeClause 非空时补 scopeID）。
+func regArgs(collegeClause, scopeID string) []interface{} {
+	if collegeClause != "" {
+		return []interface{}{scopeID}
+	}
+	return []interface{}{}
 }
 
 // nowDate 返回当天（含 offset 天偏移）的 YYYY-MM-DD。
