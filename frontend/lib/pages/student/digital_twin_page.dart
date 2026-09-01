@@ -106,8 +106,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
 
         const SizedBox(height: 16),
 
-        // 信息概览：综合分 + 姓名 + 专业
-        _buildOverviewCard(theme, t, provider),
+        // 信息概览：成长阶段 + 数据覆盖 + 综合分
+        _buildGrowthIdentityCard(theme, t, provider),
 
         const SizedBox(height: 16),
 
@@ -427,6 +427,34 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
 
   Future<({Uint8List bytes, String mime})?> _pickImageBytes() async {
     return pickPortraitPhoto();
+  }
+
+  /// 蔚小芯成长身份卡：画像不是给学生贴标签，而是说明当前阶段与下一步行动。
+  Widget _buildGrowthIdentityCard(ThemeData theme, dynamic t, StudentFeatureProvider provider) {
+    final coverage = (t.dataCoverage as num).toDouble();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: theme.colorScheme.outlineVariant)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(t.profileTag.isNotEmpty ? t.profileTag : '你的成长画像', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+            Chip(label: Text(t.growthStage.isNotEmpty ? t.growthStage : '在校成长')),
+          ]),
+          const SizedBox(height: 8),
+          Text('画像基于你在蔚小芯中的真实学习、实践、思想与校园参与记录生成，不替代心理测评或人工判断。', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: LinearProgressIndicator(value: (coverage / 100).clamp(0, 1), minHeight: 8, borderRadius: BorderRadius.circular(8))),
+            const SizedBox(width: 10),
+            Text('数据覆盖 ${coverage.toStringAsFixed(0)}%', style: theme.textTheme.labelMedium),
+          ]),
+        ]),
+      ),
+    );
   }
 
   /// 综合概览卡片

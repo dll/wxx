@@ -6,12 +6,18 @@ class DigitalTwinData {
   final List<TwinDimension> idealDimensions;
   final String aiSummary;
   final List<String> suggestions;
+  final String growthStage;
+  final String profileTag;
+  final double dataCoverage;
 
   DigitalTwinData(
       {this.dimensions = const [],
       this.idealDimensions = const [],
       this.aiSummary = '',
-      this.suggestions = const []});
+      this.suggestions = const [],
+      this.growthStage = '',
+      this.profileTag = '',
+      this.dataCoverage = 0});
 
   factory DigitalTwinData.fromJson(Map<String, dynamic> json) {
     return DigitalTwinData(
@@ -27,6 +33,9 @@ class DigitalTwinData {
       aiSummary: json['ai_summary'] ?? json['interpretation'] ?? '',
       suggestions:
           List<String>.from(json['suggestions'] ?? json['stage_advice'] ?? []),
+      growthStage: json['growth_stage'] ?? '',
+      profileTag: json['profile_tag'] ?? '',
+      dataCoverage: (json['data_coverage'] ?? 0).toDouble(),
     );
   }
 }
@@ -36,12 +45,14 @@ class TwinDimension {
   final double score;
   final String label;
   final bool dataAvailable;
+  final List<String> evidence;
 
   TwinDimension(
       {this.name = '',
       this.score = 0,
       this.label = '',
-      this.dataAvailable = true});
+      this.dataAvailable = true,
+      this.evidence = const []});
 
   factory TwinDimension.fromJson(Map<String, dynamic> json) {
     return TwinDimension(
@@ -50,6 +61,7 @@ class TwinDimension {
       label: json['label'] ?? json['level'] ?? '',
       // 后端 v1 无 data_available 字段时默认 true，兼容旧接口/兜底 mock
       dataAvailable: json['data_available'] ?? true,
+      evidence: List<String>.from(json['evidence'] ?? const []),
     );
   }
 }

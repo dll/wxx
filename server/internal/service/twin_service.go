@@ -34,12 +34,17 @@ type TwinDimension struct {
 	Level         string  `json:"level"`          // 优秀/良好/待提升/数据积累中
 	Desc          string  `json:"desc"`           // 该维度简述
 	DataAvailable bool    `json:"data_available"` // 是否有足量数据支撑该维度（false 时前端显示「数据积累中」，不展示伪分数）
+	Evidence      []string `json:"evidence,omitempty"` // 生成该维度结论所依据的真实指标
 }
 
 // TwinResult 数字孪生完整结果（返回给前端）
 type TwinResult struct {
 	UserID         int64           `json:"user_id"`
 	DisplayName    string          `json:"display_name"`
+	ProfileVersion string          `json:"profile_version"`
+	GrowthStage    string          `json:"growth_stage"`    // 入学适应/能力发展/方向选择/毕业衔接
+	ProfileTag     string          `json:"profile_tag"`     // 基于真实数据生成的成长标签
+	DataCoverage   float64         `json:"data_coverage"`   // 五维中有真实数据的比例
 	OverallScore   float64         `json:"overall_score"` // 五维加权总分
 	Dimensions     []TwinDimension `json:"dimensions"`
 	Interpretation string          `json:"interpretation"` // AI/规则状态解读
@@ -115,20 +120,30 @@ func computeDimensions(m *repository.TwinRawMetrics) []TwinDimension {
 	// 社交：社团(每个 20 分,上限 60) + 活动(每次 8 分,上限 40)
 	social := clamp(math.Min(float64(m.ClubCount)*20, 60) + math.Min(float64(m.ActivityRegCount)*8, 40))
 
-	mk := func(key, name string, score float64, desc string) TwinDimension {
-		return TwinDimension{Key: key, Name: name, Score: score, Level: scoreLevel(score), Desc: desc, DataAvailable: true}
+	mk := func(key, name string, score float64, desc string, evidence ...string) TwinDimension {
+		return TwinDimension{Key: key, Name: name, Score: score, Level: scoreLevel(score), Desc: desc, DataAvailable: true, Evidence: evidence}
 	}
 	dims := []TwinDimension{
-		mk("academic", "学业", academic, fmt.Sprintf("平均绩点 %.2f，修得学分 %.1f", m.AvgGPA, m.CreditsEarned)),
-		mk("ability", "能力", ability, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount)),
-		mk("ideological", "思想", ideological, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount)),
-		mk("emotional", "情感", emotional, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount)),
-		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount)),
+		mk("academic", "学业", academic, fmt.Sprintf("平均绩点 %.2f，修得学分 %.1f", m.AvgGPA, m.CreditsEarned), fmt.Sprintf("成绩记录 %d 条", m.CourseCount), fmt.Sprintf("通过率 %.0f%%", m.PassRate*100)),
+		mk("ability", "能力", ability, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount), fmt.Sprintf("竞赛参与 %d 次", m.CompetitionCount), fmt.Sprintf("规划完成 %d/%d", m.PlanDoneCount, m.PlanCount)),
+		mk("ideological", "思想", ideological, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount), fmt.Sprintf("党建学习 %d 条", m.PartyStudyCount)),
+		mk("emotional", "情感", emotional, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount), fmt.Sprintf("心情记录 %d 条", m.EmotionLogCount)),
+		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount), fmt.Sprintf("社团 %d 个、活动 %d 次", m.ClubCount, m.ActivityRegCount)), 
 	}
 	if !emotionalDataAvailable {
 		dims[3].Level = "数据积累中"
 		dims[3].Desc = "暂无情感记录，完成每日心情打卡或与蔚小芯聊天后可生成"
 		dims[3].DataAvailable = false
+	}
+	// 没有任何对应真实记录时不生成伪分数，遵循蔚小芯“诚实空态”原则。
+	if m.CompetitionCount == 0 && m.PlanCount == 0 {
+		dims[1].Level, dims[1].Desc, dims[1].DataAvailable = "数据积累中", "暂无竞赛或成长规划记录", false
+	}
+	if m.PartyStageRank == 0 && m.PartyStudyCount == 0 {
+		dims[2].Level, dims[2].Desc, dims[2].DataAvailable = "数据积累中", "暂无思想学习记录", false
+	}
+	if m.ClubCount == 0 && m.ActivityRegCount == 0 {
+		dims[4].Level, dims[4].Desc, dims[4].DataAvailable = "数据积累中", "暂无社团或校园活动记录", false
 	}
 	return dims
 }
@@ -171,10 +186,21 @@ func (s *TwinService) GetDigitalTwin(ctx context.Context, userID int64) (*TwinRe
 
 	// LLM 解读（失败降级为规则文本）
 	interpretation, advice, fallback := s.interpret(ctx, displayName, dims, gaps)
+	coverage := 0.0
+	for _, d := range dims {
+		if d.DataAvailable {
+			coverage += 0.2
+		}
+	}
+	growthStage, profileTag := growthProfile(metrics, dims)
 
 	result := &TwinResult{
 		UserID:         userID,
 		DisplayName:    displayName,
+		ProfileVersion: "4.0",
+		GrowthStage:    growthStage,
+		ProfileTag:     profileTag,
+		DataCoverage:   clamp(coverage * 100),
 		OverallScore:   overall,
 		Dimensions:     dims,
 		Interpretation: interpretation,
@@ -265,6 +291,20 @@ func (s *TwinService) interpret(ctx context.Context, name string, dims []TwinDim
 }
 
 // ruleInterpret 规则兜底解读
+// growthProfile 将五维真实指标转为可行动的成长阶段与标签，不做心理诊断或人格定型。
+func growthProfile(m *repository.TwinRawMetrics, dims []TwinDimension) (string, string) {
+	if m.CourseCount == 0 && m.CompetitionCount == 0 && m.ClubCount == 0 {
+		return "入学适应", "成长数据待建立"
+	}
+	if m.CourseCount > 0 && m.PlanCount > 0 && m.PlanDoneCount < m.PlanCount {
+		return "能力发展", "正在把计划变成行动"
+	}
+	if m.CompetitionCount > 0 || m.AwardCount > 0 {
+		return "方向选择", "有潜力的实践探索者"
+	}
+	return "在校成长", "持续积累中的校园学习者"
+}
+
 func (s *TwinService) ruleInterpret(dims []TwinDimension, gaps []string) (string, []string, bool) {
 	var best, worst TwinDimension
 	best.Score, worst.Score = -1, 101
