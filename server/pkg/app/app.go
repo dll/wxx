@@ -374,6 +374,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 阶段三数据底座服务（成绩/课表导入 + 教辅真实数据）
 	dataImportRepo := repository.NewDataImportRepo(db)
 	phase3Svc := service.NewPhase3Service(dataImportRepo)
+	// 课表导入按 username(学号/工号) 解析归属 user_id，避免课程挂错账号（2026-09-01）
+	phase3Svc.SetUserRepo(userRepo)
 	// R3 成绩强校验接线：写库前查 teacher_courses 授课关系是否已 approved（仅 approved 放行）
 	phase3Svc.SetTeacherCourseRepo(repository.NewTeacherCourseRepo(db))
 	dataImportH := handler.NewDataImportHandler(phase3Svc)

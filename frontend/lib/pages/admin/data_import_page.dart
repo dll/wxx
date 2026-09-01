@@ -40,7 +40,7 @@ class _DataImportPageState extends State<DataImportPage> {
 {
   "schedules": [
     {
-      "user_id": 1,
+      "username": "120001",
       "course_id": "CS103",
       "course_name": "数据结构",
       "semester_code": "2025-2026-2",

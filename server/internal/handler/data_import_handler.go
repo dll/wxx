@@ -40,7 +40,9 @@ func (h *DataImportHandler) ImportGrades(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": res})
 }
 
-// ImportSchedules 批量导入课表（JSON）
+// ImportSchedules 批量导入课表（JSON）。
+// 每条 ScheduleRow 推荐提供 username（学号/工号，稳定键）而非内部自增 user_id，
+// 后端按 username 解析真实账号，避免填错 user_id 使课程挂到错误账号（2026-09-01 修复）。
 func (h *DataImportHandler) ImportSchedules(c *gin.Context) {
 	if h.phase3 == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "数据服务未就绪"})
@@ -87,9 +89,12 @@ func (h *DataImportHandler) ImportMySchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "单次最多导入 2000 条"})
 		return
 	}
-	// 强制本人：忽略请求里的 user_id，全部写当前登录学生
+	// 强制本人：忽略请求里的 user_id，全部写当前登录学生。
+	// 2026-09-01：同时清空 username（课表导入按 username 解析归属），
+	// 防止学生误/恶意传他人 username 把课表写到别的账号。
 	for _, s := range req.Schedules {
 		s.UserID = userCtx.UserID
+		s.Username = "" // 归属强制为本人，杜绝跨账号挂课表
 	}
 	res := h.phase3.ImportSchedules(req.Schedules)
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "导入成功(仅本人课表)", "data": res})

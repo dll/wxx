@@ -102,8 +102,8 @@ func TestDataImportRepo_Grades(t *testing.T) {
 func TestDataImportRepo_Schedules(t *testing.T) {
 	r := setupDataImportTestDB(t)
 
-	_ = r.UpsertSchedule(&ScheduleRow{UserID: 1, CourseID: "CS101", CourseName: "数据结构", SemesterCode: "2025-2026-2", Weekday: 1, StartPeriod: 1, EndPeriod: 2, Location: "信息楼301", Teacher: "张老师"})
-	_ = r.UpsertSchedule(&ScheduleRow{UserID: 1, CourseID: "CS102", CourseName: "操作系统", SemesterCode: "2025-2026-2", Weekday: 1, StartPeriod: 1, EndPeriod: 2, Location: "信息楼301", Teacher: "张老师"})
+	_ = r.UpsertSchedule(&ScheduleRow{UserID: 1, CourseID: "CS101", CourseName: "数据结构", SemesterCode: "2025-2026-2", Weekday: 1, StartPeriod: 1, EndPeriod: 2, Location: "信息楼301", Teacher: "张老师"}, 1)
+	_ = r.UpsertSchedule(&ScheduleRow{UserID: 1, CourseID: "CS102", CourseName: "操作系统", SemesterCode: "2025-2026-2", Weekday: 1, StartPeriod: 1, EndPeriod: 2, Location: "信息楼301", Teacher: "张老师"}, 1)
 
 	list, err := r.ListSchedules("")
 	if err != nil {

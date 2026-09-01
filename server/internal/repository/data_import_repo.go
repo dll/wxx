@@ -133,21 +133,26 @@ func gradeLevelOf(score float64) string {
 }
 
 // ScheduleRow 课表导入行
+// 归属解析（2026-09-01 修复）：优先按 Username（学号/工号，稳定键）定位账号，
+// 避免运营按内部自增 user_id 导入教师/学生课表时填错导致课程挂到错误账号；
+// 二者都提供时以 Username 解析出的 user_id 为权威（忽略传入 user_id，防止不一致）。
 type ScheduleRow struct {
-	UserID       int64  `json:"user_id"`
-	CourseID     string `json:"course_id"`
-	CourseName   string `json:"course_name"`
-	SemesterCode string `json:"semester_code"`
-	Weekday      int    `json:"weekday"`
-	StartPeriod  int    `json:"start_period"`
-	EndPeriod    int    `json:"end_period"`
-	WeeksPattern string `json:"weeks_pattern"`
-	Location     string `json:"location"`
-	Teacher      string `json:"teacher"`
+	Username      string `json:"username"` // 学号/工号（稳定键，推荐）；与 user_id 二选一
+	UserID        int64  `json:"user_id"`  // 内部自增 ID（兼容旧接口，username 缺省/为空时使用）
+	CourseID      string `json:"course_id"`
+	CourseName    string `json:"course_name"`
+	SemesterCode  string `json:"semester_code"`
+	Weekday       int    `json:"weekday"`
+	StartPeriod   int    `json:"start_period"`
+	EndPeriod     int    `json:"end_period"`
+	WeeksPattern  string `json:"weeks_pattern"`
+	Location      string `json:"location"`
+	Teacher       string `json:"teacher"`
 }
 
-// UpsertSchedule 幂等写入课表（按 user+course+weekday+period 去重）
-func (r *DataImportRepo) UpsertSchedule(s *ScheduleRow) error {
+// UpsertSchedule 幂等写入课表（按 user+course+weekday+period 去重）。
+// userID 由调用方（service 层）解析传入，确保挂到正确账号（2026-09-01）。
+func (r *DataImportRepo) UpsertSchedule(s *ScheduleRow, userID int64) error {
 	stmt := `
 		INSERT INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, weeks_pattern, location, teacher)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -156,9 +161,9 @@ func (r *DataImportRepo) UpsertSchedule(s *ScheduleRow) error {
 			end_period=excluded.end_period, weeks_pattern=excluded.weeks_pattern,
 			location=excluded.location, teacher=excluded.teacher`
 	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
-		s.UserID, s.CourseID, s.CourseName, s.SemesterCode, s.Weekday, s.StartPeriod, s.EndPeriod, s.WeeksPattern, s.Location, s.Teacher)
+		userID, s.CourseID, s.CourseName, s.SemesterCode, s.Weekday, s.StartPeriod, s.EndPeriod, s.WeeksPattern, s.Location, s.Teacher)
 	if err != nil {
-		return fmt.Errorf("课表写入失败: %w", err)
+		return fmt.Errorf("user_id=%d 课表写入失败: %w", userID, err)
 	}
 	return nil
 }

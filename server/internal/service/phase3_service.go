@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dll/wxx/server/internal/repository"
 )
@@ -12,6 +13,8 @@ type Phase3Service struct {
 	// TeacherCourseRepo 成绩强校验判据访问层（R3，可为暂空）；
 	// ImportTeacherGrades 写库前用它校验该教师-课程-学期授课关系已 approved。
 	tcRepo *repository.TeacherCourseRepo
+	// userRepo 课表导入按 username 解析 user_id（2026-09-01 修复课表挂错账号）
+	userRepo *repository.UserRepo
 }
 
 // NewPhase3Service 创建阶段三服务
@@ -22,6 +25,11 @@ func NewPhase3Service(repo *repository.DataImportRepo) *Phase3Service {
 // SetTeacherCourseRepo 注入教师授课关系访问层（R3 成绩强校验接线）
 func (s *Phase3Service) SetTeacherCourseRepo(r *repository.TeacherCourseRepo) {
 	s.tcRepo = r
+}
+
+// SetUserRepo 注入用户访问层（课表导入按 username 解析归属）
+func (s *Phase3Service) SetUserRepo(r *repository.UserRepo) {
+	s.userRepo = r
 }
 
 // ImportResult 导入结果
@@ -156,13 +164,55 @@ func (s *Phase3Service) ImportSchedules(rows []*repository.ScheduleRow) *ImportR
 			res.Errors = append(res.Errors, "课程ID不能为空")
 			continue
 		}
-		if err := s.repo.UpsertSchedule(r); err != nil {
+		// 严格归属解析（2026-09-01）：优先按 username 解析真实账号，
+		// 避免填错 user_id 使课程挂到错误账号（登录后显示的课程不对）。
+		uid, err := s.resolveScheduleOwner(r)
+		if err != nil {
+			res.Errors = append(res.Errors, err.Error())
+			continue
+		}
+		if err := s.repo.UpsertSchedule(r, uid); err != nil {
 			res.Errors = append(res.Errors, err.Error())
 			continue
 		}
 		res.Created++
 	}
 	return res
+}
+
+// resolveScheduleOwner 解析课表归属 user_id。
+// 规则（由严到松）：
+//  1. 提供 username → 查库校验存在，返回其 user_id（权威，忽略同行的 user_id，防不一致）；
+//  2. 未提供 username、但提供 user_id>0 → 仅校验用户存在，直接使用；
+//  3. 两者皆缺/用户不存在 → 报错拒写（绝不落到 user_id=0 或幽灵账号）。
+func (s *Phase3Service) resolveScheduleOwner(r *repository.ScheduleRow) (int64, error) {
+	username := strings.TrimSpace(r.Username)
+	if username != "" {
+		if s.userRepo == nil {
+			return 0, fmt.Errorf("课表归属解析不可用（userRepo 未注入）")
+		}
+		u, err := s.userRepo.GetByUsername(username)
+		if err != nil {
+			return 0, fmt.Errorf("%s: 查课表归属失败 %v", username, err)
+		}
+		if u == nil {
+			return 0, fmt.Errorf("%s: 账号不存在，无法挂载课表", username)
+		}
+		return u.ID, nil
+	}
+	if r.UserID > 0 {
+		if s.userRepo != nil {
+			u, err := s.userRepo.GetByID(r.UserID)
+			if err != nil {
+				return 0, fmt.Errorf("user_id=%d: 查用户失败 %v", r.UserID, err)
+			}
+			if u == nil {
+				return 0, fmt.Errorf("user_id=%d: 账号不存在，无法挂载课表", r.UserID)
+			}
+		}
+		return r.UserID, nil
+	}
+	return 0, fmt.Errorf("课表归属缺失：需提供 username 或 user_id")
 }
 
 // ── 教辅真实数据 ──
