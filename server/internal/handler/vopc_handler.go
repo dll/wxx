@@ -157,7 +157,7 @@ func (h *VOPCHandler) UpdateProject(c *gin.Context) {
 		c.JSON(409, gin.H{"code": 409, "message": "仅 G0 草稿可直接编辑，已提交项目请走变更评审"})
 		return
 	}
-	res, err := tx.Exec(`UPDATE vopc_projects SET name=?,summary=?,problem_statement=?,target_users=?,expected_outcome=?,validation_plan=?,project_type=?,project_source=?,product_form=?,project_cycle=?,acceptance_criteria=?,mentor_needs=?,resource_needs=?,risk_level=?,data_type=?,real_user_trial=?,external_publish=?,funds_involved=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage='G0' AND status='draft'`, in.Name, in.Summary, in.Problem, in.Target, in.Outcome, in.Validation, in.Type, in.Source, in.ProductForm, in.Cycle, in.Acceptance, in.MentorNeeds, in.ResourceNeeds, in.Risk, in.DataType, in.RealTrial, in.ExternalPublish, in.FundsInvolved, id)
+	res, err := tx.Exec(`UPDATE vopc_projects SET name=?,summary=?,problem_statement=?,target_users=?,expected_outcome=?,validation_plan=?,project_type=?,project_source=?,product_form=?,project_cycle=?,acceptance_criteria=?,mentor_needs=?,resource_needs=?,risk_level=?,data_type=?,real_user_trial=?,external_publish=?,funds_involved=?,team_mode=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND stage='G0' AND status='draft'`, in.Name, in.Summary, in.Problem, in.Target, in.Outcome, in.Validation, in.Type, in.Source, in.ProductForm, in.Cycle, in.Acceptance, in.MentorNeeds, in.ResourceNeeds, in.Risk, in.DataType, in.RealTrial, in.ExternalPublish, in.FundsInvolved, in.TeamMode, id)
 	if err != nil {
 		serverError(c, "草稿保存失败")
 		return
@@ -184,7 +184,7 @@ func (h *VOPCHandler) AccessStatus(c *gin.Context) {
 
 func (h *VOPCHandler) ListProjects(c *gin.Context) {
 	u := middleware.GetUserContext(c)
-	rows, err := h.db.Query(`SELECT p.id,p.name,p.summary,p.project_type,p.stage,p.status,p.visibility,p.risk_level,p.owner_user_id,p.updated_at FROM vopc_projects p WHERE p.owner_user_id=? OR EXISTS (SELECT 1 FROM vopc_project_members m WHERE m.project_id=p.id AND m.user_id=? AND m.status='active') ORDER BY p.updated_at DESC LIMIT 100`, u.UserID, u.UserID)
+	rows, err := h.db.Query(`SELECT p.id,p.name,p.summary,p.project_type,p.stage,p.status,p.visibility,p.risk_level,p.owner_user_id,p.team_mode,p.is_demo,p.updated_at FROM vopc_projects p WHERE p.owner_user_id=? OR EXISTS (SELECT 1 FROM vopc_project_members m WHERE m.project_id=p.id AND m.user_id=? AND m.status='active') ORDER BY p.updated_at DESC LIMIT 100`, u.UserID, u.UserID)
 	if err != nil {
 		serverError(c, "项目列表读取失败")
 		return
@@ -193,12 +193,13 @@ func (h *VOPCHandler) ListProjects(c *gin.Context) {
 	items := make([]gin.H, 0)
 	for rows.Next() {
 		var id, owner int64
-		var name, summary, typ, stage, status, visibility, risk, updated string
-		if err := rows.Scan(&id, &name, &summary, &typ, &stage, &status, &visibility, &risk, &owner, &updated); err != nil {
+		var name, summary, typ, stage, status, visibility, risk, teamMode, updated string
+		var isDemo bool
+		if err := rows.Scan(&id, &name, &summary, &typ, &stage, &status, &visibility, &risk, &owner, &teamMode, &isDemo, &updated); err != nil {
 			serverError(c, "项目列表读取失败")
 			return
 		}
-		items = append(items, gin.H{"id": id, "name": name, "summary": summary, "project_type": typ, "stage": stage, "status": status, "visibility": visibility, "risk_level": risk, "owner_user_id": owner, "updated_at": updated})
+		items = append(items, gin.H{"id": id, "name": name, "summary": summary, "project_type": typ, "stage": stage, "status": status, "visibility": visibility, "risk_level": risk, "owner_user_id": owner, "team_mode": teamMode, "is_demo": isDemo, "updated_at": updated})
 	}
 	if err := rows.Err(); err != nil {
 		serverError(c, "项目列表读取失败")
@@ -227,6 +228,8 @@ type projectInput struct {
 	ExternalPublish bool   `json:"external_publish"`
 	FundsInvolved   bool   `json:"funds_involved"`
 	ComplexityLayer int    `json:"complexity_layer"`
+	TeamMode        string `json:"team_mode"`
+	IsDemo          bool   `json:"is_demo"`
 }
 
 func (in *projectInput) normalizeAndValidate(submit bool) (string, int) {
@@ -236,6 +239,12 @@ func (in *projectInput) normalizeAndValidate(submit bool) (string, int) {
 	}
 	if in.Type == "" {
 		in.Type = "自由探索项目"
+	}
+	if in.TeamMode == "" {
+		in.TeamMode = "auto"
+	}
+	if in.TeamMode != "auto" && in.TeamMode != "manual" {
+		return "组队方式无效", 422
 	}
 	if in.Risk == "" {
 		in.Risk = "R0"
@@ -369,6 +378,40 @@ func (h *VOPCHandler) ListAIRoles(c *gin.Context) {
 	c.JSON(200, gin.H{"code": 0, "data": items})
 }
 
+// ListTimeline 返回项目阶段推进与治理审计时间线，供项目驾驶舱展示。
+func (h *VOPCHandler) ListTimeline(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	tx, _, ok := h.readableProject(c, id)
+	if !ok {
+		return
+	}
+	defer tx.Rollback()
+	rows, err := tx.Query(`SELECT id,action,detail,actor_user_id,created_at FROM vopc_events WHERE project_id=? ORDER BY id DESC LIMIT 100`, id)
+	if err != nil {
+		serverError(c, "项目时间线读取失败")
+		return
+	}
+	defer rows.Close()
+	items := make([]gin.H, 0)
+	for rows.Next() {
+		var eventID, actor int64
+		var action, detail, created string
+		if err := rows.Scan(&eventID, &action, &detail, &actor, &created); err != nil {
+			serverError(c, "项目时间线读取失败")
+			return
+		}
+		items = append(items, gin.H{"id": eventID, "action": action, "detail": detail, "actor_user_id": actor, "created_at": created})
+	}
+	if err := rows.Err(); err != nil {
+		serverError(c, "项目时间线读取失败")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": items})
+}
+
 func (h *VOPCHandler) CreateProject(c *gin.Context) {
 	u := middleware.GetUserContext(c)
 	var in projectInput
@@ -391,7 +434,7 @@ func (h *VOPCHandler) CreateProject(c *gin.Context) {
 			_ = tx.Rollback()
 		}
 	}()
-	res, err := tx.Exec(`INSERT INTO vopc_projects(name,summary,problem_statement,target_users,expected_outcome,validation_plan,project_type,project_source,product_form,project_cycle,acceptance_criteria,mentor_needs,resource_needs,risk_level,data_type,real_user_trial,external_publish,funds_involved,complexity_layer,stage,status,owner_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'G0','draft',?)`, in.Name, in.Summary, in.Problem, in.Target, in.Outcome, in.Validation, in.Type, in.Source, in.ProductForm, in.Cycle, in.Acceptance, in.MentorNeeds, in.ResourceNeeds, in.Risk, in.DataType, in.RealTrial, in.ExternalPublish, in.FundsInvolved, in.ComplexityLayer, u.UserID)
+	res, err := tx.Exec(`INSERT INTO vopc_projects(name,summary,problem_statement,target_users,expected_outcome,validation_plan,project_type,project_source,product_form,project_cycle,acceptance_criteria,mentor_needs,resource_needs,risk_level,data_type,real_user_trial,external_publish,funds_involved,complexity_layer,team_mode,is_demo,stage,status,owner_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,0,'G0','draft',?)`, in.Name, in.Summary, in.Problem, in.Target, in.Outcome, in.Validation, in.Type, in.Source, in.ProductForm, in.Cycle, in.Acceptance, in.MentorNeeds, in.ResourceNeeds, in.Risk, in.DataType, in.RealTrial, in.ExternalPublish, in.FundsInvolved, in.ComplexityLayer, in.TeamMode, u.UserID)
 	if err != nil {
 		serverError(c, "项目保存失败")
 		return
@@ -430,6 +473,95 @@ func (h *VOPCHandler) CreateProject(c *gin.Context) {
 	c.JSON(201, gin.H{"code": 0, "data": gin.H{"id": id, "stage": "G0", "status": "draft", "risk_level": in.Risk}})
 }
 
+// CreateDemoProject 创建与真实项目隔离的确定性软件项目演示样本。
+func (h *VOPCHandler) CreateDemoProject(c *gin.Context) {
+	u := middleware.GetUserContext(c)
+	tx, err := h.db.Begin()
+	if err != nil {
+		serverError(c, "演示项目创建失败")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`INSERT INTO vopc_projects(name,summary,problem_statement,target_users,expected_outcome,validation_plan,project_type,project_source,product_form,project_cycle,acceptance_criteria,risk_level,data_type,complexity_layer,team_mode,is_demo,stage,status,owner_user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'G0','draft',?)`, "校园活动报名小程序（模拟）", "用一个可审阅的小程序练习软件项目闭环。", "学生无法快速找到校园活动并完成报名。", "在校学生", "形成可演示的报名流程与复盘报告。", "使用模拟用户反馈验证报名流程。", "软件与 AI 产品", "simulation", "小程序原型", "2 周", "能完成浏览、报名、取消报名并记录反馈。", "R0", "公开数据", 2, "auto", 1, u.UserID)
+	if err != nil {
+		serverError(c, "演示项目创建失败")
+		return
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		serverError(c, "演示项目创建失败")
+		return
+	}
+	if err = execOne(tx, `INSERT INTO vopc_project_members(project_id,user_id,project_role) VALUES(?,?,?)`, id, u.UserID, "owner"); err != nil {
+		serverError(c, "演示团队初始化失败")
+		return
+	}
+	roles := []struct{ k, n string }{{"project_manager", "产品经理向导"}, {"architecture", "架构与后端向导"}, {"frontend", "前端体验向导"}, {"qa", "测试质量向导"}, {"retrospective", "交付复盘向导"}}
+	for i, r := range roles {
+		if err = execOne(tx, `INSERT INTO vopc_ai_roles(project_id,role_key,role_name,responsible_stages,responsibilities,sort_order) VALUES(?,?,?,?,?,?)`, id, r.k, r.n, `["G0","G1","G2","G3","G4"]`, "提供模拟模板与检查清单，不执行真实操作。", i); err != nil {
+			serverError(c, "演示团队初始化失败")
+			return
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if err = execOne(tx, `INSERT INTO vopc_milestones(project_id,stage,required_evidence) VALUES(?,?,?)`, id, fmt.Sprintf("G%d", i), milestoneEvidence(i)); err != nil {
+			serverError(c, "演示阶段初始化失败")
+			return
+		}
+	}
+	if err = writeEvent(tx, id, u.UserID, "simulation.created", "", "G0/draft", "创建确定性模拟项目"); err != nil {
+		serverError(c, "演示审计写入失败")
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		serverError(c, "演示项目创建失败")
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "data": gin.H{"id": id, "is_demo": true, "stage": "G0", "status": "draft"}})
+}
+
+// AdvanceSimulation 仅推进模拟项目的教学事件，不绕过真实项目门禁。
+func (h *VOPCHandler) AdvanceSimulation(c *gin.Context) {
+	id, ok := projectID(c)
+	if !ok {
+		return
+	}
+	u := middleware.GetUserContext(c)
+	tx, err := h.db.Begin()
+	if err != nil {
+		serverError(c, "模拟推进失败")
+		return
+	}
+	defer tx.Rollback()
+	var owner int64
+	var stage, status string
+	var demo bool
+	if err = tx.QueryRow(`SELECT owner_user_id,stage,status,is_demo FROM vopc_projects WHERE id=?`, id).Scan(&owner, &stage, &status, &demo); err != nil || owner != u.UserID || !demo {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "模拟项目不存在或无权推进"})
+		return
+	}
+	idx := stageIndexOf(stage)
+	if idx < 0 || idx >= 4 {
+		c.JSON(http.StatusConflict, gin.H{"code": 409, "message": "模拟项目已完成，请查看复盘"})
+		return
+	}
+	next := gStages[idx+1]
+	nextStatus := stageStatuses[idx+1]
+	if _, err = tx.Exec(`UPDATE vopc_projects SET stage=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_demo=1`, next, nextStatus, id); err != nil {
+		serverError(c, "模拟推进失败")
+		return
+	}
+	if err = writeEvent(tx, id, u.UserID, "simulation.advanced", stage+"/"+status, next+"/"+nextStatus, fmt.Sprintf("模拟推进至 %s", next)); err != nil {
+		serverError(c, "模拟审计写入失败")
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		serverError(c, "模拟推进失败")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"stage": next, "status": nextStatus, "simulated": true}})
+}
+
 func execOne(tx *sql.Tx, q string, args ...any) error {
 	res, err := tx.Exec(q, args...)
 	if err != nil {
@@ -458,7 +590,9 @@ func (h *VOPCHandler) GetProject(c *gin.Context) {
 	var p projectInput
 	var stage, status, visibility, created, updated string
 	var pid, owner, complexity int64
-	err := h.db.QueryRow(`SELECT id,name,summary,problem_statement,target_users,expected_outcome,validation_plan,project_type,project_source,product_form,project_cycle,acceptance_criteria,mentor_needs,resource_needs,stage,status,visibility,risk_level,data_type,real_user_trial,external_publish,funds_involved,owner_user_id,complexity_layer,created_at,updated_at FROM vopc_projects WHERE id=? AND (owner_user_id=? OR EXISTS (SELECT 1 FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'))`, id, u.UserID, id, u.UserID).Scan(&pid, &p.Name, &p.Summary, &p.Problem, &p.Target, &p.Outcome, &p.Validation, &p.Type, &p.Source, &p.ProductForm, &p.Cycle, &p.Acceptance, &p.MentorNeeds, &p.ResourceNeeds, &stage, &status, &visibility, &p.Risk, &p.DataType, &p.RealTrial, &p.ExternalPublish, &p.FundsInvolved, &owner, &complexity, &created, &updated)
+	var teamMode string
+	var isDemo bool
+	err := h.db.QueryRow(`SELECT id,name,summary,problem_statement,target_users,expected_outcome,validation_plan,project_type,project_source,product_form,project_cycle,acceptance_criteria,mentor_needs,resource_needs,stage,status,visibility,risk_level,data_type,real_user_trial,external_publish,funds_involved,owner_user_id,complexity_layer,team_mode,is_demo,created_at,updated_at FROM vopc_projects WHERE id=? AND (owner_user_id=? OR EXISTS (SELECT 1 FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'))`, id, u.UserID, id, u.UserID).Scan(&pid, &p.Name, &p.Summary, &p.Problem, &p.Target, &p.Outcome, &p.Validation, &p.Type, &p.Source, &p.ProductForm, &p.Cycle, &p.Acceptance, &p.MentorNeeds, &p.ResourceNeeds, &stage, &status, &visibility, &p.Risk, &p.DataType, &p.RealTrial, &p.ExternalPublish, &p.FundsInvolved, &owner, &complexity, &teamMode, &isDemo, &created, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		c.JSON(404, gin.H{"code": 404, "message": "项目不存在或无权访问"})
 		return
@@ -473,7 +607,7 @@ func (h *VOPCHandler) GetProject(c *gin.Context) {
 		_ = h.db.QueryRow(`SELECT project_role FROM vopc_project_members WHERE project_id=? AND user_id=? AND status='active'`, id, u.UserID).Scan(&role)
 		canManage = role == "co_owner" || role == "platform_operator"
 	}
-	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": pid, "name": p.Name, "summary": p.Summary, "problem_statement": p.Problem, "target_users": p.Target, "expected_outcome": p.Outcome, "validation_plan": p.Validation, "project_type": p.Type, "project_source": p.Source, "product_form": p.ProductForm, "project_cycle": p.Cycle, "acceptance_criteria": p.Acceptance, "mentor_needs": p.MentorNeeds, "resource_needs": p.ResourceNeeds, "stage": stage, "status": status, "visibility": visibility, "risk_level": p.Risk, "data_type": p.DataType, "real_user_trial": p.RealTrial, "external_publish": p.ExternalPublish, "funds_involved": p.FundsInvolved, "complexity_layer": complexity, "owner_user_id": owner, "can_manage": canManage, "created_at": created, "updated_at": updated}})
+	c.JSON(200, gin.H{"code": 0, "data": gin.H{"id": pid, "name": p.Name, "summary": p.Summary, "problem_statement": p.Problem, "target_users": p.Target, "expected_outcome": p.Outcome, "validation_plan": p.Validation, "project_type": p.Type, "project_source": p.Source, "product_form": p.ProductForm, "project_cycle": p.Cycle, "acceptance_criteria": p.Acceptance, "mentor_needs": p.MentorNeeds, "resource_needs": p.ResourceNeeds, "stage": stage, "status": status, "visibility": visibility, "risk_level": p.Risk, "data_type": p.DataType, "real_user_trial": p.RealTrial, "external_publish": p.ExternalPublish, "funds_involved": p.FundsInvolved, "complexity_layer": complexity, "team_mode": teamMode, "is_demo": isDemo, "owner_user_id": owner, "can_manage": canManage, "created_at": created, "updated_at": updated}})
 }
 
 type taskInput struct {

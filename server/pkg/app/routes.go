@@ -149,6 +149,8 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.GET("/users/search", d.vopcH.SearchUsers)
 				vopc.GET("/projects", d.vopcH.ListProjects)
 				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
+				vopc.POST("/demo-projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateDemoProject)
+				vopc.POST("/projects/:id/simulation/advance", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.AdvanceSimulation)
 				vopc.GET("/projects/:id", d.vopcH.GetProject)
 				vopc.PUT("/projects/:id", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateProject)
 				vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
@@ -169,6 +171,7 @@ func setupRouter(d *deps) *gin.Engine {
 				vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
 				vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
 				vopc.GET("/projects/:id/ai-roles", d.vopcH.ListAIRoles)
+				vopc.GET("/projects/:id/timeline", d.vopcH.ListTimeline)
 				vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)
 				// vOPC A4 里程碑完整业务门禁：评分量表 / 条件闭环 / 豁免 / 甲方结构化证据
 				vopc.GET("/projects/:id/rubrics", d.vopcH.ListRubrics)
@@ -434,10 +437,10 @@ func setupRouter(d *deps) *gin.Engine {
 			admin := secured.Group("/admin")
 			{
 				admin.GET("/stats/dashboard", auth.RequireCapability(auth.CollegeMetricsRead), d.statsH.GetDashboardStats)
-	// 学生活动统计（任务5，2026-09-01）：注册/登录/打卡聚合
-	admin.GET("/stats/user-activity", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.GetStats)
-	// 统计播报（任务7）：站内通知推送给 120001（默认）或指定用户
-	admin.POST("/stats/user-activity/notify", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.Notify)
+				// 学生活动统计（任务5，2026-09-01）：注册/登录/打卡聚合
+				admin.GET("/stats/user-activity", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.GetStats)
+				// 统计播报（任务7）：站内通知推送给 120001（默认）或指定用户
+				admin.POST("/stats/user-activity/notify", auth.RequireCapability(auth.CollegeMetricsRead), d.userActivityStatsH.Notify)
 				admin.GET("/metrics", auth.RequireCapability(auth.CollegeMetricsRead), d.adminH.GetMetrics)
 				admin.GET("/metrics/fallback-questions", auth.RequireCapability(auth.CollegeMetricsRead), d.adminH.TopFallbackQuestions)
 				admin.GET("/users", auth.RequireCapability(auth.CollegeUserRead), d.adminH.ListUsers)

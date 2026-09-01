@@ -211,6 +211,9 @@ class ApiConfig {
   static const String vopcLearning = '$apiPrefix/vopc/learning';
   static const String vopcGuides = '$apiPrefix/vopc/guides';
   static const String vopcProjects = '$apiPrefix/vopc/projects';
+  static const String vopcDemoProjects = '$apiPrefix/vopc/demo-projects';
+  static String vopcSimulationAdvance(int id) =>
+      '$apiPrefix/vopc/projects/$id/simulation/advance';
   static String vopcProject(int id) => '$apiPrefix/vopc/projects/$id';
   static String vopcProjectTasks(int id) =>
       '$apiPrefix/vopc/projects/$id/tasks';
@@ -232,6 +235,7 @@ class ApiConfig {
   static String vopcMilestoneSubmissions(int id) =>
       '$apiPrefix/vopc/projects/$id/milestone-submissions';
   static String vopcAiRoles(int id) => '$apiPrefix/vopc/projects/$id/ai-roles';
+  static String vopcTimeline(int id) => '$apiPrefix/vopc/projects/$id/timeline';
   static String vopcProjectDelete(int id) =>
       '$apiPrefix/vopc/projects/$id/delete';
   static const String vopcUsersSearch = '$apiPrefix/vopc/users/search';
@@ -527,6 +531,7 @@ class ApiConfig {
   static const String adminGradesImport = '$apiPrefix/admin/grades/import';
   static const String adminSchedulesImport =
       '$apiPrefix/admin/schedules/import';
+
   /// 按工号归位课表（彻底修复历史错挂课程显示）
   static const String adminSchedulesReassign =
       '$apiPrefix/admin/schedules/reassign';

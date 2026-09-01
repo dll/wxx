@@ -9,8 +9,10 @@ abstract class VopcApiClient {
   Future<Response> post(String path, {dynamic data});
   Future<Response> put(String path, {dynamic data});
   Future<Response> delete(String path);
+
   /// 以字节流接收（用于私有文件鉴权下载）。
   Future<Response> getBytes(String path);
+
   /// 上传单个文件（multipart，字段名 file）。
   Future<Response> uploadFile(String path,
       {required List<int> bytes, required String filename});
@@ -72,6 +74,8 @@ class VopcProject {
   final bool canManage;
   final int complexityLayer;
   final String visibility;
+  final String teamMode;
+  final bool isDemo;
 
   const VopcProject(
       {required this.id,
@@ -98,7 +102,9 @@ class VopcProject {
       this.ownerUserId = 0,
       this.canManage = false,
       this.complexityLayer = 2,
-      this.visibility = 'private'});
+      this.visibility = 'private',
+      this.teamMode = 'auto',
+      this.isDemo = false});
 
   factory VopcProject.fromJson(Map<String, dynamic> json) => VopcProject(
       id: (json['id'] as num).toInt(),
@@ -124,9 +130,10 @@ class VopcProject {
       fundsInvolved: json['funds_involved'] == true,
       ownerUserId: (json['owner_user_id'] as num?)?.toInt() ?? 0,
       canManage: json['can_manage'] == true,
-      complexityLayer:
-          (json['complexity_layer'] as num?)?.toInt() ?? 2,
-      visibility: json['visibility']?.toString() ?? 'private');
+      complexityLayer: (json['complexity_layer'] as num?)?.toInt() ?? 2,
+      visibility: json['visibility']?.toString() ?? 'private',
+      teamMode: json['team_mode']?.toString() ?? 'auto',
+      isDemo: json['is_demo'] == true || json['is_demo'] == 1);
 }
 
 class VopcDecision {
@@ -276,6 +283,7 @@ class VopcProvider extends ChangeNotifier {
   List<VopcDecision> decisions = const [];
   List<Map<String, dynamic>> members = const [];
   List<Map<String, dynamic>> aiRoles = const [];
+  List<Map<String, dynamic>> timeline = const [];
   List<Map<String, dynamic>> invitations = const [];
   List<VopcArtifact> artifacts = const [];
   List<VopcMilestoneSubmission> milestoneSubmissions = const [];
@@ -359,6 +367,32 @@ class VopcProvider extends ChangeNotifier {
       _setError(e, '项目创建失败');
       notifyListeners();
       return null;
+    }
+  }
+
+  Future<int?> createDemoProject() async {
+    try {
+      final r = await _api.post(ApiConfig.vopcDemoProjects);
+      final id = (r.data?['data']?['id'] as num?)?.toInt();
+      if (id != null) await loadProjects();
+      return id;
+    } catch (e) {
+      _setError(e, '模拟项目创建失败');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> advanceSimulation(int id) async {
+    try {
+      await _api.post(ApiConfig.vopcSimulationAdvance(id));
+      await loadDetail(id);
+      await loadTimeline(id);
+      return true;
+    } catch (e) {
+      _setError(e, '模拟推进失败');
+      notifyListeners();
+      return false;
     }
   }
 
@@ -542,6 +576,18 @@ class VopcProvider extends ChangeNotifier {
           .toList();
     } catch (e) {
       // AI 岗位加载失败不阻塞页面
+    }
+    notifyListeners();
+  }
+
+  Future<void> loadTimeline(int projectId) async {
+    try {
+      final r = await _api.get(ApiConfig.vopcTimeline(projectId));
+      timeline = (r.data?['data'] as List? ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (_) {
+      // 时间线是增强信息，旧部署缺少接口时不阻塞项目工作台。
     }
     notifyListeners();
   }
@@ -861,7 +907,8 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api.post(ApiConfig.vopcProjectClose(projectId), data: data);
+      final r =
+          await _api.post(ApiConfig.vopcProjectClose(projectId), data: data);
       if (r.data?['data']?['status'] == null) return false;
       await loadCloseRecords(projectId);
       await loadDetail(projectId);
@@ -891,7 +938,8 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api.post(ApiConfig.vopcProjectRisks(projectId), data: data);
+      final r =
+          await _api.post(ApiConfig.vopcProjectRisks(projectId), data: data);
       if (r.data?['data']?['id'] == null) return false;
       await loadRisks(projectId);
       return true;
@@ -938,8 +986,8 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api
-          .post(ApiConfig.vopcSpecialApprovals(projectId), data: data);
+      final r = await _api.post(ApiConfig.vopcSpecialApprovals(projectId),
+          data: data);
       if (r.data?['data']?['id'] == null) return false;
       await loadSpecialApprovals(projectId);
       return true;
@@ -986,8 +1034,8 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api.post(ApiConfig.vopcRiskAppeals(projectId),
-          data: {'reason': reason});
+      final r = await _api
+          .post(ApiConfig.vopcRiskAppeals(projectId), data: {'reason': reason});
       if (r.data?['data']?['id'] == null) return false;
       await loadRiskAppeals(projectId);
       return true;
@@ -1035,8 +1083,8 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api
-          .post(ApiConfig.vopcMilestoneWaivers(projectId), data: data);
+      final r = await _api.post(ApiConfig.vopcMilestoneWaivers(projectId),
+          data: data);
       if (r.data?['data']?['id'] == null) return false;
       await loadMilestoneWaivers(projectId);
       return true;
@@ -1171,12 +1219,14 @@ class VopcProvider extends ChangeNotifier {
   }
 
   /// 下载私有文件（返回原始字节，受控鉴权由后端执行）。
-  Future<List<int>?> downloadProjectFile(int projectId, String objectKey) async {
+  Future<List<int>?> downloadProjectFile(
+      int projectId, String objectKey) async {
     error = null;
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api.getBytes(ApiConfig.vopcProjectFile(projectId, objectKey));
+      final r =
+          await _api.getBytes(ApiConfig.vopcProjectFile(projectId, objectKey));
       final data = r.data;
       if (data is List<int>) return data;
       return null;
@@ -1186,6 +1236,7 @@ class VopcProvider extends ChangeNotifier {
       return null;
     }
   }
+
   Future<void> loadAITasks(int projectId) async {
     try {
       final r = await _api.get(ApiConfig.vopcAITasks(projectId));
@@ -1223,12 +1274,12 @@ class VopcProvider extends ChangeNotifier {
     statusCode = null;
     notifyListeners();
     try {
-      final r = await _api.post(ApiConfig.vopcAITaskReview(projectId, taskId),
-          data: {
-            'decision': decision,
-            'note': note,
-            if (decision == 'revise') 'revision': revision,
-          });
+      final r =
+          await _api.post(ApiConfig.vopcAITaskReview(projectId, taskId), data: {
+        'decision': decision,
+        'note': note,
+        if (decision == 'revise') 'revision': revision,
+      });
       if (r.data?['data']?['final_decision'] == null) return false;
       await loadAITasks(projectId);
       return true;
@@ -1238,7 +1289,6 @@ class VopcProvider extends ChangeNotifier {
       return false;
     }
   }
-
 
   String? _messageFor(int? code) => switch (code) {
         401 => '登录已过期，请重新登录',

@@ -39,7 +39,7 @@ func vopcTestDB(t *testing.T) *sql.DB {
 	if _, err = db.Exec(string(raw)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql", "103_vopc_private_files.sql", "104_vopc_risk_special_approval.sql", "107_vopc_v2_layers.sql"} {
+	for _, name := range []string{"098_vopc_decisions.sql", "099_vopc_collaboration_delivery.sql", "100_vopc_artifact_version_gates.sql", "101_vopc_close_state_machine.sql", "102_vopc_risk_governance.sql", "103_vopc_private_files.sql", "104_vopc_risk_special_approval.sql", "107_vopc_v2_layers.sql", "117_vopc_team_modes.sql"} {
 		migration, readErr := os.ReadFile("../../migrations/" + name)
 		if readErr != nil {
 			t.Fatal(readErr)
