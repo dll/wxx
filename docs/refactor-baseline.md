@@ -54,12 +54,14 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 回归测试已改为读取拆分后的路由文件集合，路由路径与中间件行为保持不变。
 - 保持中间件顺序、鉴权和路由路径不变。
 
-### 批次三：后端领域服务
+### 批次三：后端领域服务（待开始）
 
 - 优先拆分学生、文档、辅导员和知识库服务/仓储。
 - repository 只负责数据访问，service 负责业务规则，handler 只负责协议适配。
 
-### 批次四：Flutter 页面组件化
+当前已完成的是路由层领域边界，尚未改动 service/repository 业务实现；下一步应先为 `student_service.go` 和 `kb_repo.go` 建立接口级测试，再进行方法迁移。
+
+### 批次四：Flutter 页面组件化（待开始）
 
 - 优先处理 VOPC、首页、问芯、校园地图。
 - 将页面容器、状态、请求、区块 Widget、表单和对话框分离。
