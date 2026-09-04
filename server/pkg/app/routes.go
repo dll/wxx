@@ -4,7 +4,6 @@ package app
 
 import (
 	"github.com/dll/wxx/server/internal/auth"
-	"github.com/dll/wxx/server/internal/handler"
 	"github.com/dll/wxx/server/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -50,6 +49,7 @@ func setupRouter(d *deps) *gin.Engine {
 			registerForecastRoutes(secured, d)
 			registerGraduationRoutes(secured, d)
 			registerStudentFeatureRoutes(secured, d)
+			registerPlatformRoutes(secured, d)
 			/*
 				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
 				vopc := secured.Group("/vopc")
@@ -234,7 +234,7 @@ func setupRouter(d *deps) *gin.Engine {
 				club.POST("/activity/register", auth.RequireCapability(auth.SelfClubWrite), d.studentFeaturesH.RegisterClubActivity)
 			} */
 
-			// ── 知识库 CRUD（counselor.kb.write）──
+			/* ── 知识库 CRUD（counselor.kb.write）──
 			kb := secured.Group("/kb")
 			{
 				// 高级查询与字典（必须在 /resources/:id 之前注册，避免 "advanced" 被匹配为 :id）
@@ -346,6 +346,7 @@ func setupRouter(d *deps) *gin.Engine {
 			secured.GET("/token-stats/my", auth.RequireCapability(auth.SelfTokenStats), d.tokenStatsH.GetMyStats)
 			secured.GET("/token-stats/subordinates", auth.RequireCapability(auth.CounselorTokenSubordinates), d.tokenStatsH.GetSubordinateStats)
 
+			*/
 			// ── 管理端 ──
 			admin := secured.Group("/admin")
 			{
