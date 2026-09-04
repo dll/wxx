@@ -50,6 +50,7 @@ func setupRouter(d *deps) *gin.Engine {
 			registerGraduationRoutes(secured, d)
 			registerStudentFeatureRoutes(secured, d)
 			registerPlatformRoutes(secured, d)
+			registerUserRoutes(secured, d)
 			registerAdminCoreRoutes(secured, d)
 			/*
 				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。

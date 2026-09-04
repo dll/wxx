@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/dll/wxx/server/internal/auth"
-	"github.com/dll/wxx/server/internal/handler"
 	"github.com/gin-gonic/gin"
 )
 
@@ -59,7 +58,4 @@ func registerPlatformRoutes(secured *gin.RouterGroup, d *deps) {
 
 	secured.GET("/token-stats/my", auth.RequireCapability(auth.SelfTokenStats), d.tokenStatsH.GetMyStats)
 	secured.GET("/token-stats/subordinates", auth.RequireCapability(auth.CounselorTokenSubordinates), d.tokenStatsH.GetSubordinateStats)
-
-	// 保留二维码确认入口在平台注册阶段统一管理，行为和鉴权不变。
-	secured.POST("/auth/qr-confirm", handler.ConfirmQRSession)
 }

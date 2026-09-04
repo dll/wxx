@@ -142,6 +142,27 @@ func TestKeyRoutesReachable(t *testing.T) {
 	}
 }
 
+// TestExtractedRouteRegistrars 防止拆分时只保留注释中的路由文本、却漏掉真实注册函数调用。
+func TestExtractedRouteRegistrars(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("routes.go"))
+	if err != nil {
+		t.Fatalf("读取 routes.go 失败: %v", err)
+	}
+	s := string(src)
+	for _, registrar := range []string{
+		"registerPublicRoutes(v1, d)",
+		"registerVOPCRoutes(secured, d)",
+		"registerSelfRoutes(secured, d)",
+		"registerPlatformRoutes(secured, d)",
+		"registerUserRoutes(secured, d)",
+		"registerAdminCoreRoutes(secured, d)",
+	} {
+		if !strings.Contains(s, registrar) {
+			t.Errorf("拆分路由注册函数未接入 setupRouter: %s", registrar)
+		}
+	}
+}
+
 // TestStaticServiceOrder 校验静态文件服务位于 /health 与 API 路由之后注册，
 // 且 NoRoute SPA 回退不拦截 /api/ 与 /health。
 func TestStaticServiceOrder(t *testing.T) {
