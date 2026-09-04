@@ -50,6 +50,7 @@ func setupRouter(d *deps) *gin.Engine {
 			registerGraduationRoutes(secured, d)
 			registerStudentFeatureRoutes(secured, d)
 			registerPlatformRoutes(secured, d)
+			registerAdminCoreRoutes(secured, d)
 			/*
 				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
 				vopc := secured.Group("/vopc")
@@ -347,7 +348,7 @@ func setupRouter(d *deps) *gin.Engine {
 			secured.GET("/token-stats/subordinates", auth.RequireCapability(auth.CounselorTokenSubordinates), d.tokenStatsH.GetSubordinateStats)
 
 			*/
-			// ── 管理端 ──
+			/* ── 管理端 ──
 			admin := secured.Group("/admin")
 			{
 				admin.GET("/stats/dashboard", auth.RequireCapability(auth.CollegeMetricsRead), d.statsH.GetDashboardStats)
@@ -444,6 +445,7 @@ func setupRouter(d *deps) *gin.Engine {
 				}
 			}
 
+			*/
 			// ── 知识审核 ──
 			review := secured.Group("/review")
 			{

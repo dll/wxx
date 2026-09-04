@@ -54,6 +54,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：将问题预案和毕设选题路由提取至 `routes_forecast.go`、`routes_graduation.go`。
 - 已完成：将竞赛、大学规划、入党教育和社团生活路由提取至 `routes_student_features.go`。
 - 已完成：将知识库、知识包同步、智能体、语音、集成和词元统计路由提取至 `routes_platform.go`。
+- 已完成：将管理端统计、用户、审计、设置和版本路由提取至 `routes_admin_core.go`。
 - 回归测试已改为读取拆分后的路由文件集合，路由路径与中间件行为保持不变。
 - 保持中间件顺序、鉴权和路由路径不变。
 
