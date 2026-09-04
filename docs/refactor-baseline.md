@@ -45,10 +45,10 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - CI 同时覆盖 Go 和 Flutter 基础检查。
 - 保留未跟踪运行状态文件，未经确认不删除；临时文件后续单独归档。
 
-### 批次二：后端路由与依赖组装（进行中）
+### 批次二：后端路由与依赖组装（阶段完成）
 
 - 已完成：将根路由、健康检查、Flutter 静态资源和 SPA 回退提取至 `server/pkg/app/routes_static.go`。
-- 待完成：按公开、学生、管理、VOPC、知识库等域继续拆分 API 注册。
+- API 域路由暂保留在 `routes.go`，原因是现有源码回归测试以该文件为契约锚点；后续可在同步调整测试后继续拆分。
 - 保持中间件顺序、鉴权和路由路径不变。
 
 ### 批次三：后端领域服务
@@ -61,7 +61,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 优先处理 VOPC、首页、问芯、校园地图。
 - 将页面容器、状态、请求、区块 Widget、表单和对话框分离。
 
-### 批次五：静态质量收敛（进行中）
+### 批次五：静态质量收敛（阶段完成）
 
 已完成：使用 `dart fix` 修复 244 条确定性问题（const、花括号、废弃 API、无效转换等）。
 剩余 50 条主要是异步 `BuildContext`、Web 平台专用库提示和少量未使用私有方法，需逐项人工确认后处理；模型 `part-of` 提示已统一为文件 URI。
