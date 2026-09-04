@@ -42,15 +42,7 @@ import (
 // qa 阶段已通过 数量/集合/顺序 三维对比验证，且拆分的 9 个函数逐字节保留）。
 func TestRouteRegistrationCount(t *testing.T) {
 	// 直接读取本目录源码做静态断言，避免依赖解析器的脆弱性。
-	cur, err := os.ReadFile(filepath.Join("routes.go"))
-	if err != nil {
-		t.Fatalf("读取 routes.go 失败: %v", err)
-	}
-	public, err := os.ReadFile(filepath.Join("routes_public.go"))
-	if err != nil {
-		t.Fatalf("读取 routes_public.go 失败: %v", err)
-	}
-	curText := string(cur) + string(public)
+	curText := readRouteSources(t)
 
 	// 统计所有 .METHOD("..." 形式的路由注册（GROUP 用 .Group( 不匹配）
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "ANY"}
@@ -71,18 +63,27 @@ func TestRouteRegistrationCount(t *testing.T) {
 	}
 }
 
+func readRouteSources(t *testing.T) string {
+	t.Helper()
+	paths, err := filepath.Glob("routes*.go")
+	if err != nil {
+		t.Fatalf("查找路由源码失败: %v", err)
+	}
+	var b strings.Builder
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("读取 %s 失败: %v", p, err)
+		}
+		b.Write(data)
+	}
+	return b.String()
+}
+
 // TestKeyRoutesReachable 校验关键路由路径在源码中的注册存在性，
 // 覆盖 refactor-notes 抽样要求：auth/chat/kb/student/counselor/admin/college/union。
 func TestKeyRoutesReachable(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join("routes.go"))
-	if err != nil {
-		t.Fatalf("读取 routes.go 失败: %v", err)
-	}
-	public, err := os.ReadFile(filepath.Join("routes_public.go"))
-	if err != nil {
-		t.Fatalf("读取 routes_public.go 失败: %v", err)
-	}
-	s := string(src) + string(public)
+	s := readRouteSources(t)
 
 	// 路由组前缀存在性。Gin 采用 router.Group() 拼装路径，源码中呈现为组前缀而非完整字面量。
 	requiredGroups := []string{
