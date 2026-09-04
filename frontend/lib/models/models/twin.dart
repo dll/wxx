@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class DigitalTwinData {
   final List<TwinDimension> dimensions;
@@ -108,4 +108,6 @@ class TwinPortrait {
 // ═══════════════════════════════════════════════════════════════
 
 /// 组织关系联系人（辅导员/领导）
+
+
 

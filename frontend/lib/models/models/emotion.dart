@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class EmotionLog {
   final int id;
@@ -142,4 +142,6 @@ class EmotionUpdateRequest {
 // ── 智能体管理模型 ──
 
 /// 智能体（对齐后端 model.Agent）
+
+
 

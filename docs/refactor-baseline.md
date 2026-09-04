@@ -8,7 +8,7 @@
 |---|---|---|
 | Go 单元测试 | `go test ./server/...` | 通过 |
 | Flutter 单元/Widget 测试 | `cd frontend && flutter test` | 通过（33 项） |
-| Flutter 静态分析 | `flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings` | 通过，65 条 info（已自动修复 244 条确定性 lint） |
+| Flutter 静态分析 | `flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings` | 通过，50 条 info（已自动修复 259 条确定性 lint） |
 | Go 文件规模 | `server/` | 453 个 Go 文件，144 个测试文件 |
 | Flutter 文件规模 | `frontend/lib/` | 269 个 Dart 文件 |
 | 数据库迁移 | `server/migrations/` | 114 个迁移 |
@@ -64,7 +64,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 ### 批次五：静态质量收敛（进行中）
 
 已完成：使用 `dart fix` 修复 244 条确定性问题（const、花括号、废弃 API、无效转换等）。
-剩余 65 条主要是异步 `BuildContext`、模型 `part-of`、Web 平台专用库提示和少量未使用私有方法，需逐项人工确认后处理。
+剩余 50 条主要是异步 `BuildContext`、Web 平台专用库提示和少量未使用私有方法，需逐项人工确认后处理；模型 `part-of` 提示已统一为文件 URI。
 
 ## 四、每批验收
 

@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class ContactPerson {
   final int id;
@@ -181,4 +181,6 @@ class AuditSnapshot {
     );
   }
 }
+
+
 

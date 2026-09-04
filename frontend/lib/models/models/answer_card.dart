@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class AnswerCard {
   final String conclusion;
@@ -515,4 +515,6 @@ class CardAction {
 }
 
 /// 对话请求
+
+
 

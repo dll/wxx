@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class CourseNode {
   final String id;
@@ -320,4 +320,6 @@ class ClassHeatmapData {
 // ═══════════════════════════════════════════════════════════════
 
 /// 用户 AI 模型配置（对齐后端 model.UserModelConfig）
+
+
 

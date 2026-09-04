@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class AdminMetrics {
   final double hitRate;
@@ -249,4 +249,6 @@ class AuditLog {
 }
 
 /// 用户反馈（对齐后端 model.Feedback）
+
+
 

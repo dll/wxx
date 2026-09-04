@@ -1,5 +1,5 @@
 // 由 models.dart 拆分（P4-c）；part 文件不可被直接 import，请使用 models.dart barrel
-part of wxx_models;
+part of '../models.dart';
 
 class FeedbackEntry {
   final int id;
@@ -277,4 +277,6 @@ class FeedbackLog {
 }
 
 /// 系统配置项（对齐后端 model.SystemSetting）
+
+
 
