@@ -27,15 +27,15 @@ class ServiceCenterPage extends StatelessWidget {
 
   List<_ServiceGroupData> _groupsFor(String? role) {
     const common = _ServiceGroupData('校园服务', '导航 · 知识 · 应用', [
-      const _ServiceItem('知识大厅', '政策、流程与可信来源',
+      _ServiceItem('知识大厅', '政策、流程与可信来源',
           Icons.menu_book_outlined, '/browse', Color(0xFF1565C0)),
-      const _ServiceItem('办事服务', '查看流程和办理进度',
+      _ServiceItem('办事服务', '查看流程和办理进度',
           Icons.assignment_outlined, '/enrollment', Color(0xFF6A1B9A)),
-      const _ServiceItem('校园导航', '地图、全景与校园入口',
+      _ServiceItem('校园导航', '地图、全景与校园入口',
           Icons.map_outlined, '/campus', Color(0xFF00838F)),
-      const _ServiceItem('应用中心', '校内外系统快捷入口',
+      _ServiceItem('应用中心', '校内外系统快捷入口',
           Icons.apps_outlined, '/apps', Color(0xFF2E7D32)),
-      const _ServiceItem('AI 简讯', '教学、工具与行业动态',
+      _ServiceItem('AI 简讯', '教学、工具与行业动态',
           Icons.newspaper_outlined, '/ai-briefings', Color(0xFFE65100)),
     ]);
 

@@ -84,7 +84,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                       const SizedBox(width: 20),
                       Icon(Icons.credit_card_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
                       const SizedBox(width: 6),
-                      Text('${credit}学分', style: theme.textTheme.bodyMedium),
+                      Text('$credit学分', style: theme.textTheme.bodyMedium),
                     ],
                   ),
                   if (schedule.isNotEmpty) ...[

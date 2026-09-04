@@ -178,7 +178,7 @@ class _NowPlayingCardState extends State<_NowPlayingCard> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.circle, color: Colors.red, size: 8),
                         SizedBox(width: 4),
                         Text('LIVE',

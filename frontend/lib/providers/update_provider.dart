@@ -31,7 +31,7 @@ class UpdateProvider extends ChangeNotifier {
     if (!silent) notifyListeners();
 
     try {
-      final platform = kIsWeb ? 'web' : 'android';
+      const platform = kIsWeb ? 'web' : 'android';
       final res = await ApiService().get(
         ApiConfig.versionCheck,
         params: {

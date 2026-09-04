@@ -237,7 +237,7 @@ class _DailyTabState extends State<_DailyTab> {
               height: 200,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true, drawVerticalLine: false),
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
@@ -271,9 +271,9 @@ class _DailyTabState extends State<_DailyTab> {
                       ),
                     ),
                     rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
@@ -516,7 +516,7 @@ class _ActivitiesTab extends StatelessWidget {
                   ButtonSegment(value: 'sports', label: Text('竞技')),
                   ButtonSegment(value: 'fitness', label: Text('健身')),
                 ],
-                selected: {'all'},
+                selected: const {'all'},
                 onSelectionChanged: (_) {},
                 showSelectedIcon: false,
               ),

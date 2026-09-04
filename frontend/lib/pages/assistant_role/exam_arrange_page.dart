@@ -81,7 +81,7 @@ class _ExamArrangePageState extends State<ExamArrangePage> {
         Text('编排明细', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (schedule.isEmpty)
-          Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('暂无考试安排')))
+          const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('暂无考试安排')))
         else
           ...schedule.map((e) => Card(
             margin: const EdgeInsets.only(bottom: 8),

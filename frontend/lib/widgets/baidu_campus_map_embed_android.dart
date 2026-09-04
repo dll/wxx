@@ -94,7 +94,7 @@ class _BaiduCampusMapAndroidState extends State<BaiduCampusMapEmbed> {
   /// 根据 provider 返回对应地图 HTML 的线上地址。
   /// 三套 HTML 均部署在正式域名（ReleaseConfig.webUrl）的 /assets/ 下（Caddy 静态服务）。
   String get _mapUrl {
-    final base = '${ReleaseConfig.webUrl}/assets';
+    const base = '${ReleaseConfig.webUrl}/assets';
     return switch (widget.provider) {
       'amap' => '$base/amap_campus_map.html?v=2',
       'tencent' => '$base/tencent_campus_map.html?v=2',

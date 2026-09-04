@@ -1302,11 +1302,11 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               TextField(
                 controller: _positionController,
                 enabled: canUpdate,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '职务',
                   hintText: '如 主席 / 部长 / 干事，或职称职务',
                   helperText: '职务与角色分开，描述岗位/职责',
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                 ),
               ),
               if (positionPresets.isNotEmpty) ...[

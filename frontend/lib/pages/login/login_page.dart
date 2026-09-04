@@ -55,9 +55,9 @@ class _LoginPageState extends State<LoginPage>
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('已确认登录，PC 端即将自动登录'),
-        duration: const Duration(seconds: 2),
+      const SnackBar(
+        content: Text('已确认登录，PC 端即将自动登录'),
+        duration: Duration(seconds: 2),
       ),
     );
     context.go('/home');
@@ -260,9 +260,9 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'v${ReleaseConfig.version}+${ReleaseConfig.buildNumber}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -271,10 +271,10 @@ class _LoginPageState extends State<LoginPage>
             ),
             const SizedBox(height: 12),
             // 下载链接：可长按/选中复制
-            SelectableText(
+            const SelectableText(
               ReleaseConfig.apkDownloadUrl,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+              style: TextStyle(fontSize: 11, color: Colors.blueGrey),
             ),
           ],
         ),
@@ -282,7 +282,7 @@ class _LoginPageState extends State<LoginPage>
           TextButton(
             onPressed: () {
               Clipboard.setData(
-                  ClipboardData(text: ReleaseConfig.apkDownloadUrl));
+                  const ClipboardData(text: ReleaseConfig.apkDownloadUrl));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                     content: Text('下载链接已复制'), duration: Duration(seconds: 2)),

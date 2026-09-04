@@ -229,7 +229,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         child: LinearProgressIndicator(
                           value: maxCount == 0 ? 0 : issue.count / maxCount,
                           minHeight: 8,
-                          backgroundColor: theme.colorScheme.surfaceVariant,
+                          backgroundColor: theme.colorScheme.surfaceContainerHighest,
                         ),
                       ),
                     ),
@@ -245,7 +245,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -1071,7 +1071,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                       log: log,
                       isLast: isLast,
                     );
-                  }).toList(),
+                  }),
               ],
             ),
           ),
@@ -1285,7 +1285,7 @@ class _TimelineItem extends StatelessWidget {
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: theme.colorScheme.surfaceVariant,
+                    color: theme.colorScheme.surfaceContainerHighest,
                   ),
                 ),
             ],

@@ -634,7 +634,7 @@ class AdminProvider extends ChangeNotifier {
       _error = response.data['message'] ?? '导入失败';
       return false;
     } catch (e) {
-      _error = '导入失败: ' + e.toString();
+      _error = '导入失败: $e';
       return false;
     } finally {
       _importing = false;

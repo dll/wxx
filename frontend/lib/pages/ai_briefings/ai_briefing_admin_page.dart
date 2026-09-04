@@ -741,9 +741,10 @@ class _AIBriefingAdminPageState extends State<AIBriefingAdminPage>
   void _toggleStatus(AIBriefing b) {
     final p = context.read<AIBriefingProvider>();
     p.updateBriefingStatus(b.id, b.status == 1 ? 0 : 1).then((ok) {
-      if (ok)
+      if (ok) {
         p.fetchAdminBriefings(
             status: _status, category: _category, q: _searchCtrl.text.trim());
+      }
     });
   }
 

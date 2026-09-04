@@ -117,7 +117,7 @@ class _GradesPageState extends State<GradesPage> {
               Column(
                 children: [
                   Text(
-                    '${credits}',
+                    '$credits',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -180,7 +180,7 @@ class _GradesPageState extends State<GradesPage> {
                       ),
                     ),
                     Text(
-                      '${credit}学分',
+                      '$credit学分',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

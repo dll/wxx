@@ -53,7 +53,7 @@ class AvatarPainter extends CustomPainter {
 
     final bg = Paint()
       ..shader = ui.Gradient.linear(
-        Offset(0, 0),
+        const Offset(0, 0),
         Offset(0, h),
         [
           primary.withOpacity(0.20),
@@ -352,7 +352,7 @@ class AvatarPainter extends CustomPainter {
     final headCenter = Offset(cx, bodyTop - headH / 2 - h * 0.03);
 
     // 星星头（五角星，代表 AI 智能）
-    final starColor = const Color(0xFFFFD54F); // 金色星星
+    const starColor = Color(0xFFFFD54F); // 金色星星
     final starPath = _starPoints(headCenter, headW * 0.62, headW * 0.42);
     canvas.drawPath(starPath, Paint()..color = starColor);
 
@@ -590,7 +590,7 @@ class AvatarPainter extends CustomPainter {
   // ── 品牌标签「蔚小芯·AI助手」 ──
   void _drawBrandLabel(Canvas canvas, Size size) {
     final w = size.width;
-    final label = '蔚小芯·AI助手';
+    const label = '蔚小芯·AI助手';
     final tp = TextPainter(
       text: TextSpan(
         text: label,
@@ -605,8 +605,8 @@ class AvatarPainter extends CustomPainter {
     )..layout();
 
     // 标签背景（圆角胶囊）
-    final padX = 10.0;
-    final padY = 5.0;
+    const padX = 10.0;
+    const padY = 5.0;
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(w * 0.62, 12, tp.width + padX * 2, tp.height + padY * 2),
       const Radius.circular(999),

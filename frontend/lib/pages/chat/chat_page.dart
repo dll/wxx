@@ -44,7 +44,7 @@ class _ChatPageState extends State<ChatPage> {
 
   /// 页面重建 key — 删除对话后递增以强制重建 Scaffold，
   /// 彻底清除 ListView/动画等子组件状态，避免渲染卡死。
-  int _rebuildKey = 0;
+  final int _rebuildKey = 0;
 
   // ── 浏览器实时语音识别（替代之前的 MediaRecorder + 后端 ASR）──
   WebSpeechRecognizer? _speech;

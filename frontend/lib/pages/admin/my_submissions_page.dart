@@ -427,7 +427,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
       'Activity': Colors.orange,
     };
     final widgets = <Widget>[];
-    for (final entry in (byType as Map).entries) {
+    for (final entry in (byType).entries) {
       final label = typeLabels[entry.key] ?? entry.key.toString();
       final color = typeColors[entry.key] ?? Colors.grey;
       final count = entry.value is int ? entry.value : 0;
@@ -713,7 +713,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('批量精修完成'),
+        title: const Text('批量精修完成'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1306,8 +1306,9 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
       _contentCtrl.text = r.content;
       _tagsCtrl.text = r.tags.join(',');
       _remarkCtrl.text = r.remark;
-      if (['Policy', 'Process', 'FAQ', 'Activity'].contains(r.resourceType))
+      if (['Policy', 'Process', 'FAQ', 'Activity'].contains(r.resourceType)) {
         _type = r.resourceType;
+      }
     }
   }
 
@@ -2068,7 +2069,7 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
     final summary =
         (_data?['summary'] as Map?) ?? const <String, dynamic>{};
     final issues =
-        ((_data?['issues'] as List?) ?? const []) as List;
+        ((_data?['issues'] as List?) ?? const []);
     final ds = (_data?['data_source'] as String?) ?? 'real';
 
     return ListView(
@@ -2153,7 +2154,7 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_categoryLabel(category)}${title.isNotEmpty ? ' · $title' : ''}${rid.isNotEmpty ? ' (${rid})' : ''}',
+                  '${_categoryLabel(category)}${title.isNotEmpty ? ' · $title' : ''}${rid.isNotEmpty ? ' ($rid)' : ''}',
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,

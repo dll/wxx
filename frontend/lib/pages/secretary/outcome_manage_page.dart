@@ -81,7 +81,7 @@ class _OutcomeManagePageState extends State<OutcomeManagePage> {
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                DataSrcBadge(src: 'real'),
+                const DataSrcBadge(src: 'real'),
               ]),
               const SizedBox(height: 12),
               if (!_isStudent) ...[
@@ -274,7 +274,7 @@ class _OutcomeManagePageState extends State<OutcomeManagePage> {
       },
     );
     if (ok != true || !mounted) return;
-    final note = '';
+    const note = '';
     final msg = await p.reviewOutcome(id, status, note);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

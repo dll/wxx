@@ -141,7 +141,7 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
               height: 200,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true, drawVerticalLine: false),
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
@@ -166,8 +166,8 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
                         },
                       ),
                     ),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
@@ -187,14 +187,14 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
                       isCurved: true,
                       color: Colors.green,
                       barWidth: 1.5,
-                      dotData: FlDotData(show: false),
+                      dotData: const FlDotData(show: false),
                     ),
                     LineChartBarData(
                       spots: daily.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.outputTokens.toDouble())).toList(),
                       isCurved: true,
                       color: Colors.orange,
                       barWidth: 1.5,
-                      dotData: FlDotData(show: false),
+                      dotData: const FlDotData(show: false),
                     ),
                   ],
                   minY: 0,
@@ -268,7 +268,7 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
             BarChartData(
               alignment: BarChartAlignment.spaceAround,
               maxY: maxTokens * 1.2,
-              gridData: FlGridData(show: true, drawVerticalLine: false),
+              gridData: const FlGridData(show: true, drawVerticalLine: false),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
                   sideTitles: SideTitles(
@@ -293,8 +293,8 @@ class _TokenStatsPageState extends State<TokenStatsPage> {
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               barGroups: displaySubs.asMap().entries.map((e) => BarChartGroupData(

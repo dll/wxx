@@ -97,7 +97,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget>
 
   String _formatDuration(double progress) {
     // 假设总时长 200 秒
-    final totalSecs = 200;
+    const totalSecs = 200;
     final currentSecs = (progress * totalSecs).round();
     final mins = currentSecs ~/ 60;
     final secs = currentSecs % 60;
@@ -207,10 +207,10 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget>
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   itemBuilder: (_) => [
-                    PopupMenuItem(value: 0.0, child: const Text('静音')),
-                    PopupMenuItem(value: 0.3, child: const Text('30%')),
-                    PopupMenuItem(value: 0.6, child: const Text('60%')),
-                    PopupMenuItem(value: 1.0, child: const Text('100%')),
+                    const PopupMenuItem(value: 0.0, child: Text('静音')),
+                    const PopupMenuItem(value: 0.3, child: Text('30%')),
+                    const PopupMenuItem(value: 0.6, child: Text('60%')),
+                    const PopupMenuItem(value: 1.0, child: Text('100%')),
                   ],
                   onSelected: (v) => setState(() => _volume = v),
                 ),

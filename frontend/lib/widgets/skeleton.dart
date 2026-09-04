@@ -115,8 +115,8 @@ class ChatSkeleton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: List.generate(
                 lines,
-                (_) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
                   child: SkeletonBox(
                     height: 14,
                     borderRadius: 4,

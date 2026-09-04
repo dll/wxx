@@ -525,7 +525,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${Storage.displayName ?? '同学'} · ${_roleLabel}',
+                    '${Storage.displayName ?? '同学'} · $_roleLabel',
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -762,7 +762,7 @@ class _RadarChartPainter extends CustomPainter {
 
     final angleStep = 2 * pi / n;
     // 从顶部开始 (-pi/2)
-    final startAngle = -pi / 2;
+    const startAngle = -pi / 2;
 
     // 绘制网格（5 层同心多边形）
     for (int level = 1; level <= 5; level++) {

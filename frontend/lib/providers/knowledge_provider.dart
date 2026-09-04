@@ -608,8 +608,4 @@ class KnowledgeProvider extends ChangeNotifier {
     return result;
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

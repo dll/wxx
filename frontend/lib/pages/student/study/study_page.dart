@@ -313,7 +313,7 @@ class _StudyPageState extends State<StudyPage> with SingleTickerProviderStateMix
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '${credit}学分',
+                      '$credit学分',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),
@@ -389,7 +389,7 @@ class _StudyPageState extends State<StudyPage> with SingleTickerProviderStateMix
                             : theme.colorScheme.error,
                   ),
                 ),
-                Text('${credit}学分', style: theme.textTheme.bodySmall),
+                Text('$credit学分', style: theme.textTheme.bodySmall),
               ],
             ),
           ],

@@ -102,7 +102,7 @@ class _SecretaryOutcomeDashboardPageState
             Icon(Icons.school, color: Colors.indigo.shade700),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('书记教育成果 · ${college == '全校' ? '全校视角' : '$college'}',
+              child: Text('书记教育成果 · ${college == '全校' ? '全校视角' : college}',
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.bold)),
             ),
@@ -394,11 +394,11 @@ class _SecretaryOutcomeDashboardPageState
 
   Widget _buildOutcome(dynamic out, dynamic meta) {
     if (out is! Map) {
-      return _SectionCard(
+      return const _SectionCard(
         title: '毕业去向（就业·升学）',
         icon: Icons.work,
         src: 'not_available',
-        children: const [
+        children: [
           Text('毕业去向数据待接入（需教辅录入并经审核）',
               style: TextStyle(color: Colors.grey)),
         ],

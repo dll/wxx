@@ -706,7 +706,7 @@ class _MyFeedbackDetailPageState extends State<MyFeedbackDetailPage> {
                       log: log,
                       isLast: isLast,
                     );
-                  }).toList(),
+                  }),
               ],
             ),
           ),
@@ -818,7 +818,7 @@ class _TimelineItem extends StatelessWidget {
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: theme.colorScheme.surfaceVariant,
+                    color: theme.colorScheme.surfaceContainerHighest,
                   ),
                 ),
             ],

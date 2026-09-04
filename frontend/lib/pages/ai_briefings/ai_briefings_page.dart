@@ -162,7 +162,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
       ),
       child: Row(
         children: [
-          Icon(Icons.local_fire_department, color: AppColors.attention, size: 22),
+          const Icon(Icons.local_fire_department, color: AppColors.attention, size: 22),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -283,7 +283,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
                   if (b.source.isNotEmpty) _sourceBadge(theme, b.source),
                   const SizedBox(width: 8),
                   if (b.heat > 0) ...[
-                    Icon(Icons.local_fire_department,
+                    const Icon(Icons.local_fire_department,
                         size: 14, color: AppColors.attention),
                     const SizedBox(width: 2),
                     Text('${b.heat}',
@@ -388,7 +388,7 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.auto_awesome, size: 15, color: AppColors.aiAccent),
+          const Icon(Icons.auto_awesome, size: 15, color: AppColors.aiAccent),
           const SizedBox(width: 6),
           Expanded(
             child: Text(reason,
@@ -456,8 +456,9 @@ class _AIBriefingsPageState extends State<AIBriefingsPage>
         .substring(0, 10));
     if (dateKey == yesterday) return '昨天';
     final parts = dateKey.split('-');
-    if (parts.length == 3)
+    if (parts.length == 3) {
       return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
+    }
     return dateKey;
   }
 

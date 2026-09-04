@@ -1313,123 +1313,151 @@ class _HomePageState extends State<HomePage> {
     final entries = <_WorkbenchEntry>[];
 
     // ── 辅导员工作台 ──
-    if (CapabilityUtils.has(Capability.counselorAlertRead))
-      entries.add(_WorkbenchEntry(Icons.warning_amber_rounded, '情感预警',
-          const Color(0xFFC62828), '/emotion'));
-    if (CapabilityUtils.has(Capability.counselorDailyFocusRead))
-      entries.add(_WorkbenchEntry(Icons.today_outlined, '今日关注',
-          const Color(0xFF1565C0), '/counselor/daily-focus'));
-    if (CapabilityUtils.has(Capability.counselorClassReport))
-      entries.add(_WorkbenchEntry(Icons.assessment_outlined, '班级学情日报',
-          const Color(0xFFE65100), '/counselor/class-report'));
-    if (CapabilityUtils.has(Capability.counselorTalkRecord))
-      entries.add(_WorkbenchEntry(Icons.forum_outlined, '谈心记录',
-          const Color(0xFF2E7D32), '/counselor/talk-record'));
-    if (CapabilityUtils.has(Capability.counselorStudentList))
-      entries.add(_WorkbenchEntry(Icons.people_alt_outlined, '学生名单',
-          const Color(0xFF00695C), '/counselor/student-list'));
-    if (CapabilityUtils.has(Capability.counselorSecondClassBoard))
-      entries.add(_WorkbenchEntry(Icons.school_outlined, '第二课堂',
-          const Color(0xFF00838F), '/counselor/second-class-board'));
-    if (CapabilityUtils.has(Capability.counselorTwinBoard))
-      entries.add(_WorkbenchEntry(Icons.dashboard_outlined, '学生孪生看板',
-          const Color(0xFF1565C0), '/counselor/twin-board'));
-    if (CapabilityUtils.has(Capability.counselorIdeological))
-      entries.add(_WorkbenchEntry(Icons.flag_outlined, '思想动态',
-          const Color(0xFF7B1FA2), '/counselor/ideological'));
+    if (CapabilityUtils.has(Capability.counselorAlertRead)) {
+      entries.add(const _WorkbenchEntry(Icons.warning_amber_rounded, '情感预警',
+          Color(0xFFC62828), '/emotion'));
+    }
+    if (CapabilityUtils.has(Capability.counselorDailyFocusRead)) {
+      entries.add(const _WorkbenchEntry(Icons.today_outlined, '今日关注',
+          Color(0xFF1565C0), '/counselor/daily-focus'));
+    }
+    if (CapabilityUtils.has(Capability.counselorClassReport)) {
+      entries.add(const _WorkbenchEntry(Icons.assessment_outlined, '班级学情日报',
+          Color(0xFFE65100), '/counselor/class-report'));
+    }
+    if (CapabilityUtils.has(Capability.counselorTalkRecord)) {
+      entries.add(const _WorkbenchEntry(Icons.forum_outlined, '谈心记录',
+          Color(0xFF2E7D32), '/counselor/talk-record'));
+    }
+    if (CapabilityUtils.has(Capability.counselorStudentList)) {
+      entries.add(const _WorkbenchEntry(Icons.people_alt_outlined, '学生名单',
+          Color(0xFF00695C), '/counselor/student-list'));
+    }
+    if (CapabilityUtils.has(Capability.counselorSecondClassBoard)) {
+      entries.add(const _WorkbenchEntry(Icons.school_outlined, '第二课堂',
+          Color(0xFF00838F), '/counselor/second-class-board'));
+    }
+    if (CapabilityUtils.has(Capability.counselorTwinBoard)) {
+      entries.add(const _WorkbenchEntry(Icons.dashboard_outlined, '学生孪生看板',
+          Color(0xFF1565C0), '/counselor/twin-board'));
+    }
+    if (CapabilityUtils.has(Capability.counselorIdeological)) {
+      entries.add(const _WorkbenchEntry(Icons.flag_outlined, '思想动态',
+          Color(0xFF7B1FA2), '/counselor/ideological'));
+    }
 
     // ── 教辅工作台 ──
     if (CapabilityUtils.hasAny([
           Capability.outcomeRecordWrite,
           Capability.outcomeReview,
-        ]))
-      entries.add(_WorkbenchEntry(Icons.task_alt, '毕业去向登记',
-          const Color(0xFFE65100), '/secretary/outcome-manage'));
-    if (CapabilityUtils.has(Capability.assistantScheduleCheck))
-      entries.add(_WorkbenchEntry(Icons.calendar_month_outlined, '排课核查',
-          const Color(0xFF1565C0), '/assistant/schedule-check'));
-    if (CapabilityUtils.has(Capability.assistantGradAudit))
-      entries.add(_WorkbenchEntry(Icons.workspace_premium_outlined, '毕业审核',
-          const Color(0xFF2E7D32), '/assistant/grad-audit'));
-    if (CapabilityUtils.has(Capability.assistantExamArrange))
-      entries.add(_WorkbenchEntry(Icons.edit_calendar_outlined, '考试安排',
-          const Color(0xFF7B1FA2), '/assistant/exam-arrange'));
-    if (Storage.role == 'assistant')
-      entries.add(_WorkbenchEntry(Icons.build, '后勤服务台',
-          const Color(0xFF00695C), '/assistant/facility-workbench'));
+        ])) {
+      entries.add(const _WorkbenchEntry(Icons.task_alt, '毕业去向登记',
+          Color(0xFFE65100), '/secretary/outcome-manage'));
+    }
+    if (CapabilityUtils.has(Capability.assistantScheduleCheck)) {
+      entries.add(const _WorkbenchEntry(Icons.calendar_month_outlined, '排课核查',
+          Color(0xFF1565C0), '/assistant/schedule-check'));
+    }
+    if (CapabilityUtils.has(Capability.assistantGradAudit)) {
+      entries.add(const _WorkbenchEntry(Icons.workspace_premium_outlined, '毕业审核',
+          Color(0xFF2E7D32), '/assistant/grad-audit'));
+    }
+    if (CapabilityUtils.has(Capability.assistantExamArrange)) {
+      entries.add(const _WorkbenchEntry(Icons.edit_calendar_outlined, '考试安排',
+          Color(0xFF7B1FA2), '/assistant/exam-arrange'));
+    }
+    if (Storage.role == 'assistant') {
+      entries.add(const _WorkbenchEntry(Icons.build, '后勤服务台',
+          Color(0xFF00695C), '/assistant/facility-workbench'));
+    }
 
     // ── 教师授课申报审核（R3 补 H，2026-08-17）：教辅/教务审核 + 待审角标（teacher.course.review）──
     // 带红色角标卡：展示 pending-count，无权限不显示入口
-    if (CapabilityUtils.has(Capability.teacherCourseReview))
+    if (CapabilityUtils.has(Capability.teacherCourseReview)) {
       entries.add(_WorkbenchEntry(
           Icons.fact_check_outlined,
           _teacherCoursePending > 0
               ? '授课申报审核·$_teacherCoursePending'
               : '授课申报审核',
           const Color(0xFFE65100), '/assistant/teacher-course-review'));
+    }
 
     // ── 党课/活动登记（蓝图第3块，2026-08-16）：教师/教辅登记 → 书记党建看板 ──
-    if (CapabilityUtils.has(Capability.partyRecordWrite))
-      entries.add(_WorkbenchEntry(Icons.flag, '党课/活动登记',
-          const Color(0xFFC62828), '/teacher/party-register'));
+    if (CapabilityUtils.has(Capability.partyRecordWrite)) {
+      entries.add(const _WorkbenchEntry(Icons.flag, '党课/活动登记',
+          Color(0xFFC62828), '/teacher/party-register'));
+    }
 
     // ── 教师成绩录入（P0-1，2026-08-17，方案A：教师自主声明授课）──
     // 门控 teacher.grade.write：教师录入所授班级真实成绩
-    if (CapabilityUtils.has(Capability.teacherGradeWrite))
-      entries.add(_WorkbenchEntry(Icons.grade_outlined, '成绩录入',
-          const Color(0xFF1565C0), '/teacher/grades-entry'));
+    if (CapabilityUtils.has(Capability.teacherGradeWrite)) {
+      entries.add(const _WorkbenchEntry(Icons.grade_outlined, '成绩录入',
+          Color(0xFF1565C0), '/teacher/grades-entry'));
+    }
 
     // ── 教师作业信息发布+成绩统计（2026-08-17，P2 轻量版）：门控 teacher.grade.write
     // 蔚小芯侧重教育非教学：作业仅信息发布+成绩统计，不做学生提交/批改/内容流转
-    if (CapabilityUtils.has(Capability.teacherGradeWrite))
-      entries.add(_WorkbenchEntry(Icons.assignment_outlined, '作业发布',
-          const Color(0xFF00695C), '/teacher/homework'));
+    if (CapabilityUtils.has(Capability.teacherGradeWrite)) {
+      entries.add(const _WorkbenchEntry(Icons.assignment_outlined, '作业发布',
+          Color(0xFF00695C), '/teacher/homework'));
+    }
 
     // ── 教师作业信息发布+成绩统计（P2 轻量版，2026-08-17）：门控 teacher.grade.write ──
     // 作业仅信息发布+成绩统计，不做学生提交/批改；发布前强校验 approved 授课关系。
-    if (CapabilityUtils.has(Capability.teacherGradeWrite))
-      entries.add(_WorkbenchEntry(Icons.assignment_outlined, '作业发布',
-          const Color(0xFF2E7D32), '/teacher/homework'));
+    if (CapabilityUtils.has(Capability.teacherGradeWrite)) {
+      entries.add(const _WorkbenchEntry(Icons.assignment_outlined, '作业发布',
+          Color(0xFF2E7D32), '/teacher/homework'));
+    }
 
     // ── 学生会工作台 ──
-    if (CapabilityUtils.has(Capability.unionEventPlan))
-      entries.add(_WorkbenchEntry(Icons.event_available, '活动策划',
-          const Color(0xFFE65100), '/union/event-plan'));
-    if (CapabilityUtils.has(Capability.unionFeedbackList))
-      entries.add(_WorkbenchEntry(Icons.feedback_outlined, '反馈处理',
-          const Color(0xFFC62828), '/feedback'));
+    if (CapabilityUtils.has(Capability.unionEventPlan)) {
+      entries.add(const _WorkbenchEntry(Icons.event_available, '活动策划',
+          Color(0xFFE65100), '/union/event-plan'));
+    }
+    if (CapabilityUtils.has(Capability.unionFeedbackList)) {
+      entries.add(const _WorkbenchEntry(Icons.feedback_outlined, '反馈处理',
+          Color(0xFFC62828), '/feedback'));
+    }
     if (CapabilityUtils.hasAny([
           Capability.unionKbSubmit,
           Capability.unionPosterGen,
-        ]))
-      entries.add(_WorkbenchEntry(Icons.workspaces_outlined, '学生会工作台',
-          const Color(0xFF7B1FA2), '/union/workbench'));
+        ])) {
+      entries.add(const _WorkbenchEntry(Icons.workspaces_outlined, '学生会工作台',
+          Color(0xFF7B1FA2), '/union/workbench'));
+    }
 
     // ── 书记 / 学院管理 工作台 ──
-    if (CapabilityUtils.has(Capability.outcomeDashboard))
-      entries.add(_WorkbenchEntry(Icons.auto_graph, '教育成果大屏',
-          const Color(0xFF1565C0), '/secretary/education-outcome'));
+    if (CapabilityUtils.has(Capability.outcomeDashboard)) {
+      entries.add(const _WorkbenchEntry(Icons.auto_graph, '教育成果大屏',
+          Color(0xFF1565C0), '/secretary/education-outcome'));
+    }
     // 书记党建育人 / 协同育人专项可视化深链（D1-1 功能补齐，2026-08-16）
-    if (CapabilityUtils.has(Capability.outcomeDashboard))
-      entries.add(_WorkbenchEntry(Icons.flag, '党建育人专项',
-          const Color(0xFFC62828), '/secretary/party-dashboard'));
-    if (CapabilityUtils.has(Capability.collabDashboard))
-      entries.add(_WorkbenchEntry(Icons.groups, '协同育人专项',
-          const Color(0xFF00695C), '/secretary/collab-dashboard'));
-    if (CapabilityUtils.has(Capability.collegeTwinScreen))
-      entries.add(_WorkbenchEntry(Icons.dashboard, '数字孪生',
-          const Color(0xFF2E7D32), '/college/twin-screen'));
-    if (CapabilityUtils.has(Capability.collegeDataAnalysis))
-      entries.add(_WorkbenchEntry(Icons.analytics, '数据分析',
-          const Color(0xFF7B1FA2), '/college/data-analysis'));
+    if (CapabilityUtils.has(Capability.outcomeDashboard)) {
+      entries.add(const _WorkbenchEntry(Icons.flag, '党建育人专项',
+          Color(0xFFC62828), '/secretary/party-dashboard'));
+    }
+    if (CapabilityUtils.has(Capability.collabDashboard)) {
+      entries.add(const _WorkbenchEntry(Icons.groups, '协同育人专项',
+          Color(0xFF00695C), '/secretary/collab-dashboard'));
+    }
+    if (CapabilityUtils.has(Capability.collegeTwinScreen)) {
+      entries.add(const _WorkbenchEntry(Icons.dashboard, '数字孪生',
+          Color(0xFF2E7D32), '/college/twin-screen'));
+    }
+    if (CapabilityUtils.has(Capability.collegeDataAnalysis)) {
+      entries.add(const _WorkbenchEntry(Icons.analytics, '数据分析',
+          Color(0xFF7B1FA2), '/college/data-analysis'));
+    }
 
     // ── 系统管理 工作台 ──
-    if (CapabilityUtils.has(Capability.systemSettingsWrite))
-      entries.add(_WorkbenchEntry(Icons.settings_outlined, '系统配置',
-          const Color(0xFF455A64), '/admin/settings'));
-    if (CapabilityUtils.has(Capability.systemAuditAll))
-      entries.add(_WorkbenchEntry(Icons.history, '审计日志',
-          const Color(0xFFC62828), '/admin/audit'));
+    if (CapabilityUtils.has(Capability.systemSettingsWrite)) {
+      entries.add(const _WorkbenchEntry(Icons.settings_outlined, '系统配置',
+          Color(0xFF455A64), '/admin/settings'));
+    }
+    if (CapabilityUtils.has(Capability.systemAuditAll)) {
+      entries.add(const _WorkbenchEntry(Icons.history, '审计日志',
+          Color(0xFFC62828), '/admin/audit'));
+    }
 
     // 无任何工作台能力(纯学生/教师/游客)→ 不显示
     if (entries.isEmpty) return const SizedBox.shrink();

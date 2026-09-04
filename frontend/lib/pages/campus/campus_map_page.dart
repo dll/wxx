@@ -107,7 +107,7 @@ const _tabs = [
 /// 此前坐标错误地指向琅琊校区位置，已按 OSM 权威数据纠正。
 /// final（非 const）：后端加载成功后会用服务端数据覆盖此本地默认值。
 final _huifengSteps = [
-  _CheckinStep(
+  const _CheckinStep(
     title: '校门入校核验',
     location: '会峰校区南门',
     lat: 32.2705,
@@ -119,7 +119,7 @@ final _huifengSteps = [
     note: '建议提前准备证件，车辆服从现场引导。',
     icon: Icons.login,
   ),
-  _CheckinStep(
+  const _CheckinStep(
     title: '学院报到',
     location: '计算机学院报到点',
     lat: 32.2745,
@@ -131,7 +131,7 @@ final _huifengSteps = [
     note: '这是后续宿舍、体检等流程的起点。',
     icon: Icons.account_balance,
   ),
-  _CheckinStep(
+  const _CheckinStep(
     title: '缴费与绿色通道',
     location: '财务缴费点 / 绿色通道',
     lat: 32.2735,
@@ -143,7 +143,7 @@ final _huifengSteps = [
     note: '已线上缴费的学生现场只需核验状态。',
     icon: Icons.payments_outlined,
   ),
-  _CheckinStep(
+  const _CheckinStep(
     title: '宿舍入住',
     location: '学生公寓楼值班室',
     lat: 32.2770,
@@ -155,7 +155,7 @@ final _huifengSteps = [
     note: '入住后请检查床位、门锁、水电设施。',
     icon: Icons.bed_outlined,
   ),
-  _CheckinStep(
+  const _CheckinStep(
     title: '校园卡与网络',
     location: '一卡通/信息服务点',
     lat: 32.2740,
@@ -167,7 +167,7 @@ final _huifengSteps = [
     note: '校园卡用于门禁、食堂、图书馆等场景。',
     icon: Icons.credit_card,
   ),
-  _CheckinStep(
+  const _CheckinStep(
     title: '入学体检与学籍核验',
     location: '校医院 / 教务处学籍点',
     lat: 32.2720,
@@ -269,7 +269,7 @@ final _campuses = [
     entrance: '会峰校区南门',
     steps: _huifengSteps,
   ),
-  _CampusPlan(
+  const _CampusPlan(
     id: 'langya',
     name: '琅琊校区',
     address: '安徽省滁州市琅琊西路2号 滁州学院琅琊校区',
@@ -930,7 +930,7 @@ class _CampusMapPageState extends State<CampusMapPage> {
   Widget _buildCampusMapCanvas(ThemeData theme, {required bool desktop}) {
     // 百度地图 AK 硬编码随包分发（见 ApiConfig.baiduMapAk），无需构建参数，
     // Web 与 Android 均直接使用，避免 APK 因缺少 --dart-define 而显示占位提示。
-    final baiduAk = ApiConfig.baiduMapAk;
+    const baiduAk = ApiConfig.baiduMapAk;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Stack(

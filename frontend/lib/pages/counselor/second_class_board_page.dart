@@ -135,13 +135,13 @@ class _SecondClassBoardPageState extends State<SecondClassBoardPage> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       child: Row(
         children: [
-          _sumBox(theme, '${studentTotal}', '学生'),
+          _sumBox(theme, '$studentTotal', '学生'),
           const SizedBox(width: 8),
-          _sumBox(theme, '${activityTotal}', '活动'),
+          _sumBox(theme, '$activityTotal', '活动'),
           const SizedBox(width: 8),
-          _sumBox(theme, '${attendTotal}', '到场'),
+          _sumBox(theme, '$attendTotal', '到场'),
           const SizedBox(width: 8),
-          _sumBox(theme, '${pointTotal}', '积分'),
+          _sumBox(theme, '$pointTotal', '积分'),
         ],
       ),
     );
