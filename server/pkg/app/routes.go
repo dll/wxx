@@ -49,6 +49,7 @@ func setupRouter(d *deps) *gin.Engine {
 			registerSelfRoutes(secured, d)
 			registerForecastRoutes(secured, d)
 			registerGraduationRoutes(secured, d)
+			registerStudentFeatureRoutes(secured, d)
 			/*
 				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
 				vopc := secured.Group("/vopc")
@@ -184,7 +185,7 @@ func setupRouter(d *deps) *gin.Engine {
 				graduation.DELETE("/admin/topics/:id", auth.RequireCapability(auth.CollegeGraduationWrite), d.graduationH.DeleteTopic)
 			} */
 
-			// ── 学科竞赛 ──
+			/* ── 学科竞赛 ──
 			competition := secured.Group("/competition")
 			{
 				competition.GET("/list", auth.RequireCapability(auth.SelfCompetitionRead), d.studentFeaturesH.ListCompetitions)
@@ -231,7 +232,7 @@ func setupRouter(d *deps) *gin.Engine {
 				club.GET("/my-clubs", auth.RequireCapability(auth.SelfClubRead), d.studentFeaturesH.GetMyClubs)
 				club.GET("/activities", auth.RequireCapability(auth.SelfClubRead), d.studentFeaturesH.ListClubActivities)
 				club.POST("/activity/register", auth.RequireCapability(auth.SelfClubWrite), d.studentFeaturesH.RegisterClubActivity)
-			}
+			} */
 
 			// ── 知识库 CRUD（counselor.kb.write）──
 			kb := secured.Group("/kb")
