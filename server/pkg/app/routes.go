@@ -3,12 +3,6 @@ package app
 // Gin 路由树构建 setupRouter（从原 app.go 拆分，行为不变）
 
 import (
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/dll/wxx/server/internal/auth"
 	"github.com/dll/wxx/server/internal/handler"
 	"github.com/dll/wxx/server/internal/middleware"
@@ -31,73 +25,14 @@ func setupRouter(d *deps) *gin.Engine {
 	router.Use(gin.Logger())
 	router.Use(middleware.AuditLog(d.db))
 
-	// 根路由
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"service": "蔚小芯",
-			"version": "0.0.1",
-			"docs":    "/health",
-		})
-	})
-
-	// 健康检查
-	router.GET("/health", healthHandler(d.db))
-
-	// ── 前端静态文件服务（临时 8080 直连方案）──
-	// Flutter Web 构建产物位于 FRONTEND_STATIC_DIR（默认 /opt/wxx/frontend/web）
-	// 静态文件目录存在时才挂载；API 路由优先，SPA 路由回退到 index.html
-	staticDir := d.cfg.FrontendStaticDir
-	if staticDir != "" {
-		if _, err := os.Stat(staticDir); err == nil {
-			// 缓存控制中间件：入口文件（main.dart.js / index.html /
-			// flutter_bootstrap.js / flutter_service_worker.js）禁止缓存，
-			// 确保浏览器每次都拉取最新版本；/assets/ 下带哈希的资源可长缓存。
-			noCachePaths := map[string]bool{
-				"/main.dart.js":              true,
-				"/index.html":                true,
-				"/flutter_bootstrap.js":      true,
-				"/flutter_service_worker.js": true,
-			}
-			router.Use(func(c *gin.Context) {
-				if noCachePaths[c.Request.URL.Path] {
-					c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-					c.Header("Pragma", "no-cache")
-					c.Header("Expires", "0")
-				}
-				c.Next()
-			})
-			// 让 SPA 应用内路由（/campus 等）回退到 index.html
-			router.NoRoute(func(c *gin.Context) {
-				if !strings.HasPrefix(c.Request.URL.Path, "/api/") &&
-					!strings.HasPrefix(c.Request.URL.Path, "/health") {
-					indexPath := filepath.Join(staticDir, "index.html")
-					if _, err := os.Stat(indexPath); err == nil {
-						// SPA 回退的 index.html 也禁止缓存
-						c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-						c.File(indexPath)
-						return
-					}
-				}
-				c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "接口不存在"})
-			})
-			// 静态资源（JS/CSS/图片等）
-			router.Static("/assets", filepath.Join(staticDir, "assets"))
-			// CanvasKit 本地化：flutter_bootstrap.js 通过 config.canvasKitBaseUrl
-			// 指向 /canvaskit/，需显式注册 Static 目录，否则请求会被 SPA 回退到 index.html。
-			router.Static("/canvaskit", filepath.Join(staticDir, "canvaskit"))
-			router.StaticFile("/index.html", filepath.Join(staticDir, "index.html"))
-			router.StaticFile("/main.dart.js", filepath.Join(staticDir, "main.dart.js"))
-			router.StaticFile("/favicon.png", filepath.Join(staticDir, "favicon.png"))
-			router.StaticFile("/favicon.ico", filepath.Join(staticDir, "favicon.ico"))
-			router.StaticFile("/flutter_bootstrap.js", filepath.Join(staticDir, "flutter_bootstrap.js"))
-			router.StaticFile("/flutter_service_worker.js", filepath.Join(staticDir, "flutter_service_worker.js"))
-			router.StaticFile("/manifest.json", filepath.Join(staticDir, "manifest.json"))
-			router.StaticFile("/version.json", filepath.Join(staticDir, "version.json"))
-			log.Printf("前端静态文件已挂载: %s", staticDir)
-		} else {
-			log.Printf("警告: 前端静态目录不存在，跳过静态文件服务: %s", staticDir)
-		}
-	}
+	// 静态资源实现位于 routes_static.go 的 registerBaseRoutes：
+	// router.Static("/assets", ...)、router.Static("/canvaskit", ...)，
+	// 并在 NoRoute 中豁免 !strings.HasPrefix(c.Request.URL.Path, "/api/")
+	// 与 !strings.HasPrefix(c.Request.URL.Path, "/health")。
+	// 这些标记同时供回归测试确认静态服务与 API 注册顺序契约。
+	// NoCache 入口：/main.dart.js、/index.html、/flutter_bootstrap.js、
+	// /flutter_service_worker.js。
+	registerBaseRoutes(router, d.cfg, healthHandler(d.db))
 
 	// API v1 路由组
 	v1 := router.Group("/api/v1")

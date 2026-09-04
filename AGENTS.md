@@ -6,6 +6,12 @@
 
 计算机科学与工程学院（网络空间安全学院）**蔚小芯**：Flutter 客户端 + Go/Gin 后端 + **Context Engine（结构化 + FTS/BM25 为主）** + Eino 编排 + 第三方大模型 API；**sources 可追溯**，向量与 Agentic RAG 可插拔。
 
+## 当前仓库边界
+
+- 本仓库同时包含运行时代码与规范文档：`frontend/` 是 Flutter 客户端，`server/` 是 Go 后端，`miniprogram/` 是微信小程序壳。
+- `docs/`、`specs/`、`knowledge/` 保存产品规范、接口契约和内部知识；构建产物、运行日志、数据库文件和密钥不得入库。
+- 重构基线与分批计划见 `docs/refactor-baseline.md`。
+
 ## 必读顺序
 
 1. `docs/蔚小芯开发规范.md`（主规范）
@@ -55,6 +61,7 @@
 | **移动应用（iOS + 鸿蒙）构建发布** | `docs/移动应用构建与发布.md`（手动触发 workflow、Secrets 清单、产物分发） |
 | **移动应用签名（iOS + 鸿蒙）** | `docs/移动应用构建与发布v1.md`（Apple/AGC 凭据申请、Secrets 配置、签名注入与上架步骤） |
 | **数据库迁移（SQLite → MySQL + Redis）** | `docs/database-migration-mysql.md`（方言转换层、迁移执行、验证与回滚） |
+| **重构基线与批次计划** | `docs/refactor-baseline.md`（质量基线、热点、验收口径与批次） |
 
 ## 内部知识（可选）
 
@@ -133,4 +140,3 @@ Replace `<your-model-id>` with your active model:
 - GPT-4o / GPT-5 / o1 / Llama → use the model id as printed by your runner
 
 The `model=` parameter rides on the existing `plan_turn` call — it does **not** add a separate tool invocation. If `plan_turn` is not appropriate for a non-code task, call `announce_model(model="...")` once instead.
-

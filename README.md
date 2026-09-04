@@ -1,6 +1,6 @@
-# WXX — 蔚小芯规范与文档脚手架
+# WXX — 蔚小芯全栈应用
 
-本仓库（**wxx**）对应「蔚小芯」智能体（Flutter + Golang 等技术栈见 `docs/蔚小芯智能体.md`）。当前提交内容为 **规范与模板集合**，用于对齐 `docs/蔚小芯开发规范.md` 与总纲；**不包含** Flutter / Go 等业务源码。业务代码可在其它仓库初始化后，将本仓库复制为 submodule 或对照引用。
+本仓库是「蔚小芯」完整工程，包含 Flutter 客户端、Go/Gin 后端、Context Engine、Eino 编排、数据库迁移、微信小程序壳和部署脚本。产品与技术约束以 `docs/蔚小芯智能体.md`、`docs/蔚小芯开发规范.md` 为准。
 
 ## 目录结构
 
@@ -13,6 +13,21 @@
 | `specs/` | 契约摘要、导出包、RBAC 模板（Markdown） |
 | `knowledge/` | 可选：项目组内部 LLM Wiki 式 `raw/` / `wiki/` 脚手架 |
 | `templates/` | 计划、变更、评审类 Markdown 模板 |
+| `frontend/` | Flutter 客户端（Web、Android、iOS 等） |
+| `server/` | Go/Gin 后端、服务层、仓储层、智能体与迁移 |
+| `miniprogram/` | 微信小程序 WebView 壳 |
+| `scripts/` | 构建、部署、数据维护脚本 |
+| `specs/` | API、导出、RBAC 等契约 |
+
+## 常用验证
+
+```text
+go test ./server/...
+cd frontend && flutter test
+cd frontend && flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+```
+
+完整构建使用 `pwsh scripts/build-all.ps1`；涉及行为变更时，先更新对应文档，再提交可验证的增量。
 
 ## 与仓库其它文档的关系
 
