@@ -46,6 +46,7 @@ func setupRouter(d *deps) *gin.Engine {
 		secured.Use(middleware.EnsureUserExists(d.userRepo))
 		{
 			registerVOPCRoutes(secured, d)
+			registerSelfRoutes(secured, d)
 			/*
 				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
 				vopc := secured.Group("/vopc")
@@ -125,7 +126,7 @@ func setupRouter(d *deps) *gin.Engine {
 
 			// ── AI 对话（self.chat）──
 			// 安全修复 SEC-02：对话为主要 PII 输入入口，要求已同意隐私政策/用户协议方可访问
-			secured.POST("/chat", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), d.chatH.Ask)
+			/* secured.POST("/chat", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), d.chatH.Ask)
 			secured.POST("/chat/stream", middleware.RequireConsent(), auth.RequireCapability(auth.SelfChat), middleware.ChatUserRateLimiter(), d.chatH.Stream)
 
 			// ── 会话/知识/推荐（self.* 能力）──
@@ -134,16 +135,16 @@ func setupRouter(d *deps) *gin.Engine {
 			secured.DELETE("/sessions/:id", auth.RequireCapability(auth.SelfSessionDelete), d.sessionH.DeleteSession)
 			secured.PATCH("/sessions/:id", auth.RequireCapability(auth.SelfSessionRead), d.sessionH.RenameSession)
 			secured.GET("/knowledge", auth.RequireCapability(auth.SelfKnowledgeRead), d.kbH.BrowseKnowledge)
-			secured.GET("/recommendations", auth.RequireCapability(auth.SelfRecommendRead), d.recH.GetRecommendations)
+			secured.GET("/recommendations", auth.RequireCapability(auth.SelfRecommendRead), d.recH.GetRecommendations) */
 
 			// ── 情感数据 ──
-			if d.emotionH != nil {
+			/* if d.emotionH != nil {
 				// 自身情感统计：所有用户都可看自己。
 				// 独立授权语义：需同时拥有 self.emotion.consent（独立于通用隐私 consent）
 				secured.GET("/emotion/stats", auth.RequireAnyCapability(auth.SelfEmotionStats, auth.SelfEmotionConsent), d.emotionH.GetStats)
-			}
+			} */
 
-			if d.emotionH != nil {
+			/* if d.emotionH != nil {
 				emotion := secured.Group("/emotion")
 				{
 					emotion.POST("/analyze", auth.RequireCapability(auth.CounselorAlertAnalyze), d.emotionH.Analyze)
@@ -151,7 +152,7 @@ func setupRouter(d *deps) *gin.Engine {
 					emotion.PUT("/alerts/:id", auth.RequireCapability(auth.CounselorAlertHandle), d.emotionH.UpdateAlert)
 					emotion.GET("/trends", auth.RequireCapability(auth.CounselorEmotionTrends), d.emotionH.Trends)
 				}
-			}
+			} */
 
 			// ── 问题预案（forecast.*）──
 			forecast := secured.Group("/forecast")
