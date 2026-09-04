@@ -8,7 +8,7 @@
 |---|---|---|
 | Go 单元测试 | `go test ./server/...` | 通过 |
 | Flutter 单元/Widget 测试 | `cd frontend && flutter test` | 通过（33 项） |
-| Flutter 静态分析 | `flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings` | 通过，50 条 info（已自动修复 259 条确定性 lint） |
+| Flutter 静态分析 | `flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings` | 通过，50 条 info（已自动修复 260 条确定性 lint） |
 | Go 文件规模 | `server/` | 453 个 Go 文件，144 个测试文件 |
 | Flutter 文件规模 | `frontend/lib/` | 269 个 Dart 文件 |
 | 数据库迁移 | `server/migrations/` | 114 个迁移 |
