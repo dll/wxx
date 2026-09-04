@@ -45,9 +45,10 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - CI 同时覆盖 Go 和 Flutter 基础检查。
 - 保留未跟踪运行状态文件，未经确认不删除；临时文件后续单独归档。
 
-### 批次二：后端路由与依赖组装
+### 批次二：后端路由与依赖组装（进行中）
 
-- 拆分 `server/pkg/app/routes.go`，按公开、学生、管理、VOPC、知识库等域组织。
+- 已完成：将根路由、健康检查、Flutter 静态资源和 SPA 回退提取至 `server/pkg/app/routes_static.go`。
+- 待完成：按公开、学生、管理、VOPC、知识库等域继续拆分 API 注册。
 - 保持中间件顺序、鉴权和路由路径不变。
 
 ### 批次三：后端领域服务
