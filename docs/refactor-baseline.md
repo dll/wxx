@@ -48,7 +48,9 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 ### 批次二：后端路由与依赖组装（阶段完成）
 
 - 已完成：将根路由、健康检查、Flutter 静态资源和 SPA 回退提取至 `server/pkg/app/routes_static.go`。
-- API 域路由暂保留在 `routes.go`，原因是现有源码回归测试以该文件为契约锚点；后续可在同步调整测试后继续拆分。
+- 已完成：将公开 API（认证、版本、校园报到、公开知识）提取至 `server/pkg/app/routes_public.go`。
+- 已完成：将 vOPC 项目协作与风险治理路由提取至 `server/pkg/app/routes_vopc.go`。
+- 回归测试已改为读取拆分后的路由文件集合，路由路径与中间件行为保持不变。
 - 保持中间件顺序、鉴权和路由路径不变。
 
 ### 批次三：后端领域服务

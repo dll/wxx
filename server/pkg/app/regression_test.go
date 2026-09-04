@@ -46,7 +46,11 @@ func TestRouteRegistrationCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取 routes.go 失败: %v", err)
 	}
-	curText := string(cur)
+	public, err := os.ReadFile(filepath.Join("routes_public.go"))
+	if err != nil {
+		t.Fatalf("读取 routes_public.go 失败: %v", err)
+	}
+	curText := string(cur) + string(public)
 
 	// 统计所有 .METHOD("..." 形式的路由注册（GROUP 用 .Group( 不匹配）
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "ANY"}
@@ -74,7 +78,11 @@ func TestKeyRoutesReachable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取 routes.go 失败: %v", err)
 	}
-	s := string(src)
+	public, err := os.ReadFile(filepath.Join("routes_public.go"))
+	if err != nil {
+		t.Fatalf("读取 routes_public.go 失败: %v", err)
+	}
+	s := string(src) + string(public)
 
 	// 路由组前缀存在性。Gin 采用 router.Group() 拼装路径，源码中呈现为组前缀而非完整字面量。
 	requiredGroups := []string{

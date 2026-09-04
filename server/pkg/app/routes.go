@@ -37,119 +37,91 @@ func setupRouter(d *deps) *gin.Engine {
 	// API v1 路由组
 	v1 := router.Group("/api/v1")
 	{
-		// ── 本机修复执行端内部路由（token 鉴权，非 JWT / 非业务角色）──
-		// 仅当 WXX_REPAIR_AGENT_TOKEN 已配置时端点才可用（middleware 内二次兑底），
-		// 与交互式前台用户完全隔离。服务器只认领/验证上报，绝不执行改码/构建/部署。
-		internalRepair := v1.Group("/internal/repair-tasks")
-		internalRepair.Use(middleware.RepairAgentTokenAuth())
-		{
-			internalRepair.POST("/next", d.feedbackRepairTaskH.NextTask)
-			internalRepair.POST("/:no/verify", d.feedbackRepairTaskH.VerifyTask)
-		}
-
-		// 认证（公开）
-		authGroup := v1.Group("/auth")
-		{
-			authGroup.POST("/login", middleware.LoginIPRateLimiter(), d.authH.Login)
-			authGroup.POST("/sso/callback", middleware.LoginIPRateLimiter(), d.authH.SSOCallback)
-			authGroup.POST("/qr-login", handler.CreateQRSession)
-			authGroup.GET("/qr-status", handler.GetQRSessionStatus)
-			authGroup.PUT("/qr-scan", handler.ScanQRSession)
-			authGroup.POST("/send-code", middleware.LoginIPRateLimiter(), d.authH.SendCode)
-			authGroup.POST("/guest-register", middleware.LoginIPRateLimiter(), d.authH.GuestRegister)
-		}
-
-		// 版本更新（公开）
-		v1.GET("/version/check", d.appVersionH.CheckUpdate)
-		v1.GET("/version/latest", d.appVersionH.GetLatestVersion)
-
-		// 校园报到步骤（公开，无需登录）
-		v1.GET("/campus/steps", d.campusH.ListPublicSteps)
-
-		// 知识大厅（公开，仅返回全校公开已发布资源）
-		v1.GET("/knowledge/public", d.kbH.BrowseKnowledgePublic)
-		// 公开功能开关（仅返回 feature.*，不包含敏感配置）
-		v1.GET("/public/feature-switches", d.adminH.GetPublicFeatureSwitches)
+		// 公开路由集中在 routes_public.go；受保护路由继续按领域注册。
+		registerPublicRoutes(v1, d)
 
 		// 需要 JWT 认证
 		secured := v1.Group("/")
 		secured.Use(middleware.JWTAuth(d.cfg))
 		secured.Use(middleware.EnsureUserExists(d.userRepo))
 		{
-			// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
-			vopc := secured.Group("/vopc")
-			vopc.Use(handler.CollegeAccess(d.cfg.VOPCCollegeID))
-			{
-				vopc.GET("/access", d.vopcH.AccessStatus)
-				vopc.GET("/learning", d.vopcH.Learning)
-				vopc.GET("/guides", d.vopcH.Guides)
-				vopc.GET("/users/search", d.vopcH.SearchUsers)
-				vopc.GET("/projects", d.vopcH.ListProjects)
-				vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
-				vopc.POST("/demo-projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateDemoProject)
-				vopc.POST("/projects/:id/simulation/advance", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.AdvanceSimulation)
-				vopc.GET("/projects/:id", d.vopcH.GetProject)
-				vopc.PUT("/projects/:id", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateProject)
-				vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
-				vopc.GET("/projects/:id/decisions", d.vopcH.ListDecisions)
-				vopc.POST("/projects/:id/decisions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateDecision)
-				vopc.PUT("/projects/:id/decisions/:decisionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ActDecision)
-				vopc.GET("/projects/:id/members", d.vopcH.ListMembers)
-				vopc.POST("/projects/:id/members", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.InviteMember)
-				vopc.GET("/invitations", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.ListMyInvitations)
-				vopc.POST("/invitations/:invitationId/respond", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.RespondInvitation)
-				vopc.GET("/projects/:id/artifacts", d.vopcH.ListArtifacts)
-				vopc.POST("/projects/:id/artifacts", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifact)
-				vopc.GET("/projects/:id/artifacts/:artifactId/versions", d.vopcH.ListArtifactVersions)
-				vopc.POST("/projects/:id/artifacts/:artifactId/versions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifactVersion)
-				// vOPC 私有文件受控上传与鉴权下载：上传限项目写权限，下载走项目读权限 + 学院准入复检。
-				vopc.POST("/projects/:id/files", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UploadFile)
-				vopc.GET("/projects/:id/files/:key", d.vopcH.DownloadFile)
-				vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
-				vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
-				vopc.GET("/projects/:id/ai-roles", d.vopcH.ListAIRoles)
-				vopc.GET("/projects/:id/timeline", d.vopcH.ListTimeline)
-				vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)
-				// vOPC A4 里程碑完整业务门禁：评分量表 / 条件闭环 / 豁免 / 甲方结构化证据
-				vopc.GET("/projects/:id/rubrics", d.vopcH.ListRubrics)
-				vopc.GET("/projects/:id/milestone-submissions/:submissionId/review", d.vopcH.GetSubmissionReview)
-				vopc.PUT("/projects/:id/milestone-submissions/:submissionId/conditions/:conditionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.MarkConditionSatisfied)
-				vopc.POST("/projects/:id/milestone-submissions/:submissionId/finalize", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.FinalizeMilestone)
-				vopc.GET("/projects/:id/milestone-waivers", d.vopcH.ListMilestoneWaivers)
-				vopc.POST("/projects/:id/milestone-waivers", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateMilestoneWaiver)
-				vopc.POST("/projects/:id/milestone-waivers/:waiverId/review", auth.RequireAnyCapability(auth.VOPCMentorReview, auth.VOPCMilestoneReview, auth.VOPCRiskManage), d.vopcH.ReviewMilestoneWaiver)
-				vopc.GET("/projects/:id/client-evidence", d.vopcH.ListClientEvidence)
-				vopc.POST("/projects/:id/client-evidence", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateClientEvidence)
-				vopc.PUT("/projects/:id/client-evidence/:evidenceId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateClientEvidence)
-				// vOPC B1 AI 任务真实执行闭环
-				vopc.POST("/projects/:id/ai-tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateAITask)
-				vopc.GET("/projects/:id/ai-tasks", d.vopcH.ListAITasks)
-				vopc.GET("/projects/:id/ai-tasks/:taskId", d.vopcH.GetAITask)
-				vopc.POST("/projects/:id/ai-tasks/:taskId/review", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ReviewAITask)
-				vopc.POST("/projects/:id/ai-tasks/:taskId/retry", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.RetryAITask)
-				vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
-				vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
-				vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
+			registerVOPCRoutes(secured, d)
+			/*
+				// vOPC：学院准入、系统 capability 与项目角色三层边界缺一不可。
+				vopc := secured.Group("/vopc")
+				vopc.Use(handler.CollegeAccess(d.cfg.VOPCCollegeID))
+				{
+					vopc.GET("/access", d.vopcH.AccessStatus)
+					vopc.GET("/learning", d.vopcH.Learning)
+					vopc.GET("/guides", d.vopcH.Guides)
+					vopc.GET("/users/search", d.vopcH.SearchUsers)
+					vopc.GET("/projects", d.vopcH.ListProjects)
+					vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)
+					vopc.POST("/demo-projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateDemoProject)
+					vopc.POST("/projects/:id/simulation/advance", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.AdvanceSimulation)
+					vopc.GET("/projects/:id", d.vopcH.GetProject)
+					vopc.PUT("/projects/:id", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateProject)
+					vopc.GET("/projects/:id/tasks", d.vopcH.ListTasks)
+					vopc.GET("/projects/:id/decisions", d.vopcH.ListDecisions)
+					vopc.POST("/projects/:id/decisions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateDecision)
+					vopc.PUT("/projects/:id/decisions/:decisionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ActDecision)
+					vopc.GET("/projects/:id/members", d.vopcH.ListMembers)
+					vopc.POST("/projects/:id/members", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.InviteMember)
+					vopc.GET("/invitations", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.ListMyInvitations)
+					vopc.POST("/invitations/:invitationId/respond", auth.RequireCapability(auth.VOPCProjectJoin), d.vopcH.RespondInvitation)
+					vopc.GET("/projects/:id/artifacts", d.vopcH.ListArtifacts)
+					vopc.POST("/projects/:id/artifacts", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifact)
+					vopc.GET("/projects/:id/artifacts/:artifactId/versions", d.vopcH.ListArtifactVersions)
+					vopc.POST("/projects/:id/artifacts/:artifactId/versions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateArtifactVersion)
+					// vOPC 私有文件受控上传与鉴权下载：上传限项目写权限，下载走项目读权限 + 学院准入复检。
+					vopc.POST("/projects/:id/files", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UploadFile)
+					vopc.GET("/projects/:id/files/:key", d.vopcH.DownloadFile)
+					vopc.GET("/projects/:id/milestone-submissions", d.vopcH.ListMilestoneSubmissions)
+					vopc.POST("/projects/:id/milestone-submissions", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitMilestone)
+					vopc.GET("/projects/:id/ai-roles", d.vopcH.ListAIRoles)
+					vopc.GET("/projects/:id/timeline", d.vopcH.ListTimeline)
+					vopc.POST("/projects/:id/milestone-submissions/:submissionId/review", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.ReviewMilestone)
+					// vOPC A4 里程碑完整业务门禁：评分量表 / 条件闭环 / 豁免 / 甲方结构化证据
+					vopc.GET("/projects/:id/rubrics", d.vopcH.ListRubrics)
+					vopc.GET("/projects/:id/milestone-submissions/:submissionId/review", d.vopcH.GetSubmissionReview)
+					vopc.PUT("/projects/:id/milestone-submissions/:submissionId/conditions/:conditionId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.MarkConditionSatisfied)
+					vopc.POST("/projects/:id/milestone-submissions/:submissionId/finalize", auth.RequireCapability(auth.VOPCMilestoneReview), d.vopcH.FinalizeMilestone)
+					vopc.GET("/projects/:id/milestone-waivers", d.vopcH.ListMilestoneWaivers)
+					vopc.POST("/projects/:id/milestone-waivers", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateMilestoneWaiver)
+					vopc.POST("/projects/:id/milestone-waivers/:waiverId/review", auth.RequireAnyCapability(auth.VOPCMentorReview, auth.VOPCMilestoneReview, auth.VOPCRiskManage), d.vopcH.ReviewMilestoneWaiver)
+					vopc.GET("/projects/:id/client-evidence", d.vopcH.ListClientEvidence)
+					vopc.POST("/projects/:id/client-evidence", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateClientEvidence)
+					vopc.PUT("/projects/:id/client-evidence/:evidenceId", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.UpdateClientEvidence)
+					// vOPC B1 AI 任务真实执行闭环
+					vopc.POST("/projects/:id/ai-tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateAITask)
+					vopc.GET("/projects/:id/ai-tasks", d.vopcH.ListAITasks)
+					vopc.GET("/projects/:id/ai-tasks/:taskId", d.vopcH.GetAITask)
+					vopc.POST("/projects/:id/ai-tasks/:taskId/review", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.ReviewAITask)
+					vopc.POST("/projects/:id/ai-tasks/:taskId/retry", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.RetryAITask)
+					vopc.POST("/projects/:id/tasks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateTask)
+					vopc.PUT("/projects/:id/tasks/:taskId", d.vopcH.UpdateTask)
+					vopc.POST("/projects/:id/submit", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.SubmitProject)
 
-				// 结项与异常状态机
-				vopc.POST("/projects/:id/close", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CloseProject)
-				vopc.GET("/projects/:id/close-records", d.vopcH.ListCloseRecords)
-				// 项目生命周期：删除（仅草稿）——归档走既有 close archive 动作。
-				vopc.POST("/projects/:id/delete", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.DeleteProject)
+					// 结项与异常状态机
+					vopc.POST("/projects/:id/close", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CloseProject)
+					vopc.GET("/projects/:id/close-records", d.vopcH.ListCloseRecords)
+					// 项目生命周期：删除（仅草稿）——归档走既有 close archive 动作。
+					vopc.POST("/projects/:id/delete", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.DeleteProject)
 
-				// 风险治理
-				vopc.GET("/projects/:id/risks", d.vopcH.ListRisks)
-				vopc.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRisk)
-				vopc.POST("/projects/:id/risks/:riskId/approve", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCMentorReview), d.vopcH.ApproveRisk)
-				vopc.GET("/projects/:id/special-approvals", d.vopcH.ListSpecialApprovals)
-				vopc.POST("/projects/:id/special-approvals", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.CreateSpecialApproval)
-				vopc.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.FreezeProject)
-				vopc.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRiskAppeal)
-				vopc.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ResolveRiskAppeal)
+					// 风险治理
+					vopc.GET("/projects/:id/risks", d.vopcH.ListRisks)
+					vopc.POST("/projects/:id/risks", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRisk)
+					vopc.POST("/projects/:id/risks/:riskId/approve", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCMentorReview), d.vopcH.ApproveRisk)
+					vopc.GET("/projects/:id/special-approvals", d.vopcH.ListSpecialApprovals)
+					vopc.POST("/projects/:id/special-approvals", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.CreateSpecialApproval)
+					vopc.POST("/projects/:id/freeze", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.FreezeProject)
+					vopc.POST("/projects/:id/risk-appeals", auth.RequireCapability(auth.VOPCProjectManage), d.vopcH.CreateRiskAppeal)
+					vopc.POST("/projects/:id/risk-appeals/:appealId/resolve", auth.RequireCapability(auth.VOPCRiskManage), d.vopcH.ResolveRiskAppeal)
 
-				// 治理角色受控授予/撤销：仅平台治理系统角色（college_admin/school_admin/sys_admin）可调用。
-				vopc.POST("/projects/:id/governance-roles", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCAudit), d.vopcH.GrantGovernanceRole)
-			}
+					// 治理角色受控授予/撤销：仅平台治理系统角色（college_admin/school_admin/sys_admin）可调用。
+					vopc.POST("/projects/:id/governance-roles", auth.RequireAnyCapability(auth.VOPCRiskManage, auth.VOPCAudit), d.vopcH.GrantGovernanceRole)
+				}
+			*/
 
 			// ── AI 对话（self.chat）──
 			// 安全修复 SEC-02：对话为主要 PII 输入入口，要求已同意隐私政策/用户协议方可访问
