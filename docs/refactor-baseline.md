@@ -51,6 +51,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：将公开 API（认证、版本、校园报到、公开知识）提取至 `server/pkg/app/routes_public.go`。
 - 已完成：将 vOPC 项目协作与风险治理路由提取至 `server/pkg/app/routes_vopc.go`。
 - 已完成：将问答、会话、知识浏览和情感路由提取至 `server/pkg/app/routes_self.go`。
+- 已完成：将问题预案和毕设选题路由提取至 `routes_forecast.go`、`routes_graduation.go`。
 - 回归测试已改为读取拆分后的路由文件集合，路由路径与中间件行为保持不变。
 - 保持中间件顺序、鉴权和路由路径不变。
 
