@@ -79,6 +79,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生服务第二个方法迁移增量：简历、职业模拟和校友匹配从 `student_service.go` 提取至 `student_career_tools.go`，公开构造函数和调用契约不变。
 - 已完成学生服务第三个边界增量：知识库标签解析从 `student_service.go` 提取至 `student_kb_helpers.go`，保留 `parseTags` 兼容别名并增加契约测试。
 - 已完成学生学习周报契约测试，覆盖无数据时的稳定周次、行动建议、时间分布和来源标记；下一步继续迁移周报实现。
+- 已完成学生学习日记兜底构造提取至 `student_diary_fallback.go`，公开服务方法和 fallback 字段契约保持不变。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
