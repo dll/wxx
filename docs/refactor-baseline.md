@@ -68,6 +68,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 
 - 已完成首个方法迁移增量：教师教案解析与兜底从 `teacher_service.go` 提取至 `teacher_lesson_plan.go`，公开构造函数和调用契约不变。
 - 已完成第二个方法迁移增量：教师试卷解析与兜底从 `teacher_service.go` 提取至 `teacher_exam.go`，公开构造函数和调用契约不变。
+- 已完成第三个方法迁移增量：教师作业批改解析与兜底从 `teacher_service.go` 提取至 `teacher_grading.go`，公开构造函数和调用契约不变。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
