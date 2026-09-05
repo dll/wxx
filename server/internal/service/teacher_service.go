@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/dll/wxx/server/internal/llm"
 )
@@ -82,18 +81,6 @@ func (s *TeacherService) generatePlanWithLLM(ctx context.Context, topic, courseI
 	return plan, nil
 }
 
-// DailyOverview 今日授课概览
-type DailyOverview struct {
-	Date           string   `json:"date"`
-	Greeting       string   `json:"greeting"`
-	CourseName     string   `json:"course_name"`
-	ClassName      string   `json:"class_name"`
-	StudentCount   int      `json:"student_count"`
-	LastReflection string   `json:"last_reflection"`
-	KeyKnowledge   []string `json:"key_knowledge"`
-	DataSource     string   `json:"data_source"`
-}
-
 // ExamPaper AI 考试出题结果
 type ExamPaper struct {
 	Title           string                   `json:"title"`
@@ -146,29 +133,6 @@ func (s *TeacherService) generateExamWithLLM(ctx context.Context, courseName str
 }
 
 // parseExamPaper 解析 LLM 返回的试卷 JSON（兼容 markdown 代码块包裹），解析失败返回 nil
-// GenerateDailyOverview 生成教师今日授课概览
-func (s *TeacherService) GenerateDailyOverview(ctx context.Context) *DailyOverview {
-	today := time.Now().Format("2006-01-02")
-	hour := time.Now().Hour()
-
-	var greeting string
-	switch {
-	case hour < 11:
-		greeting = "早上好！今天的课堂准备好了吗？"
-	case hour < 14:
-		greeting = "中午好！下午的课要加油哦。"
-	default:
-		greeting = "下午好！今天的教学工作辛苦了。"
-	}
-
-	return &DailyOverview{
-		Date:         today,
-		Greeting:     greeting,
-		DataSource:   "real", // 诚实：未接入授课关系时不报假课程
-		KeyKnowledge: []string{},
-	}
-}
-
 // ─── P2 深度功能 ───
 
 // KnowledgeCoverage 知识点覆盖检查
