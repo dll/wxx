@@ -75,6 +75,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成第七个方法迁移增量：教师学生数字孪生教学视图与课程 FAQ 从 `teacher_service.go` 提取至 `teacher_twin_faq.go`，公开构造函数和调用契约不变。
 - 已完成第八个方法迁移增量：教师个性化教学建议从 `teacher_service.go` 提取至 `teacher_personalized.go`，公开构造函数和调用契约不变。
 - 已完成第九个方法迁移增量：教师班级热力图、学习风格分布和社区答疑从 `teacher_service.go` 提取至 `teacher_learning_insights.go`，公开构造函数和调用契约不变。
+- 已完成学生服务首个方法迁移增量：专业知识图谱与笔记助手从 `student_service.go` 提取至 `student_learning_tools.go`，公开构造函数和调用契约不变。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
