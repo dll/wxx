@@ -1148,7 +1148,7 @@ func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
 					"answers":     1,
 					"views":       0,
 					"ai_answer":   ans,
-					"tags":        parseTags(f.Tags),
+					"tags":        parseKnowledgeTags(f.Tags),
 					"source_link": f.SourceLink,
 				})
 			}
@@ -1171,19 +1171,6 @@ func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
 		MyPosts:    2, MyAnswers: 5,
 		DataSource: "fallback",
 	}
-}
-
-// parseTags 解析 KB 资源的 tags（JSON 数组字符串）为字符串切片；解析失败返回空切片
-func parseTags(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" || raw == "[]" {
-		return []string{}
-	}
-	var tags []string
-	if err := json.Unmarshal([]byte(raw), &tags); err != nil {
-		return []string{}
-	}
-	return tags
 }
 
 // HotTopicsData 热点关注

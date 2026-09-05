@@ -77,6 +77,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成第九个方法迁移增量：教师班级热力图、学习风格分布和社区答疑从 `teacher_service.go` 提取至 `teacher_learning_insights.go`，公开构造函数和调用契约不变。
 - 已完成学生服务首个方法迁移增量：专业知识图谱与笔记助手从 `student_service.go` 提取至 `student_learning_tools.go`，公开构造函数和调用契约不变。
 - 已完成学生服务第二个方法迁移增量：简历、职业模拟和校友匹配从 `student_service.go` 提取至 `student_career_tools.go`，公开构造函数和调用契约不变。
+- 已完成学生服务第三个边界增量：知识库标签解析从 `student_service.go` 提取至 `student_kb_helpers.go`，保留 `parseTags` 兼容别名并增加契约测试。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
