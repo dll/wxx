@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/notification_provider.dart';
 import '../../utils/capability_utils.dart';
 import '../../widgets/error_view.dart';
@@ -86,9 +87,39 @@ class _NotificationPageState extends State<NotificationPage>
       await context.read<NotificationProvider>().markAsRead(item.id);
     }
     // 跳转到关联页面
-    if (item.relatedType.isNotEmpty && item.relatedId > 0) {
-      // TODO: 根据 related_type 跳转到不同页面
-      // 例如：feedback -> 反馈详情，resource -> 知识详情等
+    if (!mounted || item.relatedType.isEmpty || item.relatedId <= 0) {
+      return;
+    }
+    final route = _routeForRelatedType(item.relatedType);
+    if (route != null) {
+      context.push(route);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('该通知暂无可打开的关联页面')),
+      );
+    }
+  }
+
+  /// 将后端关联类型映射到已有页面；未知类型保持安全兜底，不拼接任意路径。
+  String? _routeForRelatedType(String relatedType) {
+    switch (relatedType.toLowerCase()) {
+      case 'feedback':
+      case 'feedback_reply':
+        return '/my-feedbacks';
+      case 'knowledge':
+      case 'resource':
+      case 'kb_resource':
+        return '/browse';
+      case 'process':
+      case 'process_record':
+        return '/my-records';
+      case 'activity':
+        return '/services';
+      case 'career':
+      case 'job':
+        return '/student/career';
+      default:
+        return null;
     }
   }
 
@@ -122,8 +153,8 @@ class _NotificationPageState extends State<NotificationPage>
             TextField(
               controller: contentCtrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                  labelText: '通知内容', hintText: '通知详情...'),
+              decoration:
+                  const InputDecoration(labelText: '通知内容', hintText: '通知详情...'),
             ),
           ],
         ),
@@ -229,7 +260,8 @@ class _NotificationPageState extends State<NotificationPage>
     );
   }
 
-  Widget _buildNotificationList(ThemeData theme, NotificationProvider provider) {
+  Widget _buildNotificationList(
+      ThemeData theme, NotificationProvider provider) {
     if (provider.loading && provider.items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -332,7 +364,8 @@ class _NotificationPageState extends State<NotificationPage>
                         child: Text(
                           item.title,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                            fontWeight:
+                                isUnread ? FontWeight.bold : FontWeight.normal,
                             color: isUnread
                                 ? theme.colorScheme.onSurface
                                 : theme.colorScheme.onSurface.withOpacity(0.6),
