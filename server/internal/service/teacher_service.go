@@ -1,5 +1,5 @@
-// TODO(DPV4F-N2): 本文件 LessonPlan/ExamPaper/Grading 在真实数据未配置时返回
-// fallback 演示数据（DataSource="fallback"）。接入真实备课/题库/批改数据后移除。
+// LessonPlan/ExamPaper/Grading 在真实数据未配置时返回明确标注的 fallback，
+// 接入真实备课、题库和批改数据后可替换数据源，不影响现有调用契约。
 package service
 
 import (
@@ -109,14 +109,32 @@ func parseLessonPlanJSON(text, topic string) *LessonPlan {
 		}
 	}
 
-	// 提取 outline
-	if idx := strings.Index(text, `"outline"`); idx >= 0 {
-		start := strings.Index(text[idx:], `"`) + idx + 1
-		if start > idx {
-			end := strings.Index(text[start:], `"`) + start
-			if end > start {
-				plan.Outline = text[start:end]
-			}
+	var parsed struct {
+		Outline      string   `json:"outline"`
+		KeyPoints    []string `json:"key_points"`
+		Difficulties []string `json:"difficulties"`
+		Strategies   []string `json:"strategies"`
+		Interactions []string `json:"interactions"`
+		Homework     []string `json:"homework"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err == nil {
+		if parsed.Outline != "" {
+			plan.Outline = parsed.Outline
+		}
+		if len(parsed.KeyPoints) > 0 {
+			plan.KeyPoints = parsed.KeyPoints
+		}
+		if len(parsed.Difficulties) > 0 {
+			plan.Difficulties = parsed.Difficulties
+		}
+		if len(parsed.Strategies) > 0 {
+			plan.Strategies = parsed.Strategies
+		}
+		if len(parsed.Interactions) > 0 {
+			plan.Interactions = parsed.Interactions
+		}
+		if len(parsed.Homework) > 0 {
+			plan.Homework = parsed.Homework
 		}
 	}
 
