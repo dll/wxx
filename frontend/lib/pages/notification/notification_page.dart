@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/notification_provider.dart';
 import '../../utils/capability_utils.dart';
+import '../../utils/notification_routes.dart';
 import '../../widgets/error_view.dart';
 
 /// 通知页面
@@ -90,36 +91,13 @@ class _NotificationPageState extends State<NotificationPage>
     if (!mounted || item.relatedType.isEmpty || item.relatedId <= 0) {
       return;
     }
-    final route = _routeForRelatedType(item.relatedType);
+    final route = notificationRouteForRelatedType(item.relatedType);
     if (route != null) {
       context.push(route);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('该通知暂无可打开的关联页面')),
       );
-    }
-  }
-
-  /// 将后端关联类型映射到已有页面；未知类型保持安全兜底，不拼接任意路径。
-  String? _routeForRelatedType(String relatedType) {
-    switch (relatedType.toLowerCase()) {
-      case 'feedback':
-      case 'feedback_reply':
-        return '/my-feedbacks';
-      case 'knowledge':
-      case 'resource':
-      case 'kb_resource':
-        return '/browse';
-      case 'process':
-      case 'process_record':
-        return '/my-records';
-      case 'activity':
-        return '/services';
-      case 'career':
-      case 'job':
-        return '/student/career';
-      default:
-        return null;
     }
   }
 
