@@ -67,6 +67,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 当前已完成路由层领域边界，尚未大规模迁移 service/repository 业务实现。已为 `student_service.go`、`teacher_service.go` 建立兜底、LLM 解析与质量门槛接口测试；`kb_repo.go` 已有搜索、权限过滤、CRUD 与分页相关测试；问题预案服务已补齐对话热点关键词聚合并加入排序测试。下一步在保持这些契约的前提下，再进行方法迁移。
 
 - 已完成首个方法迁移增量：教师教案解析与兜底从 `teacher_service.go` 提取至 `teacher_lesson_plan.go`，公开构造函数和调用契约不变。
+- 已完成第二个方法迁移增量：教师试卷解析与兜底从 `teacher_service.go` 提取至 `teacher_exam.go`，公开构造函数和调用契约不变。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
