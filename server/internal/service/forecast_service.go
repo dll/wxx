@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/dll/wxx/server/internal/llm"
@@ -275,10 +276,73 @@ func (s *ForecastService) aggregateChatData(collegeID string, days int) (map[str
 	}
 	data["total_sessions"] = total
 
-	// 查询常见问题类型（通过消息内容关键词统计）
-	data["common_topics"] = []string{} // TODO: 实现关键词统计
+	// 查询常见问题类型（通过用户消息内容中的稳定业务词频统计）。
+	// 仅统计受控词表，避免把姓名、学号等任意文本泄露到分析结果中。
+	query = `SELECT m.content FROM messages m
+		JOIN sessions s ON s.session_id = m.session_id
+		JOIN users u ON u.id = s.user_id
+		WHERE m.role = 'user' AND m.created_at >= datetime('now', ?)`
+	args = []interface{}{fmt.Sprintf("-%d days", days)}
+	if collegeID != "" {
+		query += ` AND u.owner_scope = ?`
+		args = append(args, collegeID)
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var counts = make(map[string]int)
+	for rows.Next() {
+		var content string
+		if err := rows.Scan(&content); err != nil {
+			return nil, err
+		}
+		for _, topic := range forecastTopicKeywords {
+			if strings.Contains(content, topic) {
+				counts[topic]++
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	data["common_topics"] = rankForecastTopics(counts, 10)
 
 	return data, nil
+}
+
+var forecastTopicKeywords = []string{
+	"奖学金", "选课", "课程", "成绩", "考试", "毕业", "请假", "宿舍", "竞赛",
+	"入党", "心理", "就业", "实习", "转专业", "报到", "课表", "绩点", "社团",
+}
+
+type forecastTopicCount struct {
+	Topic string
+	Count int
+}
+
+func rankForecastTopics(counts map[string]int, limit int) []string {
+	items := make([]forecastTopicCount, 0, len(counts))
+	for topic, count := range counts {
+		if count > 0 {
+			items = append(items, forecastTopicCount{Topic: topic, Count: count})
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count
+		}
+		return items[i].Topic < items[j].Topic
+	})
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	topics := make([]string, 0, len(items))
+	for _, item := range items {
+		topics = append(topics, item.Topic)
+	}
+	return topics
 }
 
 // analyzeWithAI 使用AI分析数据生成问题
