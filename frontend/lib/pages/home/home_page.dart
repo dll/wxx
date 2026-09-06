@@ -34,6 +34,7 @@ import 'home_empty_card.dart';
 import 'home_alert_overview.dart';
 import 'home_ai_briefing_card.dart';
 import 'home_campus_service.dart';
+import 'home_knowledge_card.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -770,32 +771,28 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 14),
         Row(
           children: [
-            _buildKnowledgeCard(
-              theme,
+            HomeKnowledgeCard(
               icon: Icons.gavel,
               label: '政策',
               color: const Color(0xFF1565C0),
               onTap: () => context.go('/browse'),
             ),
             const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
+            HomeKnowledgeCard(
               icon: Icons.account_tree,
               label: '流程',
               color: const Color(0xFF2E7D32),
               onTap: () => context.go('/enrollment'),
             ),
             const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
+            HomeKnowledgeCard(
               icon: Icons.help_outline,
               label: '问答',
               color: const Color(0xFFE65100),
               onTap: () => context.go('/chat'),
             ),
             const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
+            HomeKnowledgeCard(
               icon: Icons.event,
               label: '活动',
               color: const Color(0xFF7B1FA2),
@@ -814,45 +811,11 @@ class _HomePageState extends State<HomePage> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      child: Material(
-        color: color.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withOpacity(0.12)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return HomeKnowledgeCard(
+      icon: icon,
+      label: label,
+      color: color,
+      onTap: onTap,
     );
   }
 

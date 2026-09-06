@@ -135,6 +135,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：首页预警概览统计区块从 `home_page.dart` 抽出至 `home_alert_overview.dart`，通过数据与回调参数保持加载、风险计数和跳转契约。
 - 已完成：首页 AI 简讯卡片从 `home_page.dart` 抽出至 `home_ai_briefing_card.dart`，保持首次加载、最新三条资讯展示和列表跳转契约。
 - 已完成：首页校园服务入口从 `home_page.dart` 抽出至 `home_campus_service.dart`，保持地图、VR、学院和学校首页跳转契约。
+- 已完成：首页通用知识入口卡片从 `home_page.dart` 抽出至 `home_knowledge_card.dart`，统一政策、流程、问答、活动和角色专区卡片的展示与点击契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 
