@@ -244,7 +244,7 @@ type TalkRecordRequest struct {
 }
 
 // GenerateTalkRecord 用 LLM 从对话中提取结构化摘要
-func (s *CounselorService) GenerateTalkRecord(ctx context.Context, req *TalkRecordRequest) (*TalkRecord, error) {
+func (s *CounselorService) generateTalkRecordLegacy(ctx context.Context, req *TalkRecordRequest) (*TalkRecord, error) {
 	now := time.Now().Format("2006-01-02 15:04")
 	record := &TalkRecord{
 		StudentName: req.StudentName,
@@ -275,7 +275,7 @@ type talkSummary struct {
 	Topic, Emotion, Demand, Promise, FollowUp, Summary string
 }
 
-func (s *CounselorService) generateTalkSummary(ctx context.Context, req *TalkRecordRequest) (*talkSummary, error) {
+func (s *CounselorService) generateTalkSummaryLegacy(ctx context.Context, req *TalkRecordRequest) (*talkSummary, error) {
 	prompt := fmt.Sprintf(
 		"你是一位辅导员助理。请从以下谈话内容中提取结构化信息。\n\n学生：%s\n谈话内容：%s\n\n"+
 			"请按以下格式输出（每行一个字段）：\n"+

@@ -99,6 +99,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 学生服务连续拆分后的后端全量编译门禁已通过：`go test ./server/... -run '^$'`，各 server 包均可正常编译。
 - 已完成文档服务统一解析出口提取至 `document_parse.go`，保留内容清洗、元数据提取、质量门槛和解析警告契约。
 - 已完成文档服务 LLM 元数据精修入口提取至 `document_refine.go`，保留超时保护、字段补齐、校验失败回退和人工确认契约。
+- 已完成辅导员谈心记录与 LLM 摘要入口提取至 `counselor_talk_record.go`，保留结构化字段、无模型兜底和解析契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
