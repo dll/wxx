@@ -1003,58 +1003,6 @@ func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, u
 
 // ======================== P1 剩余方法 ========================
 
-func (s *StudentService) generateWeeklyReportLegacy(ctx context.Context, userID int64) *WeeklyReportData {
-	weekNum := int(time.Now().YearDay()/7) + 1
-	data := &WeeklyReportData{
-		Week:          fmt.Sprintf("第%d周", weekNum),
-		TotalHours:    22.5,
-		CoursesCount:  5,
-		Assignments:   3,
-		RankChange:    2,
-		Highlights:    []string{"数据结构实验满分", "英语演讲获得A"},
-		Improvements:  []string{"操作系统作业需加强", "体育锻炼不足"},
-		NextWeekGoals: []string{"完成算法作业", "准备期中考试"},
-		TimeDistribution: map[string]float64{
-			"上课": 15.0, "自习": 4.5, "实验": 2.0, "运动": 1.0,
-		},
-		KnowledgeChanges: []map[string]interface{}{
-			{"course": "数据结构", "change": "+12%", "trend": "up", "detail": "树和图相关知识点掌握度提升"},
-			{"course": "操作系统", "change": "-5%", "trend": "down", "detail": "内存管理章节理解不足"},
-		},
-		DataSource: "reference",
-	}
-
-	// 真实交互活跃度（近 7 天提问/会话/活跃天数）——覆盖模板值
-	if s.messageRepo != nil {
-		if wa, err := s.messageRepo.GetWeeklyActivity(userID, 7); err == nil && wa != nil && wa.Questions > 0 {
-			data.QuestionsAsked = wa.Questions
-			data.ActiveDays = wa.ActiveDays
-			data.SessionsCount = wa.Sessions
-			data.DataSource = "real"
-		}
-	}
-
-	if s.llmClient != nil {
-		prompt := fmt.Sprintf("学生本周与学工助手交互：提问%d次、活跃%d天、会话%d个。亮点：%s，不足：%s。请用40字做学习状态归因分析，只依据以上数据、不得编造。",
-			data.QuestionsAsked, data.ActiveDays, data.SessionsCount,
-			strings.Join(data.Highlights, "、"), strings.Join(data.Improvements, "、"))
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 200,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			data.Attribution = strings.TrimSpace(resp.Content)
-			if data.DataSource == "real" {
-				data.DataSource = "real+ai"
-			} else {
-				data.DataSource = "ai"
-			}
-		}
-	}
-
-	return data
-}
-
 func (s *StudentService) generateQAPlazaLegacy(ctx context.Context) *QAPlazaData {
 	// 优先用真实已发布 FAQ 资源作为问答广场热门问题（结构化优先，可追溯）
 	if s.kbRepo != nil {
