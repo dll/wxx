@@ -9,6 +9,7 @@ import 'vopc_reality_extension_card.dart';
 import 'vopc_invitation_card.dart';
 import 'vopc_project_card.dart';
 import 'vopc_hero.dart';
+import 'vopc_flow_strip.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -601,9 +602,9 @@ class _OpcIntroSection extends StatelessWidget {
                 body: cards.first['body'] ?? _defaultCoreIdea),
           const SizedBox(height: 14),
           if (steps.isNotEmpty)
-            _FlowStrip(steps: steps)
+            VopcFlowStrip(steps: steps)
           else
-            const _FlowStrip(steps: _defaultFlowSteps),
+            const VopcFlowStrip(steps: _defaultFlowSteps),
           const SizedBox(height: 14),
           Row(children: [
             FilledButton.tonalIcon(
@@ -680,62 +681,6 @@ class _CoreIdeaCard extends StatelessWidget {
 }
 
 /// 五步核心流程图（水平流 strip，窄屏自动换行）。
-class _FlowStrip extends StatelessWidget {
-  final List<Map<String, dynamic>> steps;
-  const _FlowStrip({required this.steps});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final items = steps
-        .map((s) => _FlowNode(
-              title: s['title']?.toString() ?? '',
-              desc: s['desc']?.toString() ?? '',
-            ))
-        .toList();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          items[i],
-          if (i < items.length - 1)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Icon(Icons.arrow_forward_rounded,
-                  size: 16, color: theme.colorScheme.outline),
-            ),
-        ],
-      ],
-    );
-  }
-}
-
-class _FlowNode extends StatelessWidget {
-  final String title;
-  final String desc;
-  const _FlowNode({required this.title, required this.desc});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: theme.textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        if (desc.isNotEmpty)
-          Text(desc,
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: theme.colorScheme.outline)),
-      ]),
-    );
-  }
-}
-
 class _LearningSheet extends StatelessWidget {
   final Map<String, dynamic> learning;
   const _LearningSheet({required this.learning});
@@ -787,7 +732,7 @@ class _LearningSheet extends StatelessWidget {
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
-          _FlowStrip(steps: allSteps),
+          VopcFlowStrip(steps: allSteps),
           const SizedBox(height: 20),
           if (quizzes.isNotEmpty) ...[
             Text('自测小问卷',
