@@ -1209,20 +1209,7 @@ type QALeaderboardData struct {
 }
 
 func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboardData {
-	data := &QALeaderboardData{
-		// TopAnswerers / Contributors：平台暂无「回答/采纳」数据表，保持参考样例
-		TopAnswerers: []map[string]interface{}{
-			{"rank": 1, "name": "知识达人", "answers": 23, "adopted": 15, "score": 95.0},
-			{"rank": 2, "name": "热心学长", "answers": 18, "adopted": 10, "score": 82.5},
-			{"rank": 3, "name": "编程高手", "answers": 12, "adopted": 8, "score": 78.0},
-		},
-		Contributors: []map[string]interface{}{
-			{"rank": 1, "name": "知识达人", "contributions": 15, "quality_score": 4.8},
-			{"rank": 2, "name": "热心学长", "contributions": 10, "quality_score": 4.5},
-			{"rank": 3, "name": "学霸笔记", "contributions": 8, "quality_score": 4.3},
-		},
-		Period: "本周", DataSource: "reference",
-	}
+	data := referenceQALeaderboard()
 
 	// 热门提问：来自真实 messages 表的聚合统计
 	if s.messageRepo != nil {
@@ -1246,11 +1233,6 @@ func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboa
 	}
 
 	// 无真实提问数据时的参考样例
-	data.HotQuestions = []map[string]interface{}{
-		{"rank": 1, "title": "ACM竞赛如何入门？", "count": 8},
-		{"rank": 2, "title": "转专业需要什么条件？", "count": 5},
-		{"rank": 3, "title": "考研还是就业？", "count": 12},
-	}
 	return data
 }
 

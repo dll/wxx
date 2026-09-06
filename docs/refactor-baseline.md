@@ -82,6 +82,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生学习日记兜底构造提取至 `student_diary_fallback.go`，公开服务方法和 fallback 字段契约保持不变。
 - 已完成学生问答广场兜底数据构造提取至 `student_qa_fallback.go`，真实 FAQ 查询、标签和来源标记保持不变。
 - 已完成学生校园热点兜底数据构造提取至 `student_hot_topics.go`，真实 Activity 查询和来源标记保持不变。
+- 已完成学生问答排行榜参考榜单与无数据兜底构造提取至 `student_qa_leaderboard.go`，真实提问聚合逻辑保持不变。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
