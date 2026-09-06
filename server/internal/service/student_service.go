@@ -1366,7 +1366,7 @@ type GrowthPathResult struct {
 
 // GenerateGrowthPath 生成成长路径（基于数字孪生五维快照 + 学业阶段 → 分阶段里程碑 + LLM 总结）
 // 无快照数据时返回 (nil, nil)，由 handler 回落通用 AI 文案。
-func (s *StudentService) GenerateGrowthPath(ctx context.Context, userID int64) (*GrowthPathResult, error) {
+func (s *StudentService) generateGrowthPathLegacy(ctx context.Context, userID int64) (*GrowthPathResult, error) {
 	if s.twinRepo == nil || s.userRepo == nil {
 		return nil, nil
 	}
