@@ -11,6 +11,7 @@ import '../../utils/capability_utils.dart';
 import '../../utils/web_export.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/md_text.dart';
+import 'resource_stat_chip.dart';
 
 /// 知识治理页面（增强版）
 /// 功能：搜索、多条件筛选、批量选择、批量操作、统计、预览、编辑
@@ -18,7 +19,8 @@ class KnowledgeGovernancePage extends StatefulWidget {
   const KnowledgeGovernancePage({super.key});
 
   @override
-  State<KnowledgeGovernancePage> createState() => _KnowledgeGovernancePageState();
+  State<KnowledgeGovernancePage> createState() =>
+      _KnowledgeGovernancePageState();
 }
 
 class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
@@ -146,7 +148,8 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
         color: Theme.of(context).colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
+            color:
+                Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3),
           ),
         ),
       ),
@@ -279,8 +282,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                   DropdownMenuItem(value: 'updated_at', child: Text('更新时间')),
                   DropdownMenuItem(value: 'created_at', child: Text('创建时间')),
                   DropdownMenuItem(value: 'title', child: Text('标题')),
-                  DropdownMenuItem(
-                      value: 'resource_type', child: Text('类型')),
+                  DropdownMenuItem(value: 'resource_type', child: Text('类型')),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -358,16 +360,28 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                   ),
                   const SizedBox(width: 16),
                   if (stats != null) ...[
-                    _statChip('草稿', stats['draft'] ?? 0, Colors.grey),
-                    _statChip('待审', stats['pending'] ?? 0, Colors.orange),
-                    _statChip('已发', stats['published'] ?? 0, Colors.green),
-                    _statChip('下架', stats['retired'] ?? 0, Colors.red),
+                    ResourceStatChip(
+                        label: '草稿',
+                        count: stats['draft'] ?? 0,
+                        color: Colors.grey),
+                    ResourceStatChip(
+                        label: '待审',
+                        count: stats['pending'] ?? 0,
+                        color: Colors.orange),
+                    ResourceStatChip(
+                        label: '已发',
+                        count: stats['published'] ?? 0,
+                        color: Colors.green),
+                    ResourceStatChip(
+                        label: '下架',
+                        count: stats['retired'] ?? 0,
+                        color: Colors.red),
                   ],
                   const Spacer(),
                   if (provider.selectedCount > 0) ...[
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(10),
@@ -375,7 +389,8 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                       child: Text(
                         '已选 ${provider.selectedCount} 条',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -393,12 +408,15 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(Icons.category_outlined, size: 14,
+                    Icon(Icons.category_outlined,
+                        size: 14,
                         color: Theme.of(context).colorScheme.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Text('类型分布：',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             )),
                     const SizedBox(width: 4),
                     ..._buildTypeStats(stats['by_type']),
@@ -445,8 +463,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
               ),
             ),
             const SizedBox(width: 3),
-            Text('$label $count',
-                style: TextStyle(fontSize: 11, color: color)),
+            Text('$label $count', style: TextStyle(fontSize: 11, color: color)),
           ],
         ),
       ));
@@ -454,7 +471,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     return widgets;
   }
 
-  Widget _statChip(String label, dynamic count, Color color) {
+  Widget _legacyStatChip(String label, dynamic count, Color color) {
     final num = count is int ? count : 0;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -705,7 +722,8 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     final failed = (data['failed'] ?? 0) as int;
     final results = (data['results'] as List<dynamic>?) ?? [];
     final failedReasons = results
-        .where((e) => e is Map && e['ok'] != true && (e['message'] ?? '').isNotEmpty)
+        .where((e) =>
+            e is Map && e['ok'] != true && (e['message'] ?? '').isNotEmpty)
         .map((e) => '${(e as Map)['resource_id']}: ${e['message']}')
         .take(5)
         .join('\n');
@@ -808,8 +826,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
                 onPreview: () => _previewResource(provider, resource),
                 onEdit: () => _editResource(provider, resource),
                 onPrint: () => _printResource(provider, resource),
-                onSubmit: () =>
-                    _handleSubmit(provider, resource.resourceId),
+                onSubmit: () => _handleSubmit(provider, resource.resourceId),
                 onDelete: () => _handleDelete(provider, resource),
               );
             },
@@ -890,8 +907,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('关闭'))
+              onPressed: () => Navigator.pop(context), child: const Text('关闭'))
         ],
       ),
     );
@@ -1131,23 +1147,25 @@ class _ResourceTile extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: resource.tags.take(3).map((tag) =>
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            tag,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      ).toList(),
+                      children: resource.tags
+                          .take(3)
+                          .map((tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -1156,7 +1174,8 @@ class _ResourceTile extends StatelessWidget {
                       children: [
                         OutlinedButton.icon(
                             onPressed: onPreview,
-                            icon: const Icon(Icons.visibility_outlined, size: 16),
+                            icon:
+                                const Icon(Icons.visibility_outlined, size: 16),
                             label: const Text('预览')),
                         OutlinedButton.icon(
                             onPressed: onEdit,
@@ -1169,11 +1188,10 @@ class _ResourceTile extends StatelessWidget {
                         OutlinedButton.icon(
                             onPressed: onDelete,
                             icon: Icon(Icons.delete_outline,
-                                size: 16,
-                                color: theme.colorScheme.error),
+                                size: 16, color: theme.colorScheme.error),
                             label: Text('删除',
-                                style: TextStyle(
-                                    color: theme.colorScheme.error))),
+                                style:
+                                    TextStyle(color: theme.colorScheme.error))),
                         FilledButton.tonal(
                             onPressed: submitted ? null : onSubmit,
                             child: Text(submitted ? '已提交' : '提交审核')),
@@ -1555,7 +1573,8 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     final provider = context.read<KnowledgeProvider>();
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _uploading = true);
-    final result = await provider.parseDocument(bytes: bytes, filename: file.name);
+    final result =
+        await provider.parseDocument(bytes: bytes, filename: file.name);
     if (!mounted) return;
     setState(() => _uploading = false);
     if (result == null) {
@@ -1588,10 +1607,8 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     });
 
     _titleCtrl.text = (result['title'] ?? _titleCtrl.text).toString();
-    _summaryCtrl.text =
-        (result['summary'] ?? _summaryCtrl.text).toString();
-    _contentCtrl.text =
-        (result['content'] ?? '').toString();
+    _summaryCtrl.text = (result['summary'] ?? _summaryCtrl.text).toString();
+    _contentCtrl.text = (result['content'] ?? '').toString();
 
     final keywords = result['keywords'] as List<dynamic>?;
     if (keywords != null && keywords.isNotEmpty) {
@@ -1692,10 +1709,11 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
 
     if (result == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(
-            context.read<KnowledgeProvider>().resourceError.isEmpty
-                ? 'AI 精修失败，请稍后重试'
-                : context.read<KnowledgeProvider>().resourceError)),
+        SnackBar(
+            content: Text(
+                context.read<KnowledgeProvider>().resourceError.isEmpty
+                    ? 'AI 精修失败，请稍后重试'
+                    : context.read<KnowledgeProvider>().resourceError)),
       );
       return;
     }
@@ -1715,9 +1733,8 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
     final fallback = result['fallback'] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(fallback
-            ? '暂无法 AI 精修（已保留当前内容），可手动编辑后提交'
-            : 'AI 精修完成，已回填，请核对后提交'),
+        content: Text(
+            fallback ? '暂无法 AI 精修（已保留当前内容），可手动编辑后提交' : 'AI 精修完成，已回填，请核对后提交'),
       ),
     );
   }
@@ -2005,7 +2022,8 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
               padding: const EdgeInsets.fromLTRB(20, 18, 8, 8),
               child: Row(
                 children: [
-                  Icon(Icons.fact_check_outlined, color: theme.colorScheme.primary),
+                  Icon(Icons.fact_check_outlined,
+                      color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
                   Text('知识治理 · 智能体审计',
                       style: theme.textTheme.titleMedium
@@ -2066,10 +2084,8 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
   }
 
   Widget _buildReport(ThemeData theme) {
-    final summary =
-        (_data?['summary'] as Map?) ?? const <String, dynamic>{};
-    final issues =
-        ((_data?['issues'] as List?) ?? const []);
+    final summary = (_data?['summary'] as Map?) ?? const <String, dynamic>{};
+    final issues = ((_data?['issues'] as List?) ?? const []);
     final ds = (_data?['data_source'] as String?) ?? 'real';
 
     return ListView(
@@ -2098,8 +2114,8 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
         if (issues.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('未发现问题，知识库质量良好。',
-                style: TextStyle(color: Colors.green)),
+            child:
+                Text('未发现问题，知识库质量良好。', style: TextStyle(color: Colors.green)),
           )
         else
           ...issues.map((it) => _issueTile(theme, it as Map)),
@@ -2113,8 +2129,7 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(value,
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w800)),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );
@@ -2156,9 +2171,7 @@ class _GovernanceAuditDialogState extends State<_GovernanceAuditDialog> {
                 Text(
                   '${_categoryLabel(category)}${title.isNotEmpty ? ' · $title' : ''}${rid.isNotEmpty ? ' ($rid)' : ''}',
                   style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: color),
+                      fontWeight: FontWeight.w700, fontSize: 13, color: color),
                 ),
                 const SizedBox(height: 3),
                 Text(message, style: const TextStyle(fontSize: 13)),
