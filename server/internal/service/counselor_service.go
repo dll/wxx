@@ -773,7 +773,7 @@ type FollowUpReminder struct {
 	DataSource   string                   `json:"data_source"`
 }
 
-func (s *CounselorService) GenerateFollowUpReminders(ctx context.Context, counselorID int64) *FollowUpReminder {
+func (s *CounselorService) generateFollowUpRemindersLegacy(ctx context.Context, counselorID int64) *FollowUpReminder {
 	reminder := &FollowUpReminder{
 		Tasks:        []map[string]interface{}{},
 		OverdueCount: 0,

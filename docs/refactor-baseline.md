@@ -103,6 +103,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成辅导员谈心话术推荐入口提取至 `counselor_talk_tips.go`，保留画像提示词、字段解析和无模型兜底契约。
 - 已完成辅导员风险干预方案入口提取至 `counselor_intervention.go`，保留风险等级、紧急措施、长期方案和 LLM 回退契约。
 - 已完成辅导员会话洞察入口提取至 `counselor_session_insight.go`，保留话题、情绪趋势、诉求、建议和 AI 追加分析契约。
+- 已完成辅导员谈心跟进提醒入口提取至 `counselor_followup.go`，保留逾期判定、优先级统计、真实记录和 AI 建议契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
