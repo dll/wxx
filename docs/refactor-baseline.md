@@ -112,6 +112,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 将页面容器、状态、请求、区块 Widget、表单和对话框分离。
 - 已完成：通知关联类型映射从 `notification_page.dart` 抽出至独立路由工具，并增加 Dart 单元测试；后续继续按页面优先级拆分大型容器。
 - 已完成：学生首页加载骨架从 `home_page.dart` 抽出至 `student_home_skeleton.dart`，保持首页状态与视觉契约不变，并通过 Flutter 定向测试。
+- 已完成：首页欢迎横幅从 `home_page.dart` 抽出至 `home_welcome_banner.dart`，保留年级主题、问芯入口和时间问候展示契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 

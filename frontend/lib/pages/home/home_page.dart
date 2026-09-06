@@ -26,6 +26,7 @@ import '../../widgets/skeleton.dart';
 import '../../widgets/student_interest_pick_dialog.dart';
 import '../teacher/daily_overview_page.dart';
 import 'student_home_skeleton.dart';
+import 'home_welcome_banner.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -724,153 +725,12 @@ class _HomePageState extends State<HomePage> {
   /// 欢迎横幅
   Widget _buildWelcomeBanner(ThemeData theme) {
     final displayName = Storage.displayName ?? '同学';
-    final hour = DateTime.now().hour;
-    final greeting = hour < 6
-        ? '夜深了'
-        : hour < 12
-            ? '上午好'
-            : hour < 14
-                ? '中午好'
-                : hour < 18
-                    ? '下午好'
-                    : '晚上好';
     final themeNotifier = context.watch<ThemeNotifier>();
-    final accent = themeNotifier.gradeAccent;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            accent.withOpacity(0.14),
-            theme.colorScheme.surfaceContainerLow,
-            theme.colorScheme.surfaceContainerLow,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withOpacity(0.18)),
-      ),
-      child: Stack(
-        children: [
-          // 装饰：主题色光斑，让横幅有层次而非纯色块
-          Positioned(
-            right: -24,
-            top: -30,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    accent.withOpacity(0.18),
-                    accent.withOpacity(0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 40,
-            bottom: -36,
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    theme.colorScheme.secondary.withOpacity(0.12),
-                    theme.colorScheme.secondary.withOpacity(0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.auto_awesome, size: 18, color: accent),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${themeNotifier.gradeThemeName}主题',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: accent,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text('$greeting，$displayName',
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '今日安排与智能服务都在这里',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: accent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(Icons.school_outlined, color: accent, size: 28),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Material(
-                color: theme.colorScheme.surface.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  onTap: () => context.go('/chat'),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_awesome,
-                            size: 20, color: theme.colorScheme.secondary),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '问小芯：政策、流程、学习与校园生活',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.mic_none,
-                            size: 20, color: theme.colorScheme.primary),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    return HomeWelcomeBanner(
+        displayName: displayName,
+        gradeThemeName: themeNotifier.gradeThemeName,
+        accent: themeNotifier.gradeAccent,
+        onOpenChat: () => context.go('/chat'));
   }
 
   /// 告警统计概览（辅导员及以上可见）
