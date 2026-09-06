@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'vopc_error_card.dart';
+import 'vopc_meta_chip.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1040,10 +1041,10 @@ class _HallProjectCard extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 5),
                     Wrap(spacing: 6, runSpacing: 6, children: [
-                      _MetaChip(project.projectType),
-                      _MetaChip(project.stage),
-                      _MetaChip(project.riskLevel),
-                      _MetaChip(project.visibility == 'private'
+                      VopcMetaChip(project.projectType),
+                      VopcMetaChip(project.stage),
+                      VopcMetaChip(project.riskLevel),
+                      VopcMetaChip(project.visibility == 'private'
                           ? '私有'
                           : project.visibility),
                     ]),
@@ -1149,7 +1150,7 @@ class _InvitationCard extends StatelessWidget {
                         invitation['project_name']?.toString() ?? '项目邀请',
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w700))),
-                _MetaChip(invitation['project_role']?.toString() ?? '成员')
+                VopcMetaChip(invitation['project_role']?.toString() ?? '成员')
               ]),
               if ((invitation['message']?.toString() ?? '').isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -1220,9 +1221,9 @@ class _ProjectCard extends StatelessWidget {
                                 color: theme.colorScheme.onSurfaceVariant)),
                         const SizedBox(height: 10),
                         Wrap(spacing: 6, runSpacing: 6, children: [
-                          _MetaChip(project.stage),
-                          _MetaChip(project.status),
-                          _MetaChip(project.riskLevel)
+                          VopcMetaChip(project.stage),
+                          VopcMetaChip(project.status),
+                          VopcMetaChip(project.riskLevel)
                         ])
                       ])),
                   const SizedBox(width: 4),
@@ -1711,10 +1712,10 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             const Spacer(),
-            _MetaChip(project.teamMode == 'manual' ? '手工组队' : '自动组队'),
+            VopcMetaChip(project.teamMode == 'manual' ? '手工组队' : '自动组队'),
             if (project.isDemo) ...[
               const SizedBox(width: 6),
-              const _MetaChip('模拟演示')
+              const VopcMetaChip('模拟演示')
             ],
           ]),
           const SizedBox(height: 8),
@@ -1772,7 +1773,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                       Expanded(
                           child: Text(d.title,
                               style: Theme.of(context).textTheme.titleMedium)),
-                      _MetaChip(d.status)
+                      VopcMetaChip(d.status)
                     ]),
                     if (d.background.isNotEmpty) Text(d.background),
                     if (d.options.isNotEmpty) Text('选项：${d.options}'),
@@ -2280,9 +2281,9 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
       ]),
       const SizedBox(height: 6),
       Row(children: [
-        _MetaChip('当前状态：$status'),
+        VopcMetaChip('当前状态：$status'),
         const SizedBox(width: 6),
-        if (status == 'risk_frozen') const _MetaChip('已冻结'),
+        if (status == 'risk_frozen') const VopcMetaChip('已冻结'),
       ]),
       const SizedBox(height: 8),
       if (p.closeRecords.isEmpty)
@@ -2342,7 +2343,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
               margin: const EdgeInsets.only(bottom: 6),
               child: ListTile(
                 dense: true,
-                leading: _MetaChip(r['risk_level']?.toString() ?? 'R0'),
+                leading: VopcMetaChip(r['risk_level']?.toString() ?? 'R0'),
                 title: Text(r['title']?.toString() ?? ''),
                 subtitle: Text(
                     '${r['status']} · ${r['description']?.toString() ?? ''}'),
@@ -2425,7 +2426,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
           runSpacing: 6,
           children: p.rubrics
               .map((r) =>
-                  _MetaChip('${r['stage']}·${r['title']} ≥${r['min_pass']}'))
+                  VopcMetaChip('${r['stage']}·${r['title']} ≥${r['min_pass']}'))
               .toList(),
         ),
       if (p.milestoneSubmissions.isNotEmpty) ...[
@@ -2567,17 +2568,17 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
                       Expanded(
                           child: Text('${t.roleKey} · ${t.model}',
                               style: Theme.of(context).textTheme.titleSmall)),
-                      _MetaChip(
+                      VopcMetaChip(
                           'provider=${t.model == 'virtual_guide' ? 'template' : t.model}'),
                     ]),
                     const SizedBox(height: 4),
                     Wrap(spacing: 6, runSpacing: 4, children: [
-                      _MetaChip(
+                      VopcMetaChip(
                           '版次 revision=${t.revision.isEmpty ? '0' : t.revision}'),
-                      _MetaChip(
+                      VopcMetaChip(
                           '修改率 ${(t.modificationRate * 100).toStringAsFixed(0)}%'),
                       if (t.finalDecision != null)
-                        _MetaChip('已审阅：${t.finalDecision}'),
+                        VopcMetaChip('已审阅：${t.finalDecision}'),
                     ]),
                     if (t.outputContent.isNotEmpty) ...[
                       const SizedBox(height: 6),
@@ -2987,9 +2988,9 @@ class _TaskCard extends StatelessWidget {
                 Expanded(
                     child: Text(task.title,
                         style: Theme.of(context).textTheme.titleMedium)),
-                _MetaChip(_priorityLabels[task.priority] ?? task.priority),
+                VopcMetaChip(_priorityLabels[task.priority] ?? task.priority),
                 const SizedBox(width: 6),
-                _MetaChip(_statusLabels[task.status] ?? task.status),
+                VopcMetaChip(_statusLabels[task.status] ?? task.status),
               ]),
               const SizedBox(height: 10),
               Text('验收：${task.acceptanceCriteria}'),
@@ -3039,16 +3040,4 @@ class _TaskCard extends StatelessWidget {
     'done': '验收通过',
     'cancelled': '取消任务',
   };
-}
-
-class _MetaChip extends StatelessWidget {
-  final String label;
-  const _MetaChip(this.label);
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall));
 }
