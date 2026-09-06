@@ -154,6 +154,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：问芯角色专属推荐提问区块从 `chat_page.dart` 抽出至 `chat_role_suggestions.dart`，保持角色标签、推荐问题和一键发送契约。
 - 已完成：首页今日概览统计区块从 `home_page.dart` 抽出至 `home_today_overview.dart`，通过计数参数保持课程、任务、通知和计划统计契约。
 - 已完成：首页分年级成长计划卡从 `home_page.dart` 抽出至 `home_grade_growth_card.dart`，保持年级主题、成长入口和大一隐藏规则契约。
+- 已完成：移除首页校历组件替换后遗留的大段注释版旧实现，保持 `HomeCalendarBar` 路径不变并通过 Flutter 定向测试。
 - 已完成：辅导员谈心记录、摘要、话术和干预的无引用 Legacy 方法体清理，保留正式文件中的统一实现与结构体契约；服务定向测试及全仓 Go 编译门禁通过。
 - 已完成：辅导员话术/干预迁移后剩余的 `parseTalkTipLegacy`、`fallbackTalkTipLegacy`、`parseInterventionLegacy`、`fallbackInterventionLegacy` 清理；服务定向测试及全仓 Go 编译门禁通过。
 - 已完成：辅导员会话洞察与跟进提醒迁移后的 `generateSessionInsightLegacy`、`generateFollowUpRemindersLegacy` 清理；服务定向测试及全仓 Go 编译门禁通过。

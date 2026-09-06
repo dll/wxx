@@ -1335,61 +1335,6 @@ class _HomePageState extends State<HomePage> {
 
     return HomeCalendarBar(
         weekNo: weekNo, weekday: weekday, semesterName: semesterName);
-    /* return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.secondaryContainer,
-            theme.colorScheme.tertiaryContainer.withOpacity(0.7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSecondaryContainer.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.calendar_today,
-              color: theme.colorScheme.onSecondaryContainer,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '第 $weekNo 周 · $weekday',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSecondaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  semesterName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color:
-                        theme.colorScheme.onSecondaryContainer.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ); */
   }
 
   /// 今日概览统计
