@@ -15,6 +15,7 @@ import 'vopc_empty_card.dart';
 import 'vopc_stage_progress.dart';
 import 'vopc_quiz_card.dart';
 import 'vopc_user_search_dialog.dart';
+import 'vopc_learning_sheet.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -629,7 +630,10 @@ class _OpcIntroSection extends StatelessWidget {
       isScrollControlled: true,
       builder: (sheetCtx) {
         final learning = sheetCtx.read<VopcProvider>().learning;
-        return _LearningSheet(learning: learning);
+        return VopcLearningSheet(
+            learning: learning,
+            defaultCards: _defaultCards,
+            defaultSteps: _defaultFlowSteps);
       },
     );
   }
@@ -661,79 +665,6 @@ const List<Map<String, String>> _defaultFlowSteps = [
 ];
 
 /// 五步核心流程图（水平流 strip，窄屏自动换行）。
-class _LearningSheet extends StatelessWidget {
-  final Map<String, dynamic> learning;
-  const _LearningSheet({required this.learning});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cards = _learningList(learning, 'knowledge_cards');
-    final steps = _learningList(learning, 'flow_steps');
-    final quizzes = _learningList(learning, 'quizzes');
-    final allCards = cards.isEmpty ? _defaultCards : cards;
-    final allSteps = steps.isEmpty ? _defaultFlowSteps : steps;
-
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: .82,
-      maxChildSize: .95,
-      minChildSize: .5,
-      builder: (context, scrollController) => ListView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: theme.colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('OPC 核心知识卡',
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text('一人公司最小闭环：需求方 + 产品/服务 + 交付 + 反馈',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline)),
-          const SizedBox(height: 14),
-          for (final c in allCards) ...[
-            VopcCoreIdeaCard(
-                title: c['title']?.toString() ?? '',
-                body: c['body']?.toString() ?? ''),
-            const SizedBox(height: 10),
-          ],
-          const SizedBox(height: 8),
-          Text('OPC 核心流程图',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          VopcFlowStrip(steps: allSteps),
-          const SizedBox(height: 20),
-          if (quizzes.isNotEmpty) ...[
-            Text('自测小问卷',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-            ...quizzes.map((q) => VopcQuizCard(
-                  question: q['q']?.toString() ?? '',
-                  options: (q['options'] as List?)
-                          ?.map((e) => e.toString())
-                          .toList() ??
-                      const [],
-                  answer: (q['answer'] as num?)?.toInt(),
-                )),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 const List<Map<String, String>> _defaultCards = [
   {
     'title': 'OPC 是什么',
