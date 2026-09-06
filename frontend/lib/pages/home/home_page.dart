@@ -41,6 +41,7 @@ import 'home_course_item.dart';
 import 'home_task_item.dart';
 import 'home_quick_entry_card.dart';
 import 'home_event_item.dart';
+import 'home_upcoming_events.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1325,7 +1326,10 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 16),
         _buildQuickEntries(theme),
         const SizedBox(height: 16),
-        _buildUpcomingEvents(theme),
+        HomeUpcomingEvents(
+            events: ((_studentHomeData?['upcoming_events'] as List?)
+                    ?.cast<Map<String, dynamic>>() ??
+                [])),
       ],
     );
   }
@@ -1553,47 +1557,4 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
-
-  /// 近期提醒
-  Widget _buildUpcomingEvents(ThemeData theme) {
-    final events = (_studentHomeData?['upcoming_events'] as List?)
-            ?.cast<Map<String, dynamic>>() ??
-        [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('近期提醒', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        if (events.isEmpty)
-          HomeEmptyCard(
-              message: '近期没有重要事件', icon: Icons.event_available_outlined)
-        else
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-              ),
-            ),
-            child: Column(
-              children: [
-                for (int i = 0; i < events.length; i++) ...[
-                  HomeEventItem(event: events[i]),
-                  if (i < events.length - 1)
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-                    ),
-                ],
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
 }
