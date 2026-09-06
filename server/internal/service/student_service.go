@@ -1207,68 +1207,6 @@ type CourseAnalyticsResult struct {
 	DataSource      string                 `json:"data_source"`  // real/fallback
 }
 
-// GenerateCourseAnalytics 生成课程学情看板（真实成绩 + 班级匿名基准 + LLM 薄弱点建议）
-// 无成绩数据时返回 (nil, nil)，由 handler 回落 mock。
-func (s *StudentService) generateCourseAnalyticsLegacy(ctx context.Context, userID int64) (*CourseAnalyticsResult, error) {
-	if s.twinRepo == nil || s.userRepo == nil {
-		return nil, nil
-	}
-	user, err := s.userRepo.GetByID(userID)
-	if err != nil || user == nil {
-		return nil, nil
-	}
-	grades, err := s.twinRepo.ListCourseGrades(userID)
-	if err != nil {
-		return nil, err
-	}
-	if len(grades) == 0 {
-		return nil, nil // 无真实成绩，交由 handler 兜底
-	}
-
-	basis, _ := s.twinRepo.GetClassBasis(user.ClassName)
-
-	res := &CourseAnalyticsResult{
-		UserDisplayName: user.DisplayName,
-		ClassName:       user.ClassName,
-		Courses:         make([]*CourseAnalyticsItem, 0, len(grades)),
-		WeakCourses:     []string{},
-		DataSource:      "real",
-	}
-	if basis != nil {
-		res.ClassAvgGPA = basis.ClassAvgGPA
-		res.ClassSize = basis.ClassSize
-	}
-
-	var gpaSum float64
-	for _, g := range grades {
-		item := &CourseAnalyticsItem{
-			CourseName: g.CourseName,
-			Semester:   g.Semester,
-			Score:      g.Score,
-			GPA:        g.GPA,
-			GradeLevel: g.GradeLevel,
-			Credits:    g.Credits,
-			Passed:     g.Passed,
-		}
-		res.Courses = append(res.Courses, item)
-		gpaSum += g.GPA
-		if g.Passed {
-			res.CreditsEarned += g.Credits
-		}
-		// 薄弱课程：未通过或分数 < 70
-		if !g.Passed || g.Score < 70 {
-			res.WeakCourses = append(res.WeakCourses, g.CourseName)
-		}
-	}
-	if len(grades) > 0 {
-		res.OverallGPA = gpaSum / float64(len(grades))
-	}
-
-	// LLM 生成薄弱点学业建议（失败不阻断，返回无 Advice 的真实数据）
-	res.Advice = s.buildCourseAdvice(ctx, res)
-	return res, nil
-}
-
 // ── 成长路径（S1 功能7）──
 
 // GrowthMilestone 成长路径里程碑
@@ -1290,53 +1228,6 @@ type GrowthPathResult struct {
 	Milestones      []*GrowthMilestone `json:"milestones"`     // 分阶段路线图
 	Summary         string             `json:"summary"`        // LLM 个性化总结
 	DataSource      string             `json:"data_source"`    // real/fallback
-}
-
-// GenerateGrowthPath 生成成长路径（基于数字孪生五维快照 + 学业阶段 → 分阶段里程碑 + LLM 总结）
-// 无快照数据时返回 (nil, nil)，由 handler 回落通用 AI 文案。
-func (s *StudentService) generateGrowthPathLegacy(ctx context.Context, userID int64) (*GrowthPathResult, error) {
-	if s.twinRepo == nil || s.userRepo == nil {
-		return nil, nil
-	}
-	user, err := s.userRepo.GetByID(userID)
-	if err != nil || user == nil {
-		return nil, nil
-	}
-	snap, err := s.twinRepo.GetSnapshot(userID)
-	if err != nil {
-		return nil, err
-	}
-	if snap == nil {
-		return nil, nil // 无孪生快照，交 handler 兜底（可先访问 /student/digital-twin 生成）
-	}
-
-	// 找最强/最弱维度
-	dims := map[string]float64{
-		"学业": snap.AcademicScore, "能力": snap.AbilityScore, "思想": snap.IdeologicalScore,
-		"情感": snap.EmotionalScore, "社交": snap.SocialScore,
-	}
-	strongest, weakest := "学业", "学业"
-	for k, v := range dims {
-		if v > dims[strongest] {
-			strongest = k
-		}
-		if v < dims[weakest] {
-			weakest = k
-		}
-	}
-
-	res := &GrowthPathResult{
-		UserDisplayName: user.DisplayName,
-		CurrentStage:    inferAcademicStage(user.EnrollmentYear),
-		AcademicScore:   snap.AcademicScore,
-		AbilityScore:    snap.AbilityScore,
-		StrongestDim:    strongest,
-		WeakestDim:      weakest,
-		DataSource:      "real",
-	}
-	res.Milestones = buildGrowthMilestones(weakest)
-	res.Summary = s.buildGrowthSummary(ctx, user.DisplayName, res, weakest)
-	return res, nil
 }
 
 // inferAcademicStage 根据入学年份推断当前学业阶段（简化：按自然年差）
