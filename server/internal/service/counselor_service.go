@@ -345,8 +345,8 @@ func (s *CounselorService) generateTalkTipsLegacy(ctx context.Context, studentPr
 	return parseTalkTip(resp.Content), nil
 }
 
-func parseTalkTip(text string) *TalkTip {
-	tip := fallbackTalkTip()
+func parseTalkTipLegacy(text string) *TalkTip {
+	tip := fallbackTalkTipLegacy()
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -364,7 +364,7 @@ func parseTalkTip(text string) *TalkTip {
 	return tip
 }
 
-func fallbackTalkTip() *TalkTip {
+func fallbackTalkTipLegacy() *TalkTip {
 	return &TalkTip{
 		Scenario:    "一般关心谈话",
 		OpeningLine: "最近怎么样？学习和生活上有什么需要帮助的吗？",
