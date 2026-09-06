@@ -140,6 +140,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：学生模拟面试迁移后的 `generateMockInterviewLegacy` 遗留实现清理，主服务仅保留 `GenerateMockInterview` 正式入口。
 - 已完成：学生学习搭子迁移后的 `generateStudyBuddyMatchesLegacy` 及示例兜底清理，主服务仅保留 `GenerateStudyBuddyMatches` 正式入口，并移除无用排序依赖。
 - 已完成：学生心理健康评估迁移后的 `generateMentalHealthReportLegacy` 遗留实现清理，主服务仅保留 `GenerateMentalHealthReport` 正式入口。
+- 已完成：辅导员谈心记录、话术与干预迁移后的 Legacy 方法体清理，保留结构体契约、正式入口和统一兜底实现，并通过辅导员服务定向测试。
 - 已完成：vOPC Hero 统计头部从 `vopc_page.dart` 抽出至 `vopc_hero.dart`，保持项目数、邀请数和主题视觉契约。
 - 已完成：vOPC 五步流程条从 `vopc_page.dart` 抽出至 `vopc_flow_strip.dart`，保持学习数据驱动、窄屏换行和流程节点展示契约。
 - 已完成：vOPC 核心思想卡片从 `vopc_page.dart` 抽出至 `vopc_core_idea_card.dart`，保持学习卡片标题、正文与主题样式契约。
