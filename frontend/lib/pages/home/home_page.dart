@@ -33,6 +33,7 @@ import 'home_overview_item.dart';
 import 'home_empty_card.dart';
 import 'home_alert_overview.dart';
 import 'home_ai_briefing_card.dart';
+import 'home_campus_service.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -491,7 +492,12 @@ class _HomePageState extends State<HomePage> {
             _buildKnowledgeEntry(theme),
             const SizedBox(height: 20),
             // 所有角色：校园服务
-            _buildCampusService(theme),
+            HomeCampusService(
+              onMap: () => context.go('/campus?v=map'),
+              onVr: () => context.go('/campus?v=vr'),
+              onCollege: () => context.go('/campus?v=csci'),
+              onSchool: () => context.go('/campus?v=home'),
+            ),
             const SizedBox(height: 20),
             // 学生专区（student/student_union）
             if (isStudent) ...[
@@ -847,55 +853,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-    );
-  }
-
-  /// 校园服务 — 地图/全景/学院/官网
-  Widget _buildCampusService(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(theme,
-            icon: Icons.location_city,
-            title: '校园服务',
-            subtitle: '导航 · 全景 · 学院入口'),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            _buildKnowledgeCard(
-              theme,
-              icon: Icons.map_outlined,
-              label: '校园导航',
-              color: const Color(0xFF1677FF),
-              onTap: () => context.go('/campus?v=map'),
-            ),
-            const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
-              icon: Icons.view_in_ar,
-              label: 'VR全景',
-              color: const Color(0xFF7B1FA2),
-              onTap: () => context.go('/campus?v=vr'),
-            ),
-            const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
-              icon: Icons.computer,
-              label: '计算机学院',
-              color: const Color(0xFF2E7D32),
-              onTap: () => context.go('/campus?v=csci'),
-            ),
-            const SizedBox(width: 10),
-            _buildKnowledgeCard(
-              theme,
-              icon: Icons.school,
-              label: '学校首页',
-              color: const Color(0xFF1565C0),
-              onTap: () => context.go('/campus?v=home'),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
