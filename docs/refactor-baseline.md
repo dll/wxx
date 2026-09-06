@@ -96,6 +96,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生问答广场入口提取至 `student_qa_plaza.go`，保留 FAQ 检索、标签解析、来源链接和兜底契约。
 - 已完成学生校园热点入口提取至 `student_hot_topics_service.go`，保留 Activity 检索、热度趋势、来源链接和兜底契约。
 - 已完成学生问答排行榜入口提取至 `student_qa_leaderboard_service.go`，保留真实热门提问聚合、截断和参考榜单契约。
+- 学生服务连续拆分后的后端全量编译门禁已通过：`go test ./server/... -run '^$'`，各 server 包均可正常编译。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
