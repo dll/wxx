@@ -244,74 +244,8 @@ type TalkRecordRequest struct {
 }
 
 // GenerateTalkRecord 用 LLM 从对话中提取结构化摘要
-func (s *CounselorService) generateTalkRecordLegacy(ctx context.Context, req *TalkRecordRequest) (*TalkRecord, error) {
-	now := time.Now().Format("2006-01-02 15:04")
-	record := &TalkRecord{
-		StudentName: req.StudentName,
-		Topic:       "日常交流",
-		Emotion:     "平稳",
-		Demand:      "无特殊诉求",
-		FollowUp:    "持续关注",
-		Summary:     req.Content,
-		CreatedAt:   now,
-	}
-
-	if s.llmClient != nil && req.Content != "" {
-		summary, err := s.generateTalkSummary(ctx, req)
-		if err == nil && summary != nil {
-			record.Topic = summary.Topic
-			record.Emotion = summary.Emotion
-			record.Demand = summary.Demand
-			record.Promise = summary.Promise
-			record.FollowUp = summary.FollowUp
-			record.Summary = summary.Summary
-		}
-	}
-
-	return record, nil
-}
-
 type talkSummary struct {
 	Topic, Emotion, Demand, Promise, FollowUp, Summary string
-}
-
-func (s *CounselorService) generateTalkSummaryLegacy(ctx context.Context, req *TalkRecordRequest) (*talkSummary, error) {
-	prompt := fmt.Sprintf(
-		"你是一位辅导员助理。请从以下谈话内容中提取结构化信息。\n\n学生：%s\n谈话内容：%s\n\n"+
-			"请按以下格式输出（每行一个字段）：\n"+
-			"主题：xxx\n情绪：xxx（平稳/低落/焦虑/愤怒/积极）\n"+
-			"诉求：xxx\n承诺：xxx\n跟进事项：xxx\n摘要：xxx（50字以内）",
-		req.StudentName, req.Content)
-
-	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-		Temperature: 0.3,
-		MaxTokens:   400,
-	})
-	if err != nil || resp.Content == "" {
-		return nil, fmt.Errorf("LLM 调用失败")
-	}
-
-	ts := &talkSummary{}
-	lines := strings.Split(resp.Content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(line, "主题："):
-			ts.Topic = strings.TrimPrefix(line, "主题：")
-		case strings.HasPrefix(line, "情绪："):
-			ts.Emotion = strings.TrimPrefix(line, "情绪：")
-		case strings.HasPrefix(line, "诉求："):
-			ts.Demand = strings.TrimPrefix(line, "诉求：")
-		case strings.HasPrefix(line, "承诺："):
-			ts.Promise = strings.TrimPrefix(line, "承诺：")
-		case strings.HasPrefix(line, "跟进事项："):
-			ts.FollowUp = strings.TrimPrefix(line, "跟进事项：")
-		case strings.HasPrefix(line, "摘要："):
-			ts.Summary = strings.TrimPrefix(line, "摘要：")
-		}
-	}
-	return ts, nil
 }
 
 // TalkTip 话术推荐
@@ -320,29 +254,6 @@ type TalkTip struct {
 	OpeningLine string   `json:"opening_line"`
 	Questions   []string `json:"questions"`
 	Cautions    []string `json:"cautions"`
-}
-
-func (s *CounselorService) generateTalkTipsLegacy(ctx context.Context, studentProfile string) (*TalkTip, error) {
-	if s.llmClient == nil {
-		return fallbackTalkTip(), nil
-	}
-
-	prompt := fmt.Sprintf(
-		"你是一位经验丰富的辅导员。请为以下学生画像推荐谈话切入话术。\n\n"+
-			"学生情况：%s\n\n"+
-			"输出格式：\n场景：xxx\n开场白：xxx\n提问建议：xxx（用/分隔）\n注意事项：xxx（用/分隔）",
-		studentProfile)
-
-	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-		Temperature: 0.5,
-		MaxTokens:   500,
-	})
-	if err != nil || resp.Content == "" {
-		return fallbackTalkTip(), nil
-	}
-
-	return parseTalkTip(resp.Content), nil
 }
 
 func parseTalkTipLegacy(text string) *TalkTip {
@@ -383,29 +294,6 @@ type InterventionPlan struct {
 }
 
 // GenerateIntervention 生成干预方案
-func (s *CounselorService) generateInterventionLegacy(ctx context.Context, studentName, riskLevel, reason string) (*InterventionPlan, error) {
-	if s.llmClient == nil {
-		return fallbackIntervention(studentName, riskLevel), nil
-	}
-
-	prompt := fmt.Sprintf(
-		"你是辅导员的专业顾问。请为以下预警学生制定个性化干预方案。\n\n"+
-			"学生：%s\n风险等级：%s\n预警原因：%s\n\n"+
-			"输出格式：\n紧急措施：xxx（用/分隔）\n长期方案：xxx（用/分隔）\n类似案例：xxx",
-		studentName, riskLevel, reason)
-
-	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-		Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-		Temperature: 0.3,
-		MaxTokens:   600,
-	})
-	if err != nil || resp.Content == "" {
-		return fallbackIntervention(studentName, riskLevel), nil
-	}
-
-	return parseIntervention(resp.Content, studentName, riskLevel), nil
-}
-
 func parseInterventionLegacy(text, name, risk string) *InterventionPlan {
 	plan := fallbackIntervention(name, risk)
 	lines := strings.Split(text, "\n")

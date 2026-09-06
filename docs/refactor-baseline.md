@@ -152,6 +152,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：vOPC L1 概念入口从 `vopc_page.dart` 抽出至 `vopc_intro_section.dart`，保持概念卡、流程条和学习弹层入口契约。
 - 已完成：问芯智能体典型提问示例分组从 `chat_page.dart` 抽出至 `chat_agent_examples.dart`，保持智能体切换、示例提问发送和空态布局契约。
 - 已完成：问芯角色专属推荐提问区块从 `chat_page.dart` 抽出至 `chat_role_suggestions.dart`，保持角色标签、推荐问题和一键发送契约。
+- 已完成：辅导员谈心记录、摘要、话术和干预的无引用 Legacy 方法体清理，保留正式文件中的统一实现与结构体契约；服务定向测试及全仓 Go 编译门禁通过。
 
 ### 批次五：静态质量收敛（阶段完成）
 
