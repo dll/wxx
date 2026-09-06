@@ -1055,16 +1055,7 @@ func (s *StudentService) generateWeeklyReportLegacy(ctx context.Context, userID 
 	return data
 }
 
-// QAPlazaData 问答广场
-type QAPlazaData struct {
-	HotQuestions []map[string]interface{} `json:"hot_questions"`
-	Categories   []string                 `json:"categories"`
-	MyPosts      int                      `json:"my_posts"`
-	MyAnswers    int                      `json:"my_answers"`
-	DataSource   string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateQAPlaza(ctx context.Context) *QAPlazaData {
+func (s *StudentService) generateQAPlazaLegacy(ctx context.Context) *QAPlazaData {
 	// 优先用真实已发布 FAQ 资源作为问答广场热门问题（结构化优先，可追溯）
 	if s.kbRepo != nil {
 		faqs, err := s.kbRepo.List("", "", "published", "FAQ", 0, 8)

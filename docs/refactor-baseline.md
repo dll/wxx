@@ -93,6 +93,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生学习周报入口提取至 `student_weekly_report.go`，保留周次、时间分布、真实交互统计、行动建议和来源标记契约。
 - 已完成学生学习伙伴匹配入口提取至 `student_study_buddy.go`，保留院系筛选、匹配评分、姓名脱敏和兜底契约。
 - 已完成学生模拟面试生成入口提取至 `student_mock_interview.go`，保留岗位默认值、题目提示、评分和 AI 补充契约。
+- 已完成学生问答广场入口提取至 `student_qa_plaza.go`，保留 FAQ 检索、标签解析、来源链接和兜底契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
