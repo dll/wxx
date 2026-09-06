@@ -128,6 +128,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：vOPC 页面错误卡从 `vopc_page.dart` 抽出至 `vopc_error_card.dart`，保持 HTTP 状态提示和重试回调契约。
 - 已完成：vOPC 页面元信息标签从 `vopc_page.dart` 抽出至 `vopc_meta_chip.dart`，保持项目阶段、风险、状态和治理标签展示契约。
 - 已完成：vOPC 任务卡从 `vopc_page.dart` 抽出至 `vopc_task_card.dart`，通过状态回调保留任务状态流转和权限禁用契约。
+- 已完成：vOPC Hero 指标与区块标题从 `vopc_page.dart` 抽出至 `vopc_section_widgets.dart`，保持项目数量、邀请数量和区块标题样式契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 

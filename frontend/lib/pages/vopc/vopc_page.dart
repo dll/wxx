@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'vopc_error_card.dart';
 import 'vopc_meta_chip.dart';
 import 'vopc_task_card.dart';
+import 'vopc_section_widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -73,7 +74,7 @@ class _VopcPageState extends State<VopcPage> {
             const _OpcIntroSection(),
             const SizedBox(height: 20),
             if (pending > 0) ...[
-              const _SectionHeader(
+              const VopcSectionHeader(
                 title: '待处理邀请',
                 subtitle: '加入团队，协作推进项目',
                 icon: Icons.mark_email_unread_outlined,
@@ -98,7 +99,7 @@ class _VopcPageState extends State<VopcPage> {
               VopcErrorCard(
                   message: p.error!, code: p.statusCode, onRetry: _start),
             if (!p.loading && p.error == null) ...[
-              _SectionHeader(
+              VopcSectionHeader(
                 title: '我的虚拟项目',
                 subtitle: p.projects.isEmpty
                     ? '还没有虚拟项目，从一个想法开始走通 OPC 主线'
@@ -202,7 +203,7 @@ class _VopcPageState extends State<VopcPage> {
     // 大厅展示非 private（可被学院授权用户浏览）的虚拟练习项目，只读不可写。
     final hall = p.projects.where((e) => e.visibility != 'private').toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _SectionHeader(
+      VopcSectionHeader(
         title: '项目大厅',
         subtitle:
             hall.isEmpty ? '暂无学院可见的虚拟练习项目' : '${hall.length} 个项目可浏览（只读，不可写）',
@@ -240,7 +241,7 @@ class _VopcPageState extends State<VopcPage> {
         (summary['close_records'] as List?)?.cast<Map<String, dynamic>>() ??
             const <Map<String, dynamic>>[];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _SectionHeader(
+      VopcSectionHeader(
         title: '成果与复盘',
         subtitle: p.outcomesLoading
             ? '正在汇总…'
@@ -591,9 +592,9 @@ class _VopcHero extends StatelessWidget {
                 ?.copyWith(color: Colors.white.withOpacity(.88))),
         const SizedBox(height: 20),
         Row(children: [
-          _HeroMetric(label: '我的虚拟项目', value: '$projectCount'),
+          VopcHeroMetric(label: '我的虚拟项目', value: '$projectCount'),
           const SizedBox(width: 28),
-          _HeroMetric(label: '待处理邀请', value: '$pendingCount')
+          VopcHeroMetric(label: '待处理邀请', value: '$pendingCount')
         ]),
       ]),
     );
@@ -950,56 +951,6 @@ class _QuizCardState extends State<_QuizCard> {
         ]),
       ),
     );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  final String label;
-  final String value;
-  const _HeroMetric({required this.label, required this.value});
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w800)),
-        const SizedBox(width: 7),
-        Text(label,
-            style:
-                TextStyle(color: Colors.white.withOpacity(.82), fontSize: 12))
-      ]);
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  const _SectionHeader(
-      {required this.title, required this.subtitle, required this.icon});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(children: [
-          Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(.1),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 19, color: theme.colorScheme.primary)),
-          const SizedBox(width: 10),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            Text(subtitle,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: theme.colorScheme.outline))
-          ]),
-        ]));
   }
 }
 
