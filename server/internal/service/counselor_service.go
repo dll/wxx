@@ -256,34 +256,6 @@ type TalkTip struct {
 	Cautions    []string `json:"cautions"`
 }
 
-func parseTalkTipLegacy(text string) *TalkTip {
-	tip := fallbackTalkTipLegacy()
-	lines := strings.Split(text, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(line, "场景："):
-			tip.Scenario = strings.TrimPrefix(line, "场景：")
-		case strings.HasPrefix(line, "开场白："):
-			tip.OpeningLine = strings.TrimPrefix(line, "开场白：")
-		case strings.HasPrefix(line, "提问建议："):
-			tip.Questions = strings.Split(strings.TrimPrefix(line, "提问建议："), "/")
-		case strings.HasPrefix(line, "注意事项："):
-			tip.Cautions = strings.Split(strings.TrimPrefix(line, "注意事项："), "/")
-		}
-	}
-	return tip
-}
-
-func fallbackTalkTipLegacy() *TalkTip {
-	return &TalkTip{
-		Scenario:    "一般关心谈话",
-		OpeningLine: "最近怎么样？学习和生活上有什么需要帮助的吗？",
-		Questions:   []string{"最近睡眠质量如何？", "学习上有没有遇到困难？", "和同学相处得怎么样？"},
-		Cautions:    []string{"保持温和语气", "多倾听少说教", "注意观察对方情绪变化"},
-	}
-}
-
 // Intervention 干预方案
 type InterventionPlan struct {
 	TargetStudent string   `json:"target_student"`
@@ -294,33 +266,6 @@ type InterventionPlan struct {
 }
 
 // GenerateIntervention 生成干预方案
-func parseInterventionLegacy(text, name, risk string) *InterventionPlan {
-	plan := fallbackIntervention(name, risk)
-	lines := strings.Split(text, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(line, "紧急措施："):
-			plan.UrgentActions = strings.Split(strings.TrimPrefix(line, "紧急措施："), "/")
-		case strings.HasPrefix(line, "长期方案："):
-			plan.LongTermPlan = strings.Split(strings.TrimPrefix(line, "长期方案："), "/")
-		case strings.HasPrefix(line, "类似案例："):
-			plan.SimilarCases = strings.TrimPrefix(line, "类似案例：")
-		}
-	}
-	return plan
-}
-
-func fallbackInterventionLegacy(name, risk string) *InterventionPlan {
-	return &InterventionPlan{
-		TargetStudent: name,
-		RiskLevel:     risk,
-		UrgentActions: []string{"立即与学生本人联系", "告知家长关注学生状态", "联系心理健康中心评估"},
-		LongTermPlan:  []string{"建立定期沟通机制", "推荐参加校园活动", "安排学业帮扶"},
-		SimilarCases:  "同类案例处理经验：早期介入是关键，多部门联动效果更好。",
-	}
-}
-
 // fallback 兜底（无数据/无 repo 时）
 func (s *CounselorService) fallback(today string) *DailyFocus {
 	return &DailyFocus{
