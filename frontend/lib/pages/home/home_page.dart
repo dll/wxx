@@ -28,6 +28,7 @@ import '../teacher/daily_overview_page.dart';
 import 'student_home_skeleton.dart';
 import 'home_welcome_banner.dart';
 import 'home_error_card.dart';
+import 'home_calendar_bar.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1611,7 +1612,9 @@ class _HomePageState extends State<HomePage> {
     final weekday = today['weekday'] ?? '';
     final semesterName = today['semester_name'] ?? '';
 
-    return Container(
+    return HomeCalendarBar(
+        weekNo: weekNo, weekday: weekday, semesterName: semesterName);
+    /* return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1665,7 +1668,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
+    ); */
   }
 
   /// 今日概览统计
