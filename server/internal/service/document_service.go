@@ -785,7 +785,7 @@ func BytesToContentSize(size int64) string {
 }
 
 // ParseDocument 增强解析：提取标题、摘要、关键词、字数、段落数
-func (s *DocumentService) ParseDocument(file *multipart.FileHeader) (*DocumentParseResult, error) {
+func (s *DocumentService) parseDocumentLegacy(file *multipart.FileHeader) (*DocumentParseResult, error) {
 	result, err := s.ProcessUpload(file)
 	if err != nil {
 		return nil, err
