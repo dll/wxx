@@ -43,6 +43,7 @@ import 'home_quick_entry_card.dart';
 import 'home_event_item.dart';
 import 'home_upcoming_events.dart';
 import 'home_today_courses.dart';
+import 'home_today_tasks.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1327,7 +1328,12 @@ class _HomePageState extends State<HomePage> {
                 []),
             onViewAll: () => context.go('/student/study-plan')),
         const SizedBox(height: 16),
-        _buildTodayTasks(theme),
+        HomeTodayTasks(
+            tasks: ((_studentHomeData?['today_tasks'] as List?)
+                    ?.cast<Map<String, dynamic>>() ??
+                []),
+            onViewAll: () => context.go('/student/study-plan'),
+            onToggle: _toggleTaskStatus),
         const SizedBox(height: 16),
         _buildQuickEntries(theme),
         const SizedBox(height: 16),
@@ -1364,58 +1370,6 @@ class _HomePageState extends State<HomePage> {
       tasks: todayTasks,
       unread: unread,
       plans: plansInProgress,
-    );
-  }
-
-  /// 今日任务
-  Widget _buildTodayTasks(ThemeData theme) {
-    final tasks = (_studentHomeData?['today_tasks'] as List?)
-            ?.cast<Map<String, dynamic>>() ??
-        [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('今日任务', style: theme.textTheme.titleMedium),
-            TextButton.icon(
-              onPressed: () => context.go('/student/study-plan'),
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('查看全部', style: TextStyle(fontSize: 13)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (tasks.isEmpty)
-          HomeEmptyCard(message: '今日没有任务安排', icon: Icons.check_circle_outline)
-        else
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-              ),
-            ),
-            child: Column(
-              children: [
-                for (int i = 0; i < tasks.length; i++) ...[
-                  HomeTaskItem(
-                      task: tasks[i], onTap: () => _toggleTaskStatus(tasks[i])),
-                  if (i < tasks.length - 1)
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-                    ),
-                ],
-              ],
-            ),
-          ),
-      ],
     );
   }
 
