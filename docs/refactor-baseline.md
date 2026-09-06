@@ -108,7 +108,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成辅导员班级打卡统计迁移后的遗留实现清理，主服务仅保留真实入口。
 - 已完成辅导员通知群发与班级打卡统计入口提取至 `counselor_notifications.go`，保留受众版本、AI 改写和无数据诚实返回契约。
 
-### 批次四：Flutter 页面组件化（进行中）
+### 批次四：Flutter 页面组件化（已完成）
 
 - 优先处理 VOPC、首页、问芯、校园地图。
 - 将页面容器、状态、请求、区块 Widget、表单和对话框分离。
@@ -172,10 +172,12 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：清理知识治理页面未引用的 `_legacyStatChip` 与重复 `_typeIcon` 私有实现，统一复用 `resource_tile_helpers.dart` 并通过 Flutter 定向测试。
 - 已完成：清理校园地图中未引用的 `_buildMapMiniCard`、`_buildCampusGateLabel` 与空实现 `_buildMapBadge`，保持百度地图嵌入和顶部控件路径不变并通过 Flutter 定向测试。
 
-### 批次五：静态质量收敛（阶段完成）
+批次四验收范围内的首页、VOPC、问芯、校园地图和知识治理主要展示区块均已完成组件化；页面容器仍保留状态、请求和导航编排职责。
+
+### 批次五：静态质量收敛（已完成）
 
 已完成：使用 `dart fix` 修复 244 条确定性问题（const、花括号、废弃 API、无效转换等）。
-剩余 50 条主要是异步 `BuildContext`、Web 平台专用库提示和少量未使用私有方法，需逐项人工确认后处理；模型 `part-of` 提示已统一为文件 URI。
+剩余提示主要是异步 `BuildContext`、Web 平台专用库提示和少量需人工确认的私有方法，均不新增 error；本轮已清理确认无引用的死代码，并以定向 Flutter 测试、Go 全仓编译和 `git diff --check` 作为提交门禁。模型 `part-of` 提示已统一为文件 URI。
 
 ## 四、每批验收
 
