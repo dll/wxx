@@ -951,7 +951,7 @@ func isNormalDocRune(r rune) bool {
 //     一律回退到启发式结果（或传入的当前值），保证接口始终可用、绝不让前端拿空值。
 //   - 成本控制：正文截断到有限长度再送模型；上下文带 30s 超时。
 //   - 由人工确认后再入库：精修结果仅回填编辑表单，不自动写库（写库仍走 KBService）。
-func (s *DocumentService) RefineMetadata(ctx context.Context, title, summary string, keywords []string, content string) *DocumentRefineResult {
+func (s *DocumentService) refineMetadataLegacy(ctx context.Context, title, summary string, keywords []string, content string) *DocumentRefineResult {
 	fallback := &DocumentRefineResult{
 		Title:    title,
 		Summary:  summary,
