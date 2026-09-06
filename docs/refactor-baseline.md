@@ -158,6 +158,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：辅导员通知群发迁移后的 `generateSmartNotificationLegacy` 清理；服务定向测试及全仓 Go 编译门禁通过，辅导员服务不再保留 Legacy 方法。
 - 已完成：移除校园地图中已被百度地图嵌入替代且明确未使用的 `_CampusMapPainter` 死代码，保持现有地图渲染路径不变并通过 Flutter 定向测试。
 - 已完成：清理知识治理页面未引用的 `_legacyStatChip` 与重复 `_typeIcon` 私有实现，统一复用 `resource_tile_helpers.dart` 并通过 Flutter 定向测试。
+- 已完成：清理校园地图中未引用的 `_buildMapMiniCard`、`_buildCampusGateLabel` 与空实现 `_buildMapBadge`，保持百度地图嵌入和顶部控件路径不变并通过 Flutter 定向测试。
 
 ### 批次五：静态质量收敛（阶段完成）
 

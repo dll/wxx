@@ -988,63 +988,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  // _buildMapMiniCard 和 _buildCampusGateLabel 已随 CustomPainter 底图一并移除。
-  // ignore: unused_element
-  Widget _buildMapMiniCard(ThemeData theme) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.94),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 16)
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.map, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text('校园范围',
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${_campus.name}\n默认使用百度地图导航，页面内不要求登录地图账号。',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildCampusGateLabel(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.flag_outlined, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(_campus.entrance, style: theme.textTheme.labelMedium),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCampusSelector(ThemeData theme) {
     return Card(
       elevation: 0,
@@ -1094,12 +1037,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
         ),
       ),
     );
-  }
-
-  Widget _buildMapBadge(ThemeData theme) {
-    // 已弃用：原浮动在地图右上角的 2D/3D 角标会被 iframe 遮挡无法显示，
-    // 改为在顶部控件栏中通过 SegmentedButton 体现 provider 与 mode。
-    return const SizedBox.shrink();
   }
 
   /// 浮动当前步骤+操作面板（桌面端浮在地图底部、移动端浮在地图底部）。
