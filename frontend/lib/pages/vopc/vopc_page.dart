@@ -10,6 +10,7 @@ import 'vopc_invitation_card.dart';
 import 'vopc_project_card.dart';
 import 'vopc_hero.dart';
 import 'vopc_flow_strip.dart';
+import 'vopc_core_idea_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -597,7 +598,7 @@ class _OpcIntroSection extends StatelessWidget {
           ]),
           const SizedBox(height: 14),
           if (cards.isNotEmpty)
-            _CoreIdeaCard(
+            VopcCoreIdeaCard(
                 title: cards.first['title'] ?? 'OPC 核心思想',
                 body: cards.first['body'] ?? _defaultCoreIdea),
           const SizedBox(height: 14),
@@ -655,31 +656,6 @@ const List<Map<String, String>> _defaultFlowSteps = [
   {'key': 'feedback', 'title': '反馈', 'desc': '收集反馈，复盘并决定下一步'},
 ];
 
-class _CoreIdeaCard extends StatelessWidget {
-  final String title;
-  final String body;
-  const _CoreIdeaCard({required this.title, required this.body});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withOpacity(.4),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: theme.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        Text(body, style: theme.textTheme.bodyMedium),
-      ]),
-    );
-  }
-}
-
 /// 五步核心流程图（水平流 strip，窄屏自动换行）。
 class _LearningSheet extends StatelessWidget {
   final Map<String, dynamic> learning;
@@ -722,7 +698,7 @@ class _LearningSheet extends StatelessWidget {
                   ?.copyWith(color: theme.colorScheme.outline)),
           const SizedBox(height: 14),
           for (final c in allCards) ...[
-            _CoreIdeaCard(
+            VopcCoreIdeaCard(
                 title: c['title']?.toString() ?? '',
                 body: c['body']?.toString() ?? ''),
             const SizedBox(height: 10),
