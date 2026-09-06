@@ -666,7 +666,7 @@ type MentalHealthReport struct {
 	DataSource   string   `json:"data_source"`
 }
 
-func (s *StudentService) GenerateMentalHealthReport(ctx context.Context, userID int64) *MentalHealthReport {
+func (s *StudentService) generateMentalHealthReportLegacy(ctx context.Context, userID int64) *MentalHealthReport {
 	user, err := s.userRepo.GetByID(userID)
 	userName := "同学"
 	if err == nil && user != nil {

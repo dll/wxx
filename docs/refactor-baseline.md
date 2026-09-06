@@ -89,6 +89,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生课程学情看板逻辑提取至 `student_course_analytics.go`，保留真实成绩、班级基准、薄弱课程和 LLM 建议契约。
 - 已完成学生成长路径聚合入口提取至 `student_growth_path.go`，保留数字孪生五维快照、学业阶段、里程碑和 LLM 总结契约。
 - 已完成学生学业预警入口提取至 `student_academic_warning.go`，保留风险等级、因素、建议、资源和 AI 追加建议契约。
+- 已完成学生心理健康报告入口提取至 `student_mental_health.go`，保留情感记录聚合、风险引导和安全兜底契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
