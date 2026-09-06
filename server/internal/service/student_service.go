@@ -1281,7 +1281,7 @@ type CourseAnalyticsResult struct {
 
 // GenerateCourseAnalytics 生成课程学情看板（真实成绩 + 班级匿名基准 + LLM 薄弱点建议）
 // 无成绩数据时返回 (nil, nil)，由 handler 回落 mock。
-func (s *StudentService) GenerateCourseAnalytics(ctx context.Context, userID int64) (*CourseAnalyticsResult, error) {
+func (s *StudentService) generateCourseAnalyticsLegacy(ctx context.Context, userID int64) (*CourseAnalyticsResult, error) {
 	if s.twinRepo == nil || s.userRepo == nil {
 		return nil, nil
 	}
