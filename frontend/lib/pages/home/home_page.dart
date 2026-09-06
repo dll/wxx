@@ -30,6 +30,7 @@ import 'home_welcome_banner.dart';
 import 'home_error_card.dart';
 import 'home_calendar_bar.dart';
 import 'home_overview_item.dart';
+import 'home_empty_card.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1747,7 +1748,7 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 8),
         if (courses.isEmpty)
-          _buildEmptyCard(theme, '今日没有课程', Icons.coffee_outlined)
+          HomeEmptyCard(message: '今日没有课程', icon: Icons.coffee_outlined)
         else
           Container(
             decoration: BoxDecoration(
@@ -1918,7 +1919,7 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 8),
         if (tasks.isEmpty)
-          _buildEmptyCard(theme, '今日没有任务安排', Icons.check_circle_outline)
+          HomeEmptyCard(message: '今日没有任务安排', icon: Icons.check_circle_outline)
         else
           Container(
             decoration: BoxDecoration(
@@ -2163,7 +2164,8 @@ class _HomePageState extends State<HomePage> {
         Text('近期提醒', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         if (events.isEmpty)
-          _buildEmptyCard(theme, '近期没有重要事件', Icons.event_available_outlined)
+          HomeEmptyCard(
+              message: '近期没有重要事件', icon: Icons.event_available_outlined)
         else
           Container(
             decoration: BoxDecoration(
@@ -2272,31 +2274,6 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w500,
                 color: color,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 空状态卡片
-  Widget _buildEmptyCard(ThemeData theme, String message, IconData icon) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 32, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 14,
             ),
           ),
         ],
