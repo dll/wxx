@@ -1020,26 +1020,7 @@ func (svc *StudentService) GetProcessEnhanced(flowType string, userOwnerScope, u
 
 // ======================== P1 剩余方法 ========================
 
-// WeeklyReportData AI 学习周报
-type WeeklyReportData struct {
-	Week             string                   `json:"week"`
-	TotalHours       float64                  `json:"total_hours"`
-	CoursesCount     int                      `json:"courses_count"`
-	Assignments      int                      `json:"assignments"`
-	RankChange       int                      `json:"rank_change"`
-	Highlights       []string                 `json:"highlights"`
-	Improvements     []string                 `json:"improvements"`
-	NextWeekGoals    []string                 `json:"next_week_goals"`
-	TimeDistribution map[string]float64       `json:"time_distribution"`
-	KnowledgeChanges []map[string]interface{} `json:"knowledge_changes"`
-	Attribution      string                   `json:"attribution"`
-	QuestionsAsked   int                      `json:"questions_asked"` // 本周真实提问次数
-	ActiveDays       int                      `json:"active_days"`     // 本周真实活跃天数
-	SessionsCount    int                      `json:"sessions_count"`  // 本周真实会话数
-	DataSource       string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateWeeklyReport(ctx context.Context, userID int64) *WeeklyReportData {
+func (s *StudentService) generateWeeklyReportLegacy(ctx context.Context, userID int64) *WeeklyReportData {
 	weekNum := int(time.Now().YearDay()/7) + 1
 	data := &WeeklyReportData{
 		Week:          fmt.Sprintf("第%d周", weekNum),
