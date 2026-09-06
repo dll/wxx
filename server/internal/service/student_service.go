@@ -541,14 +541,7 @@ func (s *StudentService) GenerateMockInterview(ctx context.Context, position str
 	return interview
 }
 
-// StudyBuddyMatch 学友匹配结果
-type StudyBuddyMatch struct {
-	Matches     []map[string]interface{} `json:"matches"`
-	MatchReason string                   `json:"match_reason"`
-	DataSource  string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID int64) *StudyBuddyMatch {
+func (s *StudentService) generateStudyBuddyMatchesLegacy(ctx context.Context, userID int64) *StudyBuddyMatch {
 	// 兜底：无 userRepo 时返回占位
 	if s.userRepo == nil {
 		return studyBuddyFallback()
@@ -631,8 +624,7 @@ func (s *StudentService) GenerateStudyBuddyMatches(ctx context.Context, userID i
 	}
 }
 
-// studyBuddyFallback 学友匹配兜底文案
-func studyBuddyFallback() *StudyBuddyMatch {
+func legacyStudyBuddyFallback() *StudyBuddyMatch {
 	return &StudyBuddyMatch{
 		Matches: []map[string]interface{}{
 			{"name": "张*", "match_score": 92, "reason": "同专业", "major": "计算机科学与技术"},
