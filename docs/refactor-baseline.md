@@ -130,6 +130,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：vOPC 任务卡从 `vopc_page.dart` 抽出至 `vopc_task_card.dart`，通过状态回调保留任务状态流转和权限禁用契约。
 - 已完成：vOPC Hero 指标与区块标题从 `vopc_page.dart` 抽出至 `vopc_section_widgets.dart`，保持项目数量、邀请数量和区块标题样式契约。
 - 已完成：vOPC 项目大厅卡片从 `vopc_page.dart` 抽出至 `vopc_hall_project_card.dart`，保持项目类型、阶段、风险、可见性和点击浏览契约。
+- 已完成：vOPC 现实延伸引流卡片从 `vopc_page.dart` 抽出至 `vopc_reality_extension_card.dart`，保持外链打开、失败提示和 L4 引导展示契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 

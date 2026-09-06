@@ -5,9 +5,9 @@ import 'vopc_meta_chip.dart';
 import 'vopc_task_card.dart';
 import 'vopc_section_widgets.dart';
 import 'vopc_hall_project_card.dart';
+import 'vopc_reality_extension_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/vopc_provider.dart';
 import '../../utils/capability_utils.dart';
@@ -121,7 +121,7 @@ class _VopcPageState extends State<VopcPage> {
               const SizedBox(height: 24),
               _buildOutcomes(context, p),
               const SizedBox(height: 24),
-              const _RealityExtensionCard(),
+              const VopcRealityExtensionCard(),
             ],
           ],
         ),
@@ -949,69 +949,6 @@ class _QuizCardState extends State<_QuizCard> {
             ] else if (_selected != null)
               const Text(''),
           ]),
-        ]),
-      ),
-    );
-  }
-}
-
-/// B1 项目大厅缩略卡：名称/类型/阶段/风险/可见性，非成员只读浏览。
-/// B3 L4 现实延伸引流卡片。
-class _RealityExtensionCard extends StatelessWidget {
-  const _RealityExtensionCard();
-
-  Future<void> _open(BuildContext context) async {
-    final uri = Uri.parse(vopcSiteUrl);
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法打开链接，请稍后再试')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.tertiary.withOpacity(.45))),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiary.withOpacity(.12),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.public_rounded,
-                    size: 19, color: theme.colorScheme.tertiary)),
-            const SizedBox(width: 10),
-            Text('现实延伸 · L4',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 12),
-          Text(
-            '更真实的 AI 执行、云对象存储、真实经营与传播，即将在「虚拟OPC」网站上线。',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.tonalIcon(
-              onPressed: () => _open(context),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('前往虚拟OPC网站'),
-            ),
-          ),
         ]),
       ),
     );
