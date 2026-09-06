@@ -847,7 +847,7 @@ type SmartNotification struct {
 	DataSource      string              `json:"data_source"`
 }
 
-func (s *CounselorService) GenerateSmartNotification(ctx context.Context, content string, audienceTypes []string) *SmartNotification {
+func (s *CounselorService) generateSmartNotificationLegacy(ctx context.Context, content string, audienceTypes []string) *SmartNotification {
 	sn := &SmartNotification{
 		OriginalContent: content,
 		Variants: []map[string]string{
@@ -886,7 +886,7 @@ type CheckinStats struct {
 	DataSource         string                   `json:"data_source"`
 }
 
-func (s *CounselorService) GenerateCheckinStats(ctx context.Context, className string) *CheckinStats {
+func (s *CounselorService) generateCheckinStatsLegacy(ctx context.Context, className string) *CheckinStats {
 	if className == "" {
 		className = "全部班级"
 	}
