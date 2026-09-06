@@ -14,6 +14,7 @@ import 'vopc_core_idea_card.dart';
 import 'vopc_empty_card.dart';
 import 'vopc_stage_progress.dart';
 import 'vopc_quiz_card.dart';
+import 'vopc_user_search_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -744,118 +745,6 @@ const List<Map<String, String>> _defaultCards = [
   {'title': '核心心态', 'body': '先验证再投入，先交付再完善；每一步都要能回溯、能复盘、能讲清楚。'},
 ];
 
-class _UserSearchDialog extends StatefulWidget {
-  final TextEditingController controller;
-  final Future<List<Map<String, dynamic>>> Function(String keyword) findUsers;
-  const _UserSearchDialog({required this.controller, required this.findUsers});
-  @override
-  State<_UserSearchDialog> createState() => _UserSearchDialogState();
-}
-
-class _UserSearchDialogState extends State<_UserSearchDialog> {
-  List<Map<String, dynamic>> _users = const [];
-  bool _loading = false;
-  String _role = 'member';
-  String? _selectedUserId;
-  bool _searchDone = false;
-
-  Future<void> _search(String q) async {
-    if (q.trim().isEmpty) {
-      setState(() {
-        _users = const [];
-        _searchDone = false;
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _searchDone = true;
-    });
-    final result = await widget.findUsers(q.trim());
-    if (!mounted) return;
-    setState(() {
-      _users = result;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('邀请成员'),
-      content: SizedBox(
-        width: 480,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: widget.controller,
-              decoration: const InputDecoration(
-                labelText: '搜索用户（按姓名/账号）',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: _search,
-              onChanged: (v) => _search(v),
-            ),
-            const SizedBox(height: 8),
-            DropdownButton<String>(
-              value: _role,
-              items: const [
-                DropdownMenuItem(value: 'member', child: Text('成员')),
-                DropdownMenuItem(value: 'co_owner', child: Text('联合主理人')),
-                DropdownMenuItem(value: 'mentor', child: Text('导师')),
-                DropdownMenuItem(value: 'reviewer', child: Text('评审')),
-              ],
-              onChanged: (v) => setState(() => _role = v ?? 'member'),
-            ),
-            const SizedBox(height: 8),
-            if (_loading)
-              const LinearProgressIndicator()
-            else if (!_searchDone)
-              const Text('输入关键字后回车或继续输入以搜索',
-                  style: TextStyle(color: Colors.grey))
-            else if (_users.isEmpty)
-              const Text('未找到可邀请用户', style: TextStyle(color: Colors.grey))
-            else
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ..._users.map((u) => ListTile(
-                          dense: true,
-                          leading: Icon(_selectedUserId == u['id'].toString()
-                              ? Icons.radio_button_checked
-                              : Icons.person_outline),
-                          title: Text(u['display_name']?.toString() ??
-                              '用户 #${u['id']}'),
-                          subtitle: Text('@${u['username']} · ${u['role']}'),
-                          onTap: () => setState(
-                              () => _selectedUserId = u['id'].toString()),
-                        )),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        FilledButton(
-            onPressed: _selectedUserId == null
-                ? null
-                : () => Navigator.pop(context, {
-                      'user_id': _selectedUserId!,
-                      'role': _role,
-                      'note': '',
-                    }),
-            child: const Text('邀请')),
-      ],
-    );
-  }
-}
-
 class VopcProjectPage extends StatefulWidget {
   final int projectId;
   const VopcProjectPage({super.key, required this.projectId});
@@ -1367,7 +1256,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
     final searchCtrl = TextEditingController();
     final result = await showDialog<Map<String, String>>(
         context: context,
-        builder: (c) => _UserSearchDialog(
+        builder: (c) => VopcUserSearchDialog(
             controller: searchCtrl,
             findUsers: (q) =>
                 p.searchUsers(q, excludeProjectId: widget.projectId)));
