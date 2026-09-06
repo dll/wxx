@@ -84,6 +84,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生校园热点兜底数据构造提取至 `student_hot_topics.go`，真实 Activity 查询和来源标记保持不变。
 - 已完成学生问答排行榜参考榜单与无数据兜底构造提取至 `student_qa_leaderboard.go`，真实提问聚合逻辑保持不变。
 - 已完成学生站内私聊参考数据提取至 `student_private_chat.go`，公开方法契约保持不变。
+- 已完成学生动态导师生成逻辑提取至 `student_dynamic_mentor.go`，保留风格映射、LLM 覆盖和来源标记。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
