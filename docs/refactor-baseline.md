@@ -140,6 +140,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：vOPC Hero 统计头部从 `vopc_page.dart` 抽出至 `vopc_hero.dart`，保持项目数、邀请数和主题视觉契约。
 - 已完成：vOPC 五步流程条从 `vopc_page.dart` 抽出至 `vopc_flow_strip.dart`，保持学习数据驱动、窄屏换行和流程节点展示契约。
 - 已完成：vOPC 核心思想卡片从 `vopc_page.dart` 抽出至 `vopc_core_idea_card.dart`，保持学习卡片标题、正文与主题样式契约。
+- 已完成：知识治理资源列表项的类型图标与状态徽标辅助逻辑从 `my_submissions_page.dart` 抽出至 `resource_tile_helpers.dart`，保持资源状态和操作列表展示契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 

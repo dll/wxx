@@ -13,6 +13,7 @@ import '../../widgets/error_view.dart';
 import '../../widgets/md_text.dart';
 import 'resource_stat_chip.dart';
 import 'resource_type_stats.dart';
+import 'resource_tile_helpers.dart';
 
 /// 知识治理页面（增强版）
 /// 功能：搜索、多条件筛选、批量选择、批量操作、统计、预览、编辑
@@ -1083,7 +1084,7 @@ class _ResourceTile extends StatelessWidget {
                   onChanged: onSelectChanged,
                   visualDensity: VisualDensity.compact,
                 ),
-              _typeIconWidget(resource.resourceType),
+              resourceTypeIcon(resource.resourceType),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1100,7 +1101,7 @@ class _ResourceTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _statusBadge(resource.status, theme),
+                        resourceStatusBadge(resource.status, theme),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -1203,84 +1204,6 @@ class _ResourceTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _typeIconWidget(String type) {
-    IconData icon;
-    Color color;
-    switch (type) {
-      case 'Policy':
-        icon = Icons.policy_outlined;
-        color = Colors.blue;
-        break;
-      case 'Process':
-        icon = Icons.route_outlined;
-        color = Colors.purple;
-        break;
-      case 'FAQ':
-        icon = Icons.question_answer_outlined;
-        color = Colors.green;
-        break;
-      case 'Activity':
-        icon = Icons.event_outlined;
-        color = Colors.orange;
-        break;
-      default:
-        icon = Icons.article_outlined;
-        color = Colors.grey;
-    }
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: color.withOpacity(0.1),
-      child: Icon(icon, size: 20, color: color),
-    );
-  }
-
-  Widget _statusBadge(String status, ThemeData theme) {
-    Color bgColor;
-    Color fgColor;
-    String label;
-    switch (status) {
-      case 'draft':
-        bgColor = Colors.grey.withOpacity(0.1);
-        fgColor = Colors.grey;
-        label = '草稿';
-        break;
-      case 'pending':
-        bgColor = Colors.orange.withOpacity(0.1);
-        fgColor = Colors.orange;
-        label = '待审核';
-        break;
-      case 'published':
-        bgColor = Colors.green.withOpacity(0.1);
-        fgColor = Colors.green;
-        label = '已发布';
-        break;
-      case 'retired':
-        bgColor = Colors.red.withOpacity(0.1);
-        fgColor = Colors.red;
-        label = '已下架';
-        break;
-      default:
-        bgColor = theme.colorScheme.surfaceContainerHighest;
-        fgColor = theme.colorScheme.onSurfaceVariant;
-        label = status;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          color: fgColor,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );
