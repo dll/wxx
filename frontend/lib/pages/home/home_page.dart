@@ -35,6 +35,7 @@ import 'home_alert_overview.dart';
 import 'home_ai_briefing_card.dart';
 import 'home_campus_service.dart';
 import 'home_knowledge_card.dart';
+import 'home_today_overview.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1446,47 +1447,11 @@ class _HomePageState extends State<HomePage> {
     final unread = stats['unread_notifications'] ?? 0;
     final plansInProgress = stats['plans_in_progress'] ?? 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('今日概览', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            HomeOverviewItem(
-              icon: Icons.menu_book_outlined,
-              label: '课程',
-              count: todayCourses,
-              unit: '节',
-              color: const Color(0xFF1565C0),
-            ),
-            const SizedBox(width: 8),
-            HomeOverviewItem(
-              icon: Icons.task_alt_outlined,
-              label: '任务',
-              count: todayTasks,
-              unit: '个',
-              color: const Color(0xFF2E7D32),
-            ),
-            const SizedBox(width: 8),
-            HomeOverviewItem(
-              icon: Icons.notifications_outlined,
-              label: '通知',
-              count: unread,
-              unit: '条',
-              color: const Color(0xFFE65100),
-            ),
-            const SizedBox(width: 8),
-            HomeOverviewItem(
-              icon: Icons.fact_check_outlined,
-              label: '计划',
-              count: plansInProgress,
-              unit: '个',
-              color: const Color(0xFF7B1FA2),
-            ),
-          ],
-        ),
-      ],
+    return HomeTodayOverview(
+      courses: todayCourses,
+      tasks: todayTasks,
+      unread: unread,
+      plans: plansInProgress,
     );
   }
 
