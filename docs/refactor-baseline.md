@@ -161,6 +161,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：首页近期提醒列表容器从 `home_page.dart` 抽出至 `home_upcoming_events.dart`，保持空状态、分隔线和事件条目展示契约。
 - 已完成：首页今日课程列表容器从 `home_page.dart` 抽出至 `home_today_courses.dart`，保持空状态、课程条目、分隔线和学习计划跳转契约。
 - 已完成：首页今日任务列表容器从 `home_page.dart` 抽出至 `home_today_tasks.dart`，保持空状态、任务条目、分隔线、完成切换和学习计划跳转契约。
+- 已完成：首页快捷功能入口网格从 `home_page.dart` 抽出至 `home_quick_entries.dart`，保持后端入口优先、年级默认入口、图标颜色映射和路由跳转契约。
 - 已完成：移除首页校历组件替换后遗留的大段注释版旧实现，保持 `HomeCalendarBar` 路径不变并通过 Flutter 定向测试。
 - 已完成：清理知识治理统计区块迁移后的 `_legacyBuildTypeStats` 未引用实现，统一保留 `ResourceTypeStats` 展示路径并通过 Flutter 定向测试。
 - 已完成：辅导员谈心记录、摘要、话术和干预的无引用 Legacy 方法体清理，保留正式文件中的统一实现与结构体契约；服务定向测试及全仓 Go 编译门禁通过。

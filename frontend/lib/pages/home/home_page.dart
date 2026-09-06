@@ -44,6 +44,7 @@ import 'home_event_item.dart';
 import 'home_upcoming_events.dart';
 import 'home_today_courses.dart';
 import 'home_today_tasks.dart';
+import 'home_quick_entries.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1335,7 +1336,7 @@ class _HomePageState extends State<HomePage> {
             onViewAll: () => context.go('/student/study-plan'),
             onToggle: _toggleTaskStatus),
         const SizedBox(height: 16),
-        _buildQuickEntries(theme),
+        HomeQuickEntries(entries: _quickEntries()),
         const SizedBox(height: 16),
         HomeUpcomingEvents(
             events: ((_studentHomeData?['upcoming_events'] as List?)
@@ -1373,14 +1374,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 功能入口
-  Widget _buildQuickEntries(ThemeData theme) {
+  List<Map<String, dynamic>> _quickEntries() {
     final quickEntries = (_studentHomeData?['quick_entries'] as List?)
             ?.cast<Map<String, dynamic>>() ??
         [];
-
-    // 使用默认入口（如果后端没有返回）
-    final entries = quickEntries.isEmpty
+    return quickEntries.isEmpty
         ? [
             {'icon': 'chat', 'title': 'AI问答', 'route': '/chat'},
             {
@@ -1410,59 +1408,5 @@ class _HomePageState extends State<HomePage> {
                   }),
           ]
         : quickEntries;
-
-    final iconMap = <String, IconData>{
-      'chat': Icons.chat_bubble_outline,
-      'study_plan': Icons.fact_check_outlined,
-      'timetable': Icons.calendar_month_outlined,
-      'career': Icons.work_outline,
-      'study': Icons.menu_book_outlined,
-      'mental': Icons.favorite_outline,
-      'agenda': Icons.checklist,
-    };
-
-    final colorMap = <String, Color>{
-      'chat': const Color(0xFF1565C0),
-      'study_plan': const Color(0xFF2E7D32),
-      'timetable': const Color(0xFF00695C),
-      'career': const Color(0xFFE65100),
-      'study': const Color(0xFF7B1FA2),
-      'mental': const Color(0xFFC62828),
-      'agenda': const Color(0xFF00695C),
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('功能入口', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.1,
-          ),
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            final iconKey = entry['icon'] as String? ?? 'chat';
-            final icon = iconMap[iconKey] ?? Icons.widgets_outlined;
-            final color = colorMap[iconKey] ?? theme.colorScheme.primary;
-            final title = entry['title'] ?? '';
-            final route = entry['route'] ?? '/';
-
-            return HomeQuickEntryCard(
-              icon: icon,
-              label: title,
-              color: color,
-              onTap: () => context.go(route),
-            );
-          },
-        ),
-      ],
-    );
   }
 }
