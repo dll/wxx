@@ -1136,16 +1136,7 @@ func (s *StudentService) generateHotTopicsLegacy(ctx context.Context) *HotTopics
 	return fallbackHotTopics()
 }
 
-// QALeaderboardData 问答排行榜
-type QALeaderboardData struct {
-	HotQuestions []map[string]interface{} `json:"hot_questions"`
-	TopAnswerers []map[string]interface{} `json:"top_answerers"`
-	Contributors []map[string]interface{} `json:"contributors"`
-	Period       string                   `json:"period"`
-	DataSource   string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateQALeaderboard(ctx context.Context) *QALeaderboardData {
+func (s *StudentService) generateQALeaderboardLegacy(ctx context.Context) *QALeaderboardData {
 	data := referenceQALeaderboard()
 
 	// 热门提问：来自真实 messages 表的聚合统计
