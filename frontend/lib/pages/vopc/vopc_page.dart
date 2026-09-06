@@ -4,6 +4,7 @@ import 'vopc_error_card.dart';
 import 'vopc_meta_chip.dart';
 import 'vopc_task_card.dart';
 import 'vopc_section_widgets.dart';
+import 'vopc_hall_project_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -225,7 +226,7 @@ class _VopcPageState extends State<VopcPage> {
           ),
         )
       else
-        ...hall.map((e) => _HallProjectCard(
+        ...hall.map((e) => VopcHallProjectCard(
               project: e,
               onTap: () => context.push('/vopc/projects/${e.id}'),
             )),
@@ -955,65 +956,6 @@ class _QuizCardState extends State<_QuizCard> {
 }
 
 /// B1 项目大厅缩略卡：名称/类型/阶段/风险/可见性，非成员只读浏览。
-class _HallProjectCard extends StatelessWidget {
-  final VopcProject project;
-  final VoidCallback onTap;
-  const _HallProjectCard({required this.project, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-              color: theme.colorScheme.outlineVariant.withOpacity(.5))),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiaryContainer.withOpacity(.5),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Icon(Icons.storefront_outlined,
-                    color: theme.colorScheme.tertiary, size: 20)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(project.name,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 5),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      VopcMetaChip(project.projectType),
-                      VopcMetaChip(project.stage),
-                      VopcMetaChip(project.riskLevel),
-                      VopcMetaChip(project.visibility == 'private'
-                          ? '私有'
-                          : project.visibility),
-                    ]),
-                  ]),
-            ),
-            const SizedBox(width: 4),
-            Text('看看',
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(color: theme.colorScheme.primary)),
-            Icon(Icons.chevron_right, color: theme.colorScheme.outline),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
 /// B3 L4 现实延伸引流卡片。
 class _RealityExtensionCard extends StatelessWidget {
   const _RealityExtensionCard();
