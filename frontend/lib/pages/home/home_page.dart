@@ -38,6 +38,7 @@ import 'home_knowledge_card.dart';
 import 'home_today_overview.dart';
 import 'home_grade_growth_card.dart';
 import 'home_course_item.dart';
+import 'home_task_item.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1441,7 +1442,8 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 for (int i = 0; i < tasks.length; i++) ...[
-                  _buildTaskItem(theme, tasks[i]),
+                  HomeTaskItem(
+                      task: tasks[i], onTap: () => _toggleTaskStatus(tasks[i])),
                   if (i < tasks.length - 1)
                     Divider(
                       height: 1,
@@ -1454,74 +1456,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildTaskItem(ThemeData theme, Map<String, dynamic> task) {
-    final title = task['title'] ?? '未命名任务';
-    final status = task['status'] ?? 'pending';
-    final duration = task['duration'] ?? 0;
-    final isCompleted = status == 'completed';
-
-    return InkWell(
-      onTap: () => _toggleTaskStatus(task),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted
-                    ? theme.colorScheme.primary
-                    : Colors.transparent,
-                border: Border.all(
-                  color: isCompleted
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline,
-                  width: 2,
-                ),
-              ),
-              child: isCompleted
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      decoration:
-                          isCompleted ? TextDecoration.lineThrough : null,
-                      color: isCompleted
-                          ? theme.colorScheme.onSurfaceVariant
-                          : null,
-                    ),
-                  ),
-                  if (duration > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '预计 $duration 分钟',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
