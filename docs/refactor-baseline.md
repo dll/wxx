@@ -113,6 +113,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：通知关联类型映射从 `notification_page.dart` 抽出至独立路由工具，并增加 Dart 单元测试；后续继续按页面优先级拆分大型容器。
 - 已完成：学生首页加载骨架从 `home_page.dart` 抽出至 `student_home_skeleton.dart`，保持首页状态与视觉契约不变，并通过 Flutter 定向测试。
 - 已完成：首页欢迎横幅从 `home_page.dart` 抽出至 `home_welcome_banner.dart`，保留年级主题、问芯入口和时间问候展示契约。
+- 已完成：首页加载错误提示卡从 `home_page.dart` 抽出至 `home_error_card.dart`，通过重试回调保留加载失败与恢复契约。
 - 已完成：问芯空会话欢迎头部从 `chat_page.dart` 抽出至 `chat_empty_intro.dart`，保留主题渐变、引导文案和推荐区块布局契约。
 - 已完成：问芯加载状态气泡从 `chat_page.dart` 抽出至 `chat_loading_bubble.dart`，保持发送中状态展示与消息列表布局契约。
 - 已完成：校园地图报到步骤卡从 `campus_map_page.dart` 抽出至 `campus_step_card.dart`，通过回调保留步骤选择、完成状态和地图容器交互契约。

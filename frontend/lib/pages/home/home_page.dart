@@ -27,6 +27,7 @@ import '../../widgets/student_interest_pick_dialog.dart';
 import '../teacher/daily_overview_page.dart';
 import 'student_home_skeleton.dart';
 import 'home_welcome_banner.dart';
+import 'home_error_card.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1526,7 +1527,8 @@ class _HomePageState extends State<HomePage> {
       return const StudentHomeSkeleton();
     }
     if (_studentHomeError != null) {
-      return _buildErrorCard(theme);
+      return HomeErrorCard(
+          message: _studentHomeError, onRetry: _loadStudentHome);
     }
     if (_studentHomeData == null) {
       return const SizedBox.shrink();
@@ -1596,45 +1598,6 @@ class _HomePageState extends State<HomePage> {
           TextButton(
             onPressed: () => context.go('/student/grade-growth'),
             child: const Text('查看'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 错误提示卡片
-  Widget _buildErrorCard(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.error_outline, color: theme.colorScheme.error, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            '加载失败',
-            style: TextStyle(
-              color: theme.colorScheme.error,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _studentHomeError ?? '未知错误',
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: _loadStudentHome,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('重新加载'),
           ),
         ],
       ),
