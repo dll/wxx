@@ -886,24 +886,6 @@ type CheckinStats struct {
 	DataSource         string                   `json:"data_source"`
 }
 
-func (s *CounselorService) generateCheckinStatsLegacy(ctx context.Context, className string) *CheckinStats {
-	if className == "" {
-		className = "全部班级"
-	}
-
-	// 暂无真实班级级打卡聚合，不虚构人数/比例/学生（不瞎编原则）：
-	// 返回零基数 + 诚实说明，前端显示“暂无真实打卡统计（数据积累中）”。
-	return &CheckinStats{
-		ClassName:          className,
-		TotalStudents:      0,
-		TodayRate:          0,
-		StreakDistribution: map[string]int{},
-		DeclineStudents:    []map[string]interface{}{},
-		AIAnalysis:         "暂无真实打卡统计数据。学生启用每日打卡后，这里会自动汇聚班级打卡率与中断提醒，不展示示例数据。",
-		DataSource:         "real",
-	}
-}
-
 // ======================== P1 剩余方法 ========================
 
 // IdeologicalSummary 学生思想档案查看
