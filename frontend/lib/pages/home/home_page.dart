@@ -39,6 +39,7 @@ import 'home_today_overview.dart';
 import 'home_grade_growth_card.dart';
 import 'home_course_item.dart';
 import 'home_task_item.dart';
+import 'home_quick_entry_card.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1540,8 +1541,7 @@ class _HomePageState extends State<HomePage> {
             final title = entry['title'] ?? '';
             final route = entry['route'] ?? '/';
 
-            return _buildQuickEntryCard(
-              theme,
+            return HomeQuickEntryCard(
               icon: icon,
               label: title,
               color: color,
@@ -1550,48 +1550,6 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildQuickEntryCard(
-    ThemeData theme, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: color.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
