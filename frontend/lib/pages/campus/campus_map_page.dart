@@ -848,86 +848,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(Icons.route, color: theme.colorScheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('新生报到实时导航',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text('当前位置 → ${_campus.name} → 按报到顺序逐站办理',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-            Text('${_completed.length}/${_steps.length} 已完成',
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(color: theme.colorScheme.primary)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControls(ThemeData theme) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SegmentedButton<_MapLayer>(
-          segments: const [
-            ButtonSegment(value: _MapLayer.standard, label: Text('标准')),
-            ButtonSegment(value: _MapLayer.satellite, label: Text('卫星')),
-          ],
-          selected: {_layer},
-          onSelectionChanged: (v) {
-            final l = v.first;
-            setState(() => _layer = l);
-            // 通知地图切换底图图层（标准矢量 / 卫星影像）
-            _mapController
-                .setLayer(l == _MapLayer.satellite ? 'satellite' : 'standard');
-          },
-        ),
-        SegmentedButton<_MapMode>(
-          segments: const [
-            ButtonSegment(value: _MapMode.twoD, label: Text('2D')),
-            ButtonSegment(value: _MapMode.threeD, label: Text('3D')),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (v) {
-            final m = v.first;
-            setState(() => _mode = m);
-            // 通知地图引擎切换 2D/3D 视角（BMapGL 原生倾斜透视+建筑=实景导航）
-            _mapController.set3D(m == _MapMode.threeD);
-          },
-        ),
-      ],
-    );
-  }
-
   Widget _buildCampusMapCanvas(ThemeData theme, {required bool desktop}) {
     // 百度地图 AK 硬编码随包分发（见 ApiConfig.baiduMapAk），无需构建参数，
     // Web 与 Android 均直接使用，避免 APK 因缺少 --dart-define 而显示占位提示。
@@ -984,57 +904,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCampusSelector(ThemeData theme) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.account_balance_outlined,
-                    size: 18, color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
-                Text('选择报到校区',
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(_campuses.length, (index) {
-                final campus = _campuses[index];
-                final selected = _campusIndex == index;
-                return ChoiceChip(
-                  selected: selected,
-                  avatar: Icon(
-                    selected ? Icons.check_circle : Icons.location_city,
-                    size: 18,
-                    color: selected ? theme.colorScheme.primary : null,
-                  ),
-                  label: Text(campus.name),
-                  onSelected: (_) => _switchCampus(index),
-                );
-              }),
-            ),
-            const SizedBox(height: 8),
-            Text('${_campus.entrance} · ${_campus.address}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          ],
-        ),
       ),
     );
   }
@@ -1352,20 +1221,6 @@ class _CampusMapPageState extends State<CampusMapPage> {
         done: _completed.contains(index),
         active: _currentStep == index,
         onTap: () => setState(() => _currentStep = index));
-  }
-
-  Widget _buildMetaLine(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 5),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 12.5))),
-        ],
-      ),
-    );
   }
 
   void _markCurrentDone() {

@@ -1760,18 +1760,6 @@ class _CreateResourceDialogState extends State<_CreateResourceDialog> {
   }
 }
 
-extension on KnowledgeCard {
-  String get statusLabel {
-    const map = {
-      'draft': '草稿',
-      'pending': '待审核',
-      'published': '已发布',
-      'retired': '已下架'
-    };
-    return map[status] ?? (status.isEmpty ? '未知' : status);
-  }
-}
-
 /// 知识治理智能体审计弹窗
 /// 调用 /kb/governance?with_llm=1，展示确定性检查发现 + LLM 准确性审计发现。
 class _GovernanceAuditDialog extends StatefulWidget {

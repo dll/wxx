@@ -9,20 +9,15 @@ import 'vopc_reality_extension_card.dart';
 import 'vopc_invitation_card.dart';
 import 'vopc_project_card.dart';
 import 'vopc_hero.dart';
-import 'vopc_flow_strip.dart';
-import 'vopc_core_idea_card.dart';
 import 'vopc_empty_card.dart';
 import 'vopc_stage_progress.dart';
-import 'vopc_quiz_card.dart';
 import 'vopc_user_search_dialog.dart';
-import 'vopc_learning_sheet.dart';
 import 'vopc_intro_section.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/vopc_provider.dart';
 import '../../utils/capability_utils.dart';
-import '../../utils/vopc_access.dart';
 
 class VopcPage extends StatefulWidget {
   const VopcPage({super.key});
@@ -83,7 +78,7 @@ class _VopcPageState extends State<VopcPage> {
               pendingCount: pending,
             ),
             const SizedBox(height: 20),
-            VopcIntroSection(
+            const VopcIntroSection(
                 defaultCoreIdea: _defaultCoreIdea,
                 defaultFlowSteps: _defaultFlowSteps,
                 defaultCards: _defaultCards),
@@ -560,20 +555,6 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
       'team_mode': teamMode,
     });
   }
-}
-
-/// 从 learning 数据中提取某段列表（knowledge_cards / flow_steps），
-/// 数据为 Map 或 List，兜底为空返回空列表。
-List<Map<String, dynamic>> _learningList(
-    Map<String, dynamic> learning, String key) {
-  final raw = learning[key];
-  if (raw is List) {
-    return raw
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
-  }
-  return const [];
 }
 
 const String _defaultCoreIdea =

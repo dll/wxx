@@ -174,6 +174,8 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 
 批次四验收范围内的首页、VOPC、问芯、校园地图和知识治理主要展示区块均已完成组件化；页面容器仍保留状态、请求和导航编排职责。
 
+批次五之后质量收敛增量：清理校园地图中已由现有地图容器替代且未被引用的 `_buildHeader`、`_buildControls`、`_buildCampusSelector`、`_buildMetaLine`，移除知识治理未使用的 `KnowledgeCard.statusLabel` 扩展，以及 VOPC 未使用的辅助函数和导入；保留现有渲染与交互路径。通过 Flutter 定向 analyze（无新增 error/warning）、通知路由单元测试、Go 全仓编译门禁和 `git diff --check`。
+
 ### 批次五：静态质量收敛（已完成）
 
 已完成：使用 `dart fix` 修复 244 条确定性问题（const、花括号、废弃 API、无效转换等）。
