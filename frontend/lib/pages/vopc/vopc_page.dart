@@ -6,6 +6,8 @@ import 'vopc_task_card.dart';
 import 'vopc_section_widgets.dart';
 import 'vopc_hall_project_card.dart';
 import 'vopc_reality_extension_card.dart';
+import 'vopc_invitation_card.dart';
+import 'vopc_project_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -82,7 +84,7 @@ class _VopcPageState extends State<VopcPage> {
               ),
               ...p.invitations
                   .where((e) => e['status'] == 'pending')
-                  .map((e) => _InvitationCard(
+                  .map((e) => VopcInvitationCard(
                         invitation: e,
                         onDecline: () => p.respondInvitation(
                             (e['id'] as num).toInt(), 'decline'),
@@ -110,7 +112,7 @@ class _VopcPageState extends State<VopcPage> {
               if (p.projects.isEmpty)
                 const _EmptyVopcCard()
               else
-                ...p.projects.map((e) => _ProjectCard(
+                ...p.projects.map((e) => VopcProjectCard(
                       project: e,
                       onTap: () => context.push('/vopc/projects/${e.id}'),
                       onEdit: () => _editProject(e),
@@ -952,126 +954,6 @@ class _QuizCardState extends State<_QuizCard> {
         ]),
       ),
     );
-  }
-}
-
-class _InvitationCard extends StatelessWidget {
-  final Map<String, dynamic> invitation;
-  final VoidCallback onDecline;
-  final VoidCallback onAccept;
-  const _InvitationCard(
-      {required this.invitation,
-      required this.onDecline,
-      required this.onAccept});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.mail_outline_rounded,
-                    color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Text(
-                        invitation['project_name']?.toString() ?? '项目邀请',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700))),
-                VopcMetaChip(invitation['project_role']?.toString() ?? '成员')
-              ]),
-              if ((invitation['message']?.toString() ?? '').isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(invitation['message'].toString(),
-                    style: theme.textTheme.bodySmall)
-              ],
-              Align(
-                  alignment: Alignment.centerRight,
-                  child: Wrap(spacing: 4, children: [
-                    TextButton(onPressed: onDecline, child: const Text('拒绝')),
-                    FilledButton.tonal(
-                        onPressed: onAccept, child: const Text('接受邀请'))
-                  ])),
-            ])));
-  }
-}
-
-class _ProjectCard extends StatelessWidget {
-  final VopcProject project;
-  final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  const _ProjectCard(
-      {required this.project,
-      required this.onTap,
-      required this.onEdit,
-      required this.onDelete});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-                color: theme.colorScheme.outlineVariant.withOpacity(.55))),
-        child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: onTap,
-            child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(children: [
-                  Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(.1),
-                          borderRadius: BorderRadius.circular(14)),
-                      child: Icon(Icons.rocket_launch_outlined,
-                          color: theme.colorScheme.primary)),
-                  const SizedBox(width: 14),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(project.name,
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        Text(
-                            project.summary.isEmpty
-                                ? '尚未填写项目摘要'
-                                : project.summary,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant)),
-                        const SizedBox(height: 10),
-                        Wrap(spacing: 6, runSpacing: 6, children: [
-                          VopcMetaChip(project.stage),
-                          VopcMetaChip(project.status),
-                          VopcMetaChip(project.riskLevel)
-                        ])
-                      ])),
-                  const SizedBox(width: 4),
-                  IconButton(
-                      tooltip: '编辑',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      onPressed: onEdit),
-                  IconButton(
-                      tooltip: '删除',
-                      visualDensity: VisualDensity.compact,
-                      color: theme.colorScheme.error,
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: onDelete),
-                  const SizedBox(width: 2),
-                  Icon(Icons.chevron_right, color: theme.colorScheme.outline),
-                ]))));
   }
 }
 
