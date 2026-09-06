@@ -16,6 +16,7 @@ import 'vopc_stage_progress.dart';
 import 'vopc_quiz_card.dart';
 import 'vopc_user_search_dialog.dart';
 import 'vopc_learning_sheet.dart';
+import 'vopc_intro_section.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -82,7 +83,10 @@ class _VopcPageState extends State<VopcPage> {
               pendingCount: pending,
             ),
             const SizedBox(height: 20),
-            const _OpcIntroSection(),
+            VopcIntroSection(
+                defaultCoreIdea: _defaultCoreIdea,
+                defaultFlowSteps: _defaultFlowSteps,
+                defaultCards: _defaultCards),
             const SizedBox(height: 20),
             if (pending > 0) ...[
               const VopcSectionHeader(
@@ -555,87 +559,6 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
       'funds_involved': funds,
       'team_mode': teamMode,
     });
-  }
-}
-
-/// L1 概念层入口：OPC 核心思想一句话 + 五步核心流程图（idea → validate →
-/// build → deliver → feedback）+ 进入学习入口。
-/// 数据优先取 VopcProvider.learning（来自 GET /vopc/learning），
-/// 为空时回退到内置默认内容，保证任意环境都能渲染。
-class _OpcIntroSection extends StatelessWidget {
-  const _OpcIntroSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final learning = context.watch<VopcProvider>().learning;
-    final cards = _learningList(learning, 'knowledge_cards');
-    final steps = _learningList(learning, 'flow_steps');
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-              color: theme.colorScheme.outlineVariant.withOpacity(.55))),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(.1),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.school_outlined,
-                    size: 19, color: theme.colorScheme.primary)),
-            const SizedBox(width: 10),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('OPC 入门 · L1 概念层',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              Text('先理解核心思想，再进入项目流程',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-            ]),
-          ]),
-          const SizedBox(height: 14),
-          if (cards.isNotEmpty)
-            VopcCoreIdeaCard(
-                title: cards.first['title'] ?? 'OPC 核心思想',
-                body: cards.first['body'] ?? _defaultCoreIdea),
-          const SizedBox(height: 14),
-          if (steps.isNotEmpty)
-            VopcFlowStrip(steps: steps)
-          else
-            const VopcFlowStrip(steps: _defaultFlowSteps),
-          const SizedBox(height: 14),
-          Row(children: [
-            FilledButton.tonalIcon(
-              onPressed: () => _openLearning(context),
-              icon: const Icon(Icons.menu_book_outlined),
-              label: const Text('进入 OPC 学习'),
-            ),
-          ]),
-        ]),
-      ),
-    );
-  }
-
-  void _openLearning(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetCtx) {
-        final learning = sheetCtx.read<VopcProvider>().learning;
-        return VopcLearningSheet(
-            learning: learning,
-            defaultCards: _defaultCards,
-            defaultSteps: _defaultFlowSteps);
-      },
-    );
   }
 }
 

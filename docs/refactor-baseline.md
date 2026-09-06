@@ -149,6 +149,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：vOPC 学习自测卡从 `vopc_page.dart` 抽出至 `vopc_quiz_card.dart`，保持选项选择、答案校验、错误重试和反馈展示契约。
 - 已完成：vOPC 邀请成员搜索对话框从 `vopc_page.dart` 抽出至 `vopc_user_search_dialog.dart`，保持用户搜索、角色选择、成员选择和邀请结果契约。
 - 已完成：vOPC OPC 学习底部弹层从 `vopc_page.dart` 抽出至 `vopc_learning_sheet.dart`，保持知识卡、流程条、自测问卷和动态学习数据回退契约。
+- 已完成：vOPC L1 概念入口从 `vopc_page.dart` 抽出至 `vopc_intro_section.dart`，保持概念卡、流程条和学习弹层入口契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 
