@@ -730,7 +730,7 @@ type SessionInsight struct {
 	DataSource   string   `json:"data_source"`
 }
 
-func (s *CounselorService) GenerateSessionInsight(ctx context.Context, studentName string, messages []string) *SessionInsight {
+func (s *CounselorService) generateSessionInsightLegacy(ctx context.Context, studentName string, messages []string) *SessionInsight {
 	insight := &SessionInsight{
 		StudentName:  studentName,
 		MainTopics:   []string{"学业咨询", "生活服务"},
