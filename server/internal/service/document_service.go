@@ -784,46 +784,6 @@ func BytesToContentSize(size int64) string {
 	return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
 }
 
-// ParseDocument 增强解析：提取标题、摘要、关键词、字数、段落数
-func (s *DocumentService) parseDocumentLegacy(file *multipart.FileHeader) (*DocumentParseResult, error) {
-	result, err := s.ProcessUpload(file)
-	if err != nil {
-		return nil, err
-	}
-	if result.Error != "" {
-		return nil, fmt.Errorf("%s", result.Error)
-	}
-
-	// 解析出口统一清洗：剥离残留 OOXML/HTML 标签 + 规整空白。
-	// 所有文档导入消费方（/documents/parse 回填、/kb/upload 自动入库）都经此漏斗，
-	// 因此标题/摘要/关键词全部从已清洗的 content 派生，天然不含标签。
-	// 注意：此处 content 是纯文本（非 FAQ 的 AnswerCard JSON），可安全剥离标签。
-	content := util.SanitizeKnowledgeContent(result.TextContent)
-	title := extractDocTitle(content, result.FileName)
-	summary := extractDocSummary(content, 200)
-	keywords := extractDocKeywordsWithTitle(content, title, 10)
-	wordCount := countDocWords(content)
-	paragraphs := countDocParagraphs(content)
-	// 质量评估前剔除结构性标记（分页符/工作表头/行号），
-	// 否则图片型 PDF 的空壳标记会被误判为有效中文内容。
-	quality := assessDocQuality(stripStructuralMarkers(content))
-
-	return &DocumentParseResult{
-		Title:        title,
-		Content:      content,
-		Summary:      summary,
-		Keywords:     keywords,
-		WordCount:    wordCount,
-		Paragraphs:   paragraphs,
-		FileName:     result.FileName,
-		FileType:     result.FileType,
-		FileSize:     result.FileSize,
-		Pages:        result.Pages,
-		Quality:      quality,
-		ParseWarning: result.Warning,
-	}, nil
-}
-
 // ── 解析内容质量门槛 ──
 
 // 质量门槛阈值：正文过短 / 无中文 / 疑似乱码时拒绝或强制预览
@@ -942,65 +902,6 @@ func isNormalDocRune(r rune) bool {
 		return true
 	}
 	return false
-}
-
-// RefineMetadata 使用 LLM 精修文档元数据（标题/摘要/关键词）。
-//
-// 设计要点：
-//   - 规则兜底：未配置 LLM、调用超时/失败、响应非 JSON、字段校验不通过时，
-//     一律回退到启发式结果（或传入的当前值），保证接口始终可用、绝不让前端拿空值。
-//   - 成本控制：正文截断到有限长度再送模型；上下文带 30s 超时。
-//   - 由人工确认后再入库：精修结果仅回填编辑表单，不自动写库（写库仍走 KBService）。
-func (s *DocumentService) refineMetadataLegacy(ctx context.Context, title, summary string, keywords []string, content string) *DocumentRefineResult {
-	fallback := &DocumentRefineResult{
-		Title:    title,
-		Summary:  summary,
-		Keywords: keywords,
-		Fallback: true,
-	}
-
-	if s.llmClient == nil {
-		return fallback
-	}
-
-	content = strings.TrimSpace(content)
-	if content == "" {
-		return fallback
-	}
-
-	prompt := buildRefinePrompt(truncateDocForRefine(content, refineMaxInputRunes))
-
-	// 带超时保护，避免 LLM 挂起拖垮上传接口
-	ctx, cancel := context.WithTimeout(ctx, refineTimeout)
-	defer cancel()
-
-	resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-		Messages: []llm.ChatMessage{
-			{Role: "system", Content: refineSystemPrompt},
-			{Role: "user", Content: prompt},
-		},
-		Temperature: 0.3,
-		MaxTokens:   refineMaxTokens,
-	})
-	if err != nil {
-		log.Printf("文档精修 LLM 调用失败，回退规则: %v", err)
-		return fallback
-	}
-
-	refined, err := parseRefinedMetadata(resp.Content)
-	if err != nil {
-		log.Printf("文档精修响应解析失败，回退规则: %v", err)
-		return fallback
-	}
-
-	// 用原值补齐模型漏填字段，再整体校验
-	normalizeRefinedMetadata(refined, title, summary, keywords)
-	if !validateRefinedMetadata(refined) {
-		log.Printf("文档精修结果校验不通过，回退规则: %q / %q / %v", refined.Title, refined.Summary, refined.Keywords)
-		return fallback
-	}
-
-	return refined
 }
 
 // ── 精修常量与提示词 ──
