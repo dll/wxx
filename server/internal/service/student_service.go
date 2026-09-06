@@ -466,18 +466,7 @@ func fallbackAIResponse(feature string) map[string]interface{} {
 
 // ─── P2 深度分析功能 ───
 
-// AcademicWarning 学业预警结果
-type AcademicWarning struct {
-	StudentName string   `json:"student_name"`
-	RiskLevel   string   `json:"risk_level"` // high/medium/low
-	RiskScore   float64  `json:"risk_score"`
-	Factors     []string `json:"factors"`
-	Suggestions []string `json:"suggestions"`
-	Resources   []string `json:"resources"`
-	DataSource  string   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateAcademicWarning(ctx context.Context, userID int64) *AcademicWarning {
+func (s *StudentService) generateAcademicWarningLegacy(ctx context.Context, userID int64) *AcademicWarning {
 	user, err := s.userRepo.GetByID(userID)
 	userName := "同学"
 	if err == nil && user != nil {
