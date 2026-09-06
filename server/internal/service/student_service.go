@@ -1136,34 +1136,6 @@ func (s *StudentService) generateHotTopicsLegacy(ctx context.Context) *HotTopics
 	return fallbackHotTopics()
 }
 
-func (s *StudentService) generateQALeaderboardLegacy(ctx context.Context) *QALeaderboardData {
-	data := referenceQALeaderboard()
-
-	// 热门提问：来自真实 messages 表的聚合统计
-	if s.messageRepo != nil {
-		if hot, err := s.messageRepo.GetHotQuestions(10); err == nil && len(hot) > 0 {
-			questions := make([]map[string]interface{}, 0, len(hot))
-			for i, h := range hot {
-				title := h.Title
-				if len([]rune(title)) > 40 {
-					title = string([]rune(title)[:40]) + "…"
-				}
-				questions = append(questions, map[string]interface{}{
-					"rank":  i + 1,
-					"title": title,
-					"count": h.Count, // 真实被提问次数
-				})
-			}
-			data.HotQuestions = questions
-			data.DataSource = "real" // 热榜为真实数据；答主榜仍为参考
-			return data
-		}
-	}
-
-	// 无真实提问数据时的参考样例
-	return data
-}
-
 // ======================== P3 生态扩展 ========================
 
 // EnhancedCareerSimulation 职业模拟器增强版（数据驱动仿真）
