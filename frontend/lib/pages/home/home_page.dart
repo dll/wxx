@@ -40,6 +40,7 @@ import 'home_grade_growth_card.dart';
 import 'home_course_item.dart';
 import 'home_task_item.dart';
 import 'home_quick_entry_card.dart';
+import 'home_event_item.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1579,7 +1580,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 for (int i = 0; i < events.length; i++) ...[
-                  _buildEventItem(theme, events[i]),
+                  HomeEventItem(event: events[i]),
                   if (i < events.length - 1)
                     Divider(
                       height: 1,
@@ -1595,90 +1596,4 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildEventItem(ThemeData theme, Map<String, dynamic> event) {
-    final eventName = event['event_name'] ?? '';
-    final eventType = event['event_type'] ?? '';
-    final startDate = event['start_date'] ?? '';
-    final daysLeft = event['days_left'] ?? 0;
-
-    final iconMap = <String, IconData>{
-      'holiday': Icons.celebration_outlined,
-      'exam': Icons.edit_note_outlined,
-      'registration': Icons.how_to_reg_outlined,
-      'vacation': Icons.beach_access_outlined,
-    };
-
-    final colorMap = <String, Color>{
-      'holiday': const Color(0xFFE65100),
-      'exam': const Color(0xFFC62828),
-      'registration': const Color(0xFF2E7D32),
-      'vacation': const Color(0xFF1565C0),
-    };
-
-    final icon = iconMap[eventType] ?? Icons.event_outlined;
-    final color = colorMap[eventType] ?? theme.colorScheme.primary;
-
-    String daysText;
-    if (daysLeft < 0) {
-      daysText = '已过${-daysLeft}天';
-    } else if (daysLeft == 0) {
-      daysText = '今天';
-    } else {
-      daysText = '还有$daysLeft天';
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  eventName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  startDate,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              daysText,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
