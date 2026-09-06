@@ -22,6 +22,7 @@ import '../../widgets/export_dialog.dart';
 import '../../widgets/feedback_screenshot.dart';
 import 'chat_empty_intro.dart';
 import 'chat_loading_bubble.dart';
+import 'chat_agent_examples.dart';
 
 const _htmlEscaper = HtmlEscape();
 
@@ -495,10 +496,18 @@ class _ChatPageState extends State<ChatPage> {
               _buildRoleSuggestions(theme),
               const SizedBox(height: 16),
               // 5 个智能体：各配典型提问示例
-              for (final group in _agentExampleGroups) ...[
-                _buildAgentExampleGroup(theme, group),
-                const SizedBox(height: 12),
-              ],
+              ChatAgentExamples(
+                  groups: _agentExampleGroups
+                      .map((g) => ChatAgentExampleGroup(
+                          icon: g.icon,
+                          color: g.color,
+                          name: g.name,
+                          agentType: g.agentType,
+                          questions: g.questions))
+                      .toList(),
+                  inputController: _inputCtrl,
+                  send: _send,
+                  agentIdForType: _agentIdForType),
             ],
           ),
         ),
@@ -632,65 +641,6 @@ class _ChatPageState extends State<ChatPage> {
                 },
               ),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAgentExampleGroup(ThemeData theme, _AgentExampleGroup group) {
-    final chat = context.read<ChatProvider>();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(group.icon, size: 16, color: group.color),
-            const SizedBox(width: 6),
-            Text(
-              group.name,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: group.color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 点击即切换到对应智能体
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => chat.selectAgent(_agentIdForType(group.agentType)),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: group.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '用「${group.name}」回答 →',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: group.color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: group.questions
-              .map((q) => ActionChip(
-                    label: Text(q, style: const TextStyle(fontSize: 12)),
-                    onPressed: () {
-                      // 提问同时选中对应智能体
-                      chat.selectAgent(_agentIdForType(group.agentType));
-                      _inputCtrl.text = q;
-                      _send();
-                    },
-                  ))
-              .toList(),
         ),
       ],
     );
