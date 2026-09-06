@@ -25,6 +25,7 @@ import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/student_interest_pick_dialog.dart';
 import '../teacher/daily_overview_page.dart';
+import 'student_home_skeleton.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -262,13 +263,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadTeacherCoursePending() async {
     if (!CapabilityUtils.has(Capability.teacherCourseReview)) return;
     try {
-      final res =
-          await ApiService().get(ApiConfig.teacherCoursesPendingCount);
-      final pending =
-          res.data is Map ? (res.data['pending'] ?? 0) : 0;
+      final res = await ApiService().get(ApiConfig.teacherCoursesPendingCount);
+      final pending = res.data is Map ? (res.data['pending'] ?? 0) : 0;
       if (!mounted) return;
-      setState(() =>
-          _teacherCoursePending = pending is num ? pending.toInt() : 0);
+      setState(
+          () => _teacherCoursePending = pending is num ? pending.toInt() : 0);
     } catch (_) {
       // 静默：角标拉取失败不影响首页；审核页内仍有诚实空态
     }
@@ -520,7 +519,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showApkDownloadDialog(BuildContext context, ThemeData theme) {
-    final qrUrl = ReleaseConfig.qrCodeUrl(ReleaseConfig.apkDownloadUrl, size: 240);
+    final qrUrl =
+        ReleaseConfig.qrCodeUrl(ReleaseConfig.apkDownloadUrl, size: 240);
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -800,8 +800,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.auto_awesome,
-                                size: 18, color: accent),
+                            Icon(Icons.auto_awesome, size: 18, color: accent),
                             const SizedBox(width: 6),
                             Text(
                               '${themeNotifier.gradeThemeName}主题',
@@ -833,8 +832,7 @@ class _HomePageState extends State<HomePage> {
                       color: accent.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(Icons.school_outlined,
-                        color: accent, size: 28),
+                    child: Icon(Icons.school_outlined, color: accent, size: 28),
                   ),
                 ],
               ),
@@ -1274,7 +1272,8 @@ class _HomePageState extends State<HomePage> {
       4 => '大四 · 毕业 · 就业',
       _ => '成长 · 竞赛 · 规划 · 组织',
     };
-    if (Storage.studentInterestsCollected && Storage.studentInterests.isNotEmpty) {
+    if (Storage.studentInterestsCollected &&
+        Storage.studentInterests.isNotEmpty) {
       return '$phase · 已按关注定制';
     }
     return phase;
@@ -1314,8 +1313,8 @@ class _HomePageState extends State<HomePage> {
 
     // ── 辅导员工作台 ──
     if (CapabilityUtils.has(Capability.counselorAlertRead)) {
-      entries.add(const _WorkbenchEntry(Icons.warning_amber_rounded, '情感预警',
-          Color(0xFFC62828), '/emotion'));
+      entries.add(const _WorkbenchEntry(
+          Icons.warning_amber_rounded, '情感预警', Color(0xFFC62828), '/emotion'));
     }
     if (CapabilityUtils.has(Capability.counselorDailyFocusRead)) {
       entries.add(const _WorkbenchEntry(Icons.today_outlined, '今日关注',
@@ -1348,9 +1347,9 @@ class _HomePageState extends State<HomePage> {
 
     // ── 教辅工作台 ──
     if (CapabilityUtils.hasAny([
-          Capability.outcomeRecordWrite,
-          Capability.outcomeReview,
-        ])) {
+      Capability.outcomeRecordWrite,
+      Capability.outcomeReview,
+    ])) {
       entries.add(const _WorkbenchEntry(Icons.task_alt, '毕业去向登记',
           Color(0xFFE65100), '/secretary/outcome-manage'));
     }
@@ -1359,16 +1358,16 @@ class _HomePageState extends State<HomePage> {
           Color(0xFF1565C0), '/assistant/schedule-check'));
     }
     if (CapabilityUtils.has(Capability.assistantGradAudit)) {
-      entries.add(const _WorkbenchEntry(Icons.workspace_premium_outlined, '毕业审核',
-          Color(0xFF2E7D32), '/assistant/grad-audit'));
+      entries.add(const _WorkbenchEntry(Icons.workspace_premium_outlined,
+          '毕业审核', Color(0xFF2E7D32), '/assistant/grad-audit'));
     }
     if (CapabilityUtils.has(Capability.assistantExamArrange)) {
       entries.add(const _WorkbenchEntry(Icons.edit_calendar_outlined, '考试安排',
           Color(0xFF7B1FA2), '/assistant/exam-arrange'));
     }
     if (Storage.role == 'assistant') {
-      entries.add(const _WorkbenchEntry(Icons.build, '后勤服务台',
-          Color(0xFF00695C), '/assistant/facility-workbench'));
+      entries.add(const _WorkbenchEntry(Icons.build, '后勤服务台', Color(0xFF00695C),
+          '/assistant/facility-workbench'));
     }
 
     // ── 教师授课申报审核（R3 补 H，2026-08-17）：教辅/教务审核 + 待审角标（teacher.course.review）──
@@ -1379,13 +1378,14 @@ class _HomePageState extends State<HomePage> {
           _teacherCoursePending > 0
               ? '授课申报审核·$_teacherCoursePending'
               : '授课申报审核',
-          const Color(0xFFE65100), '/assistant/teacher-course-review'));
+          const Color(0xFFE65100),
+          '/assistant/teacher-course-review'));
     }
 
     // ── 党课/活动登记（蓝图第3块，2026-08-16）：教师/教辅登记 → 书记党建看板 ──
     if (CapabilityUtils.has(Capability.partyRecordWrite)) {
-      entries.add(const _WorkbenchEntry(Icons.flag, '党课/活动登记',
-          Color(0xFFC62828), '/teacher/party-register'));
+      entries.add(const _WorkbenchEntry(
+          Icons.flag, '党课/活动登记', Color(0xFFC62828), '/teacher/party-register'));
     }
 
     // ── 教师成绩录入（P0-1，2026-08-17，方案A：教师自主声明授课）──
@@ -1415,13 +1415,13 @@ class _HomePageState extends State<HomePage> {
           Color(0xFFE65100), '/union/event-plan'));
     }
     if (CapabilityUtils.has(Capability.unionFeedbackList)) {
-      entries.add(const _WorkbenchEntry(Icons.feedback_outlined, '反馈处理',
-          Color(0xFFC62828), '/feedback'));
+      entries.add(const _WorkbenchEntry(
+          Icons.feedback_outlined, '反馈处理', Color(0xFFC62828), '/feedback'));
     }
     if (CapabilityUtils.hasAny([
-          Capability.unionKbSubmit,
-          Capability.unionPosterGen,
-        ])) {
+      Capability.unionKbSubmit,
+      Capability.unionPosterGen,
+    ])) {
       entries.add(const _WorkbenchEntry(Icons.workspaces_outlined, '学生会工作台',
           Color(0xFF7B1FA2), '/union/workbench'));
     }
@@ -1433,16 +1433,16 @@ class _HomePageState extends State<HomePage> {
     }
     // 书记党建育人 / 协同育人专项可视化深链（D1-1 功能补齐，2026-08-16）
     if (CapabilityUtils.has(Capability.outcomeDashboard)) {
-      entries.add(const _WorkbenchEntry(Icons.flag, '党建育人专项',
-          Color(0xFFC62828), '/secretary/party-dashboard'));
+      entries.add(const _WorkbenchEntry(Icons.flag, '党建育人专项', Color(0xFFC62828),
+          '/secretary/party-dashboard'));
     }
     if (CapabilityUtils.has(Capability.collabDashboard)) {
       entries.add(const _WorkbenchEntry(Icons.groups, '协同育人专项',
           Color(0xFF00695C), '/secretary/collab-dashboard'));
     }
     if (CapabilityUtils.has(Capability.collegeTwinScreen)) {
-      entries.add(const _WorkbenchEntry(Icons.dashboard, '数字孪生',
-          Color(0xFF2E7D32), '/college/twin-screen'));
+      entries.add(const _WorkbenchEntry(
+          Icons.dashboard, '数字孪生', Color(0xFF2E7D32), '/college/twin-screen'));
     }
     if (CapabilityUtils.has(Capability.collegeDataAnalysis)) {
       entries.add(const _WorkbenchEntry(Icons.analytics, '数据分析',
@@ -1455,8 +1455,8 @@ class _HomePageState extends State<HomePage> {
           Color(0xFF455A64), '/admin/settings'));
     }
     if (CapabilityUtils.has(Capability.systemAuditAll)) {
-      entries.add(const _WorkbenchEntry(Icons.history, '审计日志',
-          Color(0xFFC62828), '/admin/audit'));
+      entries.add(const _WorkbenchEntry(
+          Icons.history, '审计日志', Color(0xFFC62828), '/admin/audit'));
     }
 
     // 无任何工作台能力(纯学生/教师/游客)→ 不显示
@@ -1663,7 +1663,7 @@ class _HomePageState extends State<HomePage> {
   /// 学生首页主内容
   Widget _buildStudentHomeContent(ThemeData theme) {
     if (_studentHomeLoading) {
-      return const _StudentHomeSkeleton();
+      return const StudentHomeSkeleton();
     }
     if (_studentHomeError != null) {
       return _buildErrorCard(theme);
@@ -1720,7 +1720,8 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   '本阶段成长计划',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -2025,8 +2026,10 @@ class _HomePageState extends State<HomePage> {
     final s = parts[0].trim().split(':'), e = parts[1].trim().split(':');
     if (s.length != 2 || e.length != 2) return null;
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day, int.tryParse(s[0]) ?? 0, int.tryParse(s[1]) ?? 0);
-    final end = DateTime(now.year, now.month, now.day, int.tryParse(e[0]) ?? 0, int.tryParse(e[1]) ?? 0);
+    final start = DateTime(now.year, now.month, now.day,
+        int.tryParse(s[0]) ?? 0, int.tryParse(s[1]) ?? 0);
+    final end = DateTime(now.year, now.month, now.day, int.tryParse(e[0]) ?? 0,
+        int.tryParse(e[1]) ?? 0);
     String label;
     Color color;
     if (now.isBefore(start)) {
@@ -2049,7 +2052,8 @@ class _HomePageState extends State<HomePage> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(label,
-            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -2540,96 +2544,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 学生首页骨架屏
-class _StudentHomeSkeleton extends StatelessWidget {
-  const _StudentHomeSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 72,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text('今日概览', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (var i = 0; i < 4; i++) ...[
-              Expanded(
-                child: Container(
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              if (i < 3) const SizedBox(width: 8),
-            ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('今日课表', style: theme.textTheme.titleMedium),
-            Container(
-              width: 80,
-              height: 16,
-              decoration: BoxDecoration(
-                color:
-                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 80,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('今日任务', style: theme.textTheme.titleMedium),
-            Container(
-              width: 80,
-              height: 16,
-              decoration: BoxDecoration(
-                color:
-                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 60,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ],
     );
   }
 }
