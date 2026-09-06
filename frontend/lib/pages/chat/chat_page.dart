@@ -21,6 +21,7 @@ import '../../widgets/answer_card.dart';
 import '../../widgets/export_dialog.dart';
 import '../../widgets/feedback_screenshot.dart';
 import 'chat_empty_intro.dart';
+import 'chat_loading_bubble.dart';
 
 const _htmlEscaper = HtmlEscape();
 
@@ -280,7 +281,7 @@ class _ChatPageState extends State<ChatPage> {
                     itemBuilder: (context, index) {
                       // 加载指示器
                       if (index == chat.messages.length && chat.sending) {
-                        return _buildLoadingBubble(theme);
+                        return const ChatLoadingBubble();
                       }
                       return _SlideInItem(
                         key: ValueKey(index),
@@ -1639,35 +1640,6 @@ $printScript
         const SnackBar(content: Text('已复制报告，可粘贴到 AI 工具修复')),
       );
     }
-  }
-
-  Widget _buildLoadingBubble(ThemeData theme) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text('思考中...', style: TextStyle(color: theme.colorScheme.outline)),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildInputBar(ThemeData theme, bool sending) {
