@@ -121,6 +121,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：校园地图报到步骤卡从 `campus_map_page.dart` 抽出至 `campus_step_card.dart`，通过回调保留步骤选择、完成状态和地图容器交互契约。
 - 已完成：知识治理页面统计状态徽标从 `my_submissions_page.dart` 抽出至 `resource_stat_chip.dart`，保持资源统计颜色、数量和标签展示契约。
 - 已完成：知识治理资源类型分布从 `my_submissions_page.dart` 抽出至 `resource_type_stats.dart`，保持类型映射、颜色和计数展示契约。
+- 已完成：vOPC 页面错误卡从 `vopc_page.dart` 抽出至 `vopc_error_card.dart`，保持 HTTP 状态提示和重试回调契约。
 
 ### 批次五：静态质量收敛（阶段完成）
 

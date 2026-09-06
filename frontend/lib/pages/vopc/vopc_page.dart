@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'vopc_error_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -92,7 +93,7 @@ class _VopcPageState extends State<VopcPage> {
             ],
             if (p.loading) const LinearProgressIndicator(),
             if (!p.loading && p.error != null)
-              _ErrorCard(
+              VopcErrorCard(
                   message: p.error!, code: p.statusCode, onRetry: _start),
             if (!p.loading && p.error == null) ...[
               _SectionHeader(
@@ -1496,7 +1497,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
             ? const Center(child: CircularProgressIndicator())
             : p.error != null && p.detail == null
                 ? Center(
-                    child: _ErrorCard(
+                    child: VopcErrorCard(
                         message: p.error!,
                         code: p.statusCode,
                         onRetry: () => p.loadDetail(widget.projectId)))
@@ -2057,7 +2058,7 @@ class _VopcProjectPageState extends State<VopcProjectPage> {
       if (provider.tasksLoading) const LinearProgressIndicator(),
       if (provider.error != null) ...[
         const SizedBox(height: 10),
-        _ErrorCard(
+        VopcErrorCard(
             message: provider.error!,
             code: provider.statusCode,
             onRetry: () => provider.loadTasks(widget.projectId)),
@@ -3050,24 +3051,4 @@ class _MetaChip extends StatelessWidget {
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(999)),
       child: Text(label, style: Theme.of(context).textTheme.labelSmall));
-}
-
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  final int? code;
-  final Future<void> Function() onRetry;
-  const _ErrorCard(
-      {required this.message, required this.code, required this.onRetry});
-  @override
-  Widget build(BuildContext context) => Card(
-      color: Theme.of(context).colorScheme.errorContainer,
-      child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(children: [
-            Icon(code == 403 ? Icons.lock_outline : Icons.error_outline),
-            const SizedBox(height: 8),
-            Text(code == null ? message : 'HTTP $code · $message'),
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: onRetry, child: const Text('重试'))
-          ])));
 }
