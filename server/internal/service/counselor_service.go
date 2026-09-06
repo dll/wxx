@@ -383,7 +383,7 @@ type InterventionPlan struct {
 }
 
 // GenerateIntervention 生成干预方案
-func (s *CounselorService) GenerateIntervention(ctx context.Context, studentName, riskLevel, reason string) (*InterventionPlan, error) {
+func (s *CounselorService) generateInterventionLegacy(ctx context.Context, studentName, riskLevel, reason string) (*InterventionPlan, error) {
 	if s.llmClient == nil {
 		return fallbackIntervention(studentName, riskLevel), nil
 	}
@@ -406,7 +406,7 @@ func (s *CounselorService) GenerateIntervention(ctx context.Context, studentName
 	return parseIntervention(resp.Content, studentName, riskLevel), nil
 }
 
-func parseIntervention(text, name, risk string) *InterventionPlan {
+func parseInterventionLegacy(text, name, risk string) *InterventionPlan {
 	plan := fallbackIntervention(name, risk)
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
@@ -423,7 +423,7 @@ func parseIntervention(text, name, risk string) *InterventionPlan {
 	return plan
 }
 
-func fallbackIntervention(name, risk string) *InterventionPlan {
+func fallbackInterventionLegacy(name, risk string) *InterventionPlan {
 	return &InterventionPlan{
 		TargetStudent: name,
 		RiskLevel:     risk,

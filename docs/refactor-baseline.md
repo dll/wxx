@@ -101,6 +101,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成文档服务 LLM 元数据精修入口提取至 `document_refine.go`，保留超时保护、字段补齐、校验失败回退和人工确认契约。
 - 已完成辅导员谈心记录与 LLM 摘要入口提取至 `counselor_talk_record.go`，保留结构化字段、无模型兜底和解析契约。
 - 已完成辅导员谈心话术推荐入口提取至 `counselor_talk_tips.go`，保留画像提示词、字段解析和无模型兜底契约。
+- 已完成辅导员风险干预方案入口提取至 `counselor_intervention.go`，保留风险等级、紧急措施、长期方案和 LLM 回退契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
 
