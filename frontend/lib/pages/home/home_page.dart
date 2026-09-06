@@ -31,6 +31,7 @@ import 'home_error_card.dart';
 import 'home_calendar_bar.dart';
 import 'home_overview_item.dart';
 import 'home_empty_card.dart';
+import 'home_alert_overview.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -741,92 +742,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildAlertOverview(ThemeData theme) {
     final stats = context.watch<EmotionProvider>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('预警概览', style: theme.textTheme.titleMedium),
-            TextButton.icon(
-              onPressed: () => context.go('/emotion'),
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('查看全部', style: TextStyle(fontSize: 13)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (stats.statsLoading)
-          const Center(child: CircularProgressIndicator())
-        else
-          Row(
-            children: [
-              _buildStatCard(
-                theme,
-                label: '紧急',
-                count: stats.stats?.urgent ?? 0,
-                color: const Color(0xFFC62828),
-                icon: Icons.warning_rounded,
-              ),
-              const SizedBox(width: 10),
-              _buildStatCard(
-                theme,
-                label: '高风险',
-                count: stats.stats?.high ?? 0,
-                color: const Color(0xFFE65100),
-                icon: Icons.error_outline,
-              ),
-              const SizedBox(width: 10),
-              _buildStatCard(
-                theme,
-                label: '待处理',
-                count: stats.stats?.pending ?? 0,
-                color: const Color(0xFF1565C0),
-                icon: Icons.pending_actions,
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    ThemeData theme, {
-    required String label,
-    required int count,
-    required Color color,
-    required IconData icon,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return HomeAlertOverview(
+      loading: stats.statsLoading,
+      urgent: stats.stats?.urgent ?? 0,
+      high: stats.stats?.high ?? 0,
+      pending: stats.stats?.pending ?? 0,
+      onViewAll: () => context.go('/emotion'),
     );
   }
 
