@@ -13,6 +13,7 @@ import 'vopc_flow_strip.dart';
 import 'vopc_core_idea_card.dart';
 import 'vopc_empty_card.dart';
 import 'vopc_stage_progress.dart';
+import 'vopc_quiz_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -717,7 +718,7 @@ class _LearningSheet extends StatelessWidget {
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
-            ...quizzes.map((q) => _QuizCard(
+            ...quizzes.map((q) => VopcQuizCard(
                   question: q['q']?.toString() ?? '',
                   options: (q['options'] as List?)
                           ?.map((e) => e.toString())
@@ -742,90 +743,6 @@ const List<Map<String, String>> _defaultCards = [
   {'title': '最小闭环', 'body': '一个 OPC ≈ 需求方 + 产品/服务 + 交付 + 反馈。四者缺一不可，循环闭环即生意。'},
   {'title': '核心心态', 'body': '先验证再投入，先交付再完善；每一步都要能回溯、能复盘、能讲清楚。'},
 ];
-
-class _QuizCard extends StatefulWidget {
-  final String question;
-  final List<String> options;
-  final int? answer;
-  const _QuizCard({required this.question, required this.options, this.answer});
-  @override
-  State<_QuizCard> createState() => _QuizCardState();
-}
-
-class _QuizCardState extends State<_QuizCard> {
-  int? _selected;
-  bool _checked = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final correct = _checked && _selected == widget.answer;
-    final wrong = _checked && _selected != widget.answer;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.question,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          for (var i = 0; i < widget.options.length; i++)
-            RadioListTile<int>(
-              dense: true,
-              value: i,
-              groupValue: _selected,
-              onChanged: _checked ? null : (v) => setState(() => _selected = v),
-              title: Text(widget.options[i]),
-              secondary: _checked
-                  ? Icon(
-                      i == widget.answer
-                          ? Icons.check_circle
-                          : (_selected == i ? Icons.cancel : null),
-                      color: i == widget.answer ? Colors.green : Colors.red,
-                    )
-                  : null,
-            ),
-          const SizedBox(height: 6),
-          Row(children: [
-            if (!_checked)
-              FilledButton.tonal(
-                onPressed: _selected == null
-                    ? null
-                    : () => setState(() => _checked = true),
-                child: const Text('确认答案'),
-              ),
-            if (_checked) ...[
-              if (correct)
-                const Row(children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 18),
-                  SizedBox(width: 4),
-                  Text('回答正确', style: TextStyle(color: Colors.green)),
-                ])
-              else
-                const Row(children: [
-                  Icon(Icons.cancel, color: Colors.red, size: 18),
-                  SizedBox(width: 4),
-                  Text('再想想正确答案', style: TextStyle(color: Colors.red)),
-                ]),
-              if (wrong) ...[
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _checked = false;
-                    _selected = null;
-                  }),
-                  child: const Text('重试'),
-                )
-              ],
-            ] else if (_selected != null)
-              const Text(''),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
 
 class _UserSearchDialog extends StatefulWidget {
   final TextEditingController controller;
