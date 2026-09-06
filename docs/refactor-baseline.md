@@ -88,6 +88,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成学生增强职业模拟逻辑提取至 `student_enhanced_career.go`，保留阶段、技能差距、薪资投影和 AI 建议契约。
 - 已完成学生课程学情看板逻辑提取至 `student_course_analytics.go`，保留真实成绩、班级基准、薄弱课程和 LLM 建议契约。
 - 已完成学生成长路径聚合入口提取至 `student_growth_path.go`，保留数字孪生五维快照、学业阶段、里程碑和 LLM 总结契约。
+- 已完成学生课程学情与成长路径迁移后的遗留实现清理，`student_service.go` 不再保留对应重复方法体。
 - 已完成学生学业预警入口提取至 `student_academic_warning.go`，保留风险等级、因素、建议、资源和 AI 追加建议契约。
 - 已完成学生心理健康报告入口提取至 `student_mental_health.go`，保留情感记录聚合、风险引导和安全兜底契约。
 - 已完成学生学习周报入口提取至 `student_weekly_report.go`，保留周次、时间分布、真实交互统计、行动建议和来源标记契约。
@@ -104,6 +105,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成辅导员风险干预方案入口提取至 `counselor_intervention.go`，保留风险等级、紧急措施、长期方案和 LLM 回退契约。
 - 已完成辅导员会话洞察入口提取至 `counselor_session_insight.go`，保留话题、情绪趋势、诉求、建议和 AI 追加分析契约。
 - 已完成辅导员谈心跟进提醒入口提取至 `counselor_followup.go`，保留逾期判定、优先级统计、真实记录和 AI 建议契约。
+- 已完成辅导员班级打卡统计迁移后的遗留实现清理，主服务仅保留真实入口。
 - 已完成辅导员通知群发与班级打卡统计入口提取至 `counselor_notifications.go`，保留受众版本、AI 改写和无数据诚实返回契约。
 
 ### 批次四：Flutter 页面组件化（进行中）
