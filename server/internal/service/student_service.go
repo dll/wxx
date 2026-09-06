@@ -498,16 +498,7 @@ func (s *StudentService) generateAcademicWarningLegacy(ctx context.Context, user
 	return warning
 }
 
-// MockInterview AI 模拟面试
-type MockInterview struct {
-	Position   string                   `json:"position"`
-	Questions  []map[string]interface{} `json:"questions"`
-	Tips       []string                 `json:"tips"`
-	Score      float64                  `json:"score"`
-	DataSource string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateMockInterview(ctx context.Context, position string) *MockInterview {
+func (s *StudentService) generateMockInterviewLegacy(ctx context.Context, position string) *MockInterview {
 	if position == "" {
 		position = "Java后端开发工程师"
 	}
