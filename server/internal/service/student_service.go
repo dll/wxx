@@ -1092,14 +1092,7 @@ func (s *StudentService) generateQAPlazaLegacy(ctx context.Context) *QAPlazaData
 	return fallbackQAPlaza()
 }
 
-// HotTopicsData 热点关注
-type HotTopicsData struct {
-	Topics     []map[string]interface{} `json:"topics"`
-	UpdatedAt  string                   `json:"updated_at"`
-	DataSource string                   `json:"data_source"`
-}
-
-func (s *StudentService) GenerateHotTopics(ctx context.Context) *HotTopicsData {
+func (s *StudentService) generateHotTopicsLegacy(ctx context.Context) *HotTopicsData {
 	// 优先用最近已发布的 Activity 资源作为校园热点（按 List 默认 updated_at 倒序取前若干）
 	if s.kbRepo != nil {
 		acts, err := s.kbRepo.List("", "", "published", "Activity", 0, 6)
