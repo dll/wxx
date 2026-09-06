@@ -322,8 +322,7 @@ type TalkTip struct {
 	Cautions    []string `json:"cautions"`
 }
 
-// GenerateTalkTips 根据学生画像推荐谈话话术
-func (s *CounselorService) GenerateTalkTips(ctx context.Context, studentProfile string) (*TalkTip, error) {
+func (s *CounselorService) generateTalkTipsLegacy(ctx context.Context, studentProfile string) (*TalkTip, error) {
 	if s.llmClient == nil {
 		return fallbackTalkTip(), nil
 	}
