@@ -432,47 +432,6 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     );
   }
 
-  List<Widget> _legacyBuildTypeStats(dynamic byType) {
-    if (byType is! Map) return [];
-    const typeLabels = {
-      'Policy': '政策',
-      'Process': '流程',
-      'FAQ': '问答',
-      'Activity': '活动',
-    };
-    const typeColors = {
-      'Policy': Colors.blue,
-      'Process': Colors.purple,
-      'FAQ': Colors.green,
-      'Activity': Colors.orange,
-    };
-    final widgets = <Widget>[];
-    for (final entry in (byType).entries) {
-      final label = typeLabels[entry.key] ?? entry.key.toString();
-      final color = typeColors[entry.key] ?? Colors.grey;
-      final count = entry.value is int ? entry.value : 0;
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 3),
-            Text('$label $count', style: TextStyle(fontSize: 11, color: color)),
-          ],
-        ),
-      ));
-    }
-    return widgets;
-  }
-
   // ── 批量操作栏 ──
 
   Widget _buildBatchActionBar() {
