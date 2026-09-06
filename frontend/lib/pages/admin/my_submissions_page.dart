@@ -473,42 +473,6 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
     return widgets;
   }
 
-  Widget _legacyStatChip(String label, dynamic count, Color color) {
-    final num = count is int ? count : 0;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$num',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color.withOpacity(0.8),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ── 批量操作栏 ──
 
   Widget _buildBatchActionBar() {
@@ -853,7 +817,7 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
       builder: (_) => AlertDialog(
         title: Row(
           children: [
-            _typeIcon(r.resourceType),
+            resourceTypeIcon(r.resourceType),
             const SizedBox(width: 8),
             Expanded(child: Text(full.title)),
           ],
@@ -912,37 +876,6 @@ class _KnowledgeGovernancePageState extends State<KnowledgeGovernancePage> {
               onPressed: () => Navigator.pop(context), child: const Text('关闭'))
         ],
       ),
-    );
-  }
-
-  Widget _typeIcon(String type) {
-    IconData icon;
-    Color color;
-    switch (type) {
-      case 'Policy':
-        icon = Icons.policy_outlined;
-        color = Colors.blue;
-        break;
-      case 'Process':
-        icon = Icons.route_outlined;
-        color = Colors.purple;
-        break;
-      case 'FAQ':
-        icon = Icons.question_answer_outlined;
-        color = Colors.green;
-        break;
-      case 'Activity':
-        icon = Icons.event_outlined;
-        color = Colors.orange;
-        break;
-      default:
-        icon = Icons.article_outlined;
-        color = Colors.grey;
-    }
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: color.withOpacity(0.1),
-      child: Icon(icon, size: 18, color: color),
     );
   }
 
