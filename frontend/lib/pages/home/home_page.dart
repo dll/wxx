@@ -29,6 +29,7 @@ import 'student_home_skeleton.dart';
 import 'home_welcome_banner.dart';
 import 'home_error_card.dart';
 import 'home_calendar_bar.dart';
+import 'home_overview_item.dart';
 
 // ── 学生专区卡片配置 ──
 class _FeatureCard {
@@ -1687,8 +1688,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 12),
         Row(
           children: [
-            _buildOverviewItem(
-              theme,
+            HomeOverviewItem(
               icon: Icons.menu_book_outlined,
               label: '课程',
               count: todayCourses,
@@ -1696,8 +1696,7 @@ class _HomePageState extends State<HomePage> {
               color: const Color(0xFF1565C0),
             ),
             const SizedBox(width: 8),
-            _buildOverviewItem(
-              theme,
+            HomeOverviewItem(
               icon: Icons.task_alt_outlined,
               label: '任务',
               count: todayTasks,
@@ -1705,8 +1704,7 @@ class _HomePageState extends State<HomePage> {
               color: const Color(0xFF2E7D32),
             ),
             const SizedBox(width: 8),
-            _buildOverviewItem(
-              theme,
+            HomeOverviewItem(
               icon: Icons.notifications_outlined,
               label: '通知',
               count: unread,
@@ -1714,8 +1712,7 @@ class _HomePageState extends State<HomePage> {
               color: const Color(0xFFE65100),
             ),
             const SizedBox(width: 8),
-            _buildOverviewItem(
-              theme,
+            HomeOverviewItem(
               icon: Icons.fact_check_outlined,
               label: '计划',
               count: plansInProgress,
@@ -1725,72 +1722,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildOverviewItem(
-    ThemeData theme, {
-    required IconData icon,
-    required String label,
-    required int count,
-    required String unit,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  unit,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
