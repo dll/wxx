@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'campus_step_card.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/api_config.dart';
@@ -1400,87 +1401,20 @@ class _CampusMapPageState extends State<CampusMapPage> {
 
   Widget _buildStepCard(ThemeData theme, int index) {
     final step = _steps[index];
-    final done = _completed.contains(index);
-    final active = _currentStep == index;
-    final color = done
-        ? const Color(0xFF2E7D32)
-        : active
-            ? theme.colorScheme.primary
-            : theme.colorScheme.outline;
-    return Card(
-      elevation: active ? 2 : 0,
-      color:
-          active ? theme.colorScheme.primaryContainer.withOpacity(0.38) : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-            color: active
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => setState(() => _currentStep = index),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: color.withOpacity(0.12),
-                    child: Icon(done ? Icons.check : step.icon,
-                        size: 18, color: color),
-                  ),
-                  if (index < _steps.length - 1)
-                    Container(
-                        width: 2, height: 92, color: color.withOpacity(0.25)),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('${index + 1}. ${step.title}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: done ? color : null)),
-                        ),
-                        Text(
-                            done
-                                ? '已完成'
-                                : active
-                                    ? '进行中'
-                                    : '待办理',
-                            style: theme.textTheme.labelSmall
-                                ?.copyWith(color: color)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    _buildMetaLine(Icons.place_outlined, step.location),
-                    _buildMetaLine(Icons.schedule, step.duration),
-                    _buildMetaLine(Icons.assignment_outlined, step.task),
-                    _buildMetaLine(
-                        Icons.inventory_2_outlined, '材料：${step.materials}'),
-                    _buildMetaLine(Icons.phone_outlined, step.contact),
-                    const SizedBox(height: 8),
-                    Text(step.note,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return CampusStepCard(
+        index: index,
+        total: _steps.length,
+        icon: step.icon,
+        title: step.title,
+        location: step.location,
+        duration: step.duration,
+        task: step.task,
+        materials: step.materials,
+        contact: step.contact,
+        note: step.note,
+        done: _completed.contains(index),
+        active: _currentStep == index,
+        onTap: () => setState(() => _currentStep = index));
   }
 
   Widget _buildMetaLine(IconData icon, String text) {
