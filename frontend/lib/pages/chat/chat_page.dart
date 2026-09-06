@@ -23,6 +23,7 @@ import '../../widgets/feedback_screenshot.dart';
 import 'chat_empty_intro.dart';
 import 'chat_loading_bubble.dart';
 import 'chat_agent_examples.dart';
+import 'chat_role_suggestions.dart';
 
 const _htmlEscaper = HtmlEscape();
 
@@ -493,7 +494,9 @@ class _ChatPageState extends State<ChatPage> {
               const ChatEmptyIntro(),
               const SizedBox(height: 24),
               // 角色专属推荐提问（按当前登录角色差异化）
-              _buildRoleSuggestions(theme),
+              ChatRoleSuggestions(
+                  role: Storage.role ?? '',
+                  questions: _roleQuestions(Storage.role ?? '')),
               const SizedBox(height: 16),
               // 5 个智能体：各配典型提问示例
               ChatAgentExamples(
@@ -592,58 +595,6 @@ class _ChatPageState extends State<ChatPage> {
       default: // student 或未登录
         return ['入党要经过哪些流程？', '这门课挂科了怎么补考？', '想考研，大二该准备什么？'];
     }
-  }
-
-  /// 角色专属推荐提问区块：标题 + 可点击 chips（点击即作为问题发送）
-  Widget _buildRoleSuggestions(ThemeData theme) {
-    final role = Storage.role ?? '';
-    final questions = _roleQuestions(role);
-    if (questions.isEmpty) return const SizedBox.shrink();
-
-    final roleLabel = switch (role) {
-      'counselor' => '辅导员 · 为你推荐',
-      'teacher' => '教师 · 为你推荐',
-      'assistant' => '教辅 · 为你推荐',
-      'college_admin' => '学院管理员 · 为你推荐',
-      'school_admin' => '学校管理员 · 为你推荐',
-      'sys_admin' => '系统管理员 · 为你推荐',
-      'student_union' => '学生会 · 为你推荐',
-      _ => '为你推荐',
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.auto_awesome,
-                size: 15, color: theme.colorScheme.primary),
-            const SizedBox(width: 6),
-            Text(roleLabel,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
-                )),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final q in questions)
-              ActionChip(
-                label: Text(q, style: const TextStyle(fontSize: 12)),
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  final chat = context.read<ChatProvider>();
-                  chat.ask(q);
-                },
-              ),
-          ],
-        ),
-      ],
-    );
   }
 
   /// 智能体类型 → agent_id 映射（与后端 agents 表一致）
