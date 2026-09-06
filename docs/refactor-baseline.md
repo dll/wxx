@@ -136,6 +136,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 已完成：首页 AI 简讯卡片从 `home_page.dart` 抽出至 `home_ai_briefing_card.dart`，保持首次加载、最新三条资讯展示和列表跳转契约。
 - 已完成：首页校园服务入口从 `home_page.dart` 抽出至 `home_campus_service.dart`，保持地图、VR、学院和学校首页跳转契约。
 - 已完成：首页通用知识入口卡片从 `home_page.dart` 抽出至 `home_knowledge_card.dart`，统一政策、流程、问答、活动和角色专区卡片的展示与点击契约。
+- 已完成：学生学业预警迁移后的 `generateAcademicWarningLegacy` 遗留实现清理，主服务不再保留无引用重复入口。
 - 已完成：vOPC Hero 统计头部从 `vopc_page.dart` 抽出至 `vopc_hero.dart`，保持项目数、邀请数和主题视觉契约。
 - 已完成：vOPC 五步流程条从 `vopc_page.dart` 抽出至 `vopc_flow_strip.dart`，保持学习数据驱动、窄屏换行和流程节点展示契约。
 - 已完成：vOPC 核心思想卡片从 `vopc_page.dart` 抽出至 `vopc_core_idea_card.dart`，保持学习卡片标题、正文与主题样式契约。

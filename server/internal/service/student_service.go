@@ -466,38 +466,6 @@ func fallbackAIResponse(feature string) map[string]interface{} {
 
 // ─── P2 深度分析功能 ───
 
-func (s *StudentService) generateAcademicWarningLegacy(ctx context.Context, userID int64) *AcademicWarning {
-	user, err := s.userRepo.GetByID(userID)
-	userName := "同学"
-	if err == nil && user != nil {
-		userName = user.DisplayName
-	}
-
-	warning := &AcademicWarning{
-		StudentName: userName,
-		RiskLevel:   "low",
-		RiskScore:   0.12,
-		Factors:     []string{"近两周出勤率下降5%", "最近一次作业成绩偏低"},
-		Suggestions: []string{"建立每周学习计划", "参加学习小组", "定期与老师沟通学习进度"},
-		Resources:   []string{"学习辅导中心", "图书馆自习室", "在线课程资源"},
-		DataSource:  "fallback",
-	}
-
-	if s.llmClient != nil {
-		prompt := fmt.Sprintf("你是学业预警分析师。学生%s最近出勤和作业有波动。请给出风险等级、风险因素和改进建议。80字以内。", userName)
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 300,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			warning.Suggestions = append(warning.Suggestions, "AI建议："+resp.Content)
-			warning.DataSource = "ai"
-		}
-	}
-
-	return warning
-}
-
 func (s *StudentService) generateMockInterviewLegacy(ctx context.Context, position string) *MockInterview {
 	if position == "" {
 		position = "Java后端开发工程师"
