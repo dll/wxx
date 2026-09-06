@@ -563,33 +563,6 @@ type SessionInsight struct {
 	DataSource   string   `json:"data_source"`
 }
 
-func (s *CounselorService) generateSessionInsightLegacy(ctx context.Context, studentName string, messages []string) *SessionInsight {
-	insight := &SessionInsight{
-		StudentName:  studentName,
-		MainTopics:   []string{"学业咨询", "生活服务"},
-		EmotionTrend: "平稳→积极",
-		KeyConcerns:  []string{"对课程难度有担忧", "希望了解更多实习信息"},
-		Suggestions:  []string{"推荐相关学习资源", "推送近期实习招聘信息"},
-		DataSource:   "fallback",
-	}
-
-	if s.llmClient != nil && len(messages) > 0 {
-		joined := strings.Join(messages, "\n")
-		prompt := fmt.Sprintf("你是辅导员助理。分析学生%s的对话记录，提取关键信息（话题/情绪/诉求）。50字。\n对话：%s",
-			studentName, joined[:min(len(joined), 500)])
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 300,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			insight.KeyConcerns = append(insight.KeyConcerns, "AI分析："+resp.Content)
-			insight.DataSource = "ai"
-		}
-	}
-
-	return insight
-}
-
 func minStrLen(a, b int) int {
 	if a < b {
 		return a
@@ -604,73 +577,6 @@ type FollowUpReminder struct {
 	PendingCount int                      `json:"pending_count"`
 	Suggestion   string                   `json:"suggestion"`
 	DataSource   string                   `json:"data_source"`
-}
-
-func (s *CounselorService) generateFollowUpRemindersLegacy(ctx context.Context, counselorID int64) *FollowUpReminder {
-	reminder := &FollowUpReminder{
-		Tasks:        []map[string]interface{}{},
-		OverdueCount: 0,
-		PendingCount: 0,
-		Suggestion:   "暂无待跟进的谈心记录。完成谈心谈话并保存记录后，这里会自动生成跟进提醒。",
-		DataSource:   "real",
-	}
-
-	// 真实数据：从谈心记录（talk_records）取 status=following 的待跟进学生
-	if s.phase2 != nil && counselorID > 0 {
-		records, err := s.phase2.ListTalkRecords(counselorID, 100)
-		if err == nil {
-			now := time.Now()
-			var overdue, pending int
-			for _, rec := range records {
-				status, _ := rec["status"].(string)
-				if status != "following" {
-					continue
-				}
-				studentName, _ := rec["student_name"].(string)
-				topic, _ := rec["topic"].(string)
-				createdAt, _ := rec["created_at"].(string)
-				if studentName == "" {
-					continue
-				}
-				// 逾期判定：跟进中的记录距今超过 7 天未处理视为逾期
-				due := "待跟进"
-				if ts, terr := time.Parse("2006-01-02 15:04:05", createdAt); terr == nil {
-					ageDays := now.Sub(ts).Hours() / 24
-					if ageDays >= 7 {
-						due = "已逾期"
-						overdue++
-					} else if ageDays >= 3 {
-						due = "临近截止"
-						pending++
-					}
-				}
-				reminder.Tasks = append(reminder.Tasks, map[string]interface{}{
-					"student": studentName, "type": topic, "due": due,
-					"status": status, "priority": "high",
-				})
-			}
-			reminder.OverdueCount = overdue
-			reminder.PendingCount = pending + len(reminder.Tasks)
-			if len(reminder.Tasks) > 0 {
-				reminder.Suggestion = fmt.Sprintf("当前有 %d 名学生的谈心记录待跟进（%d 项已逾期），请优先处理。", len(reminder.Tasks), overdue)
-			}
-		}
-	}
-
-	if s.llmClient != nil && len(reminder.Tasks) > 0 {
-		prompt := fmt.Sprintf("你是辅导员助理。%d项待跟进谈话，%d项已逾期。请给出50字优先级建议。",
-			reminder.PendingCount+reminder.OverdueCount, reminder.OverdueCount)
-		resp, err := s.llmClient.Chat(ctx, &llm.ChatRequest{
-			Messages:    []llm.ChatMessage{{Role: "user", Content: prompt}},
-			Temperature: 0.3, MaxTokens: 200,
-		})
-		if err == nil && resp != nil && resp.Content != "" {
-			reminder.Suggestion += " | AI：" + strings.TrimSpace(resp.Content)
-			reminder.DataSource = "ai"
-		}
-	}
-
-	return reminder
 }
 
 // SmartNotification 智能群发
