@@ -14,7 +14,6 @@ import (
 	"image/color"
 	"image/png"
 	"io"
-	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
