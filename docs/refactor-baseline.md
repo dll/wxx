@@ -59,12 +59,12 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 - 回归测试已改为读取拆分后的路由文件集合，路由路径与中间件行为保持不变。
 - 保持中间件顺序、鉴权和路由路径不变。
 
-### 批次三：后端领域服务（准备中）
+### 批次三：后端领域服务（已完成）
 
 - 优先拆分学生、文档、辅导员和知识库服务/仓储。
 - repository 只负责数据访问，service 负责业务规则，handler 只负责协议适配。
 
-当前已完成路由层领域边界，尚未大规模迁移 service/repository 业务实现。已为 `student_service.go`、`teacher_service.go` 建立兜底、LLM 解析与质量门槛接口测试；`kb_repo.go` 已有搜索、权限过滤、CRUD 与分页相关测试；问题预案服务已补齐对话热点关键词聚合并加入排序测试。下一步在保持这些契约的前提下，再进行方法迁移。
+后端领域服务已完成主要方法迁移、正式入口收敛和遗留实现清理；`student_service.go`、`teacher_service.go`、文档服务与辅导员服务的兜底、LLM 解析、质量门槛和来源契约均已保留，并通过服务定向测试与全仓 Go 编译门禁。
 
 - 已完成首个方法迁移增量：教师教案解析与兜底从 `teacher_service.go` 提取至 `teacher_lesson_plan.go`，公开构造函数和调用契约不变。
 - 已完成第二个方法迁移增量：教师试卷解析与兜底从 `teacher_service.go` 提取至 `teacher_exam.go`，公开构造函数和调用契约不变。
