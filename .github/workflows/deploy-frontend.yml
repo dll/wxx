@@ -228,7 +228,9 @@ jobs:
             echo "--- stop wxx ---"
             sudo systemctl stop wxx
             sleep 2
-            sudo cp /tmp/wxx-dist/wxx-server.new /opt/wxx/wxx-server
+            # 通过临时文件原子替换，避免直接覆盖正在被 systemd/旧进程占用的 inode
+            sudo mv -f /tmp/wxx-dist/wxx-server.new /opt/wxx/wxx-server.next
+            sudo mv -Tf /opt/wxx/wxx-server.next /opt/wxx/wxx-server
             echo "--- start wxx ---"
             sudo systemctl start wxx
             sleep 6
