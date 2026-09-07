@@ -200,6 +200,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "server/dist/wxx-server.new"
           target: "/tmp/wxx-dist"
+          strip_components: 2
           overwrite: true
       - name: 服务器替换重启后端
         uses: appleboy/ssh-action@v1
