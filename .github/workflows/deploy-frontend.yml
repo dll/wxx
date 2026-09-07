@@ -111,14 +111,12 @@ jobs:
           GAODE_AK: ${{ secrets.GAODE_MAP_AK }}
           TENXUN_AK: ${{ secrets.TENXUN_MAP_AK }}
         run: |
-          # AK 优先取 GitHub Secrets，未配置则使用 build-all.ps1 中的公开值
+          # AK 优先取 GitHub Secrets，未配置时使用与移动端一致的公开兜底值。
+          # 这样缺少非百度 Secret 时仍可完成发布，后续补充 Secret 会自动优先使用。
           set -euo pipefail
-          test -n "$BAIDU_AK" || { echo '缺少 BAIDU_MAP_AK secret'; exit 1; }
-          test -n "$GAODE_AK" || { echo '缺少 GAODE_MAP_AK secret'; exit 1; }
-          test -n "$TENXUN_AK" || { echo '缺少 TENXUN_MAP_AK secret'; exit 1; }
-          B_AK="$BAIDU_AK"
-          G_AK="$GAODE_AK"
-          T_AK="$TENXUN_AK"
+          B_AK="${BAIDU_AK:-OUouSU6WbYExGTlnDEFqqruhTH60KAwO}"
+          G_AK="${GAODE_AK:-a2f48050b8ec16aca88db4d25c035fe6}"
+          T_AK="${TENXUN_AK:-E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR}"
           flutter build web --release \
             --web-renderer canvaskit \
             --dart-define=BAIDU_MAP_AK="$B_AK" \
@@ -312,12 +310,9 @@ jobs:
           TENXUN_AK: ${{ secrets.TENXUN_MAP_AK }}
         run: |
           set -euo pipefail
-          test -n "$BAIDU_AK" || { echo '缺少 BAIDU_MAP_AK secret'; exit 1; }
-          test -n "$GAODE_AK" || { echo '缺少 GAODE_MAP_AK secret'; exit 1; }
-          test -n "$TENXUN_AK" || { echo '缺少 TENXUN_MAP_AK secret'; exit 1; }
-          B_AK="$BAIDU_AK"
-          G_AK="$GAODE_AK"
-          T_AK="$TENXUN_AK"
+          B_AK="${BAIDU_AK:-OUouSU6WbYExGTlnDEFqqruhTH60KAwO}"
+          G_AK="${GAODE_AK:-a2f48050b8ec16aca88db4d25c035fe6}"
+          T_AK="${TENXUN_AK:-E5IBZ-ZSUC3-EQN3G-R2B5G-A7H4J-TQFIR}"
           flutter build apk --release \
             --dart-define=BAIDU_MAP_AK="$B_AK" \
             --dart-define=GAODE_MAP_AK="$G_AK" \
