@@ -339,14 +339,19 @@ func (s *CounselorService) GenerateClassReport(ctx context.Context, scope, owner
 
 // TwinBoardStudent 数字孪生看板学生条目
 type TwinBoardStudent struct {
-	StudentID string  `json:"student_id"`
-	Name      string  `json:"name"`
-	Academic  float64 `json:"academic"`
-	Social    float64 `json:"social"`
-	Mental    float64 `json:"mental"`
-	Practice  float64 `json:"practice"`
-	Innovate  float64 `json:"innovate"`
-	Risk      string  `json:"risk"`
+	StudentID         string  `json:"student_id"`
+	Name              string  `json:"name"`
+	Academic          float64 `json:"academic"`
+	Social            float64 `json:"social"`
+	Mental            float64 `json:"mental"`
+	Practice          float64 `json:"practice"`
+	Innovate          float64 `json:"innovate"`
+	Risk              string  `json:"risk"`
+	AcademicAvailable bool    `json:"academic_available"`
+	SocialAvailable   bool    `json:"social_available"`
+	MentalAvailable   bool    `json:"mental_available"`
+	PracticeAvailable bool    `json:"practice_available"`
+	InnovateAvailable bool    `json:"innovate_available"`
 }
 
 func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID string) []*TwinBoardStudent {
@@ -360,14 +365,17 @@ func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID
 					break
 				}
 				students = append(students, &TwinBoardStudent{
-					StudentID: fmt.Sprintf("%d", sp.UserID),
-					Name:      maskDisplayName(nameOrID(sp.UserID)),
-					Academic:  sp.AcademicScore,
-					Social:    sp.SocialScore,
-					Mental:    sp.EmotionalScore,
-					Practice:  sp.AbilityScore,
-					Innovate:  sp.IdeologicalScore,
-					Risk:      riskFromSnapshot(sp),
+					StudentID:         fmt.Sprintf("%d", sp.UserID),
+					Name:              maskDisplayName(nameOrID(sp.UserID)),
+					Academic:          sp.AcademicScore,
+					Social:            sp.SocialScore,
+					Mental:            sp.EmotionalScore,
+					Practice:          sp.AbilityScore,
+					Innovate:          sp.IdeologicalScore,
+					AcademicAvailable: sp.AcademicAvailable, SocialAvailable: sp.SocialAvailable,
+					MentalAvailable: sp.EmotionalAvailable, PracticeAvailable: sp.AbilityAvailable,
+					InnovateAvailable: sp.IdeologicalAvailable,
+					Risk:              riskFromSnapshot(sp),
 				})
 			}
 			if len(students) > 0 {
@@ -397,6 +405,7 @@ func (s *CounselorService) GenerateTwinBoard(ctx context.Context, scope, ownerID
 			return students
 		}
 	}
+	// 画像看板只返回可按快照真实支撑的学生；情感预警兜底由调用方明确标注缺测维度。
 	return fallbackTwinBoard()
 }
 
@@ -407,7 +416,24 @@ func nameOrID(userID int64) string {
 
 // riskFromSnapshot 依据五维快照综合分推断风险档位
 func riskFromSnapshot(sp *repository.TwinSnapshot) string {
-	avg := (sp.AcademicScore + sp.AbilityScore + sp.IdeologicalScore + sp.EmotionalScore + sp.SocialScore) / 5.0
+	var total float64
+	var count int
+	for _, item := range []struct {
+		score     float64
+		available bool
+	}{
+		{sp.AcademicScore, sp.AcademicAvailable}, {sp.AbilityScore, sp.AbilityAvailable},
+		{sp.IdeologicalScore, sp.IdeologicalAvailable}, {sp.EmotionalScore, sp.EmotionalAvailable}, {sp.SocialScore, sp.SocialAvailable},
+	} {
+		if item.available {
+			total += item.score
+			count++
+		}
+	}
+	if count == 0 {
+		return "unknown"
+	}
+	avg := total / float64(count)
 	switch {
 	case avg < 50:
 		return "high"

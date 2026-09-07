@@ -67,7 +67,22 @@ func (s *CollegeService) aggregateCollegeMetrics(ownerID string) collegeMetrics 
 	if s.twinRepo != nil {
 		if agg, err := s.twinRepo.AggregateSnapshotsByScope("college", ownerID, "", "", ""); err == nil && agg != nil && agg.Overall.Count > 0 {
 			o := agg.Overall
-			m.HealthScore = (o.Academic + o.Ability + o.Ideological + o.Emotional + o.Social) / 5.0
+			var total, weight float64
+			for _, item := range []struct {
+				score float64
+				count int
+			}{
+				{o.Academic, o.AcademicCount}, {o.Ability, o.AbilityCount}, {o.Ideological, o.IdeologicalCount},
+				{o.Emotional, o.EmotionalCount}, {o.Social, o.SocialCount},
+			} {
+				if item.count > 0 {
+					total += item.score
+					weight++
+				}
+			}
+			if weight > 0 {
+				m.HealthScore = total / weight
+			}
 			m.HasData = true
 		}
 	}
@@ -125,9 +140,26 @@ func (s *CollegeService) aggregateCollegeFiveDim(ownerID, major, className strin
 	}
 	for _, d := range fiveDimDefs {
 		v := dimVals[d.Key]
+		count := o.Count
+		switch d.Key {
+		case "academic":
+			count = o.AcademicCount
+		case "ability":
+			count = o.AbilityCount
+		case "ideological":
+			count = o.IdeologicalCount
+		case "emotional":
+			count = o.EmotionalCount
+		case "social":
+			count = o.SocialCount
+		}
+		if count == 0 {
+			dims = append(dims, FiveDimEntry{Key: d.Key, Name: d.Name, Level: "数据积累中", DataSource: "not_available"})
+			continue
+		}
 		score := roundTo1(v)
 		entry := FiveDimEntry{
-			Key: d.Key, Name: d.Name, SampleCount: o.Count, DataSource: "real",
+			Key: d.Key, Name: d.Name, SampleCount: count, DataSource: "real",
 			Score: &score, Level: scoreLevel(score),
 		}
 		dims = append(dims, entry)

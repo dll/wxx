@@ -63,7 +63,7 @@ class TwinDimension {
       {this.name = '',
       this.score = 0,
       this.label = '',
-      this.dataAvailable = true,
+      this.dataAvailable = false,
       this.evidence = const []});
 
   factory TwinDimension.fromJson(Map<String, dynamic> json) {
@@ -71,8 +71,8 @@ class TwinDimension {
       name: json['name'] ?? '',
       score: (json['score'] ?? 0).toDouble(),
       label: json['label'] ?? json['level'] ?? '',
-      // 后端 v1 无 data_available 字段时默认 true，兼容旧接口/兜底 mock
-      dataAvailable: json['data_available'] ?? true,
+      // 缺少显式可用性时按不可用处理，禁止把旧接口中的占位 0 当成真实分数。
+      dataAvailable: json['data_available'] == true,
       evidence: List<String>.from(json['evidence'] ?? const []),
     );
   }

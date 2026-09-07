@@ -24,8 +24,9 @@ func insertHistoryDirect(t *testing.T, db *sql.DB, uid int64, ownerScope, ownerI
 	t.Helper()
 	_, err := db.Exec(`INSERT INTO snapshot_history
 		(user_id, owner_scope, owner_id, college, major, class_name,
-		 academic_score, ability_score, ideological_score, emotional_score, social_score, computed_at)
-		VALUES (?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, ?)`,
+		academic_score, ability_score, ideological_score, emotional_score, social_score,
+		academic_available, ability_available, ideological_available, emotional_available, social_available, computed_at)
+		VALUES (?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, ?)`,
 		uid, ownerScope, ownerID, ownerID, base+bonus, base+bonus, base+bonus, base+bonus, base+bonus, day)
 	if err != nil {
 		t.Fatalf("插入快照历史失败: %v", err)

@@ -30,6 +30,8 @@ func insertSnap(t *testing.T, db *sql.DB, repo *repository.TwinRepo, ownerID, ma
 		College: ownerID, Major: major, ClassName: class,
 		AcademicScore: dim, AbilityScore: dim, IdeologicalScore: dim,
 		EmotionalScore: dim, SocialScore: dim,
+		AcademicAvailable: true, AbilityAvailable: true, IdeologicalAvailable: true,
+		EmotionalAvailable: true, SocialAvailable: true,
 		AIInterpretation: "", GapAnalysis: "[]", StageAdvice: "[]",
 	}); err != nil {
 		t.Fatalf("写入快照失败: %v", err)
@@ -180,6 +182,8 @@ func TestTwinScreen_GrowthTrendFromHistory(t *testing.T) {
 		Major: "软件工程", ClassName: "SE2501",
 		AcademicScore: 70, AbilityScore: 60, IdeologicalScore: 80,
 		EmotionalScore: 65, SocialScore: 75,
+		AcademicAvailable: true, AbilityAvailable: true, IdeologicalAvailable: true,
+		EmotionalAvailable: true, SocialAvailable: true,
 		ComputedAt: time.Now().AddDate(0, 0, -7).Format(time.RFC3339),
 	}
 	if err := repo.UpsertSnapshot(base); err != nil {

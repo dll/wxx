@@ -42,6 +42,8 @@ func insertSnapshot(t *testing.T, db *sql.DB, repo *TwinRepo, ownerID, ownerScop
 		College: ownerID, Major: major, ClassName: class,
 		AcademicScore: dim, AbilityScore: dim, IdeologicalScore: dim,
 		EmotionalScore: dim, SocialScore: dim,
+		AcademicAvailable: true, AbilityAvailable: true, IdeologicalAvailable: true,
+		EmotionalAvailable: true, SocialAvailable: true,
 		AIInterpretation: "", GapAnalysis: "[]", StageAdvice: "[]",
 	}); err != nil {
 		t.Fatalf("写入快照失败: %v", err)

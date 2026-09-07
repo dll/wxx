@@ -42,22 +42,9 @@ func (h *CounselorHandler) DailyFocus(c *gin.Context) {
 
 // mockDailyFocus 兜底 mock（svc 未注入或异常时使用）
 func (h *CounselorHandler) mockDailyFocus(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"date":               time.Now().Format("2006-01-02"),
-		"class_health_score": 82.5,
-		"top_students": []gin.H{
-			{"name": "张明", "reason": "连续3天未签到，情绪波动较大", "risk_level": "high", "suggestion": "建议约谈了解情况"},
-			{"name": "李华", "reason": "成绩下滑明显，近期作业未提交", "risk_level": "medium", "suggestion": "关注学业状态"},
-			{"name": "王芳", "reason": "社交活动减少，独处时间增加", "risk_level": "low", "suggestion": "适当关心"},
-		},
-		"overview": gin.H{
-			"total":     45,
-			"normal":    38,
-			"attention": 5,
-			"warning":   2,
-		},
-		"data_source": "fallback",
-	})
+	c.JSON(http.StatusOK, gin.H{"date": time.Now().Format("2006-01-02"), "class_health_score": nil,
+		"top_students": []gin.H{}, "overview": gin.H{"total": 0, "normal": 0, "attention": 0, "warning": 0},
+		"data_source": "unavailable", "message": "暂时无法读取真实辅导员数据"})
 }
 
 // ClassReport 班级学情日报
@@ -72,12 +59,9 @@ func (h *CounselorHandler) ClassReport(c *gin.Context) {
 			}
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"date": time.Now().Format("2006-01-02"), "class_name": "计科2301班",
-		"active_rate": 0.87, "absent_count": 3, "homework_rate": 0.92, "emotion_alert_count": 2, "checkin_rate": 0.93,
-		"anomalies":    []string{"张明连续缺勤", "李华作业未交"},
-		"ai_narrative": "班级整体状态良好。需关注张明同学连续缺勤情况。",
-	})
+	c.JSON(http.StatusOK, gin.H{"date": time.Now().Format("2006-01-02"), "class_name": "", "active_rate": nil,
+		"absent_count": 0, "homework_rate": nil, "emotion_alert_count": 0, "checkin_rate": nil,
+		"anomalies": []string{}, "ai_narrative": "暂时无法读取真实班级数据。", "data_source": "unavailable"})
 }
 
 // TwinBoard 学生数字孪生看板
@@ -92,11 +76,7 @@ func (h *CounselorHandler) TwinBoard(c *gin.Context) {
 			}
 		}
 	}
-	c.JSON(http.StatusOK, []gin.H{
-		{"student_id": "s001", "name": "张明", "academic": 65.0, "social": 45.0, "mental": 55.0, "practice": 70.0, "innovate": 48.0, "risk": "high"},
-		{"student_id": "s002", "name": "李华", "academic": 72.0, "social": 80.0, "mental": 78.0, "practice": 60.0, "innovate": 65.0, "risk": "medium"},
-		{"student_id": "s003", "name": "王芳", "academic": 88.0, "social": 55.0, "mental": 70.0, "practice": 75.0, "innovate": 82.0, "risk": "low"},
-	})
+	c.JSON(http.StatusOK, gin.H{"data": []gin.H{}, "data_source": "unavailable", "message": "暂时无法读取真实学生画像"})
 }
 
 // Prediction 预测性预警
@@ -254,16 +234,7 @@ func (h *CounselorHandler) Ideological(c *gin.Context) {
 			}
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"summary":    "班级整体思想状态积极向上，政治学习参与率95%",
-		"highlights": []string{"3名同学递交入党申请书", "班级志愿服务时长达标"},
-		"concerns":   []string{"个别同学对时事关注度不够"},
-		"students": []gin.H{
-			{"name": "赵强", "status": "预备党员", "evaluation": "思想觉悟高，积极参与组织活动"},
-			{"name": "刘洋", "status": "入党积极分子", "evaluation": "表现良好，建议加强理论学习"},
-		},
-		"data_source": "fallback",
-	})
+	c.JSON(http.StatusOK, gin.H{"summary": "暂时无法读取真实思想档案数据。", "highlights": []string{}, "concerns": []string{}, "students": []gin.H{}, "data_source": "unavailable"})
 }
 
 // ClassProfile 班级性格画像
@@ -275,13 +246,7 @@ func (h *CounselorHandler) ClassProfile(c *gin.Context) {
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"class_name": "计科2301班", "total": 45,
-		"distribution":    gin.H{"外向型": 18, "内向型": 12, "分析型": 8, "感性型": 7},
-		"characteristics": []string{"整体偏理性思维", "团队协作意愿强", "创新意识较好"},
-		"suggestions":     []string{"多组织团队活动促进内向同学融入", "利用分析型同学带动学术氛围"},
-		"data_source":     "fallback",
-	})
+	c.JSON(http.StatusOK, gin.H{"class_name": c.Query("class"), "total": 0, "distribution": gin.H{}, "characteristics": []string{}, "suggestions": []string{}, "data_source": "unavailable"})
 }
 
 // CommunityManage 社区问答管理
@@ -293,15 +258,7 @@ func (h *CounselorHandler) CommunityManage(c *gin.Context) {
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"pending_review": []gin.H{
-			{"id": "1", "title": "感觉压力很大怎么办", "author": "匿名", "type": "心理求助", "risk": "medium", "time": "2小时前"},
-			{"id": "2", "title": "奖学金评定标准有误？", "author": "张同学", "type": "政策误读", "risk": "low", "time": "5小时前"},
-		},
-		"flagged_posts": []gin.H{{"id": "3", "title": "对某课程评价", "reason": "内容争议", "reports": 3}},
-		"stats":         gin.H{"total_posts_today": 12, "reviewed": 8, "official_responses": 2, "hidden": 1},
-		"data_source":   "fallback",
-	})
+	c.JSON(http.StatusOK, gin.H{"pending_review": []gin.H{}, "flagged_posts": []gin.H{}, "stats": gin.H{"total_posts_today": 0, "reviewed": 0, "official_responses": 0, "hidden": 0}, "data_source": "unavailable"})
 }
 
 // HotTopicSense 热点话题感知

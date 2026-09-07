@@ -91,6 +91,7 @@ func (s *PersonalityService) inferPersonality(ctx context.Context, userID int64)
 	// 收集行为特征
 	var behaviorDesc strings.Builder
 	behaviorDesc.WriteString("以下是一名大学生的行为数据摘要，请据此推断其性格画像：\n\n")
+	hasBehaviorData := false
 
 	// 用户基础信息
 	if s.userRepo != nil {
@@ -102,6 +103,9 @@ func (s *PersonalityService) inferPersonality(ctx context.Context, userID int64)
 	// 五维画像数据
 	if s.twinRepo != nil {
 		if metrics, err := s.twinRepo.AggregateRawMetrics(userID); err == nil && metrics != nil {
+			hasBehaviorData = metrics.CourseCount > 0 || metrics.CompetitionCount > 0 || metrics.PlanCount > 0 ||
+				metrics.PartyStageRank > 0 || metrics.PartyStudyCount > 0 || metrics.EmotionLogCount > 0 ||
+				metrics.ClubCount > 0 || metrics.ActivityRegCount > 0
 			behaviorDesc.WriteString(fmt.Sprintf("学业：平均绩点 %.2f，通过率 %.0f%%，修 %d 门课\n",
 				metrics.AvgGPA, metrics.PassRate*100, metrics.CourseCount))
 			behaviorDesc.WriteString(fmt.Sprintf("竞赛参与 %d 次，获奖 %d 次\n", metrics.CompetitionCount, metrics.AwardCount))
@@ -109,6 +113,9 @@ func (s *PersonalityService) inferPersonality(ctx context.Context, userID int64)
 			behaviorDesc.WriteString(fmt.Sprintf("社团 %d 个，活动报名 %d 次\n", metrics.ClubCount, metrics.ActivityRegCount))
 			behaviorDesc.WriteString(fmt.Sprintf("情感记录 %d 条，高风险 %d 次\n", metrics.EmotionLogCount, metrics.HighRiskCount))
 		}
+	}
+	if !hasBehaviorData {
+		return nil, fmt.Errorf("行为数据不足")
 	}
 
 	if s.llmClient == nil {
@@ -244,13 +251,13 @@ func (s *PersonalityService) fallbackResult() *PersonalityResult {
 		PersonalityType:   "待评估",
 		TypeLabel:         "数据不足",
 		Description:       "暂无足够行为数据推断性格画像，请多使用系统积累数据后再查看。",
-		Strengths:         []string{"持续使用中"},
-		Weaknesses:        []string{"数据样本不足"},
-		CareerSuggestions: []string{"继续探索中"},
+		Strengths:         []string{},
+		Weaknesses:        []string{},
+		CareerSuggestions: []string{},
 		LearningStyle:     "需要更多学习记录来判断",
-		VARK:              VARKScore{Visual: 50, Auditory: 50, Reading: 50, Kinesthetic: 50, Dominant: "均衡"},
-		BigFive:           BigFiveScore{Openness: 50, Conscientiousness: 50, Extraversion: 50, Agreeableness: 50, Neuroticism: 50},
-		DataSource:        "fallback",
+		VARK:              VARKScore{},
+		BigFive:           BigFiveScore{},
+		DataSource:        "not_available",
 		ComputedAt:        time.Now().Format(time.RFC3339),
 	}
 }

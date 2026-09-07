@@ -161,21 +161,26 @@ func partyStageRank(status string) int {
 
 // TwinSnapshot 数字孪生快照实体（对应 student_profile_snapshot 表）
 type TwinSnapshot struct {
-	UserID           int64   `json:"user_id"`
-	OwnerScope       string  `json:"owner_scope"`
-	OwnerID          string  `json:"owner_id"`
-	College          string  `json:"college"`
-	Major            string  `json:"major"`
-	ClassName        string  `json:"class_name"`
-	AcademicScore    float64 `json:"academic_score"`
-	AbilityScore     float64 `json:"ability_score"`
-	IdeologicalScore float64 `json:"ideological_score"`
-	EmotionalScore   float64 `json:"emotional_score"`
-	SocialScore      float64 `json:"social_score"`
-	AIInterpretation string  `json:"ai_interpretation"`
-	GapAnalysis      string  `json:"gap_analysis"`
-	StageAdvice      string  `json:"stage_advice"`
-	ComputedAt       string  `json:"computed_at"`
+	UserID               int64   `json:"user_id"`
+	OwnerScope           string  `json:"owner_scope"`
+	OwnerID              string  `json:"owner_id"`
+	College              string  `json:"college"`
+	Major                string  `json:"major"`
+	ClassName            string  `json:"class_name"`
+	AcademicScore        float64 `json:"academic_score"`
+	AbilityScore         float64 `json:"ability_score"`
+	IdeologicalScore     float64 `json:"ideological_score"`
+	EmotionalScore       float64 `json:"emotional_score"`
+	SocialScore          float64 `json:"social_score"`
+	AcademicAvailable    bool    `json:"academic_available"`
+	AbilityAvailable     bool    `json:"ability_available"`
+	IdeologicalAvailable bool    `json:"ideological_available"`
+	EmotionalAvailable   bool    `json:"emotional_available"`
+	SocialAvailable      bool    `json:"social_available"`
+	AIInterpretation     string  `json:"ai_interpretation"`
+	GapAnalysis          string  `json:"gap_analysis"`
+	StageAdvice          string  `json:"stage_advice"`
+	ComputedAt           string  `json:"computed_at"`
 }
 
 // GetSnapshot 读取某学生的最近快照；无快照返回 (nil, nil)
@@ -184,10 +189,12 @@ func (r *TwinRepo) GetSnapshot(userID int64) (*TwinSnapshot, error) {
 	err := r.db.QueryRow(`
 		SELECT user_id, owner_scope, owner_id, college, major, class_name,
 		       academic_score, ability_score, ideological_score, emotional_score, social_score,
+		       academic_available, ability_available, ideological_available, emotional_available, social_available,
 		       ai_interpretation, gap_analysis, stage_advice, computed_at
 		FROM student_profile_snapshot WHERE user_id = ?`, userID).
 		Scan(&s.UserID, &s.OwnerScope, &s.OwnerID, &s.College, &s.Major, &s.ClassName,
 			&s.AcademicScore, &s.AbilityScore, &s.IdeologicalScore, &s.EmotionalScore, &s.SocialScore,
+			&s.AcademicAvailable, &s.AbilityAvailable, &s.IdeologicalAvailable, &s.EmotionalAvailable, &s.SocialAvailable,
 			&s.AIInterpretation, &s.GapAnalysis, &s.StageAdvice, &s.ComputedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -204,19 +211,24 @@ func (r *TwinRepo) UpsertSnapshot(s *TwinSnapshot) error {
 		INSERT INTO student_profile_snapshot (
 			user_id, owner_scope, owner_id, college, major, class_name,
 			academic_score, ability_score, ideological_score, emotional_score, social_score,
+			academic_available, ability_available, ideological_available, emotional_available, social_available,
 			ai_interpretation, gap_analysis, stage_advice, computed_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT(user_id) DO UPDATE SET
 			owner_scope=excluded.owner_scope, owner_id=excluded.owner_id,
 			college=excluded.college, major=excluded.major, class_name=excluded.class_name,
 			academic_score=excluded.academic_score, ability_score=excluded.ability_score,
 			ideological_score=excluded.ideological_score, emotional_score=excluded.emotional_score,
-			social_score=excluded.social_score, ai_interpretation=excluded.ai_interpretation,
+			social_score=excluded.social_score,
+			academic_available=excluded.academic_available, ability_available=excluded.ability_available,
+			ideological_available=excluded.ideological_available, emotional_available=excluded.emotional_available,
+			social_available=excluded.social_available, ai_interpretation=excluded.ai_interpretation,
 			gap_analysis=excluded.gap_analysis, stage_advice=excluded.stage_advice,
 			computed_at=excluded.computed_at, updated_at=CURRENT_TIMESTAMP`
 	_, err := r.db.Exec(dbutil.AdaptForDriver(stmt, dbutil.DriverOf(r.db)),
 		s.UserID, s.OwnerScope, s.OwnerID, s.College, s.Major, s.ClassName,
 		s.AcademicScore, s.AbilityScore, s.IdeologicalScore, s.EmotionalScore, s.SocialScore,
+		s.AcademicAvailable, s.AbilityAvailable, s.IdeologicalAvailable, s.EmotionalAvailable, s.SocialAvailable,
 		s.AIInterpretation, s.GapAnalysis, s.StageAdvice)
 	if err != nil {
 		return fmt.Errorf("写入数字孪生快照失败: %w", err)
@@ -244,11 +256,13 @@ func (r *TwinRepo) InsertSnapshotHistory(s *TwinSnapshot) error {
 	stmt := dbutil.InsertIgnore(dbutil.DriverOf(r.db)) + ` snapshot_history (
 		user_id, owner_scope, owner_id, college, major, class_name,
 		academic_score, ability_score, ideological_score, emotional_score, social_score,
+		academic_available, ability_available, ideological_available, emotional_available, social_available,
 		computed_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(stmt,
 		s.UserID, s.OwnerScope, s.OwnerID, s.College, s.Major, s.ClassName,
 		s.AcademicScore, s.AbilityScore, s.IdeologicalScore, s.EmotionalScore, s.SocialScore,
+		s.AcademicAvailable, s.AbilityAvailable, s.IdeologicalAvailable, s.EmotionalAvailable, s.SocialAvailable,
 		day)
 	if err != nil {
 		return fmt.Errorf("写入快照历史失败: %w", err)
@@ -275,14 +289,19 @@ func dayKey(s string) string {
 // 只对同时有「最早」与「最新」两端快照的学生计入（跳过只有单端的）。
 // 各维 delta >0 表示该维度均值上升，<0 表示下降——仅表达「变化/趋势」。
 type GrowthTrend struct {
-	HasData     bool    // 是否有 ≥1 名具备纵向两端数据的学生
-	SampleCount int     // 参与差分的学生数（有端到端历史）
-	WindowWeeks int     // 窗口周数
-	Academic    float64 // 学业平均变化（latest-earliest 均值）
-	Ability     float64 // 能力平均变化
-	Ideological float64 // 思想平均变化
-	Emotional   float64 // 情感平均变化
-	Social      float64 // 社交平均变化
+	HasData                bool    // 是否有 ≥1 名具备纵向两端数据的学生
+	SampleCount            int     // 参与差分的学生数（有端到端历史）
+	WindowWeeks            int     // 窗口周数
+	Academic               float64 // 学业平均变化（latest-earliest 均值）
+	Ability                float64 // 能力平均变化
+	Ideological            float64 // 思想平均变化
+	Emotional              float64 // 情感平均变化
+	Social                 float64 // 社交平均变化
+	AcademicSampleCount    int
+	AbilitySampleCount     int
+	IdeologicalSampleCount int
+	EmotionalSampleCount   int
+	SocialSampleCount      int
 }
 
 // GetGrowthTrend 按 owner 范围（owner_scope='college' + owner_id）聚合近 weeks 周的
@@ -307,7 +326,8 @@ func (r *TwinRepo) GetGrowthTrend(ownerID string, weeks int) (*GrowthTrend, erro
 	args = append(args, cutoff)
 
 	rows, err := r.db.Query(`SELECT user_id,
-		academic_score, ability_score, ideological_score, emotional_score, social_score, computed_at
+		academic_score, ability_score, ideological_score, emotional_score, social_score,
+		academic_available, ability_available, ideological_available, emotional_available, social_available, computed_at
 		FROM snapshot_history WHERE 1=1`+cond+
 		` ORDER BY user_id ASC, computed_at ASC`, args...)
 	if err != nil {
@@ -316,14 +336,16 @@ func (r *TwinRepo) GetGrowthTrend(ownerID string, weeks int) (*GrowthTrend, erro
 	defer rows.Close()
 
 	type histRec struct {
-		ac, ab, id, em, so float64
-		computedAt         string
+		ac, ab, id, em, so           float64
+		acOK, abOK, idOK, emOK, soOK bool
+		computedAt                   string
 	}
 	byUser := map[int64][]histRec{}
 	for rows.Next() {
 		var uid int64
 		rec := histRec{}
-		if err := rows.Scan(&uid, &rec.ac, &rec.ab, &rec.id, &rec.em, &rec.so, &rec.computedAt); err != nil {
+		if err := rows.Scan(&uid, &rec.ac, &rec.ab, &rec.id, &rec.em, &rec.so,
+			&rec.acOK, &rec.abOK, &rec.idOK, &rec.emOK, &rec.soOK, &rec.computedAt); err != nil {
 			return nil, err
 		}
 		byUser[uid] = append(byUser[uid], rec)
@@ -344,22 +366,46 @@ func (r *TwinRepo) GetGrowthTrend(ownerID string, weeks int) (*GrowthTrend, erro
 		if first.computedAt == last.computedAt {
 			continue
 		}
-		academic += last.ac - first.ac
-		ability += last.ab - first.ab
-		ideological += last.id - first.id
-		emotional += last.em - first.em
-		social += last.so - first.so
 		gt.SampleCount++
+		if first.acOK && last.acOK {
+			academic += last.ac - first.ac
+			gt.AcademicSampleCount++
+		}
+		if first.abOK && last.abOK {
+			ability += last.ab - first.ab
+			gt.AbilitySampleCount++
+		}
+		if first.idOK && last.idOK {
+			ideological += last.id - first.id
+			gt.IdeologicalSampleCount++
+		}
+		if first.emOK && last.emOK {
+			emotional += last.em - first.em
+			gt.EmotionalSampleCount++
+		}
+		if first.soOK && last.soOK {
+			social += last.so - first.so
+			gt.SocialSampleCount++
+		}
 	}
 
 	if gt.SampleCount > 0 {
 		gt.HasData = true
-		n := float64(gt.SampleCount)
-		gt.Academic = academic / n
-		gt.Ability = ability / n
-		gt.Ideological = ideological / n
-		gt.Emotional = emotional / n
-		gt.Social = social / n
+		if gt.AcademicSampleCount > 0 {
+			gt.Academic = academic / float64(gt.AcademicSampleCount)
+		}
+		if gt.AbilitySampleCount > 0 {
+			gt.Ability = ability / float64(gt.AbilitySampleCount)
+		}
+		if gt.IdeologicalSampleCount > 0 {
+			gt.Ideological = ideological / float64(gt.IdeologicalSampleCount)
+		}
+		if gt.EmotionalSampleCount > 0 {
+			gt.Emotional = emotional / float64(gt.EmotionalSampleCount)
+		}
+		if gt.SocialSampleCount > 0 {
+			gt.Social = social / float64(gt.SocialSampleCount)
+		}
 	}
 	return gt, nil
 }
@@ -457,6 +503,7 @@ func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className 
 	query := `
 		SELECT user_id, owner_scope, owner_id, college, major, class_name,
 	       academic_score, ability_score, ideological_score, emotional_score, social_score,
+	       academic_available, ability_available, ideological_available, emotional_available, social_available,
 	       ai_interpretation, gap_analysis, stage_advice, computed_at
 		FROM student_profile_snapshot WHERE 1=1` + cond
 	query += " ORDER BY computed_at DESC"
@@ -476,6 +523,7 @@ func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className 
 		s := &TwinSnapshot{}
 		if err := rows.Scan(&s.UserID, &s.OwnerScope, &s.OwnerID, &s.College, &s.Major, &s.ClassName,
 			&s.AcademicScore, &s.AbilityScore, &s.IdeologicalScore, &s.EmotionalScore, &s.SocialScore,
+			&s.AcademicAvailable, &s.AbilityAvailable, &s.IdeologicalAvailable, &s.EmotionalAvailable, &s.SocialAvailable,
 			&s.AIInterpretation, &s.GapAnalysis, &s.StageAdvice, &s.ComputedAt); err != nil {
 			return nil, err
 		}
@@ -488,12 +536,17 @@ func (r *TwinRepo) ListSnapshotsByScope(ownerScope, ownerID, college, className 
 // Count 为该分组参与聚合的快照数（≥1），作为诚实样本标注；
 // 各维 AVG 仅对全部有快照学生求均值，与健康度（先每人五维均分再平均）口径无关。
 type ScopeDimAgg struct {
-	Academic    float64 // 学业均值
-	Ability     float64 // 能力均值
-	Ideological float64 // 思想均值
-	Emotional   float64 // 情感均值
-	Social      float64 // 社交均值
-	Count       int     // 参与聚合的快照数
+	Academic         float64 // 学业均值
+	Ability          float64 // 能力均值
+	Ideological      float64 // 思想均值
+	Emotional        float64 // 情感均值
+	Social           float64 // 社交均值
+	Count            int     // 参与聚合的快照数
+	AcademicCount    int
+	AbilityCount     int
+	IdeologicalCount int
+	EmotionalCount   int
+	SocialCount      int
 }
 
 // AggregateSnapshotsByScope 对指定归属范围内全部快照做 SQL AVG/COUNT 聚合（无 LIMIT 上限）。
@@ -519,13 +572,20 @@ func (r *TwinRepo) AggregateSnapshotsByScope(ownerScope, ownerID, major, classNa
 	// 整体聚合（COALESCE 保证空集 AVG=NULL 时不扫描报错，均值回落 0）
 	q := `SELECT
 			COUNT(*),
-			COALESCE(AVG(academic_score),0), COALESCE(AVG(ability_score),0), COALESCE(AVG(ideological_score),0),
-			COALESCE(AVG(emotional_score),0), COALESCE(AVG(social_score),0)
+			COALESCE(AVG(CASE WHEN academic_available = 1 THEN academic_score END),0),
+			COALESCE(AVG(CASE WHEN ability_available = 1 THEN ability_score END),0),
+			COALESCE(AVG(CASE WHEN ideological_available = 1 THEN ideological_score END),0),
+			COALESCE(AVG(CASE WHEN emotional_available = 1 THEN emotional_score END),0),
+			COALESCE(AVG(CASE WHEN social_available = 1 THEN social_score END),0),
+			COALESCE(SUM(academic_available),0), COALESCE(SUM(ability_available),0),
+			COALESCE(SUM(ideological_available),0), COALESCE(SUM(emotional_available),0), COALESCE(SUM(social_available),0)
 		FROM student_profile_snapshot WHERE 1=1` + cond
 	if err := r.db.QueryRow(q, args...).Scan(
 		&result.Overall.Count,
 		&result.Overall.Academic, &result.Overall.Ability, &result.Overall.Ideological,
-		&result.Overall.Emotional, &result.Overall.Social); err != nil {
+		&result.Overall.Emotional, &result.Overall.Social,
+		&result.Overall.AcademicCount, &result.Overall.AbilityCount, &result.Overall.IdeologicalCount,
+		&result.Overall.EmotionalCount, &result.Overall.SocialCount); err != nil {
 		return nil, fmt.Errorf("聚合全院快照失败: %w", err)
 	}
 
@@ -541,8 +601,13 @@ func (r *TwinRepo) AggregateSnapshotsByScope(ownerScope, ownerID, major, classNa
 		if groupCol != "" {
 			rows, err := r.db.Query(`SELECT `+groupCol+`,
 				COUNT(*),
-				COALESCE(AVG(academic_score),0), COALESCE(AVG(ability_score),0), COALESCE(AVG(ideological_score),0),
-				COALESCE(AVG(emotional_score),0), COALESCE(AVG(social_score),0)
+				COALESCE(AVG(CASE WHEN academic_available = 1 THEN academic_score END),0),
+				COALESCE(AVG(CASE WHEN ability_available = 1 THEN ability_score END),0),
+				COALESCE(AVG(CASE WHEN ideological_available = 1 THEN ideological_score END),0),
+				COALESCE(AVG(CASE WHEN emotional_available = 1 THEN emotional_score END),0),
+				COALESCE(AVG(CASE WHEN social_available = 1 THEN social_score END),0),
+				COALESCE(SUM(academic_available),0), COALESCE(SUM(ability_available),0),
+				COALESCE(SUM(ideological_available),0), COALESCE(SUM(emotional_available),0), COALESCE(SUM(social_available),0)
 			FROM student_profile_snapshot WHERE 1=1`+cond+
 				` GROUP BY `+groupCol+` ORDER BY COUNT(*) DESC`, args...)
 			if err != nil {
@@ -554,7 +619,9 @@ func (r *TwinRepo) AggregateSnapshotsByScope(ownerScope, ownerID, major, classNa
 				agg := ScopeDimAgg{}
 				if err := rows.Scan(&key, &agg.Count,
 					&agg.Academic, &agg.Ability, &agg.Ideological,
-					&agg.Emotional, &agg.Social); err != nil {
+					&agg.Emotional, &agg.Social,
+					&agg.AcademicCount, &agg.AbilityCount, &agg.IdeologicalCount,
+					&agg.EmotionalCount, &agg.SocialCount); err != nil {
 					return nil, err
 				}
 				if key == "" {

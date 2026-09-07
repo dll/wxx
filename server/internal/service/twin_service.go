@@ -120,15 +120,19 @@ func computeDimensions(m *repository.TwinRawMetrics) []TwinDimension {
 	// 社交：社团(每个 20 分,上限 60) + 活动(每次 8 分,上限 40)
 	social := clamp(math.Min(float64(m.ClubCount)*20, 60) + math.Min(float64(m.ActivityRegCount)*8, 40))
 
-	mk := func(key, name string, score float64, desc string, evidence ...string) TwinDimension {
-		return TwinDimension{Key: key, Name: name, Score: score, Level: scoreLevel(score), Desc: desc, DataAvailable: true, Evidence: evidence}
+	mk := func(key, name string, score float64, available bool, desc string, evidence ...string) TwinDimension {
+		level := scoreLevel(score)
+		if !available {
+			level = "数据积累中"
+		}
+		return TwinDimension{Key: key, Name: name, Score: score, Level: level, Desc: desc, DataAvailable: available, Evidence: evidence}
 	}
 	dims := []TwinDimension{
-		mk("academic", "学业", academic, fmt.Sprintf("平均绩点 %.2f，修得学分 %.1f", m.AvgGPA, m.CreditsEarned), fmt.Sprintf("成绩记录 %d 条", m.CourseCount), fmt.Sprintf("通过率 %.0f%%", m.PassRate*100)),
-		mk("ability", "能力", ability, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount), fmt.Sprintf("竞赛参与 %d 次", m.CompetitionCount), fmt.Sprintf("规划完成 %d/%d", m.PlanDoneCount, m.PlanCount)),
-		mk("ideological", "思想", ideological, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount), fmt.Sprintf("党建学习 %d 条", m.PartyStudyCount)),
-		mk("emotional", "情感", emotional, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount), fmt.Sprintf("心情记录 %d 条", m.EmotionLogCount)),
-		mk("social", "社交", social, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount), fmt.Sprintf("社团 %d 个、活动 %d 次", m.ClubCount, m.ActivityRegCount)),
+		mk("academic", "学业", academic, m.CourseCount > 0, fmt.Sprintf("平均绩点 %.2f，修得学分 %.1f", m.AvgGPA, m.CreditsEarned), fmt.Sprintf("成绩记录 %d 条", m.CourseCount), fmt.Sprintf("通过率 %.0f%%", m.PassRate*100)),
+		mk("ability", "能力", ability, m.CompetitionCount > 0 || m.PlanCount > 0, fmt.Sprintf("竞赛 %d 次，获奖 %d 次，完成规划 %d/%d", m.CompetitionCount, m.AwardCount, m.PlanDoneCount, m.PlanCount), fmt.Sprintf("竞赛参与 %d 次", m.CompetitionCount), fmt.Sprintf("规划完成 %d/%d", m.PlanDoneCount, m.PlanCount)),
+		mk("ideological", "思想", ideological, m.PartyStageRank > 0 || m.PartyStudyCount > 0, fmt.Sprintf("党建阶段序 %d，学习记录 %d 条", m.PartyStageRank, m.PartyStudyCount), fmt.Sprintf("党建学习 %d 条", m.PartyStudyCount)),
+		mk("emotional", "情感", emotional, emotionalDataAvailable, fmt.Sprintf("情感记录 %d 条，高风险 %d 次", m.EmotionLogCount, m.HighRiskCount), fmt.Sprintf("心情记录 %d 条", m.EmotionLogCount)),
+		mk("social", "社交", social, m.ClubCount > 0 || m.ActivityRegCount > 0, fmt.Sprintf("参与社团 %d 个，活动报名 %d 次", m.ClubCount, m.ActivityRegCount), fmt.Sprintf("社团 %d 个、活动 %d 次", m.ClubCount, m.ActivityRegCount)),
 	}
 	if !emotionalDataAvailable {
 		dims[3].Level = "数据积累中"
@@ -218,6 +222,9 @@ func (s *TwinService) GetDigitalTwin(ctx context.Context, userID int64) (*TwinRe
 		College: college, Major: major, ClassName: className,
 		AcademicScore: dims[0].Score, AbilityScore: dims[1].Score,
 		IdeologicalScore: dims[2].Score, EmotionalScore: dims[3].Score, SocialScore: dims[4].Score,
+		AcademicAvailable: dims[0].DataAvailable, AbilityAvailable: dims[1].DataAvailable,
+		IdeologicalAvailable: dims[2].DataAvailable, EmotionalAvailable: dims[3].DataAvailable,
+		SocialAvailable:  dims[4].DataAvailable,
 		AIInterpretation: interpretation, GapAnalysis: string(gapJSON), StageAdvice: string(adviceJSON),
 		ComputedAt: result.ComputedAt,
 	}

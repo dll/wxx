@@ -49,12 +49,12 @@ class _TwinBoardPageState extends State<TwinBoardPage> {
         const SizedBox(height: 12),
         ...list.map((item) {
           final risk = (item['risk'] ?? '').toString();
-          final dims = <String, double>{
-            '学业': _num(item['academic']),
-            '社交': _num(item['social']),
-            '心理': _num(item['mental']),
-            '实践': _num(item['practice']),
-            '创新': _num(item['innovate']),
+          final dims = <String, ({double score, bool available})>{
+            '学业': (score: _num(item['academic']), available: item['academic_available'] == true),
+            '社交': (score: _num(item['social']), available: item['social_available'] == true),
+            '情感': (score: _num(item['mental']), available: item['mental_available'] == true),
+            '能力': (score: _num(item['practice']), available: item['practice_available'] == true),
+            '思想': (score: _num(item['innovate']), available: item['innovate_available'] == true),
           };
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
@@ -87,7 +87,7 @@ class _TwinBoardPageState extends State<TwinBoardPage> {
                     ]),
                     const SizedBox(height: 12),
                     ...dims.entries
-                        .map((e) => _dimensionRow(theme, e.key, e.value)),
+                        .map((e) => _dimensionRow(theme, e.key, e.value.score, e.value.available)),
                     const SizedBox(height: 12),
                     if (item['summary'] != null)
                       MdText(item['summary'],
@@ -157,7 +157,7 @@ class _TwinBoardPageState extends State<TwinBoardPage> {
   int _riskRank(dynamic risk) =>
       switch (risk) { 'high' => 3, 'medium' => 2, _ => 1 };
 
-  Widget _dimensionRow(ThemeData theme, String label, double score) {
+  Widget _dimensionRow(ThemeData theme, String label, double score, bool available) {
     final color = score >= 70
         ? Colors.green
         : score >= 50
@@ -172,14 +172,14 @@ class _TwinBoardPageState extends State<TwinBoardPage> {
             child: ClipRRect(
                 borderRadius: BorderRadius.circular(99),
                 child: LinearProgressIndicator(
-                    value: (score / 100).clamp(0, 1),
+                    value: available ? (score / 100).clamp(0, 1) : 0,
                     minHeight: 6,
                     color: color,
                     backgroundColor: color.withOpacity(0.10)))),
         const SizedBox(width: 8),
         SizedBox(
-            width: 30,
-            child: Text(score.toStringAsFixed(0),
+            width: 64,
+            child: Text(available ? score.toStringAsFixed(0) : '积累中',
                 textAlign: TextAlign.right,
                 style: theme.textTheme.labelSmall
                     ?.copyWith(fontWeight: FontWeight.w700))),
