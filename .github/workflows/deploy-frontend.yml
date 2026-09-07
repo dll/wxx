@@ -192,16 +192,15 @@ jobs:
           test -x ./dist/wxx-server.new && echo "编译产物: $(ls -la ./dist/wxx-server.new)" || (echo "[ERROR] 编译失败"; exit 1)
         working-directory: ./server
 
-      - name: 上传二进制到服务器(rsync,与前端同款可靠)
-        uses: easingthemes/ssh-deploy@v5.0.3
+      - name: 上传二进制到服务器（SCP，避免远端 rsync 临时文件失败）
+        uses: appleboy/scp-action@v0.1.7
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          ARGS: "-rlgoDzvc -i --delete"
-          SOURCE: "server/dist/"
-          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
-          REMOTE_USER: ${{ secrets.SERVER_USER }}
-          TARGET: "/tmp/wxx-dist"
-          EXCLUDE: ""
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "server/dist/wxx-server.new"
+          target: "/tmp/wxx-dist"
+          overwrite: true
       - name: 服务器替换重启后端
         uses: appleboy/ssh-action@v1
         with:
