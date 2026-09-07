@@ -164,7 +164,7 @@ jobs:
     name: 构建并部署后端到腾讯云
     runs-on: ubuntu-latest
     needs: [quality-gate]
-    # Go FTS5 交叉编译约 19 分钟；原 20 分钟上限会在 rsync 上传刚开始时硬取消。
+    # Go FTS5 编译 + 压缩上传 + 远端迁移/健康检查。
     timeout-minutes: 45
 
     steps:
@@ -192,28 +192,46 @@ jobs:
           test -x ./dist/wxx-server.new && echo "编译产物: $(ls -la ./dist/wxx-server.new)" || (echo "[ERROR] 编译失败"; exit 1)
         working-directory: ./server
 
-      - name: 上传二进制到服务器（SCP，避免远端 rsync 临时文件失败）
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "server/dist/wxx-server.new"
-          target: "/tmp/wxx-dist"
-          strip_components: 2
-          overwrite: true
+      # 不使用 scp-action/ssh-deploy：前者会先用 drone-scp 打 tar，64MB 二进制
+      # 在远端容易出现空包/目录层级/长时间挂起；后者的远端临时文件原子改名
+      # 曾返回 code 23。这里由 OpenSSH 直接传一个 gzip 包，参数和超时可控。
+      - name: 压缩后端二进制
+        run: |
+          tar -C server/dist -czf /tmp/wxx-server.tar.gz wxx-server.new
+          ls -lh /tmp/wxx-server.tar.gz
+
+      - name: 上传后端压缩包到腾讯云
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/wxx-ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/wxx-ssh/id_ed25519"
+          chmod 600 "$RUNNER_TEMP/wxx-ssh/id_ed25519"
+          ssh_opts=(-i "$RUNNER_TEMP/wxx-ssh/id_ed25519" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          timeout 15m scp "${ssh_opts[@]}" /tmp/wxx-server.tar.gz "$SERVER_USER@$SERVER_HOST:/tmp/wxx-server.tar.gz"
+          timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'ls -lh /tmp/wxx-server.tar.gz && sha256sum /tmp/wxx-server.tar.gz'
+
       - name: 服务器替换重启后端
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 240s
-          script: |
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/wxx-ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/wxx-ssh/id_ed25519"
+          chmod 600 "$RUNNER_TEMP/wxx-ssh/id_ed25519"
+          ssh_opts=(-i "$RUNNER_TEMP/wxx-ssh/id_ed25519" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          timeout 5m ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'bash -se' <<'REMOTE_SCRIPT'
             set -e
             echo "=== 后端替换重启 $(date +%H:%M:%S) ==="
-            # 0. 校验上传的二进制
-            test -x /tmp/wxx-dist/wxx-server.new || { echo "[ERROR] 上传的二进制缺失"; exit 1; }
+            test -f /tmp/wxx-server.tar.gz || { echo "[ERROR] 上传压缩包缺失"; exit 1; }
+            rm -rf /tmp/wxx-dist && mkdir -p /tmp/wxx-dist
+            tar -xzf /tmp/wxx-server.tar.gz -C /tmp/wxx-dist
+            test -x /tmp/wxx-dist/wxx-server.new || chmod +x /tmp/wxx-dist/wxx-server.new
             echo "上传产物: $(ls -la /tmp/wxx-dist/wxx-server.new)"
             # 1. 备份数据库（部署前）——MySQL，密码从 /etc/wxx/env 提取
             echo "--- 备份 MySQL ---"
@@ -271,7 +289,8 @@ jobs:
             fi
             echo ""
             echo "[OK] 后端部署 + 迁移 + 健康检查全部通过"
-            rm -rf /tmp/wxx-dist
+            rm -rf /tmp/wxx-dist /tmp/wxx-server.tar.gz
+          REMOTE_SCRIPT
 
 
 

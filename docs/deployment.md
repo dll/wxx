@@ -38,6 +38,8 @@
 
 详细的服务器迁移与部署过程见 `docs/蔚小芯-后端迁移常驻服务器方案.md` 与 `docs/蔚小芯Fable5审核和开发计划与实现v4.md` §1。核心步骤概览：
 
+> CI/CD 正式后端发布唯一使用腾讯云 Lighthouse。Vercel 后端 workflow 已停用并从仓库移除。GitHub Actions 在 runner 编译 FTS5 二进制后，先压缩为 gzip，再通过 OpenSSH/SCP 上传到服务器；上传和远程命令均有明确超时、保活和 SHA256 校验，避免裸 64MB 二进制经 action 内置 tar/rsync 临时文件导致挂起。
+
 ```bash
 # 1. 服务器初始化（Ubuntu 22.04）
 apt-get update && apt-get install -y git curl build-essential
