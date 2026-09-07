@@ -38,7 +38,7 @@
 
 详细的服务器迁移与部署过程见 `docs/蔚小芯-后端迁移常驻服务器方案.md` 与 `docs/蔚小芯Fable5审核和开发计划与实现v4.md` §1。核心步骤概览：
 
-> CI/CD 正式后端发布唯一使用腾讯云 Lighthouse。Vercel 后端 workflow 已停用并从仓库移除。GitHub Actions 在 runner 编译 FTS5 二进制后，先压缩为 gzip，先做远端 shell/磁盘预检，再通过 OpenSSH 标准输入流式写入临时文件；上传和远程命令均有明确超时、保活和 SHA256 校验。流式 SSH 不依赖 scp/SFTP subsystem，避免腾讯云镜像中传输通道建连后无数据进度。
+> CI/CD 正式后端发布唯一使用腾讯云 Lighthouse。Vercel 后端 workflow 已停用并从仓库移除。GitHub Actions 在 runner 编译 FTS5 二进制后压缩为 gzip，先做远端 shell/磁盘预检，再将压缩包拆成 1MiB 小块，通过独立 SSH 连接上传并在远端合并；每块 90 秒超时、最多 3 次重试，最终执行 SHA256 校验。分块 SSH 不依赖 scp/SFTP subsystem，可绕过腾讯云镜像大流传输通道建连后无数据进度的问题。
 
 ```bash
 # 1. 服务器初始化（Ubuntu 22.04）

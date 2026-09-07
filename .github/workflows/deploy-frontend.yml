@@ -213,10 +213,30 @@ jobs:
           ssh_opts=(-i "$RUNNER_TEMP/wxx-ssh/id_ed25519" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
           # 先验证远端 shell 和 /tmp 可写，避免把 SSH/shell 故障误判为上传慢。
           timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'umask 077; df -h /tmp; test -w /tmp; printf READY\\n'
-          # 不依赖 scp/SFTP subsystem：通过 SSH 标准输入直接流式写临时文件。
-          # 这条链路可规避腾讯云镜像中 scp 建连后无数据进度的问题。
-          timeout 15m ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'umask 077; cat > /tmp/wxx-server.tar.gz' < /tmp/wxx-server.tar.gz
-          timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'ls -lh /tmp/wxx-server.tar.gz && sha256sum /tmp/wxx-server.tar.gz'
+          # 大流一次传输在该入口会无数据进度；拆成 1MiB 小块，每块独立 SSH
+          # 连接并追加写入。单块 90 秒超时 + 最多 3 次重试，避免整包从零重传。
+          split -b 1m -d -a 3 /tmp/wxx-server.tar.gz /tmp/wxx-server.part-
+          timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'rm -f /tmp/wxx-server.part-* /tmp/wxx-server.tar.gz'
+          for chunk in /tmp/wxx-server.part-*; do
+            remote_chunk="/tmp/$(basename "$chunk")"
+            uploaded=0
+            for attempt in 1 2 3; do
+              # 每块单独覆盖写；即使连接中断，重试也不会重复追加半块数据。
+              if timeout 90s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" "cat > '$remote_chunk'" < "$chunk"; then
+                uploaded=1
+                break
+              fi
+              echo "[warn] 分块 $(basename "$chunk") 第 ${attempt} 次失败，重试"
+              sleep 2
+            done
+            test "$uploaded" = 1 || { echo "[ERROR] 分块上传失败: $chunk"; exit 1; }
+          done
+          rm -f /tmp/wxx-server.part-*
+          timeout 60s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'cat /tmp/wxx-server.part-* > /tmp/wxx-server.tar.gz && rm -f /tmp/wxx-server.part-*'
+          local_sha=$(sha256sum /tmp/wxx-server.tar.gz | awk '{print $1}')
+          remote_sha=$(timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'ls -lh /tmp/wxx-server.tar.gz >&2; sha256sum /tmp/wxx-server.tar.gz' | awk '{print $1}')
+          test "$local_sha" = "$remote_sha" || { echo "[ERROR] SHA256 不一致: local=$local_sha remote=$remote_sha"; exit 1; }
+          echo "[OK] 分块上传 SHA256 校验通过: $local_sha"
 
       - name: 服务器替换重启后端
         env:
