@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -86,9 +87,10 @@ type FiveDimEntry struct {
 
 // CollegeFiveDim 学院五维全院聚合结果。
 type CollegeFiveDim struct {
-	SampleCount int            `json:"sample_count"`         // 全院参与聚合的快照数
-	Dimensions  []FiveDimEntry `json:"dimensions"`           // 5 维
-	TrendNote   string         `json:"trend_note,omitempty"` // 趋势说明（无历史快照→数据积累中）
+	SampleCount      int            `json:"sample_count"`       // 全院参与聚合的快照数
+	Dimensions       []FiveDimEntry `json:"dimensions"`         // 5 维
+	TrendSampleCount int            `json:"trend_sample_count"` // 具备历史两端数据的学生数
+	TrendNote        string         `json:"trend_note,omitempty"`
 }
 
 // fiveDimDefs 五维元数据（顺序固定，供前端雷达主轴排序）
@@ -133,8 +135,31 @@ func (s *CollegeService) aggregateCollegeFiveDim(ownerID, major, className strin
 	return &CollegeFiveDim{
 		SampleCount: o.Count,
 		Dimensions:  dims,
-		TrendNote:   "趋势数据积累中（暂无可对比的历史快照）",
+		TrendNote:   "趋势数据积累中（需至少两个不同采样日）",
 	}
+}
+
+// applyCollegeGrowthTrend 将已有快照历史转成学院大屏五维变化量。
+// 每个数组当前只包含窗口内「最近端 - 最早端」的平均变化；没有两端样本时保持空 map，
+// 避免用单次快照或固定数字伪造趋势。下钻过滤暂不复用全院趋势，防止口径混杂。
+func (s *CollegeService) applyCollegeGrowthTrend(data *TwinScreenData, ownerID, major, className string) {
+	if s.twinRepo == nil || data == nil || data.FiveDim == nil || major != "" || className != "" {
+		return
+	}
+	const windowWeeks = 12
+	trend, err := s.twinRepo.GetGrowthTrend(ownerID, windowWeeks)
+	if err != nil || trend == nil || !trend.HasData {
+		return
+	}
+	data.Trends = map[string][]float64{
+		"academic":    {roundTo1(trend.Academic)},
+		"ability":     {roundTo1(trend.Ability)},
+		"ideological": {roundTo1(trend.Ideological)},
+		"emotional":   {roundTo1(trend.Emotional)},
+		"social":      {roundTo1(trend.Social)},
+	}
+	data.FiveDim.TrendSampleCount = trend.SampleCount
+	data.FiveDim.TrendNote = fmt.Sprintf("近%d周成长变化（%d名学生具备两个以上采样日）", trend.WindowWeeks, trend.SampleCount)
 }
 
 // buildDepartments 按专业（major）填充学院大屏 departments 下钻条目。
@@ -219,7 +244,8 @@ func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ow
 	data.FiveDim = s.aggregateCollegeFiveDim(ownerID, major, className)
 	// 按 major 下钻填充 departments（P1 直接按 major；无快照→如实空）
 	data.Departments = s.buildDepartments(ownerID, className)
-	// 趋势：当前快照表按 user_id 唯一、无历史版本 → 如实空 map（trend_note 已诚实标注）
+	// 趋势仅来自 snapshot_history 的真实两端样本；无历史时如实保留空 map。
+	s.applyCollegeGrowthTrend(data, ownerID, major, className)
 
 	// LLM 解读（基于真实指标；无快照/无 LLM 时走现有规则降级）
 	if s.llmClient != nil && m.HasData {
@@ -252,12 +278,12 @@ func (s *CollegeService) GenerateTwinScreen(ctx context.Context, collegeName, ow
 
 // roundTo1 保留一位小数
 func roundTo1(v float64) float64 {
-	return float64(int(v*10+0.5)) / 10
+	return math.Round(v*10) / 10
 }
 
 // roundTo2 保留两位小数
 func roundTo2(v float64) float64 {
-	return float64(int(v*100+0.5)) / 100
+	return math.Round(v*100) / 100
 }
 
 // DataAnalysisResult 数据分析结果

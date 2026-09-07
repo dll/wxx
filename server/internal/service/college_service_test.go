@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/dll/wxx/server/internal/repository"
 	"github.com/dll/wxx/server/internal/testutil"
@@ -167,6 +168,49 @@ func TestTwinScreen_OverviewUnchanged(t *testing.T) {
 		if v, _ := data2.Overview["health_score"].(float64); diff(v, 80) > 1e-6 {
 			t.Errorf("健康度应为 80（每维同分 80），得到 %v", data2.Overview["health_score"])
 		}
+	}
+}
+
+// TestTwinScreen_GrowthTrendFromHistory 只在同院学生具备两个不同采样日时暴露真实趋势。
+func TestTwinScreen_GrowthTrendFromHistory(t *testing.T) {
+	svc, repo, db := setupCollegeTwinService(t)
+	uid := createStu(t, db)
+	base := &repository.TwinSnapshot{
+		UserID: uid, OwnerScope: "college", OwnerID: "cs", College: "cs",
+		Major: "软件工程", ClassName: "SE2501",
+		AcademicScore: 70, AbilityScore: 60, IdeologicalScore: 80,
+		EmotionalScore: 65, SocialScore: 75,
+		ComputedAt: time.Now().AddDate(0, 0, -7).Format(time.RFC3339),
+	}
+	if err := repo.UpsertSnapshot(base); err != nil {
+		t.Fatalf("写入当前快照失败: %v", err)
+	}
+	if err := repo.InsertSnapshotHistory(base); err != nil {
+		t.Fatalf("写入首端历史失败: %v", err)
+	}
+	latest := *base
+	latest.AcademicScore = 78
+	latest.AbilityScore = 57
+	latest.ComputedAt = time.Now().Format(time.RFC3339)
+	if err := repo.InsertSnapshotHistory(&latest); err != nil {
+		t.Fatalf("写入末端历史失败: %v", err)
+	}
+
+	data := svc.GenerateTwinScreen(context.Background(), "计算机学院", "cs", "", "")
+	if data.FiveDim == nil || data.FiveDim.TrendSampleCount != 1 {
+		t.Fatalf("应有 1 名纵向趋势样本，得到 %+v", data.FiveDim)
+	}
+	if got := data.Trends["academic"]; len(got) != 1 || got[0] != 8 {
+		t.Errorf("学业变化应为 +8.0，得到 %v", got)
+	}
+	if got := data.Trends["ability"]; len(got) != 1 || got[0] != -3 {
+		t.Errorf("能力变化应为 -3.0，得到 %v", got)
+	}
+
+	// 下钻视图暂不混入全院趋势，避免口径误导。
+	drilldown := svc.GenerateTwinScreen(context.Background(), "计算机学院", "cs", "软件工程", "")
+	if len(drilldown.Trends) != 0 || drilldown.FiveDim == nil || drilldown.FiveDim.TrendSampleCount != 0 {
+		t.Errorf("专业下钻应保持趋势空态，得到 trends=%v five_dim=%+v", drilldown.Trends, drilldown.FiveDim)
 	}
 }
 

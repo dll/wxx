@@ -180,6 +180,7 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
     final f = (_result!['five_dim'] as Map?)?.cast<String, dynamic>();
     final dimensions = (f?['dimensions'] as List?) ?? [];
     final sampleCount = (f?['sample_count'] as num?)?.toInt() ?? 0;
+    final trendSampleCount = (f?['trend_sample_count'] as num?)?.toInt() ?? 0;
     final trendNote = (f?['trend_note'] ?? '').toString();
 
     // 空态：无五维结构或整体 0 样本
@@ -234,6 +235,10 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
             ]),
             const SizedBox(height: 12),
             ...dimensions.map<Widget>((d) => _buildDimRow(theme, d as Map)),
+            if (trendSampleCount > 0) ...[
+              const SizedBox(height: 12),
+              _buildTrendSummary(theme),
+            ],
             if (trendNote.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(trendNote,
@@ -244,6 +249,50 @@ class _TwinScreenPageState extends State<TwinScreenPage> {
         ),
       ),
     ];
+  }
+
+  Widget _buildTrendSummary(ThemeData theme) {
+    final trends = (_result!['trends'] as Map?)?.cast<String, dynamic>() ?? {};
+    const labels = <String, String>{
+      'academic': '学业',
+      'ability': '能力',
+      'ideological': '思想',
+      'emotional': '情感',
+      'social': '社交',
+    };
+    final items = labels.entries.where((entry) {
+      final values = trends[entry.key];
+      return values is List && values.isNotEmpty && values.last is num;
+    }).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items.map((entry) {
+        final values = trends[entry.key] as List;
+        final delta = (values.last as num).toDouble();
+        final color = delta > 0
+            ? Colors.green
+            : delta < 0
+                ? theme.colorScheme.error
+                : theme.colorScheme.outline;
+        final sign = delta > 0 ? '+' : '';
+        return Chip(
+          avatar: Icon(
+            delta > 0
+                ? Icons.trending_up
+                : delta < 0
+                    ? Icons.trending_down
+                    : Icons.trending_flat,
+            size: 16,
+            color: color,
+          ),
+          label: Text('${entry.value} $sign${delta.toStringAsFixed(1)}'),
+          side: BorderSide(color: color.withOpacity(0.35)),
+          backgroundColor: color.withOpacity(0.08),
+        );
+      }).toList(),
+    );
   }
 
   Widget _buildDimRow(ThemeData theme, Map d) {

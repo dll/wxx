@@ -43,12 +43,12 @@ func (h *CollegeHandler) TwinScreen(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"college": "计算机学院",
 		"overview": gin.H{
-			"total_students": 580, "health_score": 85.2, "risk_students": 12, "active_rate": 0.78,
+			"total_students": 0, "health_score": 0.0, "risk_students": 0, "active_rate": 0.0,
 		},
-		"departments": []gin.H{
-			{"name": "计算机科学", "students": 240, "health": 87.5, "risk": 4},
-			{"name": "软件工程", "students": 180, "health": 83.0, "risk": 5},
-		},
+		"departments": []gin.H{},
+		"trends":      gin.H{},
+		"five_dim":    nil,
+		"ai_insight":  "",
 		"data_source": "fallback",
 	})
 }
