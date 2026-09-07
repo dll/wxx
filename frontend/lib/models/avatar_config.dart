@@ -1,5 +1,34 @@
 import 'package:flutter/material.dart';
 
+/// AI 风格头像的可选定制请求。
+///
+/// 这是前端与图片生成能力之间的稳定数据结构；不代表已经生成了真实图片。
+class AvatarCustomization {
+  final String source; // default | photo
+  final String style; // campus_chibi 等
+  final String photoBase64;
+  final String photoMime;
+  final String highlights;
+
+  const AvatarCustomization({
+    this.source = 'default',
+    this.style = 'campus_chibi',
+    this.photoBase64 = '',
+    this.photoMime = 'image/jpeg',
+    this.highlights = '',
+  });
+
+  bool get usesPhoto => source == 'photo' && photoBase64.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {
+        'source': source,
+        'style': style,
+        if (usesPhoto) 'photo_base64': photoBase64,
+        if (usesPhoto) 'photo_mime': photoMime,
+        if (highlights.trim().isNotEmpty) 'highlights': highlights.trim(),
+      };
+}
+
 /// 数字人形象配置 — 由五维孪生分数 + 性格洞察推导的可视化参数
 class AvatarConfig {
   // 五维分数（0-100）
@@ -39,12 +68,14 @@ class AvatarConfig {
 
   /// 综合分（五维加权，与后端一致：学业0.3/能力0.25/思想0.15/情感0.15/社交0.15）
   double get overall =>
-      academic * 0.30 + ability * 0.25 + ideological * 0.15 +
-      emotional * 0.15 + social * 0.15;
+      academic * 0.30 +
+      ability * 0.25 +
+      ideological * 0.15 +
+      emotional * 0.15 +
+      social * 0.15;
 
   /// 是否外向（E 型人格）
-  bool get isExtrovert =>
-      personalityType.contains('E') || extraversion >= 60;
+  bool get isExtrovert => personalityType.contains('E') || extraversion >= 60;
 
   /// 是否学业突出 → 戴眼镜 + 拿书本
   bool get hasGlasses => academic >= 75;
@@ -60,8 +91,7 @@ class AvatarConfig {
   bool get isSmiling => social >= 70;
 
   /// 情感分 → 眼睛明亮度（0.4~1.0）
-  double get eyeBrightness =>
-      0.4 + (emotional / 100.0) * 0.6;
+  double get eyeBrightness => 0.4 + (emotional / 100.0) * 0.6;
 
   /// 开放分 → 发型风格：>60 蓬松创意，<40 利落短发，中间标准
   String get hairStyle {
@@ -76,7 +106,8 @@ class AvatarConfig {
     final base = warm ? const Color(0xFFFF8A65) : const Color(0xFF64B5F6);
     // 综合分高 → 更鲜艳
     final t = (overall / 100.0).clamp(0.3, 1.0);
-    return Color.lerp(base, warm ? const Color(0xFFFF7043) : const Color(0xFF42A5F5), t)!;
+    return Color.lerp(
+        base, warm ? const Color(0xFFFF7043) : const Color(0xFF42A5F5), t)!;
   }
 
   /// 滁州学院校徽蓝

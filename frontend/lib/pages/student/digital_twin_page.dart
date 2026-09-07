@@ -60,6 +60,12 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
           .catchError((Object e) {
         debugPrint('[digital-twin] 加载数字人形象失败: $e');
       });
+      context
+          .read<TwinPortraitProvider>()
+          .fetchPortraits()
+          .catchError((Object e) {
+        debugPrint('[digital-twin] 加载 AI 风格头像失败: $e');
+      });
     });
   }
 
@@ -68,14 +74,16 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     final theme = Theme.of(context);
     final provider = context.watch<StudentFeatureProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('数字孪生画像')),
+      appBar: AppBar(title: const Text('我的头像与成长')),
       body: RefreshIndicator(
         onRefresh: () async {
           final p = context.read<StudentFeatureProvider>();
+          final portraits = context.read<TwinPortraitProvider>();
           await p.fetchDigitalTwin();
           await p.fetchAvatar(
               displayName: Storage.displayName ?? '同学',
               role: Storage.role ?? 'student');
+          await portraits.fetchPortraits();
         },
         child: provider.loading && provider.twin == null
             ? const Center(child: CircularProgressIndicator())
@@ -94,22 +102,84 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
-        _buildPageIntro(theme, t),
+        _buildAvatarHero(theme, provider),
         const SizedBox(height: 12),
-        // 核心状态首屏可见：综合分、成长阶段、数据覆盖。
-        _buildOverviewCard(theme, t, provider),
+        _buildPageIntro(theme, t),
         const SizedBox(height: 12),
         _buildGrowthIdentityCard(theme, t, provider),
         const SizedBox(height: 12),
         if (t.dimensions.isNotEmpty) _buildTabsSection(theme, provider),
         const SizedBox(height: 12),
-        // 数字人是表达层，不抢占真实成长数据的首屏位置。
-        if (Storage.showAvatar && provider.avatar != null)
-          _buildAvatarPreview(theme, provider.avatar!),
+        // 旧雷达/分数仅作为成长详情；头像是默认主视觉，定制完全可选。
+        _buildOverviewCard(theme, t, provider),
         const SizedBox(height: 12),
         _buildPortraitSection(theme),
       ],
     );
+  }
+
+  Widget _buildAvatarHero(ThemeData theme, StudentFeatureProvider provider) {
+    final portrait = context.watch<TwinPortraitProvider>().current;
+    final avatar = provider.avatar;
+    final cs = theme.colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 260,
+            width: double.infinity,
+            child: portrait != null && portrait.imageBase64.isNotEmpty
+                ? Image.memory(base64Decode(portrait.imageBase64),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _avatarFallback(avatar, theme))
+                : avatar != null
+                    ? AvatarCard(config: avatar, height: 260)
+                    : _avatarFallback(avatar, theme),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('我的 AI 风格头像',
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(
+                            portrait == null
+                                ? '默认头像也能正常使用，想玩再定制'
+                                : '这是你的可选定制版本，随时可以换回默认头像',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant)),
+                      ]),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: () =>
+                      _showGenerateDialog(context.read<TwinPortraitProvider>()),
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('定制'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarFallback(AvatarConfig? avatar, ThemeData theme) {
+    if (avatar != null) return AvatarCard(config: avatar, height: 260);
+    return Container(
+        color: theme.colorScheme.primaryContainer,
+        child: Icon(Icons.face_retouching_natural,
+            size: 84, color: theme.colorScheme.primary));
   }
 
   Widget _buildPageIntro(ThemeData theme, dynamic t) {
@@ -171,42 +241,6 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     );
   }
 
-  Widget _buildAvatarPreview(ThemeData theme, AvatarConfig config) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: Row(
-          children: [
-            Icon(Icons.face_retouching_natural,
-                color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '数字人表达',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            SizedBox(
-              width: 132,
-              height: 86,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AvatarCard(config: config, height: 86),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 数字人加载占位
   // ── 数字孪生画像（AI 生成）──
 
@@ -253,14 +287,14 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
               children: [
                 Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('AI 数字孪生画像',
+                Text('AI 风格头像定制',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              'Q 版可爱精灵数字人画像，大头小身萌态十足，超星风格 3D 卡通渲染。',
+              '可选照片定制的 Q 版头像；没有照片也能使用默认头像。当前仅在已有图片生成能力时生成，不会伪造 AI 结果。',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
@@ -405,13 +439,13 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('生成 AI 数字孪生画像'),
+        title: const Text('定制 AI 风格头像'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('照片模式：以上传照片为原型（图生图）'),
+              const Text('照片定制：以上传照片为原型（可选；仅在后端配置图片生成能力时生效）'),
               const SizedBox(height: 8),
               _buildPhotoUploadRow(p, controller),
               const SizedBox(height: 12),
@@ -838,6 +872,7 @@ class _RadarChartPainter extends CustomPainter {
   final List<String> labels;
   final List<double> values;
   final List<double> idealValues;
+
   /// 与 labels 对齐的可用性标记；false 的维度不参与数据多边形（避免伪 0 分）
   final List<bool> availability;
   final Color color;
@@ -852,8 +887,7 @@ class _RadarChartPainter extends CustomPainter {
     required this.secondaryColor,
   });
 
-  bool _available(int i) =>
-      i < availability.length ? availability[i] : true;
+  bool _available(int i) => i < availability.length ? availability[i] : true;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -996,8 +1030,8 @@ class _RadarChartPainter extends CustomPainter {
       if (!_available(i)) {
         // 空心圆画在最大半径处，表示该维度尚无数据，而非 0 分
         canvas.drawCircle(
-          Offset(center.dx + radius * cos(angle),
-              center.dy + radius * sin(angle)),
+          Offset(
+              center.dx + radius * cos(angle), center.dy + radius * sin(angle)),
           4,
           Paint()
             ..color = Colors.grey.withOpacity(0.5)

@@ -1,9 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wxx_app/models/models.dart';
+import 'package:wxx_app/models/avatar_config.dart';
 
 void main() {
   group('DigitalTwin 画像契约（诚实空态）', () {
+    test('头像定制默认不依赖照片，照片模式只有在有内容时才提交照片字段', () {
+      const fallback = AvatarCustomization();
+      expect(fallback.usesPhoto, isFalse);
+      expect(fallback.toJson().containsKey('photo_base64'), isFalse);
+
+      const photo = AvatarCustomization(
+        source: 'photo',
+        photoBase64: 'abc',
+        photoMime: 'image/png',
+        highlights: '喜欢猫猫',
+      );
+      expect(photo.usesPhoto, isTrue);
+      expect(photo.toJson()['photo_mime'], 'image/png');
+      expect(photo.toJson()['highlights'], '喜欢猫猫');
+    });
     test('缺 data_available 的维度按不可用处理，不得把占位 0 当真实分数', () {
       final dim = TwinDimension.fromJson({
         'name': '学业',
