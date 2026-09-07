@@ -213,16 +213,16 @@ jobs:
           ssh_opts=(-i "$RUNNER_TEMP/wxx-ssh/id_ed25519" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
           # 先验证远端 shell 和 /tmp 可写，避免把 SSH/shell 故障误判为上传慢。
           timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'umask 077; df -h /tmp; test -w /tmp; printf READY\\n'
-          # 大流一次传输在该入口会无数据进度；拆成 1MiB 小块，每块独立 SSH
-          # 连接并追加写入。单块 90 秒超时 + 最多 3 次重试，避免整包从零重传。
-          split -b 1m -d -a 3 /tmp/wxx-server.tar.gz /tmp/wxx-server.part-
+          # 大流一次传输在该入口会无数据进度；拆成 8MiB 小块，每块独立 SSH
+          # 连接并写入。单块 120 秒超时 + 最多 3 次重试，避免整包从零重传。
+          split -b 8m -d -a 2 /tmp/wxx-server.tar.gz /tmp/wxx-server.part-
           timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'rm -f /tmp/wxx-server.part-* /tmp/wxx-server.tar.gz'
           for chunk in /tmp/wxx-server.part-*; do
             remote_chunk="/tmp/$(basename "$chunk")"
             uploaded=0
             for attempt in 1 2 3; do
               # 每块单独覆盖写；即使连接中断，重试也不会重复追加半块数据。
-              if timeout 90s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" "cat > '$remote_chunk'" < "$chunk"; then
+              if timeout 120s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" "cat > '$remote_chunk'" < "$chunk"; then
                 uploaded=1
                 break
               fi
