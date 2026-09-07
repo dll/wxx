@@ -178,7 +178,7 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 
 用户画像/数字孪生专项重构：重做学生数字孪生首屏为“成长状态 → 数据可信度 → 五维证据 → AI 建议 → 数字人表达”的层级，补齐综合分、数据覆盖、更新时间、规则兜底和维度证据展示；个人档案页改为画像入口，消除重复渲染；辅导员看板改为风险优先并增加汇总指标与可读进度条；学院大屏修正健康率百分比计算并统一信息卡片层级；后端数字孪生服务异常时移除固定示例画像，改为空数据诚实态。通过 Flutter 定向 analyze、通知路由测试、Go 全仓编译和 `git diff --check`。
 
-部署链路专项修复：停用并移除 Vercel 后端 workflow；腾讯云后端发布改为 runner 本地 gzip + OpenSSH 传统 SCP（`scp -O`）直传，增加上传 SHA256 校验、连接保活、15 分钟上传超时和 5 分钟远程命令超时，远端继续执行数据库备份、原子替换、迁移验证与健康检查。`scp -O` 绕过腾讯云镜像 SFTP subsystem 建连后无数据进度的问题；同时修复此前 scp-action tar 挂起及 ssh-deploy/rsync 临时文件 code 23 问题。
+部署链路专项修复：停用并移除 Vercel 后端 workflow；腾讯云后端发布改为 runner 本地 gzip + SSH 标准输入流式写入，先做远端 shell/磁盘预检，增加上传 SHA256 校验、连接保活、15 分钟上传超时和 5 分钟远程命令超时，远端继续执行数据库备份、原子替换、迁移验证与健康检查。流式 SSH 不依赖 scp/SFTP subsystem，规避腾讯云镜像传输通道建连后无数据进度；同时修复此前 scp-action tar 挂起及 ssh-deploy/rsync 临时文件 code 23 问题。
 
 ### 批次五：静态质量收敛（已完成）
 

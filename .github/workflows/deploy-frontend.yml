@@ -211,9 +211,11 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/wxx-ssh/id_ed25519"
           chmod 600 "$RUNNER_TEMP/wxx-ssh/id_ed25519"
           ssh_opts=(-i "$RUNNER_TEMP/wxx-ssh/id_ed25519" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
-          # 腾讯云镜像上的 SFTP subsystem 曾在 scp 默认协议下建立连接后无数据进度；
-          # -O 强制传统 SCP 协议，绕过该 subsystem，仍保留连接保活与硬超时。
-          timeout 15m scp -O "${ssh_opts[@]}" /tmp/wxx-server.tar.gz "$SERVER_USER@$SERVER_HOST:/tmp/wxx-server.tar.gz"
+          # 先验证远端 shell 和 /tmp 可写，避免把 SSH/shell 故障误判为上传慢。
+          timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'umask 077; df -h /tmp; test -w /tmp; printf READY\\n'
+          # 不依赖 scp/SFTP subsystem：通过 SSH 标准输入直接流式写临时文件。
+          # 这条链路可规避腾讯云镜像中 scp 建连后无数据进度的问题。
+          timeout 15m ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'umask 077; cat > /tmp/wxx-server.tar.gz' < /tmp/wxx-server.tar.gz
           timeout 30s ssh "${ssh_opts[@]}" "$SERVER_USER@$SERVER_HOST" 'ls -lh /tmp/wxx-server.tar.gz && sha256sum /tmp/wxx-server.tar.gz'
 
       - name: 服务器替换重启后端
