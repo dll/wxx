@@ -9,6 +9,10 @@ class DigitalTwinData {
   final String growthStage;
   final String profileTag;
   final double dataCoverage;
+  final double overallScore;
+  final List<String> gapAnalysis;
+  final String computedAt;
+  final bool fallback;
 
   DigitalTwinData(
       {this.dimensions = const [],
@@ -17,7 +21,11 @@ class DigitalTwinData {
       this.suggestions = const [],
       this.growthStage = '',
       this.profileTag = '',
-      this.dataCoverage = 0});
+      this.dataCoverage = 0,
+      this.overallScore = 0,
+      this.gapAnalysis = const [],
+      this.computedAt = '',
+      this.fallback = false});
 
   factory DigitalTwinData.fromJson(Map<String, dynamic> json) {
     return DigitalTwinData(
@@ -36,6 +44,10 @@ class DigitalTwinData {
       growthStage: json['growth_stage'] ?? '',
       profileTag: json['profile_tag'] ?? '',
       dataCoverage: (json['data_coverage'] ?? 0).toDouble(),
+      overallScore: (json['overall_score'] ?? 0).toDouble(),
+      gapAnalysis: List<String>.from(json['gap_analysis'] ?? const []),
+      computedAt: json['computed_at'] ?? '',
+      fallback: json['fallback'] == true,
     );
   }
 }
@@ -108,6 +120,3 @@ class TwinPortrait {
 // ═══════════════════════════════════════════════════════════════
 
 /// 组织关系联系人（辅导员/领导）
-
-
-

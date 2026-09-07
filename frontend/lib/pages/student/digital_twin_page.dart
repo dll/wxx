@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../providers/twin_portrait_provider.dart';
 import '../../providers/personal_detail_provider.dart';
+import '../../models/avatar_config.dart';
 import '../../utils/storage.dart';
 import '../../utils/portrait_photo_picker.dart';
 import '../../widgets/avatar_card.dart';
@@ -52,9 +53,11 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
       provider.fetchDigitalTwin().catchError((Object e) {
         debugPrint('[digital-twin] 加载数字孪生失败: $e');
       });
-      provider.fetchAvatar(
+      provider
+          .fetchAvatar(
         displayName: Storage.displayName ?? '同学',
-      ).catchError((Object e) {
+      )
+          .catchError((Object e) {
         debugPrint('[digital-twin] 加载数字人形象失败: $e');
       });
     });
@@ -70,7 +73,9 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         onRefresh: () async {
           final p = context.read<StudentFeatureProvider>();
           await p.fetchDigitalTwin();
-          await p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
+          await p.fetchAvatar(
+              displayName: Storage.displayName ?? '同学',
+              role: Storage.role ?? 'student');
         },
         child: provider.loading && provider.twin == null
             ? const Center(child: CircularProgressIndicator())
@@ -87,49 +92,122 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     final t = provider.twin;
     if (t == null) return const Center(child: Text('暂无数据'));
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
-        // 数字人形象卡片（可由系统设置显示/隐藏）
-        if (Storage.showAvatar) ...[
-          if (provider.avatar != null)
-            AvatarCard(
-              config: provider.avatar!,
-              height: 320,
-            )
-          else
-            _buildAvatarLoading(theme),
-          const SizedBox(height: 16),
-        ],
-
-        // 数字孪生画像（AI 文生图/图生图，蔚小芯风格）
-        _buildPortraitSection(theme),
-
-        const SizedBox(height: 16),
-
-        // 信息概览：成长阶段 + 数据覆盖 + 综合分
+        _buildPageIntro(theme, t),
+        const SizedBox(height: 12),
+        // 核心状态首屏可见：综合分、成长阶段、数据覆盖。
+        _buildOverviewCard(theme, t, provider),
+        const SizedBox(height: 12),
         _buildGrowthIdentityCard(theme, t, provider),
-
-        const SizedBox(height: 16),
-
-        // 能力维度 Tab 区
-        if (t.dimensions.isNotEmpty)
-          _buildTabsSection(theme, provider),
+        const SizedBox(height: 12),
+        if (t.dimensions.isNotEmpty) _buildTabsSection(theme, provider),
+        const SizedBox(height: 12),
+        // 数字人是表达层，不抢占真实成长数据的首屏位置。
+        if (Storage.showAvatar && provider.avatar != null)
+          _buildAvatarPreview(theme, provider.avatar!),
+        const SizedBox(height: 12),
+        _buildPortraitSection(theme),
       ],
     );
   }
 
-  /// 数字人加载占位
-  Widget _buildAvatarLoading(ThemeData theme) {
+  Widget _buildPageIntro(ThemeData theme, dynamic t) {
+    final cs = theme.colorScheme;
     return Container(
-      height: 320,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [cs.primaryContainer, cs.surface],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: cs.outlineVariant),
       ),
-      child: const Center(child: CircularProgressIndicator()),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: cs.primary,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.insights_rounded, color: cs.onPrimary, size: 25),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isStaff ? '我的绩效画像' : '我的成长画像',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  t.profileTag.isNotEmpty ? t.profileTag : '用真实记录，看见正在发生的成长',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: '刷新画像',
+            onPressed: () =>
+                context.read<StudentFeatureProvider>().fetchDigitalTwin(),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
     );
   }
 
+  Widget _buildAvatarPreview(ThemeData theme, AvatarConfig config) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Row(
+          children: [
+            Icon(Icons.face_retouching_natural,
+                color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '数字人表达',
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            SizedBox(
+              width: 132,
+              height: 86,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AvatarCard(config: config, height: 86),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 数字人加载占位
   // ── 数字孪生画像（AI 生成）──
 
   Widget _buildPortraitSection(ThemeData theme) {
@@ -138,8 +216,10 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     if (!p.loading && p.current == null && p.error.isEmpty) {
       Future.microtask(() {
         if (mounted) {
-          context.read<TwinPortraitProvider>().fetchPortraits().catchError(
-              (Object e) {
+          context
+              .read<TwinPortraitProvider>()
+              .fetchPortraits()
+              .catchError((Object e) {
             debugPrint('[digital-twin] 加载孪生画像失败: $e');
           });
         }
@@ -149,8 +229,10 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     if (!detail.loading && detail.detail == null) {
       Future.microtask(() {
         if (mounted) {
-          context.read<PersonalDetailProvider>().fetchAll().catchError(
-              (Object e) {
+          context
+              .read<PersonalDetailProvider>()
+              .fetchAll()
+              .catchError((Object e) {
             debugPrint('[digital-twin] 加载个人信息失败: $e');
           });
         }
@@ -179,8 +261,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
             const SizedBox(height: 4),
             Text(
               'Q 版可爱精灵数字人画像，大头小身萌态十足，超星风格 3D 卡通渲染。',
-              style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             if (p.generating)
@@ -235,7 +317,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                   width: 120,
                   height: 120,
                   color: cs.surfaceContainerHighest,
-                  child: Icon(Icons.person, size: 48, color: cs.onSurfaceVariant),
+                  child:
+                      Icon(Icons.person, size: 48, color: cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -298,10 +381,11 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
   }
 
   /// 用个人中心头像（图生图）生成画像
-  Future<void> _generateFromAvatar(TwinPortraitProvider p, String avatarB64) async {
+  Future<void> _generateFromAvatar(
+      TwinPortraitProvider p, String avatarB64) async {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('正在用你的头像生成画像…')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('正在用你的头像生成画像…')));
     }
     final ok = await p.generate(
       prototypeType: 'photo',
@@ -367,7 +451,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     );
   }
 
-  Widget _buildPhotoUploadRow(TwinPortraitProvider p, TextEditingController highlightsCtrl) {
+  Widget _buildPhotoUploadRow(
+      TwinPortraitProvider p, TextEditingController highlightsCtrl) {
     return FutureBuilder<void>(
       future: null,
       builder: (context, _) {
@@ -393,8 +478,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
       final result = await _pickImageBytes();
       if (result == null) return;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('照片已选择，正在生成画像…')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('照片已选择，正在生成画像…')));
       }
       final ok = await p.generate(
         prototypeType: 'photo',
@@ -402,21 +487,21 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         photoMime: result.mime,
       );
       if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(p.error.isNotEmpty ? p.error : '生成失败')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('选择照片失败：$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('选择照片失败：$e')));
       }
     }
   }
 
   Future<void> _generateChaoXing(TwinPortraitProvider p) async {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('正在以校园原型生成画像…')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('正在以校园原型生成画像…')));
     }
     final ok = await p.generate(prototypeType: 'chao_xing');
     if (!ok && mounted) {
@@ -430,51 +515,73 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
   }
 
   /// 蔚小芯成长身份卡：画像不是给学生贴标签，而是说明当前阶段与下一步行动。
-  Widget _buildGrowthIdentityCard(ThemeData theme, dynamic t, StudentFeatureProvider provider) {
+  Widget _buildGrowthIdentityCard(
+      ThemeData theme, dynamic t, StudentFeatureProvider provider) {
     final coverage = (t.dataCoverage as num).toDouble();
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: theme.colorScheme.outlineVariant)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.outlineVariant)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
+            Icon(Icons.verified_outlined, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            Expanded(child: Text(t.profileTag.isNotEmpty ? t.profileTag : '你的成长画像', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-            Chip(label: Text(t.growthStage.isNotEmpty ? t.growthStage : '在校成长')),
+            Expanded(
+                child: Text('画像可信度',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(999)),
+              child: Text(t.growthStage.isNotEmpty ? t.growthStage : '在校成长',
+                  style: theme.textTheme.labelMedium),
+            ),
           ]),
           const SizedBox(height: 8),
-          Text('画像基于你在蔚小芯中的真实学习、实践、思想与校园参与记录生成，不替代心理测评或人工判断。', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text('画像基于蔚小芯中的真实记录，不替代心理测评或人工判断。',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: LinearProgressIndicator(value: (coverage / 100).clamp(0, 1), minHeight: 8, borderRadius: BorderRadius.circular(8))),
+            Expanded(
+                child: LinearProgressIndicator(
+                    value: (coverage / 100).clamp(0, 1),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(8))),
             const SizedBox(width: 10),
-            Text('数据覆盖 ${coverage.toStringAsFixed(0)}%', style: theme.textTheme.labelMedium),
+            Text('真实数据覆盖 ${coverage.toStringAsFixed(0)}%',
+                style: theme.textTheme.labelMedium),
           ]),
+          if (t.fallback || t.computedAt.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              t.fallback
+                  ? '当前为规则分析结果，数据会随你的记录持续更新。'
+                  : '数据已更新 · ${_formatComputedAt(t.computedAt)}',
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.outline),
+            ),
+          ],
         ]),
       ),
     );
   }
 
+  String _formatComputedAt(String raw) {
+    if (raw.isEmpty) return '刚刚';
+    return raw.length >= 16 ? raw.substring(0, 16).replaceFirst('T', ' ') : raw;
+  }
+
   /// 综合概览卡片
   Widget _buildOverviewCard(
       ThemeData theme, dynamic t, StudentFeatureProvider provider) {
-    // 综合分：五维加权（后端顺序：学业/能力/思想/情感/社交，权重 0.30/0.25/0.15/0.15/0.15）
-    // 仅对 data_available 的维度加权，并对缺失维度权重重新归一化，避免无数据维度拉低总分
-    const weights = [0.30, 0.25, 0.15, 0.15, 0.15];
-    final dims = (t.dimensions as List);
-    double overall = 0;
-    double weightSum = 0;
-    for (int i = 0; i < dims.length && i < weights.length; i++) {
-      final d = dims[i];
-      final available = d.dataAvailable ?? true;
-      if (!available) continue;
-      final s = (d.score as num).toDouble();
-      overall += (s > 1 ? s / 100.0 : s) * weights[i];
-      weightSum += weights[i];
-    }
-    if (weightSum > 0) overall = overall / weightSum * 100;
+    final overall = (t.overallScore as num).toDouble();
+    final availableCount = t.dimensions.where((d) => d.dataAvailable).length;
     final label = overall >= 80
         ? '优秀'
         : overall >= 60
@@ -490,42 +597,22 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.tertiary,
-                  ],
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                overall.toStringAsFixed(0),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            _ScoreRing(score: overall, color: theme.colorScheme.primary),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isStaff ? '绩效画像 · $label' : '综合画像 · $label',
+                    _isStaff ? '绩效状态 · $label' : '当前成长状态 · $label',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${Storage.displayName ?? '同学'} · $_roleLabel',
+                    '${Storage.displayName ?? '同学'} · $_roleLabel · $availableCount/${t.dimensions.length} 个维度有记录',
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -533,9 +620,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isStaff
-                        ? '绩效汇聚你的帮扶咨询、排课考试、通知材料等教辅工作，并绑定教师、学生与蔚小芯'
-                        : '点击下方雷达图查看各维度详情，数字人形象随数据自动变化',
+                    _isStaff ? '来自真实工作记录与服务学生数据' : '这是成长参考，不是给你贴上的标签',
                     style: TextStyle(
                       color: theme.colorScheme.outline,
                       fontSize: 12,
@@ -563,15 +648,17 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
         ),
         child: Column(
           children: [
-            const TabBar(
+            TabBar(
               tabs: [
                 Tab(icon: Icon(Icons.radar, size: 20), text: '能力雷达'),
                 Tab(icon: Icon(Icons.psychology, size: 20), text: 'AI 分析'),
-                Tab(icon: Icon(Icons.lightbulb_outline, size: 20), text: '成长建议'),
+                Tab(
+                    icon: Icon(Icons.lightbulb_outline, size: 20),
+                    text: '成长建议'),
               ],
             ),
             SizedBox(
-              height: 380,
+              height: 440,
               child: TabBarView(
                 children: [
                   // 雷达图
@@ -598,13 +685,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(d.name),
-                                  Text(
-                                    '数据积累中',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant),
-                                  ),
+                                  Expanded(child: Text(d.name)),
+                                  _DataStatusChip(label: '数据积累中', muted: true),
                                 ],
                               ),
                             );
@@ -640,6 +722,14 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                                             ? Colors.orange
                                             : Colors.red,
                                   ),
+                                  if (d.evidence.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(d.evidence.join(' · '),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                                color:
+                                                    theme.colorScheme.outline)),
+                                  ],
                                 ]),
                           );
                         }),
@@ -655,8 +745,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(children: [
                                       Icon(Icons.psychology,
@@ -682,8 +771,8 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                               return Card(
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: theme
-                                        .colorScheme.secondaryContainer,
+                                    backgroundColor:
+                                        theme.colorScheme.secondaryContainer,
                                     child: Text('${e.key + 1}'),
                                   ),
                                   title: Text(e.value),
@@ -925,5 +1014,63 @@ class _RadarChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _RadarChartPainter oldDelegate) {
     return values != oldDelegate.values ||
         idealValues != oldDelegate.idealValues;
+  }
+}
+
+class _ScoreRing extends StatelessWidget {
+  final double score;
+  final Color color;
+
+  const _ScoreRing({required this.score, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = score.clamp(0.0, 100.0) / 100;
+    return SizedBox(
+      width: 78,
+      height: 78,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: value,
+            strokeWidth: 8,
+            backgroundColor: color.withOpacity(0.12),
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+          Text(
+            score > 0 ? score.toStringAsFixed(0) : '—',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataStatusChip extends StatelessWidget {
+  final String label;
+  final bool muted;
+
+  const _DataStatusChip({required this.label, this.muted = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = muted
+        ? Theme.of(context).colorScheme.outline
+        : Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label,
+          style:
+              Theme.of(context).textTheme.labelSmall?.copyWith(color: color)),
+    );
   }
 }

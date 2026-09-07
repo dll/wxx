@@ -47,25 +47,18 @@ func (h *StudentHandler) DigitalTwin(c *gin.Context) {
 		}
 	}
 
-	// 兜底：未注入 twinSvc 或聚合异常时返回 mock（保证前端可用，不阻断）
+	// 兜底：聚合服务不可用时返回诚实空态，不把示例数据伪装成用户画像。
 	c.JSON(http.StatusOK, gin.H{
-		"dimensions": []gin.H{
-			{"name": "学业", "score": 78.5, "label": "良好"},
-			{"name": "社交", "score": 65.0, "label": "中等"},
-			{"name": "身心", "score": 82.0, "label": "良好"},
-			{"name": "实践", "score": 70.0, "label": "中等"},
-			{"name": "创新", "score": 55.0, "label": "待提升"},
-		},
-		"ideal_dimensions": []gin.H{
-			{"name": "学业", "score": 90.0, "label": "优秀"},
-			{"name": "社交", "score": 80.0, "label": "良好"},
-			{"name": "身心", "score": 85.0, "label": "良好"},
-			{"name": "实践", "score": 85.0, "label": "良好"},
-			{"name": "创新", "score": 75.0, "label": "良好"},
-		},
-		"ai_summary":  "你的学业和身心维度表现良好，社交和实践维度有提升空间。建议多参加社团活动和实习项目。",
-		"suggestions": []string{"参加下周的企业宣讲会", "加入一个技术社团", "每周运动3次以上"},
-		"fallback":    true,
+		"dimensions":       []gin.H{},
+		"ideal_dimensions": []gin.H{},
+		"overall_score":    0,
+		"data_coverage":    0,
+		"profile_tag":      "数据暂不可用",
+		"growth_stage":     "等待数据",
+		"ai_summary":       "暂时无法读取成长记录，请稍后刷新。",
+		"suggestions":      []string{},
+		"fallback":         true,
+		"data_source":      "unavailable",
 	})
 }
 

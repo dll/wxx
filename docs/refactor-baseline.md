@@ -176,6 +176,8 @@ Go 测试包含 agent、auth、context_engine、handler、repository、service�
 
 批次五之后质量收敛增量：清理校园地图中已由现有地图容器替代且未被引用的 `_buildHeader`、`_buildControls`、`_buildCampusSelector`、`_buildMetaLine`，移除知识治理未使用的 `KnowledgeCard.statusLabel` 扩展，以及 VOPC 未使用的辅助函数和导入；保留现有渲染与交互路径。通过 Flutter 定向 analyze（无新增 error/warning）、通知路由单元测试、Go 全仓编译门禁和 `git diff --check`。
 
+用户画像/数字孪生专项重构：重做学生数字孪生首屏为“成长状态 → 数据可信度 → 五维证据 → AI 建议 → 数字人表达”的层级，补齐综合分、数据覆盖、更新时间、规则兜底和维度证据展示；个人档案页改为画像入口，消除重复渲染；辅导员看板改为风险优先并增加汇总指标与可读进度条；学院大屏修正健康率百分比计算并统一信息卡片层级；后端数字孪生服务异常时移除固定示例画像，改为空数据诚实态。通过 Flutter 定向 analyze、通知路由测试、Go 全仓编译和 `git diff --check`。
+
 ### 批次五：静态质量收敛（已完成）
 
 已完成：使用 `dart fix` 修复 244 条确定性问题（const、花括号、废弃 API、无效转换等）。

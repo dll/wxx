@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../utils/storage.dart';
 import '../../widgets/avatar_card.dart';
 import '../../widgets/error_view.dart';
-import '../../widgets/md_text.dart';
 
 /// 学生个人信息档案 — 聚合展示基本信息/数字画像/性格/学业/竞赛/活动等
 class StudentProfilePage extends StatefulWidget {
@@ -22,7 +22,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       final p = context.read<StudentFeatureProvider>();
       p.fetchPersonalProfile();
       p.fetchDigitalTwin();
-      p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
+      p.fetchAvatar(
+          displayName: Storage.displayName ?? '同学',
+          role: Storage.role ?? 'student');
     });
   }
 
@@ -37,7 +39,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           final p = context.read<StudentFeatureProvider>();
           await p.fetchPersonalProfile();
           await p.fetchDigitalTwin();
-          await p.fetchAvatar(displayName: Storage.displayName ?? '同学', role: Storage.role ?? 'student');
+          await p.fetchAvatar(
+              displayName: Storage.displayName ?? '同学',
+              role: Storage.role ?? 'student');
         },
         child: provider.profileLoading && provider.personalProfile == null
             ? const Center(child: CircularProgressIndicator())
@@ -66,8 +70,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
 
         const SizedBox(height: 16),
 
-        // 3. 数字画像（五维 + AI 分析 + 建议）
-        _buildTwinSection(theme, provider),
+        // 3. 成长画像入口：完整五维分析集中在数字孪生页，避免重复堆叠。
+        _buildTwinLink(theme, provider),
 
         const SizedBox(height: 16),
 
@@ -84,6 +88,35 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         // 6. 打卡 / 积分
         _buildStatsSection(theme, data),
       ],
+    );
+  }
+
+  Widget _buildTwinLink(ThemeData theme, StudentFeatureProvider provider) {
+    final twin = provider.twin;
+    final available =
+        twin?.dimensions.where((d) => d.dataAvailable).length ?? 0;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+        leading: Icon(Icons.insights_rounded, color: theme.colorScheme.primary),
+        title:
+            const Text('成长画像', style: TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(
+          twin == null
+              ? '查看我的五维成长、证据与建议'
+              : '$available/${twin.dimensions.length} 个维度已有真实记录',
+        ),
+        trailing: FilledButton.tonalIcon(
+          onPressed: () => context.push('/student/digital-twin'),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+          label: const Text('查看'),
+        ),
+      ),
     );
   }
 
@@ -161,113 +194,13 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               width: 72,
               child: Text(label,
                   style: TextStyle(
-                      fontSize: 13, color: theme.colorScheme.onSurfaceVariant))),
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurfaceVariant))),
           Expanded(
             child: Text(value.isNotEmpty ? value : '—',
                 style: const TextStyle(fontSize: 13)),
           ),
         ],
-      ),
-    );
-  }
-
-  // ── 数字画像 ──
-  Widget _buildTwinSection(ThemeData theme, StudentFeatureProvider provider) {
-    final twin = provider.twin;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(Icons.radar, color: theme.colorScheme.primary, size: 18),
-              const SizedBox(width: 8),
-              Text('数字画像', style: theme.textTheme.titleMedium),
-            ]),
-            const SizedBox(height: 12),
-            if (twin == null || twin.dimensions.isEmpty)
-              const Text('暂无画像数据')
-            else ...[
-              // 五维进度条
-              ...twin.dimensions.map((d) {
-                if (!d.dataAvailable) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                            width: 44,
-                            child: Text(d.name,
-                                style: theme.textTheme.bodySmall)),
-                        Expanded(
-                          child: Text(
-                            '数据积累中',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                final normalized = d.score > 1 ? d.score / 100.0 : d.score;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                          width: 44,
-                          child: Text(d.name,
-                              style: theme.textTheme.bodySmall)),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: normalized.clamp(0.0, 1.0),
-                            minHeight: 7,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHighest,
-                            color: normalized >= 0.8
-                                ? Colors.green
-                                : normalized >= 0.5
-                                    ? Colors.orange
-                                    : Colors.red,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                          width: 32,
-                          child: Text(
-                            '${(normalized * 100).toInt()}',
-                            textAlign: TextAlign.right,
-                            style: theme.textTheme.bodySmall,
-                          )),
-                    ],
-                  ),
-                );
-              }),
-              if (twin.aiSummary.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Divider(color: theme.colorScheme.outlineVariant),
-                const SizedBox(height: 8),
-                Row(children: [
-                  Icon(Icons.psychology,
-                      color: theme.colorScheme.primary, size: 18),
-                  const SizedBox(width: 8),
-                  Text('AI 分析', style: theme.textTheme.titleSmall),
-                ]),
-                const SizedBox(height: 6),
-                MdText(twin.aiSummary, style: theme.textTheme.bodySmall),
-              ],
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -328,8 +261,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           Icon(icon, size: 20, color: theme.colorScheme.primary),
           const SizedBox(height: 4),
           Text(value,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 2),
           Text(label,
               style: TextStyle(
@@ -395,7 +328,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                 style: theme.textTheme.titleSmall
                     ?.copyWith(color: theme.colorScheme.primary)),
             const SizedBox(height: 4),
-            _emptyText(theme,
+            _emptyText(
+                theme,
                 party['status'] != null && party['status'] != ''
                     ? '${_partyStatus(party['status'])} · ${party['current_stage'] ?? ''}'
                     : '暂无入党记录'),
@@ -472,11 +406,10 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             const SizedBox(height: 14),
             Row(
               children: [
-                _statItem(theme, '打卡天数', '$totalDays',
-                    Icons.local_fire_department),
+                _statItem(
+                    theme, '打卡天数', '$totalDays', Icons.local_fire_department),
                 _statItem(theme, '累计积分', '$totalPoints', Icons.stars),
-                _statItem(theme, '档案完整度', '完整',
-                    Icons.verified_outlined),
+                _statItem(theme, '档案完整度', '完整', Icons.verified_outlined),
               ],
             ),
           ],
