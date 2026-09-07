@@ -582,11 +582,15 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
       ThemeData theme, dynamic t, StudentFeatureProvider provider) {
     final overall = (t.overallScore as num).toDouble();
     final availableCount = t.dimensions.where((d) => d.dataAvailable).length;
-    final label = overall >= 80
-        ? '优秀'
-        : overall >= 60
-            ? '良好'
-            : '待提升';
+    // 无任何真实维度数据时不做伪判断：综合分 0 只是"未计算"，不是"待提升"
+    final hasAnyRealData = availableCount > 0;
+    final label = !hasAnyRealData
+        ? '数据积累中'
+        : overall >= 80
+            ? '优秀'
+            : overall >= 60
+                ? '良好'
+                : '待提升';
 
     return Card(
       elevation: 0,
@@ -607,6 +611,7 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                 children: [
                   Text(
                     _isStaff ? '绩效状态 · $label' : '当前成长状态 · $label',
+                    key: const ValueKey('twin-status-headline'),
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
@@ -820,6 +825,8 @@ class _RadarChart extends StatelessWidget {
           final s = (d.score as num).toDouble();
           return s > 1 ? s / 100.0 : s;
         }).toList(),
+        // 无数据维度不画成 0 分拉向圆心（伪短板），改在网格外圈画空心圆提示
+        availability: dimensions.map((d) => d.dataAvailable == true).toList(),
         color: color,
         secondaryColor: secondaryColor,
       ),
@@ -831,6 +838,8 @@ class _RadarChartPainter extends CustomPainter {
   final List<String> labels;
   final List<double> values;
   final List<double> idealValues;
+  /// 与 labels 对齐的可用性标记；false 的维度不参与数据多边形（避免伪 0 分）
+  final List<bool> availability;
   final Color color;
   final Color secondaryColor;
 
@@ -838,9 +847,13 @@ class _RadarChartPainter extends CustomPainter {
     required this.labels,
     required this.values,
     required this.idealValues,
+    this.availability = const [],
     required this.color,
     required this.secondaryColor,
   });
+
+  bool _available(int i) =>
+      i < availability.length ? availability[i] : true;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -928,42 +941,71 @@ class _RadarChartPainter extends CustomPainter {
       }
     }
 
-    // 绘制实际值（填充 + 描边）
+    // 绘制实际值（填充 + 描边）：仅包含有真实数据的维度，
+    // 无数据维度跳过并在外圈画空心圆提示「数据积累中」，不生成伪 0 分。
     final dataPath = Path();
+    var hasDataPoint = false;
     for (int i = 0; i < n; i++) {
+      if (!_available(i)) continue;
       final angle = startAngle + i * angleStep;
       final value = values[i].clamp(0.0, 1.0);
       final vRadius = radius * value;
       final x = center.dx + vRadius * cos(angle);
       final y = center.dy + vRadius * sin(angle);
-      if (i == 0) {
+      if (!hasDataPoint) {
         dataPath.moveTo(x, y);
+        hasDataPoint = true;
       } else {
         dataPath.lineTo(x, y);
       }
     }
-    dataPath.close();
 
-    // 填充
-    canvas.drawPath(
-      dataPath,
-      Paint()
-        ..color = color.withOpacity(0.2)
-        ..style = PaintingStyle.fill,
-    );
+    if (hasDataPoint && availability.where((a) => a).length >= 3) {
+      dataPath.close();
 
-    // 描边
-    canvas.drawPath(
-      dataPath,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5,
-    );
+      // 填充
+      canvas.drawPath(
+        dataPath,
+        Paint()
+          ..color = color.withOpacity(0.2)
+          ..style = PaintingStyle.fill,
+      );
 
-    // 数据点
+      // 描边
+      canvas.drawPath(
+        dataPath,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    } else if (hasDataPoint) {
+      // 可用维度不足 3 个时不画多边形（视觉误导），只画数据点
+      canvas.drawPath(
+        dataPath,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    }
+
+    // 数据点 + 无数据维度的「数据积累中」提示
     for (int i = 0; i < n; i++) {
       final angle = startAngle + i * angleStep;
+      if (!_available(i)) {
+        // 空心圆画在最大半径处，表示该维度尚无数据，而非 0 分
+        canvas.drawCircle(
+          Offset(center.dx + radius * cos(angle),
+              center.dy + radius * sin(angle)),
+          4,
+          Paint()
+            ..color = Colors.grey.withOpacity(0.5)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+        continue;
+      }
       final value = values[i].clamp(0.0, 1.0);
       final vRadius = radius * value;
       final point = Offset(
@@ -1013,7 +1055,8 @@ class _RadarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RadarChartPainter oldDelegate) {
     return values != oldDelegate.values ||
-        idealValues != oldDelegate.idealValues;
+        idealValues != oldDelegate.idealValues ||
+        availability != oldDelegate.availability;
   }
 }
 
