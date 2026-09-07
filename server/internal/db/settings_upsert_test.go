@@ -58,6 +58,30 @@ ON CONFLICT(user_id, role) DO NOTHING`
 	}
 }
 
+// TestToMySQL_OnConflictDoNothing_WithSemicolon 回归测试（2026-09-07 生产 114 迁移 MySQL 1064）：
+// splitSQL 保留语句尾部分号，onConflictNothingRe 原用 $ 锚定导致带 ';' 的语句不匹配、
+// 转换被跳过，生产报 "near 'CONFLICT(user_id, role) DO NOTHING'" 语法错误。
+func TestToMySQL_OnConflictDoNothing_WithSemicolon(t *testing.T) {
+	sql := `INSERT INTO user_roles (user_id, role, granted_by)
+SELECT id, 'teacher', 'migration_114'
+FROM users WHERE username = '120001'
+ON CONFLICT(user_id, role) DO NOTHING;`
+
+	out := ToMySQL(sql)
+	t.Logf("转换结果:\n%s", out)
+
+	upper := strings.ToUpper(out)
+	if !strings.Contains(upper, "INSERT IGNORE INTO") {
+		t.Errorf("带尾部分号的语句应改写为 INSERT IGNORE INTO:\n%s", out)
+	}
+	if strings.Contains(upper, "ON CONFLICT") {
+		t.Errorf("应移除 ON CONFLICT ... DO NOTHING:\n%s", out)
+	}
+	if !strings.Contains(upper, "FROM USERS") {
+		t.Errorf("SELECT 体丢失:\n%s", out)
+	}
+}
+
 // TestToMySQL_OnConflictDoNothing_NoMatch 普通 INSERT（无 ON CONFLICT）不应被改写
 func TestToMySQL_OnConflictDoNothing_NoMatch(t *testing.T) {
 	sql := `INSERT INTO kb_resources (resource_id) VALUES ('x')`

@@ -126,9 +126,10 @@ var (
 	// SQLite ON CONFLICT(...) DO UPDATE SET → MySQL ON DUPLICATE KEY UPDATE
 	onConflictRe = regexp.MustCompile(`(?i)ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET`)
 	// SQLite ON CONFLICT(...) DO NOTHING → MySQL INSERT IGNORE（整句改写，见 ToMySQL 步骤 9）
-	// 形如：`INSERT INTO <表> <列清单> SELECT ... ON CONFLICT(k) DO NOTHING`。
+	// 形如：`INSERT INTO <表> <列清单> SELECT ... ON CONFLICT(k) DO NOTHING[;]`。
 	// 组1 = `INSERT INTO` 之后到 `ON CONFLICT` 之前的内容；替换为 `INSERT IGNORE INTO <组1>`。
-	onConflictNothingRe = regexp.MustCompile(`(?is)^(?:\(?INSERT\s+INTO\s+)([a-z_][a-z0-9_]*.*?)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+NOTHING\s*$`)
+	// 尾部分号可选：splitSQL 保留语句分隔符，语句可能带尾部 ';'（修复 114 迁移在 MySQL 报 1064）。
+	onConflictNothingRe = regexp.MustCompile(`(?is)^(?:\(?INSERT\s+INTO\s+)([a-z_][a-z0-9_]*.*?)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+NOTHING\s*;?\s*$`)
 	// SQLite excluded.col → MySQL VALUES(col)
 	excludedRe = regexp.MustCompile(`(?i)\bexcluded\.([a-z_][a-z0-9_]*)`)
 	// SQLite || 拼接 → MySQL CONCAT(a, b)
