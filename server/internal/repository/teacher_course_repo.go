@@ -168,14 +168,27 @@ func (r *TeacherCourseRepo) ListTeacherCourses(teacherID int64, status string, l
 	var list []TeacherCourse
 	for rows.Next() {
 		var tc TeacherCourse
+		var reviewedAt sql.NullString
 		if err := rows.Scan(&tc.ID, &tc.TeacherID, &tc.TeacherName, &tc.CourseID, &tc.CourseName,
 			&tc.Semester, &tc.Status, &tc.CreatedBy, &tc.ReviewedBy, &tc.ReviewedName,
-			&tc.ReviewNote, &tc.ReviewedAt, &tc.CreatedAt, &tc.UpdatedAt); err != nil {
+			&tc.ReviewNote, &reviewedAt, &tc.CreatedAt, &tc.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if reviewedAt.Valid {
+			tc.ReviewedAt = reviewedAt.String
 		}
 		list = append(list, tc)
 	}
 	return list, rows.Err()
+}
+
+// ListApprovedTeachingCourses 返回教师本人已审核通过的授课课程。
+// 该方法是教师教学首页、作业和成绩功能共用的课程白名单，避免按课程名称或展示名误绑定。
+func (r *TeacherCourseRepo) ListApprovedTeachingCourses(teacherID int64) ([]TeacherCourse, error) {
+	if teacherID <= 0 {
+		return nil, fmt.Errorf("教师身份无效")
+	}
+	return r.ListTeacherCourses(teacherID, CourseStatusApproved, 200)
 }
 
 // ListPendingTeacherCourses 待审核申报（教辅审核列表）

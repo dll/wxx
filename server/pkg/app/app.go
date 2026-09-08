@@ -374,10 +374,11 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	// 阶段三数据底座服务（成绩/课表导入 + 教辅真实数据）
 	dataImportRepo := repository.NewDataImportRepo(db)
 	phase3Svc := service.NewPhase3Service(dataImportRepo)
+	teacherCourseRepo := repository.NewTeacherCourseRepo(db)
 	// 课表导入按 username(学号/工号) 解析归属 user_id，避免课程挂错账号（2026-09-01）
 	phase3Svc.SetUserRepo(userRepo)
 	// R3 成绩强校验接线：写库前查 teacher_courses 授课关系是否已 approved（仅 approved 放行）
-	phase3Svc.SetTeacherCourseRepo(repository.NewTeacherCourseRepo(db))
+	phase3Svc.SetTeacherCourseRepo(teacherCourseRepo)
 	dataImportH := handler.NewDataImportHandler(phase3Svc)
 
 	// 性格洞察服务（S1 学生核心功能）
@@ -388,9 +389,8 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 	counselorHandler := handler.NewCounselorHandler(counselorSvc)
 	counselorHandler.SetPhase2Service(phase2Svc)
 
-	var teacherSvc *service.TeacherService
+	teacherSvc := service.NewTeacherService(llmClient, teacherCourseRepo)
 	if llmClient != nil {
-		teacherSvc = service.NewTeacherService(llmClient)
 		log.Println("教师 AI 服务已启用")
 	}
 	teacherHandler := handler.NewTeacherHandler(teacherSvc)
@@ -426,7 +426,6 @@ func initAppWithConfig(cfg *config.Config) (http.Handler, error) {
 
 	// 教师授课关系申报+教辅审核（2026-08-17，R3 越权边界升级）：
 	// approved 唯一来源为教辅真实审核操作，不脚本批量置位。
-	teacherCourseRepo := repository.NewTeacherCourseRepo(db)
 	teacherCourseSvc := service.NewTeacherCourseService(teacherCourseRepo)
 	teacherCourseHandler := handler.NewTeacherCourseHandler(teacherCourseSvc)
 

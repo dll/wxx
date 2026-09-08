@@ -1,11 +1,28 @@
 package repository
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dll/wxx/server/internal/model"
 	"github.com/dll/wxx/server/internal/testutil"
 )
+
+func TestKBRepo_TeacherCannotSeeStudentLifecycleProcess(t *testing.T) {
+	db := testutil.NewTestDBFull(t)
+	defer db.Close()
+	repo := NewKBRepo(db)
+
+	results, err := repo.Search("报到 离校", "college", "default", "teacher", 20)
+	if err != nil {
+		t.Fatalf("教师检索失败: %v", err)
+	}
+	for _, result := range results {
+		if result.Resource.ResourceType == "Process" && (strings.Contains(result.Resource.Title, "报到") || strings.Contains(result.Resource.Title, "离校")) {
+			t.Fatalf("教师不应检索到学生生命周期流程: %s", result.Resource.Title)
+		}
+	}
+}
 
 func TestKBRepo_Search_Chinese(t *testing.T) {
 	db := testutil.NewTestDBFull(t)

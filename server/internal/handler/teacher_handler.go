@@ -21,17 +21,25 @@ func NewTeacherHandler(svc *service.TeacherService) *TeacherHandler {
 
 // DailyOverview 今日授课概览
 func (h *TeacherHandler) DailyOverview(c *gin.Context) {
+	user := middleware.GetUserContext(c)
+	if user == nil || user.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未获取到教师身份"})
+		return
+	}
+	classes := []map[string]interface{}{}
+	if h.svc != nil {
+		if loaded, err := h.svc.TeachingClasses(c.Request.Context(), user.UserID); err == nil {
+			classes = loaded
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取教师授课课程失败"})
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"date": time.Now().Format("2006-01-02"),
-		"classes": []gin.H{
-			{"course": "数据结构", "class_name": "计科2301", "time": "08:00-09:40", "room": "信息楼301", "students": 45},
-			{"course": "数据结构", "class_name": "计科2302", "time": "10:00-11:40", "room": "信息楼301", "students": 42},
-		},
-		"pending_tasks": []gin.H{
-			{"task": "批改数据结构实验报告", "count": 87, "deadline": "2026-05-17"},
-			{"task": "准备期中考试试卷", "count": 1, "deadline": "2026-05-20"},
-		},
-		"alerts": []string{"计科2301班3名同学连续缺勤", "实验报告提交率偏低(78%)"},
+		"date":          time.Now().Format("2006-01-02"),
+		"classes":       classes,
+		"pending_tasks": []gin.H{},
+		"alerts":        []string{},
 	})
 }
 

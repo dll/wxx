@@ -22,6 +22,8 @@ func registerBaseRoutes(router *gin.Engine, cfg *config.Config, health gin.Handl
 		})
 	})
 	router.GET("/health", health)
+	// 对外探针统一使用 /api/health；正式域名的 /api/* 由 Caddy 转发到此处。
+	router.GET("/api/health", health)
 
 	staticDir := cfg.FrontendStaticDir
 	if staticDir == "" {

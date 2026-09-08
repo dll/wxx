@@ -187,32 +187,23 @@ func (s *Phase3Service) ImportSchedules(rows []*repository.ScheduleRow) *ImportR
 //  3. 两者皆缺/用户不存在 → 报错拒写（绝不落到 user_id=0 或幽灵账号）。
 func (s *Phase3Service) resolveScheduleOwner(r *repository.ScheduleRow) (int64, error) {
 	username := strings.TrimSpace(r.Username)
-	if username != "" {
-		if s.userRepo == nil {
-			return 0, fmt.Errorf("课表归属解析不可用（userRepo 未注入）")
-		}
-		u, err := s.userRepo.GetByUsername(username)
-		if err != nil {
-			return 0, fmt.Errorf("%s: 查课表归属失败 %v", username, err)
-		}
-		if u == nil {
-			return 0, fmt.Errorf("%s: 账号不存在，无法挂载课表", username)
-		}
-		return u.ID, nil
+	if username == "" {
+		return 0, fmt.Errorf("课表归属缺失：必须提供 username（学号/工号），禁止仅凭 user_id 导入")
 	}
-	if r.UserID > 0 {
-		if s.userRepo != nil {
-			u, err := s.userRepo.GetByID(r.UserID)
-			if err != nil {
-				return 0, fmt.Errorf("user_id=%d: 查用户失败 %v", r.UserID, err)
-			}
-			if u == nil {
-				return 0, fmt.Errorf("user_id=%d: 账号不存在，无法挂载课表", r.UserID)
-			}
-		}
-		return r.UserID, nil
+	if len(username) > 64 || strings.IndexFunc(username, func(r rune) bool { return r == '\u0000' || r == '\n' || r == '\r' || r == '\t' || r == ' ' }) >= 0 {
+		return 0, fmt.Errorf("username 格式不合法：学号/工号必须是不含空白的稳定账号标识")
 	}
-	return 0, fmt.Errorf("课表归属缺失：需提供 username 或 user_id")
+	if s.userRepo == nil {
+		return 0, fmt.Errorf("课表归属解析不可用（userRepo 未注入）")
+	}
+	u, err := s.userRepo.GetByUsername(username)
+	if err != nil {
+		return 0, fmt.Errorf("%s: 查课表归属失败 %v", username, err)
+	}
+	if u == nil {
+		return 0, fmt.Errorf("%s: 账号不存在，无法挂载课表", username)
+	}
+	return u.ID, nil
 }
 
 // ReassignSchedulesByUsername 将课表按工号归位到正确账号（彻底修复历史错挂）。

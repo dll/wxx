@@ -333,6 +333,16 @@ class _CourseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final courseName = course['course']?.toString() ?? '';
+    final className = course['class_name']?.toString() ?? '';
+    final time = course['time']?.toString() ?? '';
+    final room = course['room']?.toString() ?? '';
+    final title = className.isEmpty ? courseName : '$courseName · $className';
+    final detail = [
+      if (room.isNotEmpty) room,
+      if ((course['students'] ?? 0).toString() != '0') '${course['students']} 人',
+      if (course['semester']?.toString().isNotEmpty == true) course['semester'],
+    ].join(' · ');
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -344,7 +354,7 @@ class _CourseTile extends StatelessWidget {
           SizedBox(
             width: 76,
             child: Text(
-              course['time']?.toString() ?? '',
+              time.isEmpty ? '已绑定' : time,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.primary,
               ),
@@ -356,12 +366,12 @@ class _CourseTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${course['course'] ?? ''} · ${course['class_name'] ?? ''}',
+                  title,
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${course['room'] ?? ''} · ${course['students'] ?? 0} 人',
+                  detail.isEmpty ? '已审核授课关系，课表详情待同步' : detail,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

@@ -8,6 +8,11 @@
 
 # 正式入口站点块（apex）：静态文件 + API 反向代理
 wxx-agent.online {
+	# 健康探针必须命中后端，不能被 Flutter SPA 回退吞掉。
+	handle /health {
+		reverse_proxy localhost:8080
+	}
+
 	# API 反向代理优先：所有 /api/* 请求转发到 Go 后端，不参与 SPA fallback
 	handle /api/* {
 		reverse_proxy localhost:8080
@@ -57,6 +62,10 @@ www.wxx-agent.online {
 # 注意：HTTPS 证书 CN 绑定域名，IP 直连走 HTTP（或浏览器忽略证书告警）。
 # 域名备案通过后此块可移除。
 http://129.211.223.113 {
+	handle /health {
+		reverse_proxy localhost:8080
+	}
+
 	# API 反向代理：IP 直连时 /api/* 正确路由到 Go 后端（修复"无登录服务"）
 	handle /api/* {
 		reverse_proxy localhost:8080

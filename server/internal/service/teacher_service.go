@@ -8,16 +8,52 @@ import (
 	"strings"
 
 	"github.com/dll/wxx/server/internal/llm"
+	"github.com/dll/wxx/server/internal/repository"
 )
 
 // TeacherService 教师角色 AI 功能服务
 type TeacherService struct {
 	llmClient llm.ChatClient
+	courses   *repository.TeacherCourseRepo
 }
 
 // NewTeacherService 创建教师服务
-func NewTeacherService(llmClient llm.ChatClient) *TeacherService {
-	return &TeacherService{llmClient: llmClient}
+func NewTeacherService(llmClient llm.ChatClient, courseRepos ...*repository.TeacherCourseRepo) *TeacherService {
+	var courses *repository.TeacherCourseRepo
+	if len(courseRepos) > 0 {
+		courses = courseRepos[0]
+	}
+	return &TeacherService{llmClient: llmClient, courses: courses}
+}
+
+// TeachingClasses 返回教学首页使用的真实课程列表，课程来源限定为 approved 授课关系。
+func (s *TeacherService) TeachingClasses(ctx context.Context, teacherID int64) ([]map[string]interface{}, error) {
+	_ = ctx
+	if s == nil || s.courses == nil {
+		return []map[string]interface{}{}, nil
+	}
+	items, err := s.courses.ListApprovedTeachingCourses(teacherID)
+	if err != nil {
+		return nil, err
+	}
+	classes := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		courseName := strings.TrimSpace(item.CourseName)
+		if courseName == "" {
+			courseName = item.CourseID
+		}
+		classes = append(classes, map[string]interface{}{
+			"course_id":   item.CourseID,
+			"course":      courseName,
+			"class_name":  "",
+			"time":        "",
+			"room":        "",
+			"students":    0,
+			"semester":    item.Semester,
+			"data_source": "teacher_courses.approved",
+		})
+	}
+	return classes, nil
 }
 
 // LessonPlan 教案结构
