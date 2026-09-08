@@ -188,7 +188,7 @@ func (s *RecommendationService) ensureDiversity(items []RecommendItem, userCtx *
 		if typeCounts[t] > 0 {
 			continue
 		}
-		resources, err := s.kbRepo.List(userCtx.OwnerScope, userCtx.OwnerID, "published", t, 0, 3)
+		resources, err := s.kbRepo.ListVisible(userCtx.OwnerScope, userCtx.OwnerID, userCtx.Role, t, 0, 3)
 		if err != nil || len(resources) == 0 {
 			continue
 		}
@@ -247,7 +247,7 @@ func dedupeKeywords(keywords []string) []string {
 
 // getPopularItems 获取推荐内容（角色偏好加权的最新已发布资源）
 func (s *RecommendationService) getPopularItems(ownerScope, ownerID, role string, limit int, exclude map[string]bool) ([]RecommendItem, error) {
-	resources, err := s.kbRepo.List(ownerScope, "", "published", "", 0, limit*2)
+	resources, err := s.kbRepo.ListVisible(ownerScope, ownerID, role, "", 0, limit*2)
 	if err != nil {
 		return nil, err
 	}

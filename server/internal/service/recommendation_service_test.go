@@ -259,3 +259,33 @@ func TestRecommendationService_GetRecommendations_NoDuplicates(t *testing.T) {
 		seen[item.ResourceID] = true
 	}
 }
+
+func TestRecommendationService_RespectsOwnerScope(t *testing.T) {
+	db := testutil.NewTestDBFull(t)
+	defer db.Close()
+
+	kbRepo := repository.NewKBRepo(db)
+	messageRepo := repository.NewMessageRepo(db)
+	svc := NewRecommendationService(kbRepo, messageRepo)
+	for id, college := range []string{"college-a", "college-b"} {
+		if _, err := kbRepo.Create(&model.KBResource{
+			ResourceID: "rec-college-" + string(rune('a'+id)), ResourceType: "Policy",
+			OwnerScope: "college", OwnerID: college, RoleScope: `["student"]`,
+			Version: "1.0", Status: "published", Title: "学院政策 " + college,
+		}); err != nil {
+			t.Fatalf("创建测试资源失败: %v", err)
+		}
+	}
+
+	result, err := svc.GetRecommendations(&model.UserContext{
+		UserID: 1, Username: "test", Role: "student", OwnerScope: "college", OwnerID: "college-a",
+	}, 10)
+	if err != nil {
+		t.Fatalf("GetRecommendations 失败: %v", err)
+	}
+	for _, item := range result.Items {
+		if item.ResourceID == "rec-college-b" {
+			t.Fatal("推荐结果不应泄露其他学院资源")
+		}
+	}
+}

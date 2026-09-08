@@ -93,6 +93,22 @@ func TestKBRepo_Search_RoleFilter(t *testing.T) {
 	}
 }
 
+func TestKBRepo_SearchStructured_TeacherLifecycleFilter(t *testing.T) {
+	db := testutil.NewTestDBFull(t)
+	defer db.Close()
+
+	repo := NewKBRepo(db)
+	results, err := repo.SearchStructured("报到流程", "college", "default", "teacher", 10)
+	if err != nil {
+		t.Fatalf("结构化检索失败: %v", err)
+	}
+	for _, result := range results {
+		if result.Resource.ResourceType == "Process" && strings.Contains(result.Resource.Title, "报到") {
+			t.Fatalf("教师不应检索到学生报到流程: %s", result.Resource.Title)
+		}
+	}
+}
+
 func TestKBRepo_List(t *testing.T) {
 	db := testutil.NewTestDBFull(t)
 	defer db.Close()

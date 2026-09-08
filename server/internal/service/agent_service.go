@@ -166,5 +166,25 @@ func (s *AgentService) GetActiveAgents() ([]*model.Agent, error) {
 
 // ListActive 列出所有启用的智能体（供对话页选择器，普通用户可访问）
 func (s *AgentService) ListActive() ([]*model.Agent, error) {
-	return s.GetActiveAgents()
+	all, err := s.GetActiveAgents()
+	if err != nil {
+		return nil, err
+	}
+	// 普通用户只看到可用于公开问答的智能体；管理提示词和内部治理智能体不外泄。
+	visible := make([]*model.Agent, 0, len(all))
+	for _, a := range all {
+		if a.AgentID == "qa-default" || a.AgentID == "policy-expert" ||
+			a.AgentID == "process-guide" || a.AgentID == "emotion-counselor" ||
+			a.AgentID == "major-guide" {
+			copy := *a
+			copy.SystemPrompt = ""
+			copy.ModelProvider = ""
+			copy.ModelName = ""
+			copy.Temperature = 0
+			copy.MaxTokens = 0
+			copy.ConfigJSON = "{}"
+			visible = append(visible, &copy)
+		}
+	}
+	return visible, nil
 }

@@ -122,40 +122,33 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
     final portrait = context.watch<TwinPortraitProvider>().current;
     final avatar = provider.avatar;
     final cs = theme.colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 260,
-            width: double.infinity,
-            child: portrait != null && portrait.imageBase64.isNotEmpty
-                ? Image.memory(base64Decode(portrait.imageBase64),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        _avatarFallback(avatar, theme))
-                : avatar != null
-                    ? AvatarCard(config: avatar, height: 260)
-                    : _avatarFallback(avatar, theme),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Row(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(colors: [const Color(0xffeef4ff), cs.surface]),
+        border: Border.all(color: const Color(0xffd8e5fb)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+        child: Column(
+          children: [
+            Container(height: 190, alignment: Alignment.center,
+              child: portrait != null && portrait.imageBase64.isNotEmpty
+                ? ClipRRect(borderRadius: BorderRadius.circular(28), child: Image.memory(base64Decode(portrait.imageBase64), width: 180, height: 180, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _avatarFallback(avatar, theme)))
+                : (avatar != null ? AvatarCard(config: avatar, height: 180) : _avatarFallback(avatar, theme))),
+            const SizedBox(height: 16),
+            Row(
               children: [
                 Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('我的 AI 风格头像',
+                        Text('我的数字分身',
                             style: theme.textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 4),
                         Text(
-                            portrait == null
-                                ? '默认头像也能正常使用，想玩再定制'
-                                : '这是你的可选定制版本，随时可以换回默认头像',
+                            portrait == null ? '记录成长点滴，生成专属形象' : 'AI 风格头像已启用',
                             style: theme.textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant)),
                       ]),
@@ -167,9 +160,9 @@ class _DigitalTwinPageState extends State<DigitalTwinPage> {
                   label: const Text('定制'),
                 ),
               ],
-            ),
-          ),
-        ],
+            )
+          ],
+        ),
       ),
     );
   }

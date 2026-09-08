@@ -119,3 +119,10 @@ classes[] → Flutter 教学页面
 - 新增教师课程白名单单元测试；定向 Go 测试、Go 全量编译门禁和教师页面 Dart 分析通过。
 
 仍需在生产环境完成：部署最新后端/Caddy 配置、确认线上 `/api/health` 和 `/health` 返回 JSON、执行教师 206004 登录后的真实 E2E，并修复全量 Go 测试中现存的检索黄金用例失败与 service 测试数据库并发/关闭问题。完成这些验证前，发布结论保持“待复审”。
+
+## 10. 复审准备记录（2026-09-09）
+
+- Go 全量回归：`go test ./server/... -count=1 -timeout=180s` 全部通过，包含黄金评测、service、repository、handler 与 `pkg/app`。
+- 教师课程白名单：DailyOverview 从 JWT 当前用户读取 `teacher_courses.status=approved`，并优先使用 `courses.course_name` 展示；pending/rejected、其他教师课程和无课均保持诚实结果，已有单元测试覆盖。
+- 健康端点：Go 路由同时提供 `/health` 与 `/api/health`，Caddyfile 对正式入口做后端反代，SPA NoRoute 已豁免健康路径。
+- 运行态文件已加入 `.gitignore`，不进入发布提交。生产域名实际响应与教师账号 206004 E2E 仍属于部署环境验收，需在部署后按第 7 节执行并记录响应证据。

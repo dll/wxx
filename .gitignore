@@ -231,3 +231,8 @@ frontend/build/web/downloads/
 # repair-agent auto 模式：反馈原文 prompt 与隔离 worktree（敏感数据，绝不入库）
 repair-prompt.txt
 wxx-repair-*/
+
+# OpenClaw / agent runtime state (local only)
+openclaw-workspace-state.json*
+DREAMS.md
+memory/

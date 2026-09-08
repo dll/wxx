@@ -119,7 +119,7 @@ func (h *DataImportHandler) ImportMySchedule(c *gin.Context) {
 	// 防止学生误/恶意传他人 username 把课表写到别的账号。
 	for _, s := range req.Schedules {
 		s.UserID = userCtx.UserID
-		s.Username = "" // 归属强制为本人，杜绝跨账号挂课表
+		s.Username = userCtx.Username // 仍按稳定 username 解析，并校验与当前登录身份一致
 	}
 	res := h.phase3.ImportSchedules(req.Schedules)
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "导入成功(仅本人课表)", "data": res})

@@ -38,6 +38,20 @@ func (r *KBRepo) roleScopeCond(alias string) string {
 	return fmt.Sprintf(`(? IN ('sys_admin','school_admin') OR %s = '' OR (json_valid(%s) AND (json_array_length(%s) = 0 OR EXISTS (SELECT 1 FROM json_each(%s) WHERE value = ?))))`, col, col, col, col)
 }
 
+// roleResourceCond 为角色增加业务域级可见性约束，防止教师看到学生生命周期流程。
+func (r *KBRepo) roleResourceCond(alias string) string {
+	prefix := ""
+	if alias != "" {
+		prefix = alias + "."
+	}
+	return fmt.Sprintf(`(? != 'teacher' OR NOT (%[1]sresource_type = 'Process' AND (
+		%[1]stitle LIKE '%%新生%%' OR %[1]stitle LIKE '%%入学报到%%' OR
+		%[1]stitle LIKE '%%毕业%%离校%%' OR %[1]stitle LIKE '%%离校流程%%' OR
+		%[1]stitle LIKE '%%毕业生档案%%' OR %[1]stitle LIKE '%%户口迁移%%' OR
+		%[1]stags LIKE '%%新生%%' OR %[1]stags LIKE '%%离校%%'
+	)))`, prefix)
+}
+
 // KBStats 知识资源统计
 type KBStats struct {
 	Total     int            `json:"total"`
@@ -161,7 +175,7 @@ func (r *KBRepo) searchStructured(query string, ownerScope string, ownerID strin
 	whereLike := strings.Join(orParts, " OR ")
 
 	// 追加 owner_scope / role_scope / limit 参数（与 SQL 占位符顺序一致）
-	args = append(args, ownerScope, ownerID, ownerScope, ownerID, role, role, limit)
+	args = append(args, ownerScope, ownerID, ownerScope, ownerID, role, role, role, limit)
 
 	sql := `SELECT
 				kb.id, kb.resource_id, kb.resource_type, kb.owner_scope, kb.owner_id,
@@ -178,6 +192,7 @@ func (r *KBRepo) searchStructured(query string, ownerScope string, ownerID strin
 	}
 	sql += ` AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
 			   AND ` + r.roleScopeCond("kb") + `
+			   AND ` + r.roleResourceCond("kb") + `
 			 LIMIT ?`
 
 	rows, err := r.db.Query(sql, args...)
@@ -257,9 +272,10 @@ func (r *KBRepo) searchWithQuery(ftsQuery string, ownerScope string, ownerID str
 			   AND kb.status = 'published'
 			   AND (kb.owner_scope = 'school' OR (kb.owner_scope = 'college' AND (? = '' OR kb.owner_id = ?)) OR (kb.owner_scope = 'class' AND (? = '' OR kb.owner_id = ?)))
 			   AND `+r.roleScopeCond("kb")+`
+			   AND `+r.roleResourceCond("kb")+`
 			 ORDER BY score
 			 LIMIT ?`,
-		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, limit,
+		ftsQuery, ownerScope, ownerID, ownerScope, ownerID, role, role, role, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -1130,8 +1146,9 @@ func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType strin
 	whereClause := ` WHERE status = 'published'
 		   AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?)) OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
 		   AND ` + r.roleScopeCond("")
-	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
-	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role}
+	whereClause += ` AND ` + r.roleResourceCond("")
+	countArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role, role}
+	queryArgs := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role, role}
 
 	if resourceType != "" {
 		whereClause += ` AND resource_type = ?`
@@ -1174,6 +1191,65 @@ func (r *KBRepo) GetPublishedCards(ownerScope, ownerID, role, resourceType strin
 	}
 
 	return result, total, rows.Err()
+}
+
+// GetPublishedByResourceID 按调用者范围读取单个已发布资源，详情与检索使用同一权限口径。
+func (r *KBRepo) GetPublishedByResourceID(resourceID, ownerScope, ownerID, role string) (*model.KBResource, error) {
+	kb := &model.KBResource{}
+	err := r.db.QueryRow(`SELECT id, resource_id, resource_type, owner_scope, owner_id,
+		role_scope, version, status, title, summary, content, source_link, source_version,
+		effective_at, expired_at, tags, remark, updated_by, created_at, updated_at
+		FROM kb_resources WHERE resource_id = ? AND status = 'published'
+		AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?))
+			OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
+		AND `+r.roleScopeCond("")+` AND `+r.roleResourceCond("")+``,
+		resourceID, ownerScope, ownerID, ownerScope, ownerID, role, role, role).Scan(
+		&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+		&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary, &kb.Content,
+		&kb.SourceLink, &kb.SourceVersion, &kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+		&kb.Remark, &kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return kb, nil
+}
+
+// ListVisible 查询角色可见的已发布资源，供推荐服务使用。
+func (r *KBRepo) ListVisible(ownerScope, ownerID, role, resourceType string, offset, limit int) ([]*model.KBResource, error) {
+	query := `SELECT id, resource_id, resource_type, owner_scope, owner_id, role_scope, version,
+		status, title, summary, content, source_link, source_version, effective_at, expired_at,
+		tags, remark, updated_by, created_at, updated_at FROM kb_resources
+		WHERE status = 'published'
+		AND (owner_scope = 'school' OR (owner_scope = 'college' AND (? = '' OR owner_id = ?))
+			OR (owner_scope = 'class' AND (? = '' OR owner_id = ?)))
+		AND ` + r.roleScopeCond("") + ` AND ` + r.roleResourceCond("")
+	args := []interface{}{ownerScope, ownerID, ownerScope, ownerID, role, role, role}
+	if resourceType != "" {
+		query += " AND resource_type = ?"
+		args = append(args, resourceType)
+	}
+	query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("查询角色可见资源失败: %w", err)
+	}
+	defer rows.Close()
+	var list []*model.KBResource
+	for rows.Next() {
+		kb := &model.KBResource{}
+		if err := rows.Scan(&kb.ID, &kb.ResourceID, &kb.ResourceType, &kb.OwnerScope, &kb.OwnerID,
+			&kb.RoleScope, &kb.Version, &kb.Status, &kb.Title, &kb.Summary, &kb.Content,
+			&kb.SourceLink, &kb.SourceVersion, &kb.EffectiveAt, &kb.ExpiredAt, &kb.Tags,
+			&kb.Remark, &kb.UpdatedBy, &kb.CreatedAt, &kb.UpdatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, kb)
+	}
+	return list, rows.Err()
 }
 
 // escapeQuery 转义 FTS5 查询中的特殊字符

@@ -5,6 +5,8 @@
 > - **后端**：腾讯云 Lighthouse（`129.211.223.113`，Ubuntu 22.04），Go 二进制 systemd 常驻，Caddy 反向代理 + 自动 HTTPS（`https://wxx-agent.online`）
 > - **数据库**：**MySQL 8.0（`localhost:3306`，库名 `wxx`，用户 `wxx`）** + **Redis（`localhost:6379`，DB=1）**；连接参数在 `/etc/wxx/env`（`DB_DRIVER=mysql`、`DB_HOST`、`DB_NAME`、`DB_USER`、`DB_PASSWORD`、`REDIS_ADDR` 等）
 > - **代理链路**：用户 → Caddy（`https://wxx-agent.online`）→ `/api/*` 反代 `http://localhost:8080`（Go 后端）→ MySQL；Caddy 同时静态服务 `/opt/wxx/frontend/web`
+
+健康探针统一使用 `GET /health` 或 `GET /api/health`，两者均由 Go 后端返回 JSON（含 `status`、`dependencies` 和延迟信息）。Caddy 必须将这两个路径转发到 `localhost:8080`，不得交给 Flutter SPA 回退；发布验收以 HTTP 200 和 `Content-Type: application/json` 为准。
 >
 > ⚠️ 注意：旧文档/旧 CI 曾以 **SQLite**（`/opt/wxx/data/wxx.db`）为正式架构，服务器上仍有该遗留文件，**但当前正式架构已迁移到 MySQL + Redis**（`DB_DRIVER=mysql`）。本文以下内容均按 MySQL 架构编写。
 >

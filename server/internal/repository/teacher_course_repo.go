@@ -188,7 +188,34 @@ func (r *TeacherCourseRepo) ListApprovedTeachingCourses(teacherID int64) ([]Teac
 	if teacherID <= 0 {
 		return nil, fmt.Errorf("教师身份无效")
 	}
-	return r.ListTeacherCourses(teacherID, CourseStatusApproved, 200)
+	rows, err := r.db.Query(`SELECT tc.id, tc.teacher_id, COALESCE(u.display_name, u.username, ''),
+		 tc.course_id, COALESCE(NULLIF(c.course_name, ''), tc.course_name), tc.semester, tc.status,
+		 tc.created_by, tc.reviewed_by, tc.reviewed_name, tc.review_note, tc.reviewed_at,
+		 tc.created_at, tc.updated_at
+		 FROM teacher_courses tc
+		 LEFT JOIN users u ON u.id = tc.teacher_id
+		 LEFT JOIN courses c ON c.course_id = tc.course_id
+		 WHERE tc.teacher_id = ? AND tc.status = ?
+		 ORDER BY tc.id DESC LIMIT ?`, teacherID, CourseStatusApproved, 200)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []TeacherCourse
+	for rows.Next() {
+		var tc TeacherCourse
+		var reviewedAt sql.NullString
+		if err := rows.Scan(&tc.ID, &tc.TeacherID, &tc.TeacherName, &tc.CourseID, &tc.CourseName,
+			&tc.Semester, &tc.Status, &tc.CreatedBy, &tc.ReviewedBy, &tc.ReviewedName,
+			&tc.ReviewNote, &reviewedAt, &tc.CreatedAt, &tc.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if reviewedAt.Valid {
+			tc.ReviewedAt = reviewedAt.String
+		}
+		list = append(list, tc)
+	}
+	return list, rows.Err()
 }
 
 // ListPendingTeacherCourses 待审核申报（教辅审核列表）

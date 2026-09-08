@@ -58,16 +58,17 @@ func (s *ProcessService) ListForUser(ctx context.Context, user *model.UserContex
 
 // GetForUser 获取单个已发布且对当前用户可见的流程
 func (s *ProcessService) GetForUser(ctx context.Context, user *model.UserContext, resourceID string) (*ProcessDefinition, error) {
+	kb, err := s.kbRepo.GetPublishedByResourceID(resourceID, user.OwnerScope, user.OwnerID, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	if kb == nil {
+		return nil, fmt.Errorf("流程不存在或当前用户不可见")
+	}
 	def, err := s.loadDefinition(resourceID)
 	if err != nil {
 		return nil, err
 	}
-	if def.Status != "published" {
-		return nil, fmt.Errorf("流程未发布")
-	}
-	// 可见性校验：已通过中间件 JWT + capability 鉴权，只要定义存在且已发布即返回。
-	// loadDefinition 已检查非 Process 类型，Browse 的 scope/role 过滤可能在
-	// ownerScope/ownerID 为空时不正确地排除全局流程（如 process-registration-2026）。
 	return def, nil
 }
 
