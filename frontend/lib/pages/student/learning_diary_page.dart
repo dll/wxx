@@ -25,6 +25,7 @@ class _LearningDiaryPageState extends State<LearningDiaryPage> {
     final provider = context.watch<StudentFeatureProvider>();
     return FeaturePageScaffold(
       title: 'AI 学习日记',
+      aiFeature: 'study',
       loading: provider.loading,
       error: provider.error.isEmpty ? null : provider.error,
       onRefresh: () => provider.fetchLearningDiary(),

@@ -406,15 +406,15 @@ func (s *StudentService) GenerateAIResponse(ctx context.Context, feature string,
 	}
 
 	prompts := map[string]string{
-		"campus-life":         fmt.Sprintf("你是校园生活助手。请为%s推荐今天校内的食堂特色菜品、图书馆空位情况、校车时刻和生活小贴士。约100字。", userName),
-		"schedule":            fmt.Sprintf("你是日程管理助手。请为%s根据典型大学生课表生成今日日程安排建议，含课程提醒和空闲时段推荐。约80字。", userName),
+		"campus-life":         fmt.Sprintf("你是校园生活助手。请为%s提供不包含具体场所库存、班次或实时活动断言的校园生活规划建议；提醒用户通过校方渠道核对实时信息。约100字。", userName),
+		"schedule":            fmt.Sprintf("你是日程管理助手。请为%s提供通用的课程整理、优先级和空闲时段规划方法；不要虚构课程、教室或时间。约80字。", userName),
 		"mental-health":       fmt.Sprintf("你是心理健康关怀助手。请为%s提供一段温暖的心理关怀语和今日放松小建议。语气要温和、不judging。约80字。", userName),
-		"competition-match":   fmt.Sprintf("你是竞赛推荐助手。请为%s根据计算机学院学生画像，推荐3个适合参加的竞赛并给出匹配度。约100字。", userName),
+		"competition-match":   fmt.Sprintf("你是竞赛规划助手。请为%s提供竞赛筛选维度、准备步骤和核对官方报名信息的方法；不要虚构竞赛名额、匹配度或截止日期。约100字。", userName),
 		"freshman-plan":       fmt.Sprintf("你是大学规划顾问。请为%s生成大一四阶段（适应/探索/提升/冲刺）的学习生活规划路线图。约120字。", userName),
-		"growth-path":         fmt.Sprintf("你是成长路径规划师。请为%s分析当前学业阶段并给出学期里程碑和能力提升建议。约100字。", userName),
+		"growth-path":         fmt.Sprintf("你是成长路径规划师。请为%s提供可按年级和目标调整的学期里程碑模板；不要推断其当前年级、成绩或薄弱项。约100字。", userName),
 		"political-study":     fmt.Sprintf("你是思政学习助手。请为%s生成今日思政学习卡片，含当日学习主题和简短解读。约80字。", userName),
-		"ideological-record":  fmt.Sprintf("你是思想档案助手。请为%s生成一段思想成长记录摘要，包含理论学习、志愿服务等方面。约80字。", userName),
-		"party-progress":      fmt.Sprintf("你是入党进度追踪助手。请为%s说明入党全流程（申请书→积极分子→发展对象→预备党员→转正）的当前阶段和后续步骤。约100字。", userName),
+		"ideological-record":  fmt.Sprintf("你是思想档案助手。请为%s提供理论学习、实践参与和自我总结的可编辑记录模板；不要虚构其活动次数或表现。约80字。", userName),
+		"party-progress":      fmt.Sprintf("你是入党流程助手。请为%s说明从申请到转正的通用阶段、材料和核对事项；不要推断其当前阶段或完成情况，具体要求以组织部门通知为准。约100字。", userName),
 		"classroom-extension": fmt.Sprintf("你是教学延伸助手。请为%s总结最近课堂的核心要点、生成复习提纲、推荐扩展阅读材料。约100字。", userName),
 		"values-guidance":     fmt.Sprintf("你是价值观引导助手。请为%s生成一段自然融入正向价值观（诚信/责任/奉献/感恩）的引导语和建议。约100字。", userName),
 	}
@@ -444,23 +444,23 @@ func (s *StudentService) GenerateAIResponse(ctx context.Context, feature string,
 
 func fallbackAIResponse(feature string) map[string]interface{} {
 	responses := map[string]string{
-		"campus-life":         "今日食堂推荐：一楼麻辣香锅(排队少)、二楼牛肉面(新品上市)。图书馆3楼靠窗区有空位。校车每15分钟一班。",
-		"schedule":            "今日日程：8:00-9:40数据结构(信息楼301)、10:00-11:40操作系统(信息楼201)、下午自由学习、19:00ACM训练赛。",
+		"campus-life":         "可先整理今天的生活需求：就餐、学习空间、交通和活动。食堂供应、图书馆座位、校车班次与活动安排属于实时信息，请通过校园官方平台或现场核对后再安排行程。",
+		"schedule":            "日程示例：先从教务系统导出真实课程，再按紧急度安排复习、作业和休息时段；为每项任务设置可执行的下一步。课程名称、教室和时间请以个人课表为准。",
 		"mental-health":       "今天也辛苦了！记得给自己一个深呼吸的时间。学习之余可以做5分钟正念冥想，去操场散个步也是很好的放松方式。你不是一个人在努力。",
-		"competition-match":   "推荐竞赛：1.ACM程序设计竞赛(匹配度95%) 2.全国大学生数学建模(匹配度85%) 3.蓝桥杯软件赛(匹配度90%)。建议优先准备ACM和蓝桥杯。",
+		"competition-match":   "竞赛筛选可比较：兴趣方向、当前技能、团队要求、投入周期和官方赛程。先选择一个目标，拆分学习与作品准备，再到主办方官网核对报名条件、截止时间和赛制；这里不提供虚构匹配度。",
 		"freshman-plan":       "大一规划路线图：【适应期9-10月】熟悉校园、建立学习节奏；【探索期11-12月】参加社团、尝试竞赛；【提升期3-5月】重点突破核心课程；【冲刺期6-7月】暑期实习或项目实践。",
-		"growth-path":         "你目前处于大二下学期，核心任务是提升算法能力和项目经验。建议本学期完成1个开源项目贡献，暑假争取获得实习机会。同时加强计算机网络和操作系统等核心课程。",
+		"growth-path":         "成长规划示例：明确本学期目标，拆成课程掌握、项目实践、表达协作和健康习惯四类里程碑；每周复盘证据并调整计划。年级、成绩和目标请由本人填写，系统不代为推断。",
 		"political-study":     "今日学习主题：新时代中国特色社会主义思想的核心要义。学习要点：坚持和发展中国特色社会主义的总任务，理解以中国式现代化全面推进中华民族伟大复兴的深刻内涵。",
-		"ideological-record":  "思想成长摘要：本学期积极参与志愿服务活动2次，按时完成青年大学习，关注时事政治。整体表现良好，建议继续保持对时事的关注度，增加社会实践经历。",
-		"party-progress":      "入党全流程追踪：\n1️⃣申请书已提交✅\n2️⃣确定为入党积极分子（当前阶段）→需完成：参加党校培训、定期思想汇报、志愿服务20小时\n3️⃣确定为发展对象→即将\n4️⃣接收为预备党员→待定\n5️⃣预备党员转正→待定",
+		"ideological-record":  "思想记录示例：围绕理论学习、社会实践、志愿服务和个人反思分别记录事实、时间与证明材料。请只填写本人已完成的内容，次数和评价以真实记录及指导老师核验为准。",
+		"party-progress":      "通用流程参考：递交申请、确定积极分子、确定发展对象、接收预备党员、预备党员转正。每阶段的条件、材料和时间由组织部门确认；请根据本人档案勾选已完成事项，不要把示例当作个人进度。",
 		"digital-mentor":      "本周学习建议：重点突破数据结构的图论算法（最短路径、最小生成树）。这是目前你的薄弱环节，也是后续算法竞赛的基础。建议每天刷2道LeetCode图论题巩固。",
 		"classroom-extension": "课后复习提纲：1.梳理本节课核心知识点和关键公式 2.完成课后习题并对比答案 3.标记不理解的内容，下次课前向老师提问。扩展推荐：《算法导论》对应章节和MIT公开课对应视频。",
 		"values-guidance":     "价值观引导：诚信是做人之本，按时完成任务、考试不作弊是基本底线；责任是成长之基，主动承担班级和团队任务能锻炼能力；奉献是人生之乐，志愿服务让我们在帮助他人中成长；感恩是幸福之源，记住每一次来自师长和同学的帮助。",
 	}
 	if resp, ok := responses[feature]; ok {
-		return map[string]interface{}{"content": feature, "response": resp, "data_source": "fallback"}
+		return map[string]interface{}{"content": feature, "response": resp, "data_source": "rule", "review_required": true, "sources": []string{}, "next_action": "请补充个人真实信息，并核对学校正式渠道后再保存或提交。"}
 	}
-	return map[string]interface{}{"content": feature, "response": "功能开发中，敬请期待。", "data_source": "fallback"}
+	return map[string]interface{}{"content": feature, "response": "请描述你的目标、现状和限制条件，我会给出可编辑的行动建议。具体课程、政策、日期和个人数据请以正式来源为准。", "data_source": "rule", "review_required": true, "sources": []string{}, "next_action": "补充上下文后重新生成。"}
 }
 
 // ─── P2 深度分析功能 ───

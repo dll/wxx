@@ -150,3 +150,11 @@ classes[] → Flutter 教学页面
 - 教师能力接口返回 HTTP 200，包含 `teacher.daily.overview`、`teacher.grade.write`、`teacher.lesson.prep` 等教师能力，未出现辅导员专属能力泄露。
 
 以上证据关闭了本报告列出的生产部署、健康探针和教师账号 E2E 阻断项。教师账号当前无 approved 授课关系，因此本次验收确认的是“按本人白名单返回诚实空态”，未伪造课程或成绩数据。
+
+## 12. 学生端 AI 重构复审（2026-09-09）
+
+- 新增统一 `POST /api/v1/student/ai-assist`，覆盖学习、职业、心理、竞赛、校园、办事、档案和 vOPC 等学生页面领域；模型不可用时返回无实时事实断言的规则模板，并统一标注 `data_source=rule`、`review_required=true`、空 `sources` 和 `next_action`。
+- vOPC 项目表单新增 `POST /api/v1/vopc/project-draft/assist`。生产实测学生账号 `student1` 输入项目想法后返回 11 个可编辑字段，`data_source=template`、`review_required=true`；前端仅填充空白字段，不覆盖已有内容。
+- 生产线上学生登录返回 `role=student`；通用学习助手返回 `data_source=ai` 且响应非空；vOPC 助手返回完整模板；空想法返回 HTTP 422；无认证访问返回 HTTP 401。
+- 学生端全局悬浮菜单按当前路由预选 AI 领域，统一页面骨架另提供 AppBar 快捷入口。AI 示例均要求学生审阅并以正式课程、政策、活动和个人记录为准。
+- 本次验证命令：`go test ./server/internal/service ./server/internal/handler -run 'Interactive|Assist|Fallback|Benchmark|Eval'`、`go test ./server/... -run '^$'`、`go build ./server/...`、`flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings`、`flutter test --no-pub`，均通过（Flutter analyze 仅保留既有 info）。

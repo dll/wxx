@@ -27,6 +27,7 @@ class _HotTopicsPageState extends State<HotTopicsPage> {
     final topics = provider.hotTopics;
     return FeaturePageScaffold(
       title: '热点关注',
+      aiFeature: 'campus',
       loading: provider.loading,
       error: provider.error.isEmpty ? null : provider.error,
       onRefresh: () => provider.fetchHotTopics(),

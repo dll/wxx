@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'error_view.dart';
+import 'student_ai_assist_dialog.dart';
 
 /// 学生功能页统一骨架（P4-b）。
 ///
@@ -26,6 +27,7 @@ class FeaturePageScaffold extends StatelessWidget {
     required this.contentBuilder,
     this.error,
     this.empty,
+    this.aiFeature,
   });
 
   /// AppBar 标题
@@ -46,11 +48,28 @@ class FeaturePageScaffold extends StatelessWidget {
   /// 空数据提示（可选；由调用方在 contentBuilder 内部判断更灵活，此处保留供简单页使用）
   final String? empty;
 
+  /// Optional feature key for a direct AppBar AI action.
+  final String? aiFeature;
+
   @override
   Widget build(BuildContext context) {
     final hasError = error != null && error!.trim().isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: aiFeature == null
+            ? null
+            : [
+                IconButton(
+                  tooltip: '打开 AI 助手',
+                  icon: const Icon(Icons.auto_awesome),
+                  onPressed: () => showStudentAIAssistDialog(
+                    context,
+                    initialFeature: aiFeature!,
+                  ),
+                ),
+              ],
+      ),
       body: RefreshIndicator(
         onRefresh: onRefresh,
         child: loading
