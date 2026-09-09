@@ -100,14 +100,20 @@ type ListedGrade struct {
 
 // ListGradesByCreator 查询指定声明人（教师）录入的成绩记录，读取边界=created_by
 func (r *DataImportRepo) ListGradesByCreator(creatorID int64) ([]*ListedGrade, error) {
-	rows, err := r.db.Query(`
+	castType := "INTEGER"
+	if dbutil.DriverOf(r.db) == dbutil.DriverMySQL {
+		// MySQL CAST does not accept the SQLite INTEGER type name; SIGNED
+		// preserves the numeric join semantics across both databases.
+		castType = "SIGNED"
+	}
+	rows, err := r.db.Query(fmt.Sprintf(`
 		SELECT g.user_id, COALESCE(u.username,''), COALESCE(u.display_name,''),
 		       g.course_id, g.course_name, g.semester, g.score, g.gpa,
 		       g.passed, g.credits_earned
 		FROM student_grades g
-		LEFT JOIN users u ON CAST(g.user_id AS INTEGER) = u.id
+		LEFT JOIN users u ON CAST(g.user_id AS %s) = u.id
 		WHERE g.created_by = ?
-		ORDER BY g.semester DESC, g.course_id`, creatorID)
+		ORDER BY g.semester DESC, g.course_id`, castType), creatorID)
 	if err != nil {
 		return nil, err
 	}
@@ -332,10 +338,14 @@ type GradeSummary struct {
 
 // ListGradeSummaries 按学生聚合成绩（毕业资格判断数据源）
 func (r *DataImportRepo) ListGradeSummaries() ([]*GradeSummary, error) {
-	rows, err := r.db.Query(`
+	castType := "INTEGER"
+	if dbutil.DriverOf(r.db) == dbutil.DriverMySQL {
+		castType = "SIGNED"
+	}
+	rows, err := r.db.Query(fmt.Sprintf(`
 		SELECT g.user_id, COALESCE(u.display_name,''), SUM(g.credits_earned), AVG(g.score), SUM(CASE WHEN g.passed=1 THEN 1 ELSE 0 END), COUNT(*)
-		FROM student_grades g LEFT JOIN users u ON CAST(g.user_id AS INTEGER) = u.id
-		GROUP BY g.user_id ORDER BY g.user_id`)
+		FROM student_grades g LEFT JOIN users u ON CAST(g.user_id AS %s) = u.id
+		GROUP BY g.user_id ORDER BY g.user_id`, castType))
 	if err != nil {
 		return nil, err
 	}

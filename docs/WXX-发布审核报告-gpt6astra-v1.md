@@ -126,3 +126,27 @@ classes[] → Flutter 教学页面
 - 教师课程白名单：DailyOverview 从 JWT 当前用户读取 `teacher_courses.status=approved`，并优先使用 `courses.course_name` 展示；pending/rejected、其他教师课程和无课均保持诚实结果，已有单元测试覆盖。
 - 健康端点：Go 路由同时提供 `/health` 与 `/api/health`，Caddyfile 对正式入口做后端反代，SPA NoRoute 已豁免健康路径。
 - 运行态文件已加入 `.gitignore`，不进入发布提交。生产域名实际响应与教师账号 206004 E2E 仍属于部署环境验收，需在部署后按第 7 节执行并记录响应证据。
+
+## 11. 生产复审结果（2026-09-09）
+
+本次复审已在生产机 `129.211.223.113` 完成后端手动部署（提交 `87ad0ab` 对应工作区源码构建，部署时间 2026-09-09 10:07，旧二进制已保留为 `wxx-server.rollback.20260909100718`）。GitHub Actions run `34299943555` 的质量门禁、Web 部署和 APK 发布均通过；后端 job 仅因大文件分块上传超时，故采用已验证 SSH 直传方式完成后端替换。
+
+### 11.1 公网健康探针
+
+| URL | 结果 |
+|---|---|
+| `GET https://wxx-agent.online/health` | HTTP 200，`Content-Type: application/json; charset=utf-8`，`status=healthy` |
+| `GET https://wxx-agent.online/api/health` | HTTP 200，`Content-Type: application/json; charset=utf-8`，`status=healthy` |
+
+两端点均报告 MySQL、Redis、LLM API 正常；Caddy 已增加 `/health` 后端反代，避免 SPA fallback 返回 HTML。
+
+### 11.2 教师 206004 线上 E2E
+
+- `POST /api/v1/auth/login` 使用账号 `206004` 登录成功，返回角色 `teacher`、用户姓名“刘东良”。
+- `GET /api/v1/teacher/daily-overview`：HTTP 200，返回 `classes=[]`；生产库核对该教师 `teacher_courses` 的 approved 数量为 0，空列表与数据一致。
+- `GET /api/v1/teacher/courses/mine`、`/api/v1/teacher/homework/mine`、`/api/v1/teacher/homework/courses`：HTTP 200，均返回真实空列表。
+- `GET /api/v1/teacher/grades/mine`：首次线上探测发现 MySQL 对 `CAST(... AS INTEGER)` 返回 500；已修复为按数据库方言使用 `CAST(... AS SIGNED)`，重新部署后 HTTP 200。
+- 无认证访问教师 DailyOverview/课程接口返回 HTTP 401；学生角色访问教师 DailyOverview 返回 HTTP 403。
+- 教师能力接口返回 HTTP 200，包含 `teacher.daily.overview`、`teacher.grade.write`、`teacher.lesson.prep` 等教师能力，未出现辅导员专属能力泄露。
+
+以上证据关闭了本报告列出的生产部署、健康探针和教师账号 E2E 阻断项。教师账号当前无 approved 授课关系，因此本次验收确认的是“按本人白名单返回诚实空态”，未伪造课程或成绩数据。

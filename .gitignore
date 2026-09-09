@@ -236,3 +236,5 @@ wxx-repair-*/
 openclaw-workspace-state.json*
 DREAMS.md
 memory/
+# 后端本地/CI 构建产物
+/server/dist/

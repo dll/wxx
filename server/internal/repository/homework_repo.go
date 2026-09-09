@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	dbutil "github.com/dll/wxx/server/internal/db"
 )
 
 // Homework 教师作业信息发布（P2 轻量版，迁移 095）
@@ -203,20 +205,23 @@ type CourseGradeStats struct {
 // 仅统计 grade_type='final' 期末成绩，对齐成绩导入幂等口径。
 func (r *HomeworkRepo) GradeStatsByCourse(courseID, semester string) (*CourseGradeStats, error) {
 	courseID = normalizeCourseID(courseID)
+	castType := "INTEGER"
+	if dbutil.DriverOf(r.db) == dbutil.DriverMySQL {
+		castType = "SIGNED"
+	}
 
 	// 聚合基础：count / 均分 / 及格数
 	// 含 student join：仅统计 role='student' 的真实学生成绩行（对称成绩导入口径，防校非学生数据污染统计）。
 	var total int
 	var avgScore float64
 	var passedCount int
-	err := r.db.QueryRow(
-		`SELECT COUNT(*),
+	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*),
 		        COALESCE(AVG(g.score),0),
 		        COALESCE(SUM(CASE WHEN g.passed=1 THEN 1 ELSE 0 END),0)
 		 FROM student_grades g
-		 LEFT JOIN users u ON CAST(g.user_id AS INTEGER)=u.id
+		 LEFT JOIN users u ON CAST(g.user_id AS %s)=u.id
 		 WHERE g.course_id=? AND g.semester=? AND g.grade_type='final' AND u.role='student'`,
-		courseID, semester).Scan(&total, &avgScore, &passedCount)
+		castType), courseID, semester).Scan(&total, &avgScore, &passedCount)
 	if err != nil {
 		return nil, err
 	}
@@ -243,11 +248,10 @@ func (r *HomeworkRepo) GradeStatsByCourse(courseID, semester string) (*CourseGra
 	stats.PassRate = float64(passedCount) / float64(total)
 
 	// 四档分布：每条真实分数对称复用 gradeLevelOf 逻辑（只读，SQLite 端聚合行级）
-	rows, err := r.db.Query(
-		`SELECT g.score, COALESCE(u.display_name, '') AS name, g.course_name
-		 FROM student_grades g LEFT JOIN users u ON CAST(g.user_id AS INTEGER)=u.id
+	rows, err := r.db.Query(fmt.Sprintf(`SELECT g.score, COALESCE(u.display_name, '') AS name, g.course_name
+		 FROM student_grades g LEFT JOIN users u ON CAST(g.user_id AS %s)=u.id
 		 WHERE g.course_id=? AND g.semester=? AND g.grade_type='final'`,
-		courseID, semester)
+		castType), courseID, semester)
 	if err != nil {
 		return nil, err
 	}
