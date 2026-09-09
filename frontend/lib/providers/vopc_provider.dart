@@ -370,6 +370,30 @@ class VopcProvider extends ChangeNotifier {
     }
   }
 
+  /// Generate transparent, editable G0 examples from a student's short idea.
+  Future<Map<String, dynamic>?> assistProjectDraft({
+    required String idea,
+    String projectType = '',
+    String targetUsers = '',
+  }) async {
+    error = null;
+    statusCode = null;
+    try {
+      final response = await _api.post(ApiConfig.vopcProjectDraftAssist, data: {
+        'idea': idea,
+        if (projectType.trim().isNotEmpty) 'project_type': projectType,
+        if (targetUsers.trim().isNotEmpty) 'target_users': targetUsers,
+      });
+      final data = response.data?['data'];
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return null;
+    } catch (e) {
+      _setError(e, 'AI 表单助手暂时不可用');
+      notifyListeners();
+      return null;
+    }
+  }
+
   Future<int?> createDemoProject() async {
     try {
       final r = await _api.post(ApiConfig.vopcDemoProjects);

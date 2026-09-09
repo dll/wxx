@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'feedback_dialog.dart';
+import 'student_ai_assist_dialog.dart';
 import '../utils/storage.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
@@ -34,6 +35,11 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
   /// Web/桌面端菜单
   static const _webItems = <_FabItem>[
     _FabItem(
+        icon: Icons.auto_awesome_outlined,
+        label: 'AI 助手',
+        color: Color(0xFF00695C),
+        action: _FabAction.aiAssist),
+    _FabItem(
         icon: Icons.feedback_outlined,
         label: '问题反馈',
         color: Color(0xFF6750A4),
@@ -57,6 +63,11 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   /// 移动端菜单
   static const _mobileItems = <_FabItem>[
+    _FabItem(
+        icon: Icons.auto_awesome_outlined,
+        label: 'AI 助手',
+        color: Color(0xFF00695C),
+        action: _FabAction.aiAssist),
     _FabItem(
         icon: Icons.feedback_outlined,
         label: '问题反馈',
@@ -90,7 +101,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     );
     // 动画曲线长度固定，不随平台菜单项数量变化（web 最多 4 项）
-    const n = kIsWeb ? 4 : 3;
+    const n = kIsWeb ? 5 : 4;
     _slideAnims = List.generate(n, (i) {
       return CurvedAnimation(
         parent: _expandCtrl,
@@ -278,12 +289,28 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       case _FabAction.campus:
         // 校园导航：跳校园服务地图
         context.go('/campus?v=map');
+      case _FabAction.aiAssist:
+        final location = GoRouterState.of(context).matchedLocation;
+        showStudentAIAssistDialog(context,
+            initialFeature: _studentFeatureForLocation(location));
     }
+  }
+
+  String _studentFeatureForLocation(String location) {
+    if (location.contains('vopc')) return 'vopc';
+    if (location.contains('career') || location.contains('resume')) return 'career';
+    if (location.contains('mental') || location.contains('health')) return 'mental';
+    if (location.contains('competition') || location.contains('study-buddy')) return 'competition';
+    if (location.contains('process') || location.contains('enrollment')) return 'process';
+    if (location.contains('study') || location.contains('course') || location.contains('grade')) return 'study';
+    if (location.contains('profile') || location.contains('twin')) return 'profile';
+    if (location.contains('campus')) return 'campus';
+    return 'general';
   }
 }
 
 /// 子菜单动作枚举
-enum _FabAction { feedback, voice, twin, profile, campus }
+enum _FabAction { feedback, voice, twin, profile, campus, aiAssist }
 
 /// 子菜单项定义
 class _FabItem {

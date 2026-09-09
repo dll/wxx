@@ -338,6 +338,31 @@ class StudentFeatureProvider extends ChangeNotifier {
   bool _aiLoading = false;
   bool get aiLoading => _aiLoading;
 
+  /// Shared AI helper used by every student-facing page. The response keeps
+  /// its source and review flag so UI never presents suggestions as facts.
+  Future<Map<String, dynamic>?> requestInteractiveAssist({
+    required String feature,
+    required String input,
+  }) async {
+    _aiLoading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      final res = await _api.post(ApiConfig.studentAIAssist, data: {
+        'feature': feature,
+        'input': input,
+      });
+      final data = res.data is Map ? res.data['data'] : null;
+      if (data is Map) return Map<String, dynamic>.from(data);
+    } catch (e) {
+      _error = friendlyApiError(e);
+    } finally {
+      _aiLoading = false;
+      notifyListeners();
+    }
+    return null;
+  }
+
   Future<String> askAI(String endpoint, {Map<String, dynamic>? data}) async {
     _aiLoading = true;
     _aiResponse = '';

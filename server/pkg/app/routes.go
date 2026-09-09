@@ -527,6 +527,7 @@ func setupRouter(d *deps) *gin.Engine {
 			// ── 学生 AI 功能（个人能力，所有角色继承自 student 都可用）──
 			student := secured.Group("/student")
 			{
+				student.POST("/ai-assist", auth.RequireCapability(auth.SelfGenericAI), d.studentH.InteractiveAIAssist)
 				student.GET("/home", auth.RequireCapability(auth.SelfStudyRead), d.studentH.Home)
 				student.GET("/profile", auth.RequireCapability(auth.SelfTwinRead), d.studentH.PersonalProfile)
 				student.GET("/twin-profile", auth.RequireCapability(auth.SelfTwinRead), d.studentH.TwinProfile)

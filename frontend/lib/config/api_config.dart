@@ -210,6 +210,8 @@ class ApiConfig {
   static const String vopcAccess = '$apiPrefix/vopc/access';
   static const String vopcLearning = '$apiPrefix/vopc/learning';
   static const String vopcGuides = '$apiPrefix/vopc/guides';
+  static const String vopcProjectDraftAssist =
+      '$apiPrefix/vopc/project-draft/assist';
   static const String vopcProjects = '$apiPrefix/vopc/projects';
   static const String vopcDemoProjects = '$apiPrefix/vopc/demo-projects';
   static String vopcSimulationAdvance(int id) =>
@@ -296,6 +298,7 @@ class ApiConfig {
   static const String modelConfig = '$apiPrefix/user/model-config';
 
   // ── 学生 AI 功能 ──
+  static const String studentAIAssist = '$apiPrefix/student/ai-assist';
   static const String studentHome = '$apiPrefix/student/home';
   static const String studentProfile = '$apiPrefix/student/profile';
   static const String studentTwinProfile = '$apiPrefix/student/twin-profile';

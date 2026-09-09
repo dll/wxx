@@ -85,3 +85,21 @@ func TestStudentService_GenerateLearningDiary_LLMFailureFallsBack(t *testing.T) 
 		t.Fatalf("兜底鼓励语缺失: %q", diary.Encouragement)
 	}
 }
+
+func TestStudentService_InteractiveAssistTransparentFallback(t *testing.T) {
+	result := (&StudentService{}).GenerateInteractiveAssist(context.Background(), "vopc", 7, "做一个校园服务小程序")
+	if result["data_source"] != "rule" || result["review_required"] != true {
+		t.Fatalf("interactive fallback metadata invalid: %#v", result)
+	}
+	if !strings.Contains(result["response"].(string), "验收标准") {
+		t.Fatalf("vopc fallback should include actionable acceptance guidance: %#v", result)
+	}
+}
+
+func TestStudentService_InteractiveAssistUsesLLMWhenAvailable(t *testing.T) {
+	svc := &StudentService{llmClient: studentServiceTestClient{content: "先明确目标，再拆解下一步。"}}
+	result := svc.GenerateInteractiveAssist(context.Background(), "study", 7, "帮我安排复习")
+	if result["data_source"] != "ai" || result["response"] != "先明确目标，再拆解下一步。" {
+		t.Fatalf("interactive LLM result invalid: %#v", result)
+	}
+}

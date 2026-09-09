@@ -57,6 +57,7 @@
 | **报到节点坐标管理** | `docs/蔚小芯报到节点坐标管理.md`（管理员拖拽校正 + CRUD 工作流） |
 | **前端全量构建脚本** | `scripts/build-all.ps1`（一键构建 Web + APK，用法：`pwsh scripts/build-all.ps1` 或 `make all-frontend`） |
 | **AI 简讯模块** | `docs/ai-briefings.md`（首页资讯 + 管理 CRUD + RSS/Atom 自动抓取 + md/pdf 导出） |
+| **学生端统一 AI 助手** | `docs/student-ai-assist.md`（全局页面入口 + 分域建议 + vOPC 表单自动填充） |
 | **微信小程序（WebView 壳）** | `frontend/miniprogram/`（AppID: wx811d1225e67b8f38，加载 Cloudflare Pages 前端） |
 | **移动应用（iOS + 鸿蒙）构建发布** | `docs/移动应用构建与发布.md`（手动触发 workflow、Secrets 清单、产物分发） |
 | **移动应用签名（iOS + 鸿蒙）** | `docs/移动应用构建与发布v1.md`（Apple/AGC 凭据申请、Secrets 配置、签名注入与上架步骤） |

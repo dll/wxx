@@ -14,6 +14,7 @@ func registerVOPCRoutes(secured *gin.RouterGroup, d *deps) {
 	vopc.GET("/access", d.vopcH.AccessStatus)
 	vopc.GET("/learning", d.vopcH.Learning)
 	vopc.GET("/guides", d.vopcH.Guides)
+	vopc.POST("/project-draft/assist", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.AssistProjectDraft)
 	vopc.GET("/users/search", d.vopcH.SearchUsers)
 	vopc.GET("/projects", d.vopcH.ListProjects)
 	vopc.POST("/projects", auth.RequireCapability(auth.VOPCProjectCreate), d.vopcH.CreateProject)

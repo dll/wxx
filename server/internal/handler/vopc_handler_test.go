@@ -69,6 +69,7 @@ func vopcRouter(db *sql.DB) *gin.Engine {
 	g.Use(CollegeAccess("cs"))
 	g.GET("/access", h.AccessStatus)
 	g.GET("/projects", h.ListProjects)
+	g.POST("/project-draft/assist", auth.RequireCapability(auth.VOPCProjectCreate), h.AssistProjectDraft)
 	g.POST("/projects", h.CreateProject)
 	g.GET("/projects/:id", h.GetProject)
 	g.PUT("/projects/:id", auth.RequireCapability(auth.VOPCProjectManage), h.UpdateProject)

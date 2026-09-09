@@ -341,6 +341,7 @@ class _CreateProjectDialog extends StatefulWidget {
 
 class _CreateProjectDialogState extends State<_CreateProjectDialog> {
   final formKey = GlobalKey<FormState>();
+  final idea = TextEditingController();
   final name = TextEditingController();
   final summary = TextEditingController();
   final problem = TextEditingController();
@@ -359,6 +360,7 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
   bool externalPublish = false;
   bool funds = false;
   String teamMode = 'auto';
+  bool assisting = false;
 
   @override
   void initState() {
@@ -368,6 +370,7 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
     name.text = p.name;
     summary.text = p.summary;
     problem.text = p.problem;
+    idea.text = p.problem.isNotEmpty ? p.problem : p.summary;
     target.text = p.targetUsers;
     outcome.text = p.expectedOutcome;
     validation.text = p.validationPlan;
@@ -388,6 +391,7 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
   @override
   void dispose() {
     for (final c in [
+      idea,
       name,
       summary,
       problem,
@@ -419,6 +423,32 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
                     Text('先完成 G0 想法卡，再选择自动或手工组建软件项目团队。',
                         style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 14),
+                    TextFormField(
+                      controller: idea,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: '一句话项目想法（可让 AI 生成示例）',
+                        hintText: '例如：帮助新生快速找到可靠的校园办事信息',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: assisting ? null : _assist,
+                        icon: assisting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_awesome_outlined),
+                        label: Text(assisting ? '正在生成示例…' : 'AI 生成并填入空白项'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: teamMode,
                       decoration: const InputDecoration(labelText: '团队组建方式'),
@@ -554,6 +584,61 @@ class _CreateProjectDialogState extends State<_CreateProjectDialog> {
       'funds_involved': funds,
       'team_mode': teamMode,
     });
+  }
+
+  Future<void> _assist() async {
+    final prompt = idea.text.trim().isNotEmpty
+        ? idea.text.trim()
+        : (problem.text.trim().isNotEmpty
+            ? problem.text.trim()
+            : summary.text.trim());
+    if (prompt.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先输入一句项目想法')));
+      return;
+    }
+    setState(() => assisting = true);
+    final result = await context.read<VopcProvider>().assistProjectDraft(
+          idea: prompt,
+          projectType: projectType,
+          targetUsers: target.text,
+        );
+    if (!mounted) return;
+    setState(() => assisting = false);
+    final fields = result?['fields'];
+    if (fields is! Map) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('AI 示例生成失败，请稍后重试')));
+      return;
+    }
+    final controllers = <String, TextEditingController>{
+      'name': name,
+      'summary': summary,
+      'problem_statement': problem,
+      'target_users': target,
+      'expected_outcome': outcome,
+      'validation_plan': validation,
+      'product_form': product,
+      'project_cycle': cycle,
+      'acceptance_criteria': acceptance,
+      'mentor_needs': mentor,
+      'resource_needs': resource,
+    };
+    var filled = 0;
+    for (final entry in controllers.entries) {
+      if (entry.value.text.trim().isEmpty && fields[entry.key] != null) {
+        entry.value.text = fields[entry.key].toString();
+        filled++;
+      }
+    }
+    final suggestedType = result?['project_type']?.toString();
+    if (suggestedType != null && suggestedType.isNotEmpty) {
+      projectType = suggestedType;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('已生成 $filled 项可编辑示例，请核对后保存。'),
+      duration: const Duration(seconds: 4),
+    ));
   }
 }
 
