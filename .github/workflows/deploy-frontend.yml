@@ -105,6 +105,10 @@ jobs:
         run: flutter pub get
         working-directory: ./frontend
 
+      - name: 清理 Web 增量构建缓存
+        run: flutter clean && flutter pub get
+        working-directory: ./frontend
+
       - name: 构建 Web 版本（注入百度/高德/腾讯地图 AK）
         env:
           BAIDU_AK: ${{ secrets.BAIDU_MAP_AK }}

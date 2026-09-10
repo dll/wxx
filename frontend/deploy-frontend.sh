@@ -30,6 +30,8 @@ if [ -n "$BAIDU_AK" ]; then
     FLUTTER_ARGS="$FLUTTER_ARGS --dart-define=BAIDU_MAP_AK=$BAIDU_AK"
 fi
 
+# 插件依赖变化后增量缓存可能复用旧 web_plugin_registrant，导致线上 MissingPluginException。
+flutter clean
 flutter build web $FLUTTER_ARGS
 echo "✅ 构建完成"
 

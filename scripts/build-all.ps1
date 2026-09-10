@@ -108,6 +108,11 @@ Set-Location $frontend
 if ([string]::IsNullOrWhiteSpace($env:BAIDU_MAP_AK) -or [string]::IsNullOrWhiteSpace($env:GAODE_MAP_AK) -or [string]::IsNullOrWhiteSpace($env:TENXUN_MAP_AK)) {
     throw "构建前必须设置 BAIDU_MAP_AK、GAODE_MAP_AK、TENXUN_MAP_AK"
 }
+# 插件依赖变化后必须清理增量缓存，避免复用旧的 Web 插件注册表。
+flutter clean *>> $buildLog
+if ($LASTEXITCODE -ne 0) {
+    throw "Flutter 清理失败，详见 $buildLog"
+}
 flutter build web --release `
   --dart-define=BAIDU_MAP_AK=$env:BAIDU_MAP_AK `
   --dart-define=GAODE_MAP_AK=$env:GAODE_MAP_AK `

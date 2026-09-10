@@ -35,14 +35,41 @@ class Storage {
 
   static late SharedPreferences _prefs;
 
+  static Future<String?> _readToken() async {
+    try {
+      return await _secureStorage.read(key: _keyToken);
+    } on Object {
+      // 浏览器禁用存储、数据损坏或插件未注册时均不得阻断应用启动。
+      return null;
+    }
+  }
+
+  static Future<void> _writeToken(String token) async {
+    try {
+      await _secureStorage.write(key: _keyToken, value: token);
+    } on Object {
+      // 安全存储不可用时保留内存会话，刷新后需重新登录。
+    }
+  }
+
+  static Future<void> _deleteToken() async {
+    try {
+      await _secureStorage.delete(key: _keyToken);
+    } on Object {
+      // 安全存储暂不可用时仍需清除内存会话。
+    }
+  }
+
   /// 初始化（在 main 中调用）
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    _token = await _secureStorage.read(key: _keyToken);
+    _token = await _readToken();
     // 一次性迁移旧版本 SharedPreferences 中的 bearer token，然后删除明文副本。
     final legacyToken = _prefs.getString(_keyToken);
-    if ((_token == null || _token!.isEmpty) && legacyToken != null && legacyToken.isNotEmpty) {
-      await _secureStorage.write(key: _keyToken, value: legacyToken);
+    if ((_token == null || _token!.isEmpty) &&
+        legacyToken != null &&
+        legacyToken.isNotEmpty) {
+      await _writeToken(legacyToken);
       _token = legacyToken;
     }
     if (legacyToken != null) {
@@ -53,13 +80,15 @@ class Storage {
   // ── Token ──
   static String? get token => _token;
   static Future<void> setToken(String token) async {
-    await _secureStorage.write(key: _keyToken, value: token);
     _token = token;
+    await _writeToken(token);
   }
+
   static Future<void> clearToken() async {
-    await _secureStorage.delete(key: _keyToken);
     _token = null;
+    await _deleteToken();
   }
+
   static bool get isLoggedIn => token != null && token!.isNotEmpty;
 
   // ── 用户信息 ──
@@ -71,8 +100,7 @@ class Storage {
   static String? get userStatus => _prefs.getString(_keyUserStatus);
 
   /// 全部角色（多角色用户；单角色为 [role]）
-  static List<String> get roles =>
-      _prefs.getStringList(_keyRoles) ?? const [];
+  static List<String> get roles => _prefs.getStringList(_keyRoles) ?? const [];
   static Future<void> setRoles(List<String> rs) =>
       _prefs.setStringList(_keyRoles, rs);
 
