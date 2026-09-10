@@ -218,6 +218,40 @@ func (r *TeacherCourseRepo) ListApprovedTeachingCourses(teacherID int64) ([]Teac
 	return list, rows.Err()
 }
 
+// ListScheduleTeachingCourses 查询真实排课表中归属于教师的课程。
+// 课表历史导入通常只保存任课教师姓名，因此这里按 users.display_name/username 关联，
+// 仅用于教学首页展示；成绩和作业写入仍必须经过 teacher_courses.approved 校验。
+func (r *TeacherCourseRepo) ListScheduleTeachingCourses(teacherID int64) ([]TeacherCourse, error) {
+	if teacherID <= 0 {
+		return nil, fmt.Errorf("教师身份无效")
+	}
+	rows, err := r.db.Query(`
+		SELECT cs.course_id, MAX(cs.course_name), cs.semester_code
+		FROM course_schedules cs
+		JOIN users u ON u.id = ?
+		WHERE TRIM(COALESCE(cs.teacher, '')) <> ''
+		  AND (TRIM(cs.teacher) = TRIM(COALESCE(u.display_name, ''))
+		       OR TRIM(cs.teacher) = TRIM(COALESCE(u.username, '')))
+		GROUP BY cs.course_id, cs.semester_code
+		ORDER BY cs.semester_code DESC, cs.course_id
+		LIMIT 200`, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []TeacherCourse
+	for rows.Next() {
+		var tc TeacherCourse
+		if err := rows.Scan(&tc.CourseID, &tc.CourseName, &tc.Semester); err != nil {
+			return nil, err
+		}
+		tc.TeacherID = teacherID
+		tc.Status = "schedule"
+		list = append(list, tc)
+	}
+	return list, rows.Err()
+}
+
 // ListPendingTeacherCourses 待审核申报（教辅审核列表）
 func (r *TeacherCourseRepo) ListPendingTeacherCourses(limit int) ([]TeacherCourse, error) {
 	return r.ListTeacherCourses(0, CourseStatusPending, limit)

@@ -33,7 +33,6 @@ import 'providers/update_provider.dart';
 import 'providers/health_provider.dart';
 import 'providers/app_center_provider.dart';
 import 'providers/ai_briefing_provider.dart';
-import 'providers/twin_portrait_provider.dart';
 import 'providers/personal_detail_provider.dart';
 import 'providers/secretary_provider.dart';
 import 'utils/download_redirect.dart';
@@ -250,7 +249,6 @@ class _WxxAppState extends State<WxxApp> {
         ChangeNotifierProvider(create: (_) => HealthProvider()),
         ChangeNotifierProvider(create: (_) => AppCenterProvider()),
         ChangeNotifierProvider(create: (_) => AIBriefingProvider()),
-        ChangeNotifierProvider(create: (_) => TwinPortraitProvider()),
         ChangeNotifierProvider(create: (_) => PersonalDetailProvider()),
         ChangeNotifierProvider(create: (_) => SecretaryProvider()),
         ChangeNotifierProvider(create: (_) => _themeNotifier),

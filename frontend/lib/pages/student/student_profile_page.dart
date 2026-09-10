@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import '../../providers/student_feature_provider.dart';
 import '../../utils/storage.dart';
-import '../../widgets/avatar_card.dart';
 import '../../widgets/error_view.dart';
 
 /// 学生个人信息档案 — 聚合展示基本信息/数字画像/性格/学业/竞赛/活动等
@@ -21,10 +19,6 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final p = context.read<StudentFeatureProvider>();
       p.fetchPersonalProfile();
-      p.fetchDigitalTwin();
-      p.fetchAvatar(
-          displayName: Storage.displayName ?? '同学',
-          role: Storage.role ?? 'student');
     });
   }
 
@@ -38,10 +32,6 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         onRefresh: () async {
           final p = context.read<StudentFeatureProvider>();
           await p.fetchPersonalProfile();
-          await p.fetchDigitalTwin();
-          await p.fetchAvatar(
-              displayName: Storage.displayName ?? '同学',
-              role: Storage.role ?? 'student');
         },
         child: provider.profileLoading && provider.personalProfile == null
             ? const Center(child: CircularProgressIndicator())
@@ -60,22 +50,12 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       padding: const EdgeInsets.all(16),
       children: [
         // 1. 数字人形象卡片（数据驱动）
-        if (Storage.showAvatar && provider.avatar != null) ...[
-          AvatarCard(config: provider.avatar!, height: 300),
-          const SizedBox(height: 16),
-        ],
-
-        // 2. 基本信息
+        // 基本信息
         _buildBasicInfo(theme, data),
 
         const SizedBox(height: 16),
 
-        // 3. 成长画像入口：完整五维分析集中在数字孪生页，避免重复堆叠。
-        _buildTwinLink(theme, provider),
-
-        const SizedBox(height: 16),
-
-        // 4. 学业记录
+        // 学业记录
         _buildAcademicSection(theme, data),
 
         const SizedBox(height: 16),
@@ -88,35 +68,6 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         // 6. 打卡 / 积分
         _buildStatsSection(theme, data),
       ],
-    );
-  }
-
-  Widget _buildTwinLink(ThemeData theme, StudentFeatureProvider provider) {
-    final twin = provider.twin;
-    final available =
-        twin?.dimensions.where((d) => d.dataAvailable).length ?? 0;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-        leading: Icon(Icons.insights_rounded, color: theme.colorScheme.primary),
-        title:
-            const Text('成长画像', style: TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(
-          twin == null
-              ? '查看我的五维成长、证据与建议'
-              : '$available/${twin.dimensions.length} 个维度已有真实记录',
-        ),
-        trailing: FilledButton.tonalIcon(
-          onPressed: () => context.push('/student/digital-twin'),
-          icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-          label: const Text('查看'),
-        ),
-      ),
     );
   }
 

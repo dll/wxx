@@ -39,9 +39,9 @@ import '../pages/help/help_page.dart';
 import '../pages/student/daily_briefing_page.dart';
 import '../pages/student/learning_diary_page.dart';
 import '../pages/student/checkin_page.dart';
-import '../pages/student/digital_twin_page.dart';
 import '../pages/student/personality_page.dart';
 import '../pages/student/student_profile_page.dart';
+import '../pages/student/student_metrics_page.dart';
 import '../pages/student/achievements_page.dart';
 import '../pages/student/course_map_page.dart';
 import '../pages/student/course_analytics_page.dart';
@@ -69,7 +69,6 @@ import '../pages/student/private_chat_page.dart';
 // ── 辅导员 AI 功能页面 ──
 import '../pages/counselor/daily_focus_page.dart';
 import '../pages/counselor/class_report_page.dart';
-import '../pages/counselor/twin_board_page.dart';
 import '../pages/counselor/prediction_page.dart';
 import '../pages/counselor/intervention_page.dart';
 import '../pages/counselor/talk_record_page.dart';
@@ -107,7 +106,6 @@ import '../pages/union/event_plan_page.dart';
 import '../pages/union/poster_gen_page.dart';
 import '../pages/union/activity_manage_page.dart';
 import '../pages/union/union_workbench_page.dart';
-import '../pages/college/twin_screen_page.dart';
 import '../pages/college/data_analysis_page.dart';
 import '../pages/secretary/secretary_outcome_dashboard_page.dart';
 import '../pages/secretary/outcome_manage_page.dart';
@@ -232,7 +230,9 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/enrollment',
-          builder: (context, state) => const EnrollmentPage(),
+          builder: (context, state) => Storage.role == 'teacher'
+              ? const DailyOverviewPage()
+              : const EnrollmentPage(),
         ),
         GoRoute(
           path: '/sessions',
@@ -491,7 +491,7 @@ final GoRouter appRouter = GoRouter(
             path: '/student/checkin', builder: (_, __) => const CheckinPage()),
         GoRoute(
             path: '/student/digital-twin',
-            builder: (_, __) => const DigitalTwinPage()),
+            builder: (_, __) => const StudentMetricsPage()),
         GoRoute(
             path: '/student/profile',
             builder: (_, __) => const StudentProfilePage()),
@@ -576,9 +576,6 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
             path: '/counselor/class-report',
             builder: (_, __) => const ClassReportPage()),
-        GoRoute(
-            path: '/counselor/twin-board',
-            builder: (_, __) => const TwinBoardPage()),
         GoRoute(
             path: '/counselor/prediction',
             builder: (_, __) => const PredictionPage()),
@@ -696,9 +693,6 @@ final GoRouter appRouter = GoRouter(
             path: '/union/workbench',
             builder: (_, __) => const UnionWorkbenchPage()),
         GoRoute(
-            path: '/college/twin-screen',
-            builder: (_, __) => const TwinScreenPage()),
-        GoRoute(
             path: '/college/data-analysis',
             builder: (_, __) => const DataAnalysisPage()),
         GoRoute(
@@ -750,7 +744,7 @@ List<_NavItem> _navItemsForRole(String? role, {bool compact = false}) => [
         role == 'teacher' ? '事务' : '办事',
         Icons.assignment_outlined,
         Icons.assignment,
-        '/enrollment',
+        role == 'teacher' ? '/teacher/daily-overview' : '/enrollment',
       ),
       if (!compact)
         const _NavItem(

@@ -22,11 +22,12 @@ class _ProfileFeature {
   final String title;
   final String subtitle;
   final String route;
+
   /// true 时仅在「功能开关」Tab 出现（不渲染为普通功能卡片）；默认 false
   final bool switchOnly;
 
-  const _ProfileFeature(this.key, this.category, this.icon, this.title,
-      this.subtitle, this.route,
+  const _ProfileFeature(
+      this.key, this.category, this.icon, this.title, this.subtitle, this.route,
       {this.switchOnly = false});
 }
 
@@ -198,16 +199,10 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 16),
 
         // 我的关注（学生：定制首页学生专区排序，可随时修改）
-        if (profile?.role == 'student' ||
-            profile?.role == 'student_union') ...[
+        if (profile?.role == 'student' || profile?.role == 'student_union') ...[
           _studentInterestsCard(theme),
           const SizedBox(height: 16),
         ],
-
-        // 数字人形象显示开关（可系统设置）
-        _buildAvatarToggle(context),
-
-        const SizedBox(height: 16),
 
         _buildFeatureTabs(context, profile?.role),
 
@@ -354,8 +349,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/student/learning-diary'),
             _buildMenuCard(context, Icons.check_circle_outline, '每日打卡',
                 '学习打卡与连续记录', '/student/checkin'),
-            _buildMenuCard(context, Icons.person_pin, '数字孪生', '我的数字画像',
-                '/student/digital-twin'),
             _buildMenuCard(context, Icons.psychology_outlined, '性格洞察',
                 'AI 性格分析', '/student/personality'),
             _buildMenuCard(context, Icons.emoji_events_outlined, '积分成就',
@@ -390,8 +383,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/student/campus-life'),
             _buildMenuCard(context, Icons.event_available, '日程管理', '学习日程安排',
                 '/student/schedule'),
-            _buildMenuCard(context, Icons.upload_file, '导入我的课表', '从门户查到课表后导入本人课表',
-                '/student/schedule-import'),
+            _buildMenuCard(context, Icons.upload_file, '导入我的课表',
+                '从门户查到课表后导入本人课表', '/student/schedule-import'),
             _buildMenuCard(context, Icons.favorite_border, '心理陪伴', '心情打卡与关怀',
                 '/student/mental-health'),
             _buildMenuCard(context, Icons.smart_toy_outlined, '数字导师',
@@ -421,8 +414,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 '重点关注学生提醒', '/counselor/daily-focus'),
             _buildMenuCard(context, Icons.assessment_outlined, '班级学情日报',
                 '班级每日学情分析', '/counselor/class-report'),
-            _buildMenuCard(context, Icons.dashboard_outlined, '数字孪生看板',
-                '学生数字画像看板', '/counselor/twin-board'),
             _buildMenuCard(context, Icons.warning_outlined, '预测性预警', 'AI 风险预测',
                 '/counselor/prediction'),
             _buildMenuCard(context, Icons.auto_fix_high, 'AI 干预方案', '智能干预方案生成',
@@ -485,14 +476,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 '/union/event-plan'),
             _buildMenuCard(context, Icons.brush, 'AI 海报文案', '智能海报文案生成',
                 '/union/poster-gen'),
-            _buildMenuCard(context, Icons.groups_outlined, '活动报名管理', '查看报名热度、新建活动',
-                '/union/activity-manage'),
+            _buildMenuCard(context, Icons.groups_outlined, '活动报名管理',
+                '查看报名热度、新建活动', '/union/activity-manage'),
           ],
 
           // 学院管理员 AI 功能
           if (_canAccessAdmin(profile?.role)) ...[
-            _buildMenuCard(context, Icons.dashboard, '数字孪生大屏', '学院全景数据',
-                '/college/twin-screen'),
             _buildMenuCard(context, Icons.analytics, '数据分析', '学院数据分析报告',
                 '/college/data-analysis'),
           ],
@@ -571,63 +560,101 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   List<_ProfileFeature> _featuresFor(String? role) => [
-        const _ProfileFeature('token', '常用', Icons.bar_chart, '词元统计', '查看 AI 词元消耗统计',
-            '/token-stats'),
+        const _ProfileFeature('token', '常用', Icons.bar_chart, '词元统计',
+            '查看 AI 词元消耗统计', '/token-stats'),
         const _ProfileFeature('bookmarks', '常用', Icons.star_outline, '我的收藏',
             '查看已收藏的问答记录', '/bookmarks'),
         const _ProfileFeature('feedback_mine', '常用', Icons.rate_review, '我的反馈',
             '查看自己提交的反馈与处理状态', '/my-feedbacks'),
-        const _ProfileFeature('records', '办事服务', Icons.assignment_turned_in_outlined,
-            '我的办事记录', '查看入学/离校等流程办理进度', '/my-records'),
+        const _ProfileFeature(
+            'records',
+            '办事服务',
+            Icons.assignment_turned_in_outlined,
+            '我的办事记录',
+            '查看入学/离校等流程办理进度',
+            '/my-records'),
         const _ProfileFeature('model', '常用', Icons.tune, 'AI 模型配置', '配置模型参数',
             '/profile/model-config'),
-        const _ProfileFeature('culture_anthems', '校园文化', Icons.music_note, '校歌曲库',
-            '校歌、院歌与经典曲目', '/culture/anthems'),
+        const _ProfileFeature('culture_anthems', '校园文化', Icons.music_note,
+            '校歌曲库', '校歌、院歌与经典曲目', '/culture/anthems'),
         const _ProfileFeature('culture_radio', '校园文化', Icons.podcasts, '校园广播',
             '直播节目单与往期回放', '/culture/radio'),
         const _ProfileFeature('culture_lectures', '校园文化', Icons.school_outlined,
             '学术讲座', '即将开始的讲座与回放', '/culture/lectures'),
-        const _ProfileFeature('culture_events', '校园文化', Icons.celebration_outlined,
-            '校园活动', '活动报名与个性推送', '/culture/events'),
-        const _ProfileFeature('culture_volunteer', '校园文化', Icons.volunteer_activism,
-            '志愿服务', '志愿时长与项目推荐', '/culture/volunteer'),
+        const _ProfileFeature('culture_events', '校园文化',
+            Icons.celebration_outlined, '校园活动', '活动报名与个性推送', '/culture/events'),
+        const _ProfileFeature(
+            'culture_volunteer',
+            '校园文化',
+            Icons.volunteer_activism,
+            '志愿服务',
+            '志愿时长与项目推荐',
+            '/culture/volunteer'),
         if (role == 'student' || role == 'student_union') ...[
-          const _ProfileFeature('daily', '学生服务', Icons.wb_sunny_outlined, '今日速览',
-              'AI 每日学习概览', '/student/daily-briefing'),
+          const _ProfileFeature('daily', '学生服务', Icons.wb_sunny_outlined,
+              '今日速览', 'AI 每日学习概览', '/student/daily-briefing'),
           const _ProfileFeature('diary', '学生服务', Icons.auto_stories, '学习日记',
               'AI 自动生成学习日记', '/student/learning-diary'),
-          const _ProfileFeature('checkin', '学生服务', Icons.check_circle_outline, '每日打卡',
-              '学习打卡与连续记录', '/student/checkin'),
-          const _ProfileFeature('digital_twin', '学生服务', Icons.person_pin, '数字孪生',
-              '我的数字画像', '/student/digital-twin'),
-          const _ProfileFeature('student_profile', '学生服务', Icons.account_box, '个人档案',
-              '完整学生信息聚合', '/student/profile'),
-          const _ProfileFeature('personality', '学生服务', Icons.psychology_outlined,
-              '性格洞察', 'AI 性格分析', '/student/personality'),
-          const _ProfileFeature('health', '学生服务', Icons.favorite_outline, '身体健康',
-              '身体信息·体检·病历', '/student/health'),
-          const _ProfileFeature('achievements', '学生服务', Icons.emoji_events_outlined,
-              '积分成就', '学习积分与成就', '/student/achievements'),
-          const _ProfileFeature('course_map', '学生服务', Icons.map_outlined, '课程地图',
-              '课程学习路径', '/student/course-map'),
-          const _ProfileFeature('course_analytics', '学生服务', Icons.analytics_outlined,
-              '课程学情', '课程学习分析', '/student/course-analytics'),
-          const _ProfileFeature('weekly_report', '学生服务', Icons.summarize_outlined,
-              '学习周报', 'AI 周度学习总结', '/student/weekly-report'),
-          const _ProfileFeature('qa_plaza', '学生服务', Icons.forum_outlined, '问答广场',
-              '校园问答社区', '/student/qa-plaza'),
-          const _ProfileFeature('hot_topics', '学生服务', Icons.local_fire_department,
-              '热点关注', '校园热点话题', '/student/hot-topics'),
-          const _ProfileFeature('qa_leaderboard', '学生服务', Icons.leaderboard_outlined,
-              '问答排行', '问答贡献排行榜', '/student/qa-leaderboard'),
-          const _ProfileFeature('private_chat', '学生服务', Icons.chat_outlined, '站内私聊',
-              'AI 学伴私信', '/student/private-chat'),
+          const _ProfileFeature('checkin', '学生服务', Icons.check_circle_outline,
+              '每日打卡', '学习打卡与连续记录', '/student/checkin'),
+          const _ProfileFeature('student_profile', '学生服务', Icons.account_box,
+              '个人档案', '完整学生信息聚合', '/student/profile'),
+          const _ProfileFeature(
+              'personality',
+              '学生服务',
+              Icons.psychology_outlined,
+              '性格洞察',
+              'AI 性格分析',
+              '/student/personality'),
+          const _ProfileFeature('health', '学生服务', Icons.favorite_outline,
+              '身体健康', '身体信息·体检·病历', '/student/health'),
+          const _ProfileFeature(
+              'achievements',
+              '学生服务',
+              Icons.emoji_events_outlined,
+              '积分成就',
+              '学习积分与成就',
+              '/student/achievements'),
+          const _ProfileFeature('course_map', '学生服务', Icons.map_outlined,
+              '课程地图', '课程学习路径', '/student/course-map'),
+          const _ProfileFeature(
+              'course_analytics',
+              '学生服务',
+              Icons.analytics_outlined,
+              '课程学情',
+              '课程学习分析',
+              '/student/course-analytics'),
+          const _ProfileFeature(
+              'weekly_report',
+              '学生服务',
+              Icons.summarize_outlined,
+              '学习周报',
+              'AI 周度学习总结',
+              '/student/weekly-report'),
+          const _ProfileFeature('qa_plaza', '学生服务', Icons.forum_outlined,
+              '问答广场', '校园问答社区', '/student/qa-plaza'),
+          const _ProfileFeature(
+              'hot_topics',
+              '学生服务',
+              Icons.local_fire_department,
+              '热点关注',
+              '校园热点话题',
+              '/student/hot-topics'),
+          const _ProfileFeature(
+              'qa_leaderboard',
+              '学生服务',
+              Icons.leaderboard_outlined,
+              '问答排行',
+              '问答贡献排行榜',
+              '/student/qa-leaderboard'),
+          const _ProfileFeature('private_chat', '学生服务', Icons.chat_outlined,
+              '站内私聊', 'AI 学伴私信', '/student/private-chat'),
           const _ProfileFeature('process_enhanced', '办事服务',
               Icons.account_tree_outlined, 'AI 办事流程', '智能流程引导', '/enrollment'),
-          const _ProfileFeature('graduation', '学生服务', Icons.topic_outlined, '毕设选题',
-              '毕业设计选题与导师选择', '/graduation'),
-          const _ProfileFeature('competition', '学生服务', Icons.emoji_events_outlined,
-              '学科竞赛', '竞赛报名与作品提交', '/competition'),
+          const _ProfileFeature('graduation', '学生服务', Icons.topic_outlined,
+              '毕设选题', '毕业设计选题与导师选择', '/graduation'),
+          const _ProfileFeature('competition', '学生服务',
+              Icons.emoji_events_outlined, '学科竞赛', '竞赛报名与作品提交', '/competition'),
           const _ProfileFeature('plan', '学生服务', Icons.calendar_today, '大学规划',
               '四年学业与职业规划', '/plan'),
           const _ProfileFeature('party_education', '学生服务', Icons.flag_outlined,
@@ -636,20 +663,31 @@ class _ProfilePageState extends State<ProfilePage> {
               '社团加入与活动参与', '/club'),
         ],
         if (role == 'counselor') ...[
-          const _ProfileFeature('c_perf_twin', '辅导员服务', Icons.person_pin, '绩效画像',
-              '我的帮扶咨询绩效 · 学生绑定', '/student/digital-twin'),
-          const _ProfileFeature('c_daily_focus', '辅导员服务', Icons.visibility_outlined,
-              'AI 今日关注', '重点关注学生提醒', '/counselor/daily-focus'),
-          const _ProfileFeature('c_class_report', '辅导员服务', Icons.assessment_outlined,
-              '班级学情日报', '班级每日学情分析', '/counselor/class-report'),
-          const _ProfileFeature('c_twin_board', '辅导员服务', Icons.dashboard_outlined,
-              '数字孪生看板', '学生数字画像看板', '/counselor/twin-board'),
+          const _ProfileFeature(
+              'c_daily_focus',
+              '辅导员服务',
+              Icons.visibility_outlined,
+              'AI 今日关注',
+              '重点关注学生提醒',
+              '/counselor/daily-focus'),
+          const _ProfileFeature(
+              'c_class_report',
+              '辅导员服务',
+              Icons.assessment_outlined,
+              '班级学情日报',
+              '班级每日学情分析',
+              '/counselor/class-report'),
           const _ProfileFeature('c_prediction', '辅导员服务', Icons.warning_outlined,
               '预测性预警', 'AI 风险预测', '/counselor/prediction'),
           const _ProfileFeature('c_intervention', '辅导员服务', Icons.auto_fix_high,
               'AI 干预方案', '智能干预方案生成', '/counselor/intervention'),
-          const _ProfileFeature('c_talk_record', '辅导员服务', Icons.record_voice_over,
-              '谈心谈话', '谈话记录管理', '/counselor/talk-record'),
+          const _ProfileFeature(
+              'c_talk_record',
+              '辅导员服务',
+              Icons.record_voice_over,
+              '谈心谈话',
+              '谈话记录管理',
+              '/counselor/talk-record'),
           const _ProfileFeature(
               'c_talk_tips',
               '辅导员服务',
@@ -657,74 +695,88 @@ class _ProfilePageState extends State<ProfilePage> {
               '话术推荐',
               'AI 谈话话术',
               '/counselor/talk-tips'),
-          const _ProfileFeature('c_ideological', '辅导员服务', Icons.psychology, '思想档案',
-              '学生思想动态', '/counselor/ideological'),
-          const _ProfileFeature('c_class_profile', '辅导员服务', Icons.groups_outlined,
-              '班级画像', '班级性格画像', '/counselor/class-profile'),
-          const _ProfileFeature('c_community', '辅导员服务', Icons.admin_panel_settings,
-              '社区管理', '问答社区内容管理', '/counselor/community-manage'),
-          const _ProfileFeature('c_hot_sense', '辅导员服务', Icons.trending_up, '热点感知',
-              '校园舆情热点感知', '/counselor/hot-topic-sense'),
-          const _ProfileFeature('c_process_edit', '辅导员服务', Icons.edit_note, '办事管理',
-              '办事流程编辑管理', '/process-manage'),
-          const _ProfileFeature('c_student_list', '辅导员服务', Icons.people_alt_outlined,
-              '学生列表', '查看管理学生名单', '/counselor/student-list'),
+          const _ProfileFeature('c_ideological', '辅导员服务', Icons.psychology,
+              '思想档案', '学生思想动态', '/counselor/ideological'),
+          const _ProfileFeature(
+              'c_class_profile',
+              '辅导员服务',
+              Icons.groups_outlined,
+              '班级画像',
+              '班级性格画像',
+              '/counselor/class-profile'),
+          const _ProfileFeature(
+              'c_community',
+              '辅导员服务',
+              Icons.admin_panel_settings,
+              '社区管理',
+              '问答社区内容管理',
+              '/counselor/community-manage'),
+          const _ProfileFeature('c_hot_sense', '辅导员服务', Icons.trending_up,
+              '热点感知', '校园舆情热点感知', '/counselor/hot-topic-sense'),
+          const _ProfileFeature('c_process_edit', '辅导员服务', Icons.edit_note,
+              '办事管理', '办事流程编辑管理', '/process-manage'),
+          const _ProfileFeature(
+              'c_student_list',
+              '辅导员服务',
+              Icons.people_alt_outlined,
+              '学生列表',
+              '查看管理学生名单',
+              '/counselor/student-list'),
         ],
         if (role == 'teacher') ...[
-          const _ProfileFeature('t_perf_twin', '教师服务', Icons.person_pin, '绩效画像',
-              '我的工作绩效 · 学生绑定', '/student/digital-twin'),
-          const _ProfileFeature('t_daily', '教师服务', Icons.school_outlined, '今日授课',
-              'AI 授课概览', '/teacher/daily-overview'),
+          const _ProfileFeature('t_daily', '教师服务', Icons.school_outlined,
+              '今日授课', 'AI 授课概览', '/teacher/daily-overview'),
           const _ProfileFeature('t_lesson', '教师服务', Icons.auto_awesome, 'AI 备课',
               '智能备课助手', '/teacher/lesson-prep'),
           const _ProfileFeature('t_exam', '教师服务', Icons.quiz_outlined, 'AI 出题',
               '智能考试出题', '/teacher/exam-gen'),
           const _ProfileFeature('t_interact', '教师服务', Icons.live_help_outlined,
               '课堂互动', 'AI 课堂互动', '/teacher/class-interact'),
-          const _ProfileFeature('t_grading', '教师服务', Icons.grading, 'AI 批改', '智能作业批改',
-              '/teacher/grading'),
+          const _ProfileFeature('t_grading', '教师服务', Icons.grading, 'AI 批改',
+              '智能作业批改', '/teacher/grading'),
           const _ProfileFeature('t_heatmap', '教师服务', Icons.grid_on, '学情热力图',
               '班级学情可视化', '/teacher/heatmap'),
           const _ProfileFeature('t_reflection', '教师服务', Icons.self_improvement,
               '教学反思', 'AI 教学反思', '/teacher/reflection'),
-          const _ProfileFeature('t_style', '教师服务', Icons.pie_chart_outline, '学习风格',
-              '学生学习风格分布', '/teacher/style-dist'),
+          const _ProfileFeature('t_style', '教师服务', Icons.pie_chart_outline,
+              '学习风格', '学生学习风格分布', '/teacher/style-dist'),
           const _ProfileFeature('t_qa', '教师服务', Icons.question_answer_outlined,
               '社区问答', '教师社区答疑', '/teacher/community-qa'),
         ],
         if (role == 'assistant') ...[
-          const _ProfileFeature('a_perf_twin', '教辅服务', Icons.person_pin, '绩效画像',
-              '我的教务绩效 · 蔚小芯绑定', '/student/digital-twin'),
           const _ProfileFeature('a_schedule', '教辅服务', Icons.event_busy, '排课检测',
               '排课冲突检测', '/assistant/schedule-check'),
-          const _ProfileFeature('a_grad', '教辅服务', Icons.school, '毕业审核', '毕业资格审核',
-              '/assistant/grad-audit'),
-          const _ProfileFeature('a_exam', '教辅服务', Icons.event_note, '考试编排', '考试安排管理',
-              '/assistant/exam-arrange'),
+          const _ProfileFeature('a_grad', '教辅服务', Icons.school, '毕业审核',
+              '毕业资格审核', '/assistant/grad-audit'),
+          const _ProfileFeature('a_exam', '教辅服务', Icons.event_note, '考试编排',
+              '考试安排管理', '/assistant/exam-arrange'),
           const _ProfileFeature('a_calendar', '教辅服务', Icons.calendar_month,
               '教学日历', '学期关键节点', '/assistant/teaching-calendar'),
           const _ProfileFeature('a_student_info', '教辅服务', Icons.person_search,
               '学生信息查询', '真实学生账号查询', '/assistant/student-info'),
           const _ProfileFeature('a_notify', '教辅服务', Icons.campaign_outlined,
               '通知批量', 'AI 辅助通知草稿', '/assistant/notification-draft'),
-          const _ProfileFeature('a_facility', '教辅服务', Icons.build,
-              '后勤服务台', '实验/保洁/热水/查岗/环卫/借阅', '/assistant/facility-workbench'),
+          const _ProfileFeature('a_facility', '教辅服务', Icons.build, '后勤服务台',
+              '实验/保洁/热水/查岗/环卫/借阅', '/assistant/facility-workbench'),
         ],
         if (role == 'student_union') ...[
           const _ProfileFeature('u_event_plan', '学生会服务', Icons.event, 'AI 活动策划',
               '智能活动方案生成', '/union/event-plan'),
           const _ProfileFeature('u_poster', '学生会服务', Icons.brush, 'AI 海报文案',
               '智能海报文案生成', '/union/poster-gen'),
-          const _ProfileFeature('u_act_mgmt', '学生会服务', Icons.groups_outlined, '活动报名管理',
-              '查看报名热度、新建活动', '/union/activity-manage'),
-          const _ProfileFeature('u_workbench', '学生会服务', Icons.workspaces_outlined, '学生会工作台',
-              '成员活跃·活动分析·招新·问卷·热点', '/union/workbench'),
+          const _ProfileFeature('u_act_mgmt', '学生会服务', Icons.groups_outlined,
+              '活动报名管理', '查看报名热度、新建活动', '/union/activity-manage'),
+          const _ProfileFeature(
+              'u_workbench',
+              '学生会服务',
+              Icons.workspaces_outlined,
+              '学生会工作台',
+              '成员活跃·活动分析·招新·问卷·热点',
+              '/union/workbench'),
         ],
         if (_canAccessAdmin(role)) ...[
-          const _ProfileFeature('college_twin', '管理服务', Icons.dashboard, '数字孪生大屏',
-              '学院全景数据', '/college/twin-screen'),
-          const _ProfileFeature('college_analysis', '管理服务', Icons.analytics, '数据分析',
-              '学院数据分析报告', '/college/data-analysis'),
+          const _ProfileFeature('college_analysis', '管理服务', Icons.analytics,
+              '数据分析', '学院数据分析报告', '/college/data-analysis'),
         ],
         if (CapabilityUtils.has(Capability.outcomeDashboard))
           const _ProfileFeature('secretary_outcome', '管理服务', Icons.auto_graph,
@@ -734,20 +786,20 @@ class _ProfilePageState extends State<ProfilePage> {
           const _ProfileFeature('secretary_party', '管理服务', Icons.flag, '党建育人专项',
               '书记视角：入党/党课/学习育人可视化', '/secretary/party-dashboard'),
         if (CapabilityUtils.has(Capability.collabDashboard))
-          const _ProfileFeature('secretary_collab', '管理服务', Icons.groups, '协同育人专项',
-              '书记视角：教师/教辅育人动作总览', '/secretary/collab-dashboard'),
+          const _ProfileFeature('secretary_collab', '管理服务', Icons.groups,
+              '协同育人专项', '书记视角：教师/教辅育人动作总览', '/secretary/collab-dashboard'),
         if (CapabilityUtils.hasAny([
-              Capability.outcomeRecordWrite,
-              Capability.outcomeReview,
-            ]))
+          Capability.outcomeRecordWrite,
+          Capability.outcomeReview,
+        ]))
           const _ProfileFeature('outcome_manage', '教辅服务', Icons.task_alt,
               '毕业去向登记', '学生自报/教辅录入+审核', '/secretary/outcome-manage'),
         if (CapabilityUtils.has(Capability.unionFeedbackList))
-          const _ProfileFeature('feedback_manage', '管理服务', Icons.feedback_outlined,
-              '反馈管理', '查看和处理用户反馈', '/feedback'),
+          const _ProfileFeature('feedback_manage', '管理服务',
+              Icons.feedback_outlined, '反馈管理', '查看和处理用户反馈', '/feedback'),
         if (_canSubmitKB(role))
-          const _ProfileFeature('kb_submit', '知识治理', Icons.note_add_outlined, '知识提交',
-              '创建和管理知识资源', '/my-submissions'),
+          const _ProfileFeature('kb_submit', '知识治理', Icons.note_add_outlined,
+              '知识提交', '创建和管理知识资源', '/my-submissions'),
         if (_canAccessEmotion(role))
           const _ProfileFeature('kb_review', '知识治理', Icons.rate_review_outlined,
               '知识审核', '审核待发布的知识资源', '/review'),
@@ -764,17 +816,17 @@ class _ProfilePageState extends State<ProfilePage> {
           const _ProfileFeature('users', '管理服务', Icons.people_outline, '用户管理',
               '导入学生并管理账号、角色和状态', '/admin/users'),
         if (_canAccessAdmin(role))
-          const _ProfileFeature('metrics', '管理服务', Icons.dashboard_outlined, '质量看板',
-              '查看系统问答质量指标', '/admin/metrics'),
+          const _ProfileFeature('metrics', '管理服务', Icons.dashboard_outlined,
+              '质量看板', '查看系统问答质量指标', '/admin/metrics'),
         if (_canAccessAdmin(role))
-          const _ProfileFeature('audit', '管理服务', Icons.history, '审计日志', '查看系统操作记录',
-              '/admin/audit'),
+          const _ProfileFeature('audit', '管理服务', Icons.history, '审计日志',
+              '查看系统操作记录', '/admin/audit'),
         if (_canAccessAdmin(role))
-          const _ProfileFeature('content_admin', '管理服务', Icons.edit_note, '内容管理',
-              '毕设选题/就业指导/学科竞赛管理', '/admin/content'),
+          const _ProfileFeature('content_admin', '管理服务', Icons.edit_note,
+              '内容管理', '毕设选题/就业指导/学科竞赛管理', '/admin/content'),
         if (role == 'sys_admin')
-          const _ProfileFeature('settings', '管理服务', Icons.settings_outlined, '系统配置',
-              '管理系统运行参数', '/admin/settings'),
+          const _ProfileFeature('settings', '管理服务', Icons.settings_outlined,
+              '系统配置', '管理系统运行参数', '/admin/settings'),
         if (role == 'sys_admin')
           const _ProfileFeature('ai_briefing_admin', '管理服务', Icons.newspaper,
               'AI 简讯管理', '资讯 CRUD、来源抓取与导出', '/admin/ai-briefings'),
@@ -957,7 +1009,8 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(12),
       children: [
         for (final f in features)
-          if (!f.switchOnly) _buildMenuCard(context, f.icon, f.title, f.subtitle, f.route)
+          if (!f.switchOnly)
+            _buildMenuCard(context, f.icon, f.title, f.subtitle, f.route)
       ],
     );
   }
@@ -1119,7 +1172,8 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color.alphaBlend(accent.withOpacity(0.16), theme.colorScheme.surface),
+            Color.alphaBlend(
+                accent.withOpacity(0.16), theme.colorScheme.surface),
             theme.colorScheme.surfaceContainerLow,
           ],
           begin: Alignment.topLeft,
@@ -1135,7 +1189,10 @@ class _ProfilePageState extends State<ProfilePage> {
             height: 76,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [accent, Color.alphaBlend(accent, Colors.white.withOpacity(0.3))],
+                colors: [
+                  accent,
+                  Color.alphaBlend(accent, Colors.white.withOpacity(0.3))
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1296,39 +1353,6 @@ class _ProfilePageState extends State<ProfilePage> {
           if (result != null) {
             await Storage.setStudentInterests(result);
             if (context.mounted) setState(() {});
-          }
-        },
-      ),
-    );
-  }
-
-  /// 数字人形象显示开关
-  Widget _buildAvatarToggle(BuildContext context) {
-    final theme = Theme.of(context);
-    final show = Storage.showAvatar;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: SwitchListTile(
-        secondary: Icon(
-          Icons.person_pin_circle_outlined,
-          color: show
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
-        ),
-        title: const Text('数字人形象'),
-        subtitle: Text(show ? '首页与数字孪生展示个性化卡通形象' : '已隐藏数字人形象'),
-        value: show,
-        onChanged: (v) async {
-          await Storage.setShowAvatar(v);
-          if (context.mounted) {
-            setState(() {});
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(v ? '数字人形象已开启' : '数字人形象已隐藏')),
-            );
           }
         },
       ),

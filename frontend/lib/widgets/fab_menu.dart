@@ -8,8 +8,8 @@ import '../utils/storage.dart';
 
 /// 悬浮菜单 — 精美展开动画 + 磨砂玻璃风格 + 可拖拽
 /// 在所有认证页面右下角显示。菜单项按平台切换：
-///   - Web/桌面端：问题反馈 / 个人档案 / 数字孪生 / 校园导航
-///   - 移动端：问题反馈 / 语音导航 / 数字孪生
+///   - Web/桌面端：问题反馈 / 个人档案 / 校园导航
+///   - 移动端：问题反馈 / 语音导航
 class FabMenu extends StatefulWidget {
   const FabMenu({super.key});
 
@@ -50,11 +50,6 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         color: Color(0xFF00897B),
         action: _FabAction.profile),
     _FabItem(
-        icon: Icons.person_pin_circle_outlined,
-        label: '数字孪生',
-        color: Color(0xFF1565C0),
-        action: _FabAction.twin),
-    _FabItem(
         icon: Icons.map_outlined,
         label: '校园导航',
         color: Color(0xFF1677FF),
@@ -78,11 +73,6 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         label: '语音导航',
         color: Color(0xFFE65100),
         action: _FabAction.voice),
-    _FabItem(
-        icon: Icons.person_pin_circle_outlined,
-        label: '数字孪生',
-        color: Color(0xFF1565C0),
-        action: _FabAction.twin),
   ];
 
   @override
@@ -101,7 +91,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     );
     // 动画曲线长度固定，不随平台菜单项数量变化（web 最多 4 项）
-    const n = kIsWeb ? 5 : 4;
+    final n = _items.length;
     _slideAnims = List.generate(n, (i) {
       return CurvedAnimation(
         parent: _expandCtrl,
@@ -243,7 +233,7 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
             ),
             boxShadow: [
               BoxShadow(
-                color: activeColor.withOpacity( 0.45),
+                color: activeColor.withOpacity(0.45),
                 blurRadius: 14,
                 offset: const Offset(0, 5),
                 spreadRadius: 1,
@@ -274,14 +264,12 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
         // 语音导航：跳对话页并自动开启语音输入，
         // 识别"去办事"等导航指令直接跳转，否则作为聊天消息与 AI 问答。
         context.go('/chat?v=voice');
-      case _FabAction.twin:
-        // 数字孪生：学生角色跳数字画像
-        context.go('/student/digital-twin');
       case _FabAction.profile:
         // 个人档案：学生跳聚合档案页，其他跳个人中心
         if (!Storage.isLoggedIn) {
           context.go('/login');
-        } else if (Storage.role == 'student' || Storage.role == 'student_union') {
+        } else if (Storage.role == 'student' ||
+            Storage.role == 'student_union') {
           context.go('/student/profile');
         } else {
           context.go('/profile');
@@ -298,19 +286,25 @@ class _FabMenuState extends State<FabMenu> with TickerProviderStateMixin {
 
   String _studentFeatureForLocation(String location) {
     if (location.contains('vopc')) return 'vopc';
-    if (location.contains('career') || location.contains('resume')) return 'career';
-    if (location.contains('mental') || location.contains('health')) return 'mental';
-    if (location.contains('competition') || location.contains('study-buddy')) return 'competition';
-    if (location.contains('process') || location.contains('enrollment')) return 'process';
-    if (location.contains('study') || location.contains('course') || location.contains('grade')) return 'study';
-    if (location.contains('profile') || location.contains('twin')) return 'profile';
+    if (location.contains('career') || location.contains('resume'))
+      return 'career';
+    if (location.contains('mental') || location.contains('health'))
+      return 'mental';
+    if (location.contains('competition') || location.contains('study-buddy'))
+      return 'competition';
+    if (location.contains('process') || location.contains('enrollment'))
+      return 'process';
+    if (location.contains('study') ||
+        location.contains('course') ||
+        location.contains('grade')) return 'study';
+    if (location.contains('profile')) return 'profile';
     if (location.contains('campus')) return 'campus';
     return 'general';
   }
 }
 
 /// 子菜单动作枚举
-enum _FabAction { feedback, voice, twin, profile, campus, aiAssist }
+enum _FabAction { feedback, voice, profile, campus, aiAssist }
 
 /// 子菜单项定义
 class _FabItem {
@@ -341,14 +335,14 @@ class _FrostedLabel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withOpacity( 0.82),
+            color: theme.colorScheme.surface.withOpacity(0.82),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: theme.colorScheme.outlineVariant.withOpacity( 0.25),
+              color: theme.colorScheme.outlineVariant.withOpacity(0.25),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity( 0.08),
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -383,7 +377,7 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity( 0.4),
+            color: color.withOpacity(0.4),
             blurRadius: 10,
             offset: const Offset(0, 3),
             spreadRadius: 1,

@@ -8,7 +8,6 @@ import '../../providers/chat_provider.dart';
 import '../../providers/emotion_provider.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../providers/student_feature_provider.dart';
 import '../../providers/update_provider.dart';
 import '../../main.dart';
 import '../../utils/role_utils.dart';
@@ -17,7 +16,6 @@ import '../../utils/storage.dart';
 import '../../utils/date_utils.dart';
 import '../../config/api_config.dart';
 import '../../services/api_service.dart';
-import '../../widgets/avatar_card.dart';
 import '../../widgets/consent_dialog.dart';
 import '../../widgets/datetime_banner.dart';
 import '../../widgets/error_view.dart';
@@ -205,12 +203,9 @@ class _HomePageState extends State<HomePage> {
     if (CapabilityUtils.has(Capability.teacherCourseReview)) {
       _loadTeacherCoursePending();
     }
-    // 学生角色加载个性化首页数据 + 数字人形象
+    // 学生角色加载个性化首页数据
     if (role == 'student' || role == 'student_union') {
       _loadStudentHome();
-      context.read<StudentFeatureProvider>().fetchAvatar(
-          displayName: Storage.displayName ?? '同学',
-          role: Storage.role ?? 'student');
     }
   }
 
@@ -509,11 +504,6 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
               _buildEducationFeatures(theme),
               const SizedBox(height: 20),
-              // 数字画像降为次级入口，不再占据学生首屏。
-              if (Storage.showAvatar) ...[
-                _buildAvatarBanner(theme),
-                const SizedBox(height: 20),
-              ],
             ],
             // 管理专区（college_admin+）
             if (role == 'college_admin' ||
@@ -967,10 +957,6 @@ class _HomePageState extends State<HomePage> {
       entries.add(const _WorkbenchEntry(Icons.school_outlined, '第二课堂',
           Color(0xFF00838F), '/counselor/second-class-board'));
     }
-    if (CapabilityUtils.has(Capability.counselorTwinBoard)) {
-      entries.add(const _WorkbenchEntry(Icons.dashboard_outlined, '学生孪生看板',
-          Color(0xFF1565C0), '/counselor/twin-board'));
-    }
     if (CapabilityUtils.has(Capability.counselorIdeological)) {
       entries.add(const _WorkbenchEntry(Icons.flag_outlined, '思想动态',
           Color(0xFF7B1FA2), '/counselor/ideological'));
@@ -1070,10 +1056,6 @@ class _HomePageState extends State<HomePage> {
     if (CapabilityUtils.has(Capability.collabDashboard)) {
       entries.add(const _WorkbenchEntry(Icons.groups, '协同育人专项',
           Color(0xFF00695C), '/secretary/collab-dashboard'));
-    }
-    if (CapabilityUtils.has(Capability.collegeTwinScreen)) {
-      entries.add(const _WorkbenchEntry(
-          Icons.dashboard, '数字孪生', Color(0xFF2E7D32), '/college/twin-screen'));
     }
     if (CapabilityUtils.has(Capability.collegeDataAnalysis)) {
       entries.add(const _WorkbenchEntry(Icons.analytics, '数据分析',
@@ -1236,60 +1218,6 @@ class _HomePageState extends State<HomePage> {
   // ============================================================
   // 学生个性化首页
   // ============================================================
-
-  /// 首页数字人形象横幅（数据驱动、可隐藏）
-  Widget _buildAvatarBanner(ThemeData theme) {
-    final provider = context.watch<StudentFeatureProvider>();
-    final avatar = provider.avatar;
-    return GestureDetector(
-      onTap: () => context.go('/student/profile'),
-      child: avatar != null
-          ? AvatarCard(
-              config: avatar,
-              height: 220,
-            )
-          : Container(
-              height: 220,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary.withOpacity(0.10),
-                    theme.colorScheme.tertiary.withOpacity(0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: theme.colorScheme.primary.withOpacity(0.2),
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.person_pin_circle,
-                        size: 40, color: theme.colorScheme.primary),
-                    const SizedBox(height: 8),
-                    Text(
-                      '我的数字画像',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '点击查看个性化数字人',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
 
   /// 学生首页主内容
   Widget _buildStudentHomeContent(ThemeData theme) {

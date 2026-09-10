@@ -26,7 +26,8 @@ func NewTeacherService(llmClient llm.ChatClient, courseRepos ...*repository.Teac
 	return &TeacherService{llmClient: llmClient, courses: courses}
 }
 
-// TeachingClasses 返回教学首页使用的真实课程列表，课程来源限定为 approved 授课关系。
+// TeachingClasses 返回教学首页课程列表。优先使用已审核授课关系；历史课表未补录审核关系时，
+// 回退到 course_schedules.teacher 的真实排课数据。回退只影响展示，不放宽成绩/作业写入校验。
 func (s *TeacherService) TeachingClasses(ctx context.Context, teacherID int64) ([]map[string]interface{}, error) {
 	_ = ctx
 	if s == nil || s.courses == nil {
@@ -35,6 +36,14 @@ func (s *TeacherService) TeachingClasses(ctx context.Context, teacherID int64) (
 	items, err := s.courses.ListApprovedTeachingCourses(teacherID)
 	if err != nil {
 		return nil, err
+	}
+	dataSource := "teacher_courses.approved"
+	if len(items) == 0 {
+		items, err = s.courses.ListScheduleTeachingCourses(teacherID)
+		if err != nil {
+			return nil, err
+		}
+		dataSource = "course_schedules.teacher"
 	}
 	classes := make([]map[string]interface{}, 0, len(items))
 	for _, item := range items {
@@ -50,7 +59,7 @@ func (s *TeacherService) TeachingClasses(ctx context.Context, teacherID int64) (
 			"room":        "",
 			"students":    0,
 			"semester":    item.Semester,
-			"data_source": "teacher_courses.approved",
+			"data_source": dataSource,
 		})
 	}
 	return classes, nil

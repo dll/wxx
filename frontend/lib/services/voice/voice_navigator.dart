@@ -26,7 +26,6 @@ class VoiceNavigator {
     '/process-manage': ['办事流程', '流程管理', '办事管理', '流程'],
     '/student/daily-briefing': ['日报', '今日', '速览', '每日'],
     '/student/learning-diary': ['日记', '学习日记', '周记'],
-    '/student/digital-twin': ['画像', '数字孪生', '孪生', '模型'],
     '/graduation': ['毕业', '毕设', '就业', '毕业设计'],
     '/competition': ['竞赛', '比赛', '学科竞赛'],
     '/student/study': ['学习', '学业', '课程'],
