@@ -42,21 +42,21 @@ func TestTeachingClassesFallsBackToImportedSchedule(t *testing.T) {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id TEXT NOT NULL UNIQUE, course_name TEXT NOT NULL)`); err != nil {
 		t.Fatalf("创建测试课程目录失败: %v", err)
 	}
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS course_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, course_id TEXT NOT NULL, course_name TEXT NOT NULL, semester_code TEXT NOT NULL, weekday INTEGER NOT NULL, start_period INTEGER NOT NULL, end_period INTEGER NOT NULL, weeks_pattern TEXT NOT NULL DEFAULT '1-20', location TEXT, teacher TEXT)`); err != nil {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS course_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, course_id TEXT NOT NULL, course_name TEXT NOT NULL, semester_code TEXT NOT NULL, weekday INTEGER NOT NULL, start_period INTEGER NOT NULL, end_period INTEGER NOT NULL, weeks_pattern TEXT NOT NULL DEFAULT '1-20', location TEXT, teacher TEXT, owner_username TEXT NOT NULL DEFAULT '')`); err != nil {
 		t.Fatalf("创建测试课表失败: %v", err)
 	}
-	if _, err := db.Exec(`UPDATE users SET display_name='刘东良', role='teacher' WHERE id=1`); err != nil {
+	if _, err := db.Exec(`INSERT OR REPLACE INTO users (id, username, display_name, role) VALUES (42, '206004', '刘东良', 'teacher')`); err != nil {
 		t.Fatalf("设置测试教师失败: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, location, teacher) VALUES (99, 'CS-206', '网络安全基础', '2026-秋', 2, 3, 4, '明理楼101', ' 刘东良 '), (98, 'CS-206', '网络安全基础', '2026-秋', 4, 5, 6, '明理楼101', '刘东良'), (97, 'CS-999', '他人课程', '2026-秋', 1, 1, 2, '明理楼102', '其他教师')`); err != nil {
+	if _, err := db.Exec(`INSERT INTO course_schedules (user_id, course_id, course_name, semester_code, weekday, start_period, end_period, location, teacher, owner_username) VALUES (99, 'SE-101', '软件工程基础', '2026-秋', 2, 3, 4, '明理楼101', '', '206004'), (98, 'OA-201', '办公软件高级应用', '2026-秋', 4, 5, 6, '明理楼101', '刘东良', ''), (97, 'CS-999', '他人课程', '2026-秋', 1, 1, 2, '明理楼102', '其他教师', '')`); err != nil {
 		t.Fatalf("写入测试课表失败: %v", err)
 	}
 	svc := NewTeacherService(nil, repository.NewTeacherCourseRepo(db))
-	classes, err := svc.TeachingClasses(context.Background(), 1)
+	classes, err := svc.TeachingClasses(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("查询课表回退失败: %v", err)
 	}
-	if len(classes) != 1 || classes[0]["course_id"] != "CS-206" || classes[0]["data_source"] != "course_schedules.teacher" {
+	if len(classes) != 2 || classes[0]["data_source"] != "course_schedules.teacher" {
 		t.Fatalf("课表回退结果错误: %#v", classes)
 	}
 }

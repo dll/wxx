@@ -225,16 +225,36 @@ func (r *TeacherCourseRepo) ListScheduleTeachingCourses(teacherID int64) ([]Teac
 	if teacherID <= 0 {
 		return nil, fmt.Errorf("教师身份无效")
 	}
-	rows, err := r.db.Query(`
+	queryWithOwner := `
 		SELECT cs.course_id, MAX(cs.course_name), cs.semester_code
 		FROM course_schedules cs
 		JOIN users u ON u.id = ?
-		WHERE TRIM(COALESCE(cs.teacher, '')) <> ''
-		  AND (TRIM(cs.teacher) = TRIM(COALESCE(u.display_name, ''))
+		WHERE (TRIM(COALESCE(cs.owner_username, '')) = TRIM(u.username)
+		       OR TRIM(cs.teacher) = TRIM(COALESCE(u.display_name, ''))
 		       OR TRIM(cs.teacher) = TRIM(COALESCE(u.username, '')))
 		GROUP BY cs.course_id, cs.semester_code
 		ORDER BY cs.semester_code DESC, cs.course_id
-		LIMIT 200`, teacherID)
+		LIMIT 200`
+	rows, err := r.db.Query(queryWithOwner, teacherID)
+	if err != nil {
+		errText := strings.ToLower(err.Error())
+		if !strings.Contains(errText, "no such column") && !strings.Contains(errText, "unknown column") {
+			return nil, err
+		}
+		rows, err = r.db.Query(`
+			SELECT cs.course_id, MAX(cs.course_name), cs.semester_code
+			FROM course_schedules cs
+			JOIN users u ON u.id = ?
+			WHERE TRIM(COALESCE(cs.teacher, '')) <> ''
+			  AND (TRIM(cs.teacher) = TRIM(COALESCE(u.display_name, ''))
+			       OR TRIM(cs.teacher) = TRIM(COALESCE(u.username, '')))
+			GROUP BY cs.course_id, cs.semester_code
+			ORDER BY cs.semester_code DESC, cs.course_id
+			LIMIT 200`, teacherID)
+	}
+	if err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
